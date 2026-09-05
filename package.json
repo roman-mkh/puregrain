@@ -1,0 +1,14 @@
+{
+  "scripts": {
+    "spago": "spago",
+    "build": "spago build",
+    "bundle": "spago bundle-app --main Main --to dist/app.js",
+    "repl": "spago repl",
+    "test": "spago test"
+  },
+  "dependencies": {
+    "purescript": "^0.15.16",
+    "purs-tidy": "^0.11.1",
+    "spago": "^1.0.4"
+  }
+}
