@@ -2,70 +2,61 @@ module Dither.State where
 
 import Prelude
 
+import Data.Array ((..))
 import Data.Array as Array
 import Data.List.Lazy (List)
 import Data.List.Lazy as LL
-import Dither.Kernel (Kernel, Offset)
+import Data.Tuple (Tuple)
+import Dither.Kernel (Kernel)
 import Dither.Kernel as K
 
 -- | Одна очередь ошибок, соответствующая одному конкретному offset'у (dx, dy).
--- | Ленивая, потенциально бесконечная (для начального "past" заполнена нулями).
+-- | Ленивая, потенциально бесконечная (для начального заполнения delayLines).
 type Fifo = List Number
 
--- | Набор FIFO-очередей для всех offset'ов внутри ОДНОГО конкретного dy
+-- | Набор FIFO-очередей для всех offset'ов внутри одного конкретного dy
 -- | (или, для current, всех offset'ов с dy == 0).
--- | Позиция в массиве соответствует позиции offset'а в отсортированном
--- | списке offset'ов этой категории (currentOffsets/futureOffsets по dy).
 type RowLayer = Array Fifo
 
--- | Очередь слоёв, накопленных на M строк вперёд/назад.
--- | Индекс 0 — ближайшая строка (dy=1), индекс M-1 — самая дальняя (dy=M).
-type RowQueue = Array RowLayer
+-- | Очередь "созревающих" RowLayer для одного конкретного dy.
+-- | Инвариант: длина всегда равна dy — на каждом пикселе снимается
+-- | голова (matured, готова к чтению) и дописывается новый хвост
+-- | (только что построенный из ошибки текущего пикселя).
+type DelayLine = List RowLayer
 
-type DitherState2 =
-  { current :: RowLayer   -- offset'ы с dy == 0, живут и обнуляются в пределах одной строки
-  , past    :: RowQueue   -- слои, уже созревшие и готовые к чтению (dy=1..M)
-  , future  :: RowQueue   -- слои, куда пишем ошибки для будущих строк (dy=1..M)
-  }
+-- | Состояние, переживающее границы строк — M штук DelayLine, индекс i
+-- | соответствует dy = i + 1. current (dy=0 offset'ы) сюда НЕ входит —
+-- | он живёт и пересоздаётся в пределах одной строки (см. Dither.Row).
+type DitherState = { delayLines :: Array DelayLine }
 
-type DitherState =
-  { current :: RowLayer
-  , past    :: RowLayer
-  , future  :: RowLayer
-  }
+-- | Состояние, живущее внутри одной строки: current (dy=0, сбрасывается
+-- | на каждой строке) и delayLines (dy>0, переживает границы строк,
+-- | эволюционирует попиксельно внутри step).
+type RowState = Tuple RowLayer (Array DelayLine)
 
+-- | Строит свежий RowLayer — по одному пустому (с паддингом по dx) Fifo
+-- | на каждый переданный offset. Используется для current в начале
+-- | каждой строки.
+freshLayer :: Array K.Offset -> RowLayer
+freshLayer = map (\o -> LL.replicate (K.paddingFor o) 0.0)
+
+-- | Бесконечно-нулевой RowLayer под конкретный набор offset'ов —
+-- | используется для заполнения DelayLine перед первой строкой картинки.
+infiniteZeroLayer :: Array K.Offset -> RowLayer
+infiniteZeroLayer offsets = map (const (LL.repeat 0.0)) offsets
+
+-- | Начальное состояние delayLines перед первой строкой картинки:
+-- | для dy = i+1, DelayLine содержит ровно (i+1) копий бесконечно-нулевого
+-- | RowLayer — ни одна строка ещё не обработана, все "прошлые" вклады
+-- | считаются нулевыми на всю глубину dy.
 initState :: Kernel -> DitherState
 initState kernel =
-  { current: freshLayer currentOs
-  , past:    Array.replicate (Array.length futureOs) (LL.repeat 0.0)
-  , future:  freshLayer futureOs
-  }
+  { delayLines: map initDelayLineFor (1 .. depth) }
   where
-    currentOs = K.currentOffsets kernel
-    futureOs  = K.futureOffsets kernel
+    depth :: Int
+    depth = K.maxDepth kernel
 
-advanceRow :: Kernel -> DitherState -> DitherState
-advanceRow kernel state =
-  { current: freshLayer currentOs
-  , past:    Array.zipWith pastFor futureOs state.future
-  , future:  freshLayer futureOs
-  }
-  where
-    currentOs = K.currentOffsets kernel
-    futureOs  = K.futureOffsets kernel
-
-    pastFor :: Offset -> Fifo -> Fifo
-    pastFor o fifo =
-      let skip = K.skipFor o
-      in LL.drop skip fifo <> LL.replicate skip 0.0    
-
-freshLayer :: Array K.Offset -> RowLayer
-freshLayer
- = map (\o -> LL.replicate (K.paddingFor o) 0.0)
--- freshLayer offsets = map (\o -> LL.replicate (K.paddingFor o) 0.0) offsets
-
--- | Строит свежую RowQueue — по одному пустому RowLayer (через freshLayer)
--- | на каждый dy-слой ядра. Используется для инициализации future
--- | и в initState, и в advanceRow (там всегда одинаково "с нуля").
--- freshRowQueue :: Kernel -> RowQueue
--- freshRowQueue kernel = map freshLayer (K.layeredFutureOffsets kernel)
+    initDelayLineFor :: Int -> DelayLine
+    initDelayLineFor dy =
+      let offsets = K.offsetsForDy kernel dy
+      in LL.fromFoldable (Array.replicate dy (infiniteZeroLayer offsets))

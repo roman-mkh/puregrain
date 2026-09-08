@@ -1,25 +1,31 @@
 module Dither.Row where
 
-import Prelude
-
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..))
 
 import Dither.Kernel (Kernel)
-import Dither.State (DitherState)
+import Dither.Kernel as K
+import Dither.State (DelayLine, RowState, freshLayer)
 import Dither.Step (step)
 
 ditherRow
   :: Kernel
   -> (Number -> Number)
-  -> DitherState
+  -> Array DelayLine
   -> Array Number
-  -> Tuple DitherState (Array Number)
-ditherRow kernel quantize state0 pixels =
-  let result = mapAccumL stepAdapter state0 pixels
-  in Tuple result.accum result.value
+  -> Tuple (Array DelayLine) (Array Number)
+ditherRow kernel quantize delayLines0 pixels =
+  let
+    initial :: RowState
+    initial = Tuple (freshLayer (K.currentOffsets kernel)) delayLines0
+
+    result = mapAccumL stepAdapter initial pixels
+
+    Tuple _finalCurrent finalDelayLines = result.accum
+  in
+    Tuple finalDelayLines result.value
   where
-    stepAdapter :: DitherState -> Number -> { accum :: DitherState, value :: Number }
-    stepAdapter s px =
-      let Tuple s' q = step kernel quantize s px
-      in { accum: s', value: q }
+    stepAdapter :: RowState -> Number -> { accum :: RowState, value :: Number }
+    stepAdapter rowState px =
+      let Tuple rowState' q = step kernel quantize rowState px
+      in { accum: rowState', value: q }

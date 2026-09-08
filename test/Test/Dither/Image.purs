@@ -5,11 +5,12 @@ import Prelude
 import Data.Array as Array
 import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
-import Dither.Image (ditherImage)
-import Dither.Kernel (floydSteinberg)
 import Effect (Effect)
 import Effect.Console (log)
 import Test.Assert (assertEqual)
+
+import Dither.Kernel (floydSteinberg)
+import Dither.Image (ditherImage)
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
@@ -23,10 +24,8 @@ main = do
       ]
     result = ditherImage floydSteinberg quantizeThreshold rows
 
-  -- число строк на выходе совпадает со входом
   assertEqual { actual: LL.length result, expected: LL.length rows }
 
-  -- ленивость: можно взять только первую строку, не форсируя вторую
   case LL.uncons result of
     Just { head } ->
       assertEqual { actual: Array.length head, expected: 3 }
