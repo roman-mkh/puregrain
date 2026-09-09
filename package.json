@@ -8,7 +8,8 @@
     "dither-cli": "node scripts/dither-cli.mjs",
     "dither:fs": "npm run dither-cli -- samples/test-input.png samples/output-fs.png floyd-steinberg 128",
     "dither:atkinson": "npm run dither-cli -- samples/test-input.png samples/output-atkinson.png atkinson",
-    "dither:jjn": "npm run dither-cli -- samples/test-input.png samples/output-jjn.png jjn"
+    "dither:jjn": "npm run dither-cli -- samples/test-input.png samples/output-jjn.png jjn",
+    "generate-bench-images": "node scripts/generate-bench-images.mjs"
   },
   "dependencies": {
     "purescript": "^0.15.16",
