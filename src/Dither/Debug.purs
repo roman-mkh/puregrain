@@ -8,7 +8,6 @@ import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Data.String as String
 import Data.String.CodePoints as SCP
-import Data.Tuple (Tuple(..))
 import Dither.State (DelayLine, DitherState, Fifo, RowLayer, RowState)
 
 showFifoPreview :: Int -> Fifo -> String
@@ -29,11 +28,18 @@ showStatePreview :: Int -> Int -> DitherState -> String
 showStatePreview m n state =
   "{ delayLines: [" <> Array.intercalate ", " (map (showDelayLinePreview m n) state.delayLines) <> "] }"
 
-showRowStatePreview :: Int -> Int -> RowState -> String
-showRowStatePreview m n (Tuple current delayLines) =
-  "{ current: " <> showRowLayerPreview n current
-    <> ", delayLines: [" <> Array.intercalate ", " (map (showDelayLinePreview m n) delayLines) <> "]"
+-- | Показывает превью RowState (внутристрочное состояние одного пикселя):
+-- | current, matured и building — каждый как список RowLayer-превью
+-- | (по n значений на FIFO внутри каждого слоя).
+showRowStatePreview :: Int -> RowState -> String
+showRowStatePreview n rowState =
+  "{ current: " <> showRowLayerPreview n rowState.current
+    <> ", matured: [" <> showLayers rowState.matured <> "]"
+    <> ", building: [" <> showLayers rowState.building <> "]"
     <> " }"
+  where
+    showLayers :: Array RowLayer -> String
+    showLayers = Array.intercalate ", " <<< map (showRowLayerPreview n)
 
 -- | Показывает готовый результат dithering (Array строк, значения 0/255)
 -- | как ASCII-art: 0.0 -> '.', иначе -> '#'.

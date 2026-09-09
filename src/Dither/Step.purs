@@ -9,7 +9,7 @@ import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
 import Dither.Kernel (Kernel)
 import Dither.Kernel as K
-import Dither.State (DelayLine, Fifo, RowLayer, RowState)
+import Dither.State (Fifo, RowLayer, RowState)
 import Partial.Unsafe (unsafeCrashWith)
 
 dequeueOne :: Fifo -> Tuple Number Fifo
@@ -34,29 +34,18 @@ step
   -> RowState
   -> Number
   -> Tuple RowState Number
-step kernel quantize (Tuple current delayLines) pixel =
+step kernel quantize { current, matured, building } pixel =
   let
-    fronts :: Array (Tuple RowLayer DelayLine)
-    fronts = map takeFront delayLines
-      where
-        takeFront :: DelayLine -> Tuple RowLayer DelayLine
-        takeFront dl = case LL.uncons dl of
-          Nothing -> unsafeCrashWith "Dither.Step: delayLine unexpectedly empty"
-          Just { head, tail } -> Tuple head tail
-
-    maturedLayers :: Array RowLayer
-    maturedLayers = map fst fronts
-
-    anticipatedDelayLines :: Array DelayLine
-    anticipatedDelayLines = map snd fronts
-
     Tuple currentErrs current' = dequeueAllLayer current
 
     maturedResults :: Array (Tuple (Array Number) RowLayer)
-    maturedResults = map dequeueAllLayer maturedLayers
+    maturedResults = map dequeueAllLayer matured
 
     maturedErrs :: Array (Array Number)
     maturedErrs = map fst maturedResults
+
+    matured' :: Array RowLayer
+    matured' = map snd maturedResults
 
     incomingError :: Number
     incomingError =
@@ -73,14 +62,11 @@ step kernel quantize (Tuple current delayLines) pixel =
     depth :: Int
     depth = K.maxDepth kernel
 
-    newLayers :: Array RowLayer
-    newLayers = map buildNewLayerFor (1 .. depth)
+    building' :: Array RowLayer
+    building' = Array.zipWith enqueueLayerFor (1 .. depth) building
       where
-        buildNewLayerFor :: Int -> RowLayer
-        buildNewLayerFor dy =
-          map (\o -> LL.singleton (outErr * o.weight)) (K.offsetsForDy kernel dy)
-
-    delayLines' :: Array DelayLine
-    delayLines' = Array.zipWith LL.snoc anticipatedDelayLines newLayers
+        enqueueLayerFor :: Int -> RowLayer -> RowLayer
+        enqueueLayerFor dy layer =
+          Array.zipWith (enqueueWeighted outErr) (K.offsetsForDy kernel dy) layer
   in
-    Tuple (Tuple current'' delayLines') quantized
+    Tuple { current: current'', matured: matured', building: building' } quantized

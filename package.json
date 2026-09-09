@@ -4,11 +4,16 @@
     "build": "spago build",
     "bundle": "spago bundle-app --main Main --to dist/app.js",
     "repl": "spago repl",
-    "test": "spago test"
+    "test": "spago test",
+    "dither-cli": "node scripts/dither-cli.mjs",
+    "dither:fs": "npm run dither-cli -- samples/test-input.png samples/output-fs.png floyd-steinberg 128",
+    "dither:atkinson": "npm run dither-cli -- samples/test-input.png samples/output-atkinson.png atkinson",
+    "dither:jjn": "npm run dither-cli -- samples/test-input.png samples/output-jjn.png jjn"
   },
   "dependencies": {
     "purescript": "^0.15.16",
     "purs-tidy": "^0.11.1",
-    "spago": "^1.0.4"
+    "spago": "^1.0.4",
+    "pngjs": "^7.0.0"
   }
 }

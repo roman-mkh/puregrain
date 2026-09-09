@@ -32,7 +32,11 @@ type DitherState = { delayLines :: Array DelayLine }
 -- | Состояние, живущее внутри одной строки: current (dy=0, сбрасывается
 -- | на каждой строке) и delayLines (dy>0, переживает границы строк,
 -- | эволюционирует попиксельно внутри step).
-type RowState = Tuple RowLayer (Array DelayLine)
+type RowState =
+  { current  :: RowLayer
+  , matured  :: Array RowLayer   -- M layers, consumed pixel-by-pixel (dequeueOne on each Fifo inside)
+  , building :: Array RowLayer   -- M layers, accumulated pixel-by-pixel (enqueue on each Fifo inside)
+  }
 
 -- | Строит свежий RowLayer — по одному пустому (с паддингом по dx) Fifo
 -- | на каждый переданный offset. Используется для current в начале
