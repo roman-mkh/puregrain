@@ -10,7 +10,8 @@ const OUTPUT_DIR = path.join(import.meta.dirname, '..', 'samples', 'bench');
 // image size, so results are comparable across sizes (content complexity
 // scales with N, not the algorithm's characteristics).
 function renderBenchImage(size) {
-  const png = new PNG({ width: size, height: size });
+  // const png = new PNG({ width: size, height: size, colorType: 0 });
+  const png = new PNG({ width: size, height: sizeclea });
 
   const cx = size * 0.74;
   const cy = size * 0.27;

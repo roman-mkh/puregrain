@@ -2,12 +2,11 @@ module Dither.Step where
 
 import Prelude
 
-import Data.Array ((..))
 import Data.Array as Array
 import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
-import Dither.Kernel (Kernel)
+import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
 import Dither.State (Fifo, RowLayer, RowState)
 import Partial.Unsafe (unsafeCrashWith)
@@ -29,12 +28,12 @@ enqueueWeighted :: Number -> K.Offset -> Fifo -> Fifo
 enqueueWeighted err offset fifo = LL.snoc fifo (err * offset.weight)
 
 step
-  :: Kernel
+  :: CompiledKernel
   -> (Number -> Number)
   -> RowState
   -> Number
   -> Tuple RowState Number
-step kernel quantize { current, matured, building } pixel =
+step compiled quantize { current, matured, building } pixel =
   let
     Tuple currentErrs current' = dequeueAllLayer current
 
@@ -57,16 +56,12 @@ step kernel quantize { current, matured, building } pixel =
     outErr    = corrected - quantized
 
     current'' :: RowLayer
-    current'' = Array.zipWith (enqueueWeighted outErr) (K.currentOffsets kernel) current'
-
-    depth :: Int
-    depth = K.maxDepth kernel
+    current'' = Array.zipWith (enqueueWeighted outErr) compiled.currentOffsets current'
 
     building' :: Array RowLayer
-    building' = Array.zipWith enqueueLayerFor (1 .. depth) building
+    building' = Array.zipWith enqueueLayer compiled.futureLayers building
       where
-        enqueueLayerFor :: Int -> RowLayer -> RowLayer
-        enqueueLayerFor dy layer =
-          Array.zipWith (enqueueWeighted outErr) (K.offsetsForDy kernel dy) layer
+        enqueueLayer :: Array K.Offset -> RowLayer -> RowLayer
+        enqueueLayer offsets layer = Array.zipWith (enqueueWeighted outErr) offsets layer
   in
     Tuple { current: current'', matured: matured', building: building' } quantized

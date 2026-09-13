@@ -2,81 +2,76 @@ module Dither.Row where
 
 import Prelude
 
-import Data.Array ((..))
 import Data.Array as Array
 import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
-import Dither.Kernel (Kernel)
+import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
-import Dither.State (DelayLine, Fifo, RowLayer, RowState, freshLayer)
+import Dither.State (DelayLine, Fifo, RowLayer, RowState, SeededFifo(..), SeededLayer, freshLayer)
 import Dither.Step (step)
 import Partial.Unsafe (unsafeCrashWith)
 
--- | Извлекает "созревший" front из каждого DelayLine — M RowLayer, готовых
--- | к чтению для этой строки — и возвращает их вместе с укороченными
--- | (ещё не дополненными новым хвостом) delayLines.
-extractMatured :: Array DelayLine -> Tuple (Array RowLayer) (Array DelayLine)
+extractMatured :: Array DelayLine -> Tuple (Array SeededLayer) (Array DelayLine)
 extractMatured delayLines =
   let fronts = map takeFront delayLines
   in Tuple (map fst fronts) (map snd fronts)
   where
-    takeFront :: DelayLine -> Tuple RowLayer DelayLine
+    takeFront :: DelayLine -> Tuple SeededLayer DelayLine
     takeFront dl = case LL.uncons dl of
       Nothing -> unsafeCrashWith "Dither.Row.extractMatured: delayLine unexpectedly empty"
       Just { head, tail } -> Tuple head tail
 
--- | Строит M свежих (с паддингом по dx для положительных dx) RowLayer —
--- | начальное состояние building перед обработкой строки.
-initBuilding :: Kernel -> Array RowLayer
-initBuilding kernel = map freshLayer (K.layeredFutureOffsets kernel)
-
--- | Дописывает полностью накопленный (после всей строки) building в
--- | укороченные delayLines — по одному новому хвосту на каждый dy-слой,
--- | с компенсирующим skip для отрицательных dx.
-commitBuilding :: Kernel -> Array RowLayer -> Array DelayLine -> Array DelayLine
-commitBuilding kernel building shortenedDelayLines =
-  Array.zipWith commitLayer layers (Array.zip building shortenedDelayLines)
+resolveSeededLayer :: Int -> SeededLayer -> RowLayer
+resolveSeededLayer width = map resolveOne
   where
-    layers :: Array (Array K.Offset)
-    layers = K.layeredFutureOffsets kernel
+    resolveOne :: SeededFifo -> Fifo
+    resolveOne (Real fifo)  = fifo
+    resolveOne (Constant c) = LL.replicate width c
 
+initBuilding :: CompiledKernel -> Array RowLayer
+initBuilding compiled = map freshLayer compiled.futureLayers
+
+commitBuilding :: CompiledKernel -> Array RowLayer -> Array DelayLine -> Array DelayLine
+commitBuilding compiled building shortenedDelayLines =
+  Array.zipWith commitLayer compiled.futureLayers (Array.zip building shortenedDelayLines)
+  where
     commitLayer :: Array K.Offset -> Tuple RowLayer DelayLine -> DelayLine
     commitLayer offsets (Tuple layer dl) =
       LL.snoc dl (Array.zipWith adjustFifo offsets layer)
 
-    adjustFifo :: K.Offset -> Fifo -> Fifo
+    adjustFifo :: K.Offset -> Fifo -> SeededFifo
     adjustFifo o fifo =
       let skip = K.skipFor o
-      in LL.drop skip fifo <> LL.replicate skip 0.0
+      in Real (LL.drop skip fifo <> LL.replicate skip 0.0)
 
 ditherRow
-  :: Kernel
+  :: CompiledKernel
   -> (Number -> Number)
   -> Array DelayLine
   -> Array Number
   -> Tuple (Array DelayLine) (Array Number)
-ditherRow kernel quantize delayLines0 pixels =
+ditherRow compiled quantize delayLines0 pixels =
   let
+    width = Array.length pixels
+
     Tuple matured0 shortenedDelayLines = extractMatured delayLines0
+    resolvedMatured = map (resolveSeededLayer width) matured0
 
     initial :: RowState
     initial =
-      { current: freshLayer (K.currentOffsets kernel)
-      , matured: matured0
-      , building: initBuilding kernel
+      { current: freshLayer compiled.currentOffsets
+      , matured: resolvedMatured
+      , building: initBuilding compiled
       }
 
     result = mapAccumL stepAdapter initial pixels
-
-    finalBuilding = result.accum.building
-
-    delayLines' = commitBuilding kernel finalBuilding shortenedDelayLines
+    delayLines' = commitBuilding compiled result.accum.building shortenedDelayLines
   in
     Tuple delayLines' result.value
   where
     stepAdapter :: RowState -> Number -> { accum :: RowState, value :: Number }
     stepAdapter rowState px =
-      let Tuple rowState' q = step kernel quantize rowState px
+      let Tuple rowState' q = step compiled quantize rowState px
       in { accum: rowState', value: q }

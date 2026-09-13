@@ -3,15 +3,15 @@ module Test.Dither.Playground where
 import Prelude
 
 import Data.List.Lazy as LL
-import Dither.Kernel (floydSteinberg, atkinson, jarvisJudiceNinke)
+import Dither.Image (ditherImage)
+import Dither.Kernel (atkinson, compileKernel, floydSteinberg, jarvisJudiceNinke)
 import Dither.Kernel as K
 import Dither.State (initState, freshLayer)
-import Dither.Image (ditherImage)
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
-fsState = initState floydSteinberg
+fsState = initState (compileKernel floydSteinberg)
 
 fsCurrent = freshLayer (K.currentOffsets floydSteinberg)
 

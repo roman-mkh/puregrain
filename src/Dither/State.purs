@@ -6,61 +6,36 @@ import Data.Array ((..))
 import Data.Array as Array
 import Data.List.Lazy (List)
 import Data.List.Lazy as LL
-import Data.Tuple (Tuple)
-import Dither.Kernel (Kernel)
+import Data.Tuple (Tuple(..))
+
+import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
 
--- | Одна очередь ошибок, соответствующая одному конкретному offset'у (dx, dy).
--- | Ленивая, потенциально бесконечная (для начального заполнения delayLines).
 type Fifo = List Number
-
--- | Набор FIFO-очередей для всех offset'ов внутри одного конкретного dy
--- | (или, для current, всех offset'ов с dy == 0).
 type RowLayer = Array Fifo
 
--- | Очередь "созревающих" RowLayer для одного конкретного dy.
--- | Инвариант: длина всегда равна dy — на каждом пикселе снимается
--- | голова (matured, готова к чтению) и дописывается новый хвост
--- | (только что построенный из ошибки текущего пикселя).
-type DelayLine = List RowLayer
+data SeededFifo = Constant Number | Real Fifo
+type SeededLayer = Array SeededFifo
+type DelayLine = List SeededLayer
 
--- | Состояние, переживающее границы строк — M штук DelayLine, индекс i
--- | соответствует dy = i + 1. current (dy=0 offset'ы) сюда НЕ входит —
--- | он живёт и пересоздаётся в пределах одной строки (см. Dither.Row).
 type DitherState = { delayLines :: Array DelayLine }
 
--- | Состояние, живущее внутри одной строки: current (dy=0, сбрасывается
--- | на каждой строке) и delayLines (dy>0, переживает границы строк,
--- | эволюционирует попиксельно внутри step).
 type RowState =
   { current  :: RowLayer
-  , matured  :: Array RowLayer   -- M layers, consumed pixel-by-pixel (dequeueOne on each Fifo inside)
-  , building :: Array RowLayer   -- M layers, accumulated pixel-by-pixel (enqueue on each Fifo inside)
+  , matured  :: Array RowLayer
+  , building :: Array RowLayer
   }
 
--- | Строит свежий RowLayer — по одному пустому (с паддингом по dx) Fifo
--- | на каждый переданный offset. Используется для current в начале
--- | каждой строки.
 freshLayer :: Array K.Offset -> RowLayer
 freshLayer = map (\o -> LL.replicate (K.paddingFor o) 0.0)
 
--- | Бесконечно-нулевой RowLayer под конкретный набор offset'ов —
--- | используется для заполнения DelayLine перед первой строкой картинки.
-infiniteZeroLayer :: Array K.Offset -> RowLayer
-infiniteZeroLayer offsets = map (const (LL.repeat 0.0)) offsets
+placeholderLayer :: Array K.Offset -> SeededLayer
+placeholderLayer offsets = map (const (Constant 0.0)) offsets
 
--- | Начальное состояние delayLines перед первой строкой картинки:
--- | для dy = i+1, DelayLine содержит ровно (i+1) копий бесконечно-нулевого
--- | RowLayer — ни одна строка ещё не обработана, все "прошлые" вклады
--- | считаются нулевыми на всю глубину dy.
-initState :: Kernel -> DitherState
-initState kernel =
-  { delayLines: map initDelayLineFor (1 .. depth) }
+initState :: CompiledKernel -> DitherState
+initState compiled =
+  { delayLines: map initDelayLineFor (Array.zip (1 .. compiled.maxDepth) compiled.futureLayers) }
   where
-    depth :: Int
-    depth = K.maxDepth kernel
-
-    initDelayLineFor :: Int -> DelayLine
-    initDelayLineFor dy =
-      let offsets = K.offsetsForDy kernel dy
-      in LL.fromFoldable (Array.replicate dy (infiniteZeroLayer offsets))
+    initDelayLineFor :: Tuple Int (Array K.Offset) -> DelayLine
+    initDelayLineFor (Tuple dy offsets) =
+      LL.fromFoldable (Array.replicate dy (placeholderLayer offsets))

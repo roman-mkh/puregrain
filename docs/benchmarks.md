@@ -25,30 +25,13 @@ identical content (horizontal gradient + shaded circle), for
 exit, including PNG decode/encode) with the Unix `time` builtin:
 
 ```bash
-scriptDir=$(dirname -- "$(readlink -f -- "$BASH_SOURCE")")
 for s in 64 128 256 512 1024; do
-  echo "=== size $s ==="
-  time node ${scriptDir}/../../scripts/dither-cli.mjs ${scriptDir}/bench-$s.png /tmp/out-$s.png floyd-steinberg
+  time node scripts/dither-cli.mjs samples/bench/bench-$s.png /tmp/out-$s.png floyd-steinberg
 done
 ```
 
 **Environment:** user's local machine — *(fill in: `node --version`, OS/CPU,
 `spago`/`purs` versions, for reproducibility)*.
-* `node --version`: v22.14.0
-* `spago --version` v1.0.4
-* `purs --version`: v0.15.16
-
-```
-uname -a
-lscpu | grep -E 'Model name|CPU\(s\):|Thread|Core'
-nproc
-Linux thalia 6.8.0-1065-azure #73~22.04.1-Ubuntu SMP Wed Aug 12 23:21:42 UTC 2026 x86_64 x86_64 x86_64 GNU/Linux
-CPU(s):                                  11
-Model name:                              Intel(R) Core(TM) Ultra 9 185H
-Thread(s) per core:                      2
-Core(s) per socket:                      6
-NUMA node0 CPU(s):                       0-10
-```
 
 ### Results
 
@@ -97,3 +80,64 @@ worth of wasted work at row/image edges from padding/skip.
   of inside `step`.
 - Re-run this exact scaling test after the fix and append results below
   for direct before/after comparison.
+
+---
+
+## 2026-09-13 — SeededFifo regression, then CompiledKernel fix
+
+**Context:** two architectural changes were made since the previous
+entry, both measured with the same method/images as above (Floyd–
+Steinberg, binary threshold 128).
+
+1. **`SeededFifo`** was introduced to remove the last infinite lazy
+   structure (`LL.repeat 0.0`) from `DelayLine`/`matured`, as a
+   prerequisite for pluggable strict backends (a `Constant Number | Real
+   Fifo` wrapper can't be represented by, e.g., a plain strict `Array`).
+   This alone was a **regression**: wrapping/unwrapping `SeededFifo` on
+   every pixel × offset added a real (compiled-JS-confirmed) extra
+   allocation to the hot loop.
+2. **`CompiledKernel`** was introduced as a separate fix: a precomputed
+   record (`currentOffsets`, `futureLayers`, `maxDepth`) built once via
+   `compileKernel` at the top of `ditherImage`, replacing repeated
+   `Array.filter`-based lookups (`K.currentOffsets kernel`,
+   `K.offsetsForDy kernel dy`) that were happening on *every pixel*
+   inside `step` — a separate, always-present inefficiency identified
+   during the original profiling discussion, predating `SeededFifo`.
+   The `SeededFifo` unwrap was also moved from per-pixel to per-row
+   (`resolveSeededLayer`, called once per row using the now-known row
+   width), eliminating the regression from (1) at the same time.
+
+### Results
+
+| Side N | Baseline (prev. entry) | SeededFifo (regression) | + CompiledKernel |
+|-------:|------------------------:|--------------------------:|-------------------:|
+|     64 |                  0.213s |                    0.335s |             0.200s |
+|    128 |                  0.633s |                    1.027s |             0.628s |
+|    256 |                  3.807s |                    5.917s |             3.490s |
+|    512 |                 32.388s |                   47.335s |            30.488s |
+|   1024 |                289.295s |                  447.050s |           284.585s |
+
+![Three rounds compared, log-log, with an O(N³) reference line](images/scaling-compiled-kernel.png)
+
+### Analysis
+
+`+ CompiledKernel` is not just "back to baseline" — it's **slightly
+faster** across the board (1-8%), because it fixed two overlapping
+issues at once: the `SeededFifo` regression *and* the pre-existing
+per-pixel `Array.filter` cost that was already present in the original
+baseline entry but hadn't been addressed yet.
+
+Growth ratios per doubling (`+ CompiledKernel`): ×3.14, ×5.56, ×8.74,
+×9.33 — statistically indistinguishable from the original entry's
+×2.97, ×6.02, ×8.51, ×8.93. **The `O(N³)` asymptotic behavior is fully
+intact.** This refactor improved the constant factor only, exactly as
+predicted going in — the dominant cost (suspected `O(n)` `snoc` in
+`building` accumulation) is untouched.
+
+### Next steps
+
+Unchanged from the previous entry: the real fix is a pluggable `class
+Fifo` abstraction with an `O(1)`-amortized backend (`Data.Sequence` /
+`purescript-queue`) replacing `Data.List.Lazy`'s `O(n)` `snoc` in the
+hot path. That work is in progress; this entry exists to keep the
+historical record honest about what has and hasn't been fixed so far.

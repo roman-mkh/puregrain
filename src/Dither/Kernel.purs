@@ -74,4 +74,21 @@ maxForward kernel =
 maxDepth :: Kernel -> Int
 maxDepth kernel =
   Array.foldl (\acc o -> max acc o.dy) 0 kernel
+
+-- | Предвычисленные, инвариантные для данного Kernel данные, которые
+-- | иначе пришлось бы пересчитывать (Array.filter по kernel) на каждый
+-- | пиксель внутри step. Строится один раз через compileKernel, дальше
+-- | передаётся как обычные данные через State/Row/Step.
+type CompiledKernel =
+  { currentOffsets :: Array Offset
+  , futureLayers   :: Array (Array Offset)
+  , maxDepth       :: Int
+  }
+
+compileKernel :: Kernel -> CompiledKernel
+compileKernel kernel =
+  { currentOffsets: currentOffsets kernel
+  , futureLayers:   layeredFutureOffsets kernel
+  , maxDepth:       maxDepth kernel
+  }  
   

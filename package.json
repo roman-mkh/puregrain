@@ -9,7 +9,8 @@
     "dither:fs": "npm run dither-cli -- samples/test-input.png samples/output-fs.png floyd-steinberg 128",
     "dither:atkinson": "npm run dither-cli -- samples/test-input.png samples/output-atkinson.png atkinson",
     "dither:jjn": "npm run dither-cli -- samples/test-input.png samples/output-jjn.png jjn",
-    "generate-bench-images": "node scripts/generate-bench-images.mjs"
+    "generate-bench-images": "node scripts/generate-bench-images.mjs",
+    "generate-test-image": "node scripts/generate-test-input.mjs"
   },
   "dependencies": {
     "purescript": "^0.15.16",

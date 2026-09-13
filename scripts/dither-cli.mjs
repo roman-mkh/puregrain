@@ -46,7 +46,7 @@ function readGrayscaleRows(pngPath) {
 }
 
 function writeGrayscaleRows(pngPath, width, height, rows) {
-  const png = new PNG({ width, height });
+  const png = new PNG({ width, height, colorType: 0 });
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = (y * width + x) * 4;
