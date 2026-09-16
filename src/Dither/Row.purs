@@ -9,26 +9,19 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
-import Dither.State (DelayLine, Fifo, RowLayer, RowState, SeededFifo(..), SeededLayer, freshLayer)
+import Dither.State (DelayLine, Fifo, RowLayer, RowState, freshLayer)
 import Dither.Step (step)
 import Partial.Unsafe (unsafeCrashWith)
 
-extractMatured :: Array DelayLine -> Tuple (Array SeededLayer) (Array DelayLine)
+extractMatured :: Array DelayLine -> Tuple (Array RowLayer) (Array DelayLine)
 extractMatured delayLines =
   let fronts = map takeFront delayLines
   in Tuple (map fst fronts) (map snd fronts)
   where
-    takeFront :: DelayLine -> Tuple SeededLayer DelayLine
-    takeFront dl = case LL.uncons dl of
-      Nothing -> unsafeCrashWith "Dither.Row.extractMatured: delayLine unexpectedly empty"
+    takeFront :: DelayLine -> Tuple RowLayer DelayLine
+    takeFront dl = case Array.uncons dl of
+      Nothing -> unsafeCrashWith "Dither.Row.extractMatured: delayLine unexpectedly empty — padding invariant violated"
       Just { head, tail } -> Tuple head tail
-
-resolveSeededLayer :: Int -> SeededLayer -> RowLayer
-resolveSeededLayer width = map resolveOne
-  where
-    resolveOne :: SeededFifo -> Fifo
-    resolveOne (Real fifo)  = fifo
-    resolveOne (Constant c) = LL.replicate width c
 
 initBuilding :: CompiledKernel -> Array RowLayer
 initBuilding compiled = map freshLayer compiled.futureLayers
@@ -39,12 +32,12 @@ commitBuilding compiled building shortenedDelayLines =
   where
     commitLayer :: Array K.Offset -> Tuple RowLayer DelayLine -> DelayLine
     commitLayer offsets (Tuple layer dl) =
-      LL.snoc dl (Array.zipWith adjustFifo offsets layer)
+      Array.snoc dl (Array.zipWith adjustFifo offsets layer)
 
-    adjustFifo :: K.Offset -> Fifo -> SeededFifo
+    adjustFifo :: K.Offset -> Fifo -> Fifo
     adjustFifo o fifo =
       let skip = K.skipFor o
-      in Real (LL.drop skip fifo <> LL.replicate skip 0.0)
+      in LL.drop skip fifo <> LL.replicate skip 0.0
 
 ditherRow
   :: CompiledKernel
@@ -54,15 +47,12 @@ ditherRow
   -> Tuple (Array DelayLine) (Array Number)
 ditherRow compiled quantize delayLines0 pixels =
   let
-    width = Array.length pixels
-
     Tuple matured0 shortenedDelayLines = extractMatured delayLines0
-    resolvedMatured = map (resolveSeededLayer width) matured0
 
     initial :: RowState
     initial =
       { current: freshLayer compiled.currentOffsets
-      , matured: resolvedMatured
+      , matured: matured0
       , building: initBuilding compiled
       }
 

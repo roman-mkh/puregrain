@@ -2,11 +2,11 @@ module Test.Dither.Step where
 
 import Prelude
 
-import Data.Tuple (Tuple(..), fst)
+import Data.Tuple (Tuple(..))
 import Dither.Kernel (compileKernel, floydSteinberg)
 import Dither.Kernel as K
-import Dither.Row (extractMatured, initBuilding, resolveSeededLayer)
-import Dither.State (freshLayer, initState, RowState)
+import Dither.Row (initBuilding)
+import Dither.State (RowLayer, RowState, freshLayer)
 import Dither.Step (step)
 import Effect (Effect)
 import Effect.Console (log)
@@ -19,16 +19,11 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 main :: Effect Unit
 main = do
   let
-    width = 3   -- ширина строки для этого теста — нужна для resolveSeededLayer
-
-    state0 = initState  $ compileKernel floydSteinberg
-    matured0Seeded = fst (extractMatured state0.delayLines)
-    matured0 = map (resolveSeededLayer width) matured0Seeded
 
     initial :: RowState
     initial =
       { current: freshLayer (K.currentOffsets floydSteinberg)
-      , matured: matured0
+      , matured:[[] :: RowLayer] 
       , building: initBuilding $ compileKernel floydSteinberg
       }
 
@@ -37,7 +32,7 @@ main = do
 
   assertEqual { actual: quantizedPixel, expected: 0.0 }
 
-  case rowState1.current of
+  case rowState1.current of 
     [ f ] ->
       assert' "current prefix mismatch"
         (approxArrayEqual (takeAsArray 1 f) [ outErr * (7.0 / 16.0) ])
