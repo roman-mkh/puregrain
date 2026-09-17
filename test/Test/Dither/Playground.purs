@@ -16,7 +16,7 @@ fsState = initState (compileKernel floydSteinberg)
 fsCurrent = freshLayer (K.currentOffsets floydSteinberg)
 
 -- | Тестовое изображение 5x5, значения яркости 0-255.
-testImage5x5 :: LL.List (Array Number)
+testImage5x5 :: LL.List (Array Number) 
 testImage5x5 = LL.fromFoldable
   [ [ 100.0, 150.0, 200.0, 80.0,  40.0  ]
   , [ 50.0,  180.0, 90.0,  210.0, 130.0 ]

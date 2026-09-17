@@ -4,35 +4,33 @@ import Prelude
 
 import Data.Array ((..))
 import Data.Array as Array
-import Data.List.Lazy (List)
-import Data.List.Lazy as LL
 
+import Dither.Fifo (class Fifo, replicate)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
 
-type Fifo = List Number
-type RowLayer = Array Fifo
+type RowLayer f = Array f
 
 -- | Очередь "созревающих" RowLayer для одного конкретного dy. Стартует
 -- | западдинной dy копиями пустого RowLayer ([]) — placeholder,
 -- | естественно дающий нулевой вклад через sumErrors [] = 0.0, без
 -- | какой-либо специальной обработки в Step.purs. Array, не Seq/List —
 -- | размер всегда мал (ограничен maxDepth ядра).
-type DelayLine = Array RowLayer
 
-type DitherState = { delayLines :: Array DelayLine }
+type DelayLine f = Array (RowLayer f)
 
-type RowState =
-  { current  :: RowLayer
-  , matured  :: Array RowLayer
-  , building :: Array RowLayer
+type DitherState f = { delayLines :: Array (DelayLine f) }
+
+type RowState f =
+  { current  :: RowLayer f
+  , matured  :: Array (RowLayer f)
+  , building :: Array (RowLayer f)
   }
 
-freshLayer :: Array K.Offset -> RowLayer
-freshLayer = map (\o -> LL.replicate (K.paddingFor o) 0.0)
+freshLayer :: forall f. Fifo f => Array K.Offset -> RowLayer f
+freshLayer = map (\o -> replicate (K.paddingFor o) 0.0)
 
--- | Каждый DelayLine стартует западдинным dy копиями пустого RowLayer —
--- | для dy=1 это 1 placeholder, для dy=2 — 2, и т.д.
-initState :: CompiledKernel -> DitherState
+-- | Doesn't need `Fifo f =>` — `[]` needs no class method at all.
+initState :: forall f. CompiledKernel -> DitherState f
 initState compiled =
-  { delayLines: map (\dy -> Array.replicate dy ([] :: RowLayer)) (1 .. compiled.maxDepth) }
+  { delayLines: map (\dy -> Array.replicate dy ([] :: RowLayer f)) (1 .. compiled.maxDepth) }

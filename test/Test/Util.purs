@@ -20,5 +20,5 @@ approxArrayEqual xs ys =
 takeAsArray :: Int -> LL.List Number -> Array Number
 takeAsArray n fifo = LL.toUnfoldable (LL.take n fifo)
 
-takeLayersAsArray :: Int -> LL.List RowLayer -> Array RowLayer
+takeLayersAsArray :: forall f. Int -> LL.List (RowLayer f) -> Array (RowLayer f)
 takeLayersAsArray n dl = LL.toUnfoldable (LL.take n dl)

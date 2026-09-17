@@ -17,7 +17,7 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
 main :: Effect Unit
 main = do
-  let
+  let 
     rows = LL.fromFoldable
       [ [ 100.0, 200.0, 50.0 ]
       , [ 150.0, 30.0, 220.0 ]

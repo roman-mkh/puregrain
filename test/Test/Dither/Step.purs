@@ -2,6 +2,7 @@ module Test.Dither.Step where
 
 import Prelude
 
+import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Dither.Kernel (compileKernel, floydSteinberg)
 import Dither.Kernel as K
@@ -19,13 +20,12 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 main :: Effect Unit
 main = do
   let
-
-    initial :: RowState
+    initial :: RowState (LL.List Number)
     initial =
       { current: freshLayer (K.currentOffsets floydSteinberg)
-      , matured:[[] :: RowLayer] 
+      , matured:[[] :: (RowLayer (LL.List Number))] 
       , building: initBuilding $ compileKernel floydSteinberg
-      }
+      } 
 
     Tuple rowState1 quantizedPixel = step (compileKernel floydSteinberg) quantizeThreshold initial 100.0
     outErr = 100.0

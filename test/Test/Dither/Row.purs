@@ -3,20 +3,22 @@ module Test.Dither.Row where
 import Prelude
 
 import Data.Array as Array
+import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Dither.Kernel (compileKernel, floydSteinberg)
 import Dither.Row (ditherRow)
-import Dither.State (initState)
+import Dither.State (DitherState, initState)
 import Effect (Effect)
 import Effect.Console (log)
 import Test.Assert (assertEqual, assert')
 
 quantizeThreshold :: Number -> Number
-quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
+quantizeThreshold x = if x < 128.0 then 0.0 else 255.0 
 
 main :: Effect Unit
 main = do
   let
+    state0 :: DitherState (LL.List Number)
     state0 = initState $ compileKernel floydSteinberg
     row = [ 100.0, 200.0, 50.0 ]
     Tuple _delayLines1 quantizedRow =
