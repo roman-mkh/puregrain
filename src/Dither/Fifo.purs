@@ -5,7 +5,7 @@ import Prelude
 import Data.Array as Array
 import Data.List.Lazy as LL
 import Data.Maybe (Maybe)
--- import Data.Sequence as Seq
+import Data.Sequence as Seq
 import Data.Tuple (Tuple(..))
 
 -- | A FIFO-like container of `Number`s, used to hold error-diffusion
@@ -116,7 +116,6 @@ instance Fifo (LL.List Number) where
   dequeue = LL.uncons
   replace skip fifo = LL.drop skip fifo <> LL.replicate skip 0.0
 
-{-- 
 -- | The actual fix. `Data.Sequence.Seq` is a 2-3 finger tree: `enqueue`
 -- | (`snoc`) and `dequeue` (`uncons`) are O(1) amortized on either end,
 -- | and — just as importantly for `replace` — `<>` is
@@ -129,4 +128,3 @@ instance Fifo (Seq.Seq Number) where
   enqueue = Seq.snoc
   dequeue fifo = (\(Tuple h t) -> { head: h, tail: t }) <$> Seq.uncons fifo
   replace skip fifo = Seq.drop skip fifo <> Seq.fromFoldable (Array.replicate skip 0.0)
---}

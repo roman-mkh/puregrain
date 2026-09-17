@@ -1,15 +1,21 @@
 package:
   name: puregrain
   dependencies:
-    - arrays: ">=7.3.0 <8.0.0"
-    - assert: ">=6.0.0 <7.0.0"
-    - console: ">=6.1.0 <7.0.0"
-    - effect: ">=4.0.0 <5.0.0"
-    - lists: ">=7.0.0 <8.0.0"
-    - prelude: ">=6.0.2 <7.0.0"
-    - strings: ">=6.0.1 <7.0.0"
+    - arrays
+    - assert
+    - console
+    - effect
+    - lists
+    - prelude
+    - strings
+    - sequences
   test:
     main: Test.Main
     dependencies: []
 workspace:
-  extraPackages: {}
+  packageSet:
+    registry: 81.1.0
+  extraPackages:
+    sequences:
+      git: https://github.com/flip111/purescript-sequences.git
+      ref: e8a2e9ef2ad9c74b2e61552c7158a08cbf73ec7e
