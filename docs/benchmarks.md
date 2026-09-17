@@ -137,7 +137,46 @@ predicted going in — the dominant cost (suspected `O(n)` `snoc` in
 ### Next steps
 
 Unchanged from the previous entry: the real fix is a pluggable `class
-Fifo` abstraction with an `O(1)`-amortized backend (`Data.Sequence` /
-`purescript-queue`) replacing `Data.List.Lazy`'s `O(n)` `snoc` in the
-hot path. That work is in progress; this entry exists to keep the
-historical record honest about what has and hasn't been fixed so far.
+Fifo` abstraction with an `O(1)`-amortized backend (`Data.Sequence`)
+replacing `Data.List.Lazy`'s `O(n)` `snoc` in the hot path. That work is
+in progress; this entry exists to keep the historical record honest
+about what has and hasn't been fixed so far.
+
+---
+
+## 2026-09-13 (cont.) — DelayLine simplified to `Array RowLayer` + empty-list padding
+
+**Context:** `SeededFifo` (`Constant Number | Real Fifo`) was removed
+entirely. `DelayLine` is now a plain `Array RowLayer`, initialized with
+`dy` copies of `[]` (an empty `RowLayer`) instead of `dy` copies of a
+`Constant`-wrapped placeholder. An empty `RowLayer` naturally
+contributes zero error (`sumErrors [] = 0.0`), so `Step.purs` needed no
+special-casing at all — the simplification is purely structural.
+
+`Data.Sequence` was considered for `DelayLine` but rejected: its own
+README states `Array` outperforms it below ~1000 elements, and
+`DelayLine`'s length is bounded by `maxDepth` (1-2 for our kernels) —
+always deep in that regime.
+
+### Results
+
+| Side N | + CompiledKernel | + Array DelayLine |
+|-------:|-------------------:|--------------------:|
+|     64 |             0.200s |              0.228s |
+|    128 |             0.628s |              0.564s |
+|    256 |             3.490s |              3.487s |
+|    512 |            30.488s |             29.620s |
+|   1024 |           284.585s |            275.461s |
+
+Growth ratios per doubling: ×2.47, ×6.18, ×8.49, ×9.30 — consistent
+with all prior entries; `O(N³)` fully intact, as expected (this was a
+cleanup, not the asymptotic fix).
+
+### Next steps
+
+Define `class Fifo` for the hot-path `Fifo` (per-offset error
+fractions, the actual `O(n)`-`snoc` culprit) with an explicit `replace`
+method (not `drop` + `<>`, which is itself `O(n)` for a list) alongside
+`replicate`/`enqueue`/`dequeue`. Implement a `Data.List.Lazy` instance
+(sanity check: should match this entry's numbers) and a `Data.Sequence`
+instance (the actual fix), then re-run this scaling test.

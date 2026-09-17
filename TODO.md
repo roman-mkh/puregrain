@@ -1,5 +1,9 @@
 # TODO / Future Improvements
 
+## Architecture
+- [ ] ditherImage: alias `Array Number` to PixelRow
+- [ ] ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)
+
 ## Backend variants
 - [ ] Полиморфная (по `Traversable f`) версия `ditherRow`/`ditherImage` вместо специализированной под `Array` — сравнить производительность (Array.mapAccumL vs Data.Traversable.mapAccumL).
 - [ ] ST-based backend (кольцевой буфер, мутабельные массивы) — сравнить производительность с classic (FIFO/Lazy List) версией.
@@ -7,8 +11,10 @@
 
 ## Algorithm configuration
 - [ ] Ostromoukhov's Variable Error Diffusion 
-- [ ] Обобщить `Kernel + quantize` в единую конфигурацию алгоритма (см. раннюю идею `DitherAlgo` record).
+- [ ] Обобщить `Kernel + quantize` в единую конфигурацию алгоритма (см. раннюю идею `DitherAlgo` record). 
 - [ ] Рассмотреть typeclass + Reader Monad для протаскивания конфигурации алгоритма через весь pipeline, вместо явной передачи параметрами.
+- [ ] Pass custom user data for itsown impl of `quantize`
+- [ ] Maybe `quantize` has to know some stateful imformation as begin row-
 
 ## Application
 - [ ] Browser demo (Canvas API через FFI, purescript-canvas) — сравнение всех вариантов дизеринга visually.
