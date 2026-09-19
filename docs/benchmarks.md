@@ -180,3 +180,65 @@ method (not `drop` + `<>`, which is itself `O(n)` for a list) alongside
 `replicate`/`enqueue`/`dequeue`. Implement a `Data.List.Lazy` instance
 (sanity check: should match this entry's numbers) and a `Data.Sequence`
 instance (the actual fix), then re-run this scaling test.
+
+---
+
+## 2026-09-18 — `class Fifo` with a `Data.Sequence` backend: the actual fix
+
+**Context:** `class Fifo` was introduced with four methods —
+`replicate`, `enqueue`, `dequeue`, `replace` — polymorphic over the
+underlying container. Two instances were written: `List Number`
+(`Data.List.Lazy`, a like-for-like sanity-check reproduction of the
+prior code) and `Seq Number` (`Data.Sequence`, a 2-3 finger tree with
+O(1)-amortized `enqueue`/`dequeue` at both ends and O(log n)
+concatenation — used to implement `replace` cheaply instead of via
+`drop` + `<>`). `Dither.Image` now exposes a `Proxy`-parameterized
+`ditherImageWith` for picking a backend explicitly (used for this
+benchmark), with the public `ditherImage` defaulting to `Seq Number`.
+
+### Results
+
+| Side N | List.Lazy (prev. entry) | Seq (class Fifo) | Speedup |
+|-------:|---------------------------:|--------------------:|--------:|
+|     64 |                     0.228s |              0.203s |   ×1.12 |
+|    128 |                     0.564s |              0.294s |   ×1.92 |
+|    256 |                     3.487s |              0.673s |   ×5.18 |
+|    512 |                    29.620s |              1.896s |  ×15.62 |
+|   1024 |                   275.461s |              7.238s |  ×38.06 |
+
+![List.Lazy vs Seq, log-log, with O(N³) and O(N²) reference lines](images/scaling-seq-fifo.png)
+
+### Analysis
+
+The speedup itself grows with `N` — the signature of a change in
+asymptotic complexity, not just a constant-factor win. The local
+exponent (`log₂` of each doubling's time ratio) for the `Seq` backend:
+
+| Transition | Ratio | Local exponent |
+|---|---:|---:|
+| 64→128   | ×1.45 | 0.54 |
+| 128→256  | ×2.29 | 1.20 |
+| 256→512  | ×2.82 | 1.50 |
+| 512→1024 | ×3.82 | 1.93 |
+
+This is converging on **2**, i.e. `O(N²)` for a square image — which
+is `O(width × height)`, exactly proportional to pixel count. That is
+the theoretically optimal complexity for an algorithm that must visit
+every pixel; there is no further asymptotic improvement available,
+only constant-factor ones. This confirms the `O(n)` `snoc` on
+`Data.List.Lazy` was indeed the root cause identified back on
+2026-09-09, and that replacing it with `Seq`'s O(1)-amortized
+`enqueue`/`dequeue` (plus a genuinely sub-linear `replace` via finger-
+tree concatenation) fully resolves it.
+
+### Next steps
+
+- Extend this scaling test to larger `N` (2048, 4096) to confirm the
+  `O(N²)` trend holds rather than being an artifact of the tested
+  range.
+- Benchmark Atkinson/JJN (`maxDepth = 2`) to confirm the fix
+  generalizes beyond Floyd–Steinberg.
+- Revisit `docs/benchmarks.md`'s secondary, non-asymptotic overheads
+  noted on 2026-09-09 (first/last-row edge waste) now that the
+  dominant cost is gone — they may be worth a look now that they're a
+  larger fraction of total time.

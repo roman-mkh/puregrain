@@ -2,6 +2,7 @@ module Dither.Image where
 
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
+import Data.List as DL
 import Data.List.Lazy.Types (List(..), Step(..))
 import Data.Sequence (Seq)
 import Data.Tuple (Tuple(..))
@@ -49,4 +50,6 @@ ditherImage
   -> LL.List (Array Number)
   -> LL.List (Array Number)
 ditherImage = ditherImageWith (Proxy :: Proxy (Seq Number))
+-- ditherImage = ditherImageWith (Proxy :: Proxy (Array Number))
 -- ditherImage = ditherImageWith (Proxy :: Proxy (LL.List Number))
+-- ditherImage = ditherImageWith (Proxy :: Proxy (DL.List Number))

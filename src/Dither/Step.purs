@@ -1,4 +1,10 @@
-module Dither.Step where
+module Dither.Step
+  ( dequeueOne
+  , enqueueWeighted
+  , step
+  , sumErrors
+  )
+  where
 
 import Prelude
 
