@@ -6,6 +6,7 @@ import Data.Array as Array
 import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Dither.Kernel (compileKernel, floydSteinberg)
+import Dither.Pixel (Quantize(..))
 import Dither.Row (ditherRow)
 import Dither.State (DitherState, initState)
 import Effect (Effect)
@@ -18,11 +19,11 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 main :: Effect Unit
 main = do
   let
-    state0 :: DitherState (LL.List Number)
+    state0 :: DitherState LL.List Number
     state0 = initState $ compileKernel floydSteinberg
     row = [ 100.0, 200.0, 50.0 ]
     Tuple _delayLines1 quantizedRow =
-      ditherRow (compileKernel floydSteinberg) quantizeThreshold state0.delayLines row
+      ditherRow (compileKernel floydSteinberg) (Quantize quantizeThreshold) state0.delayLines row
 
   assertEqual { actual: Array.length quantizedRow, expected: Array.length row }
 

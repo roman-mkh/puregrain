@@ -1,48 +1,44 @@
-module Dither.Step
-  ( dequeueOne
-  , enqueueWeighted
-  , step
-  , sumErrors
-  )
-  where
+module Dither.Step where
 
 import Prelude
 
 import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), fst, snd)
-import Partial.Unsafe (unsafeCrashWith)
-
 import Dither.Fifo (class Fifo, dequeue, enqueue)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
+import Dither.Pixel (class Scalable, Quantize(..), scale)
 import Dither.State (RowLayer, RowState)
+import Partial.Unsafe (unsafeCrashWith)
 
-dequeueOne :: forall f. Fifo f => f -> Tuple Number f
+dequeueOne :: forall f a. Fifo f => f a -> Tuple a (f a)
 dequeueOne fifo = case dequeue fifo of
   Nothing -> unsafeCrashWith "Dither.Step.dequeueOne: FIFO exhausted — padding/kernel invariant violated"
   Just { head, tail } -> Tuple head tail
 
-dequeueAllLayer :: forall f. Fifo f => RowLayer f -> Tuple (Array Number) (RowLayer f)
+dequeueAllLayer :: forall f a. Fifo f => RowLayer f a -> Tuple (Array a) (RowLayer f a)
 dequeueAllLayer fifos = Tuple (map fst results) (map snd results)
   where
     results = map dequeueOne fifos
 
-sumErrors :: Array Number -> Number
-sumErrors = Array.foldl (+) 0.0
+sumErrors :: forall a. Ring a => Array a -> a
+sumErrors = Array.foldl (+) zero
 
-enqueueWeighted :: forall f. Fifo f => Number -> K.Offset -> f -> f
-enqueueWeighted err offset fifo = enqueue fifo (err * offset.weight)
+enqueueWeighted :: forall f a. Fifo f => Scalable a => a -> K.Offset -> f a -> f a
+enqueueWeighted err offset fifo = enqueue fifo (scale offset.weight err)
 
 step
-  :: forall f
+  :: forall f a
    . Fifo f
+  => Ring a
+  => Scalable a
   => CompiledKernel
-  -> (Number -> Number)
-  -> RowState f
-  -> Number
-  -> Tuple (RowState f) Number
-step compiled quantize { current, matured, building } pixel =
+  -> Quantize a
+  -> RowState f a
+  -> a
+  -> Tuple (RowState f a) a
+step compiled (Quantize quantize) { current, matured, building } pixel =
   let
     Tuple currentErrs current' = dequeueAllLayer current
 
@@ -50,9 +46,10 @@ step compiled quantize { current, matured, building } pixel =
     maturedErrs = map fst maturedResults
     matured' = map snd maturedResults
 
+    incomingError :: a
     incomingError =
       sumErrors currentErrs
-        + Array.foldl (\acc errs -> acc + sumErrors errs) 0.0 maturedErrs
+        + Array.foldl (\acc errs -> acc + sumErrors errs) zero maturedErrs
 
     corrected = pixel + incomingError
     quantized = quantize corrected

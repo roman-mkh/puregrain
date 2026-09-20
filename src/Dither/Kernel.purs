@@ -91,4 +91,3 @@ compileKernel kernel =
   , futureLayers:   layeredFutureOffsets kernel
   , maxDepth:       maxDepth kernel
   }  
-  

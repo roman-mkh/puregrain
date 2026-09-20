@@ -21,7 +21,7 @@ import Data.Tuple (Tuple(..))
 -- | the target given here wherever its underlying representation
 -- | allows it — falling short of the target is not a correctness bug,
 -- | but it will show up directly in `docs/benchmarks.md`.
-class Fifo f where
+class Fifo (f :: Type -> Type) where
 
   -- | `replicate n x` builds a `Fifo` containing exactly `n` copies of
   -- | `x`, in order — so `dequeue` on the result yields `x` exactly `n`
@@ -36,7 +36,7 @@ class Fifo f where
   -- |
   -- | Target complexity: O(n). Since `n` is always small, this is never
   -- | the bottleneck regardless of the instance's constant factors.
-  replicate :: Int -> Number -> f
+  replicate :: forall a. Int -> a -> f a
 
   -- | `enqueue fifo x` appends `x` to the tail of `fifo`, returning the
   -- | extended `Fifo`. `fifo` itself is left unchanged — anyone still
@@ -55,7 +55,7 @@ class Fifo f where
   -- | Target complexity: O(1) amortized. An instance that can only
   -- | offer O(n) here reintroduces precisely the bug this class exists
   -- | to fix.
-  enqueue :: f -> Number -> f
+  enqueue :: forall a. f a -> a -> f a
 
   -- | `dequeue fifo` removes and returns the value at the head of
   -- | `fifo`, together with the remaining `Fifo` — or `Nothing` if
@@ -72,7 +72,7 @@ class Fifo f where
   -- | emptiness themselves (e.g. by returning a fabricated zero).
   -- |
   -- | Target complexity: O(1) amortized.
-  dequeue :: f -> Maybe { head :: Number, tail :: f }
+  dequeue :: forall a. f a -> Maybe { head :: a, tail :: f a }
 
   -- | `replace skip fifo` drops the first `skip` elements from the
   -- | front of `fifo` and appends `skip` zeros to the tail, returning a
@@ -100,7 +100,7 @@ class Fifo f where
   -- | structure allows it. O(n) is acceptable only if the instance
   -- | genuinely cannot do better, and should be called out as a known
   -- | limitation in that instance's own documentation.
-  replace :: Int -> f -> f
+  replace :: forall a. Ring a => Int -> f a -> f a -- нужен zero для заполнения хвоста
 
 -- | Sanity-check baseline instance: this is the representation the
 -- | project used before `class Fifo` existed. `enqueue` and `replace`
@@ -111,17 +111,17 @@ class Fifo f where
 -- | to verify that the abstraction itself introduces no regression
 -- | relative to the pre-`class Fifo` code, and as a point of comparison
 -- | for `Seq Number` below.
-instance Fifo (LL.List Number) where
+instance Fifo LL.List where
   replicate = LL.replicate
   enqueue = LL.snoc
   dequeue = LL.uncons
-  replace skip fifo = LL.drop skip fifo <> LL.replicate skip 0.0
+  replace skip fifo = LL.drop skip fifo <> LL.replicate skip zero
 
-instance Fifo (DL.List Number) where
+instance Fifo DL.List where
   replicate n x = DL.fromFoldable (Array.replicate n x)
   enqueue = DL.snoc
   dequeue = DL.uncons
-  replace skip fifo = DL.drop skip fifo <> replicate skip 0.0
+  replace skip fifo = DL.drop skip fifo <> replicate skip zero
 
 -- | The actual fix. `Data.Sequence.Seq` is a 2-3 finger tree: `enqueue`
 -- | (`snoc`) and `dequeue` (`uncons`) are O(1) amortized on either end,
@@ -130,14 +130,14 @@ instance Fifo (DL.List Number) where
 -- | is cheap regardless of how long that sequence already is. That
 -- | second property is what makes `replace` genuinely sub-linear here,
 -- | not just `enqueue`/`dequeue`.
-instance Fifo (Seq.Seq Number) where
+instance Fifo Seq.Seq where
   replicate n x = Seq.fromFoldable (Array.replicate n x)
   enqueue = Seq.snoc
   dequeue fifo = (\(Tuple h t) -> { head: h, tail: t }) <$> Seq.uncons fifo
-  replace skip fifo = Seq.drop skip fifo <> Seq.fromFoldable (Array.replicate skip 0.0)
+  replace skip fifo = Seq.drop skip fifo <> Seq.fromFoldable (Array.replicate skip zero)
 
-instance Fifo (Array Number) where
+instance Fifo Array where
   replicate = Array.replicate
   enqueue = Array.snoc
   dequeue = Array.uncons
-  replace skip fifo = Array.drop skip fifo <> Array.replicate skip 0.0
+  replace skip fifo = Array.drop skip fifo <> Array.replicate skip zero

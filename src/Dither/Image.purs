@@ -1,55 +1,48 @@
 module Dither.Image where
 
+import Prelude
+
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
-import Data.List as DL
 import Data.List.Lazy.Types (List(..), Step(..))
 import Data.Sequence (Seq)
 import Data.Tuple (Tuple(..))
-import Type.Proxy (Proxy(..))
-
 import Dither.Fifo (class Fifo)
-import Dither.Kernel (CompiledKernel, Kernel, compileKernel)
+import Dither.Kernel (Kernel, compileKernel)
+import Dither.Pixel (class Scalable, Quantize)
 import Dither.Row (ditherRow)
 import Dither.State (DelayLine, initState)
+import Type.Proxy (Proxy(..))
 
--- | Generic, backend-polymorphic core — used directly by benchmarks and
--- | tests that need to pick a specific `Fifo` instance to measure. The
--- | `Proxy f` argument exists solely so the caller can pin `f`; it
--- | carries no runtime information.
 ditherImageWith
-  :: forall f
+  :: forall f a
    . Fifo f
+  => Ring a
+  => Scalable a
   => Proxy f
   -> Kernel
-  -> (Number -> Number)
-  -> LL.List (Array Number)
-  -> LL.List (Array Number)
+  -> Quantize a
+  -> LL.List (Array a)
+  -> LL.List (Array a)
 ditherImageWith _ kernel quantize rows =
   go (initState compiled).delayLines rows
   where
-    compiled :: CompiledKernel
     compiled = compileKernel kernel
 
-    go :: Array (DelayLine f) -> LL.List (Array Number) -> LL.List (Array Number)
+    go :: Array (DelayLine f a) -> LL.List (Array a) -> LL.List (Array a)
     go delayLines remainingRows =
       case LL.step remainingRows of
         Nil -> LL.nil
         Cons row rest ->
-          let
-            Tuple delayLines' quantizedRow = ditherRow compiled quantize delayLines row
-          in
-            List (defer \_ -> Cons quantizedRow (go delayLines' rest))
+          let Tuple delayLines' quantizedRow = ditherRow compiled quantize delayLines row
+          in List (defer \_ -> Cons quantizedRow (go delayLines' rest))
 
--- | Public entry point. Dithers an image using the library's chosen
--- | default `Fifo` backend (`Seq Number`). Callers never need to know
--- | `class Fifo` exists.
 ditherImage
-  :: Kernel
-  -> (Number -> Number)
-  -> LL.List (Array Number)
-  -> LL.List (Array Number)
-ditherImage = ditherImageWith (Proxy :: Proxy (Seq Number))
--- ditherImage = ditherImageWith (Proxy :: Proxy (Array Number))
--- ditherImage = ditherImageWith (Proxy :: Proxy (LL.List Number))
--- ditherImage = ditherImageWith (Proxy :: Proxy (DL.List Number))
+  :: forall a
+   . Ring a
+  => Scalable a
+  => Kernel
+  -> Quantize a
+  -> LL.List (Array a)
+  -> LL.List (Array a)
+ditherImage = ditherImageWith (Proxy :: Proxy Seq)

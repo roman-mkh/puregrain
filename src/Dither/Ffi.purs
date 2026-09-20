@@ -1,9 +1,9 @@
 module Dither.Ffi where
 
 import Data.List.Lazy as LL
-
-import Dither.Kernel (Kernel)
 import Dither.Image (ditherImage)
+import Dither.Kernel (Kernel)
+import Dither.Pixel (Quantize)
 
 -- | FFI-удобная обёртка над ditherImage: принимает и возвращает обычные
 -- | JS-массивы (Array (Array Number)), а не ленивые списки. Для PoC/CLI
@@ -12,7 +12,7 @@ import Dither.Image (ditherImage)
 -- | с обычным JS-кодом на другой стороне.
 ditherImageArray
   :: Kernel
-  -> (Number -> Number)
+  -> Quantize Number
   -> Array (Array Number)
   -> Array (Array Number)
 ditherImageArray kernel quantize rows =

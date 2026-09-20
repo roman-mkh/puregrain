@@ -4,8 +4,9 @@ import Prelude
 
 import Data.List.Lazy as LL
 import Dither.Image (ditherImage)
-import Dither.Kernel (atkinson, compileKernel, floydSteinberg, jarvisJudiceNinke)
+import Dither.Kernel (atkinson, compileKernel, floydSteinberg)
 import Dither.Kernel as K
+import Dither.Pixel (Quantize(..))
 import Dither.State (initState, freshLayer)
 
 quantizeThreshold :: Number -> Number
@@ -26,4 +27,4 @@ testImage5x5 = LL.fromFoldable
   ]
 
 atkinsonResult :: LL.List (Array Number)
-atkinsonResult = ditherImage atkinson quantizeThreshold testImage5x5
+atkinsonResult = ditherImage atkinson (Quantize quantizeThreshold) testImage5x5

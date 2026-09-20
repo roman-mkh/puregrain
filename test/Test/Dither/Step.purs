@@ -6,6 +6,7 @@ import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Dither.Kernel (compileKernel, floydSteinberg)
 import Dither.Kernel as K
+import Dither.Pixel (Quantize(..))
 import Dither.Row (initBuilding)
 import Dither.State (RowLayer, RowState, freshLayer)
 import Dither.Step (step)
@@ -20,14 +21,14 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 main :: Effect Unit
 main = do
   let
-    initial :: RowState (LL.List Number)
+    initial :: RowState LL.List Number
     initial =
       { current: freshLayer (K.currentOffsets floydSteinberg)
-      , matured:[[] :: (RowLayer (LL.List Number))] 
+      , matured:[[] :: (RowLayer LL.List Number)] 
       , building: initBuilding $ compileKernel floydSteinberg
       } 
 
-    Tuple rowState1 quantizedPixel = step (compileKernel floydSteinberg) quantizeThreshold initial 100.0
+    Tuple rowState1 quantizedPixel = step (compileKernel floydSteinberg) (Quantize quantizeThreshold) initial 100.0
     outErr = 100.0
 
   assertEqual { actual: quantizedPixel, expected: 0.0 }
