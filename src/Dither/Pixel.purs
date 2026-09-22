@@ -18,6 +18,12 @@ instance Scalable Number where
 
 newtype RGB = RGB { r :: Number, g :: Number, b :: Number }
 
+-- | Needed for tests (`===`/`shouldEqual` on RGB values, e.g. in
+-- | `Test.Dither.PaletteSpec`) — delegates to the record's own
+-- | automatic Eq/Show instances, no hand-written comparison/rendering.
+derive newtype instance Eq RGB
+derive newtype instance Show RGB
+
 instance Semiring RGB where
   add (RGB a) (RGB b) = RGB { r: a.r + b.r, g: a.g + b.g, b: a.b + b.b }
   zero = RGB { r: 0.0, g: 0.0, b: 0.0 }

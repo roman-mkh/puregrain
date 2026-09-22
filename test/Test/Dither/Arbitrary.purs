@@ -4,8 +4,11 @@ import Prelude
 
 import Data.Array ((..))
 import Data.Array as Array
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NEA
 import Data.Traversable (traverse)
 import Dither.Kernel (Kernel, Offset)
+import Dither.Pixel (RGB(..))
 import Dither.Util (safeRange)
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, chooseInt, choose, vectorOf)
@@ -53,3 +56,32 @@ newtype TestImage = TestImage (Array (Array Number))
 
 instance Arbitrary TestImage where
   arbitrary = TestImage <$> genImage
+
+-- | Generates one arbitrary RGB color, channels in [0,255] — same
+-- | range convention as genImage's grayscale pixel values.
+genRGB :: Gen RGB
+genRGB = do
+  r <- choose 0.0 255.0
+  g <- choose 0.0 255.0
+  b <- choose 0.0 255.0
+  pure (RGB { r, g, b })
+
+newtype TestRGB = TestRGB RGB
+
+instance Arbitrary TestRGB where
+  arbitrary = TestRGB <$> genRGB
+
+-- | Generates a small non-empty palette of 1-8 random RGB colors
+-- | (small, so property-test iteration stays fast — same rationale as
+-- | genImage's [1,6] width/height).
+genPalette :: Gen (NonEmptyArray RGB)
+genPalette = do
+  n <- chooseInt 0 7
+  h <- genRGB
+  t <- vectorOf n genRGB
+  pure (NEA.cons' h t)
+
+newtype TestPalette = TestPalette (NonEmptyArray RGB)
+
+instance Arbitrary TestPalette where
+  arbitrary = TestPalette <$> genPalette

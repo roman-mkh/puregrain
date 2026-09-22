@@ -12,3 +12,4 @@ generated-docs/
 .spago
 samples/output-*.png
 samples/bench/bench-*.png
+.spec-results
