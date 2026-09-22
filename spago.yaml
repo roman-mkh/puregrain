@@ -7,8 +7,11 @@ package:
     - effect
     - lists
     - prelude
-    - strings
     - sequences
+    - spec
+    - spec-discovery
+    - spec-quickcheck
+    - strings
   test:
     main: Test.Main
     dependencies: []

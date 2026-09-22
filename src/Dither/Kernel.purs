@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Array ((..))
 import Data.Array as Array
+import Dither.Util (safeRange)
 
 type Offset =
   { dx     :: Int
@@ -59,7 +60,7 @@ offsetsForDy kernel dy = Array.filter (\o -> o.dy == dy) kernel
 -- | Offset'ы, сгруппированные по dy, для dy от 1 до maxDepth.
 -- | Слой i (0-indexed) содержит offset'ы с dy == i + 1.
 layeredFutureOffsets :: Kernel -> Array (Array Offset)
-layeredFutureOffsets kernel = map (offsetsForDy kernel) (1 .. maxDepth kernel)
+layeredFutureOffsets kernel = map (offsetsForDy kernel) (safeRange 1 (maxDepth kernel))
 
 paddingFor :: Offset -> Int
 paddingFor o = max 0 o.dx

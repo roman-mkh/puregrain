@@ -5,10 +5,10 @@ import Prelude
 import Data.Array ((..))
 import Data.Array as Array
 import Data.Sequence (Seq)
-
 import Dither.Fifo (class Fifo, replicate)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
+import Dither.Util (safeRange)
 
 type RowLayer (f :: Type -> Type) a = Array (f a)
 
@@ -33,4 +33,4 @@ freshLayer = map (\o -> replicate (K.paddingFor o) zero)
 
 initState :: forall f a. CompiledKernel -> DitherState f a
 initState compiled =
-  { delayLines: map (\dy -> Array.replicate dy ([] :: RowLayer f a)) (1 .. compiled.maxDepth) }
+  { delayLines: map (\dy -> Array.replicate dy ([] :: RowLayer f a)) (safeRange 1 compiled.maxDepth) }
