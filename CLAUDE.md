@@ -29,7 +29,14 @@ from the code alone.
   `mul`/`one`, unused by diffusion but a legitimate algebra) and a
   custom `class Ring a <= Scalable a where scale :: Number -> a -> a`
   (kernel weights are always `Number` regardless of channel count).
-  `newtype Quantize a = Quantize (a -> a)`.
+  `newtype Quantize a = Quantize (a -> a)`. The scalarED toolkit lives
+  here too: `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances),
+  `perChannel`, `nearestLevel`, `evenRamp` (see scalarED/vectorED
+  below).
+- `Dither.Palette` — vectorED: `CompiledPalette` (a `NonEmptyArray RGB`
+  packed with a swappable distance metric, currently only `distance2`),
+  `nearestColorFast`/`nearestColor`, and fixed presets (`websafe216`),
+  kept as plain `NonEmptyArray RGB` so the caller picks the metric.
 - `Dither.State` / `Dither.Step` / `Dither.Row` / `Dither.Image` —
   diffusion core, polymorphic over `Fifo f` and `Ring a, Scalable a`.
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
@@ -38,12 +45,31 @@ from the code alone.
 
 ## Key design decisions (with rationale)
 
-- **Multi-channel model**: N channels are always independent parallel
-  copies of the same scalar algorithm *unless* the quantizer looks at
-  the whole vector at once (palette/"vector ED", needed for
-  image-dependent-palette output). Channel *count* never changes mid-
-  pipeline — RGBA→grayscale, palette generation, etc. all happen
-  *outside* this library (FFI/caller side), not inside `quantize`.
+- **Multi-channel model: scalarED vs. vectorED.** Two ways to dither a
+  multi-channel pixel, distinguished *only* by how the quantizer is
+  built — both are an ordinary `Quantize a` fed to the same, unmodified
+  `ditherImage`; there is no separate pipeline per mode.
+  - **scalarED** — each channel is an independent copy of the same
+    scalar algorithm. Write a `Quantize Number` (e.g. `nearestLevel
+    (evenRamp 4)`) and lift it with `perChannel` (via `class
+    MapChannels`). The `Number -> Number` type is the guarantee: it
+    only ever sees one channel's value, so it *cannot* couple channels
+    — by construction, not by convention. Because `RGB`/`RGBA`'s
+    `Ring`/`Scalable` instances are component-wise, one pass over an
+    RGB image gives exactly what three separate grayscale passes over
+    the channel planes would (property-tested in
+    `Test.Dither.PixelSpec`).
+  - **vectorED** — the quantizer sees the whole pixel at once, e.g.
+    `Dither.Palette.nearestColor` (nearest palette color by a distance
+    metric). Write the `Quantize a` directly on the composite type.
+  - Channel *count* never changes mid-pipeline — reconsidered and kept
+    (2026-09-23): a `Quantize a b` was rejected because `outErr =
+    corrected - quantized` must stay in `a`'s `Ring` (the error has to
+    live in the space future pixels are added in). Output-format
+    reduction (e.g. RGB→Gray) is a plain post-hoc `map` over
+    `ditherImage`'s result; image-dependent palette generation (e.g.
+    median-cut) happens *outside* this library (FFI/caller side).
+    Fixed preset palettes (e.g. `websafe216`) live inside it.
 - **`DelayLine` is pre-padded to length `dy`, not grown from empty**:
   `initState` builds each `DelayLine` as `Array.replicate dy []` —
   already at its full, constant length `dy`, from the very first row

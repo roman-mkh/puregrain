@@ -85,6 +85,46 @@ newtype TestRGB = TestRGB RGB
 instance Arbitrary TestRGB where
   arbitrary = TestRGB <$> genRGB
 
+-- | Generates a rectangular RGB test image: width and height each in
+-- | [1,6], like genImage. Each pixel's three channels are independent
+-- | draws, so projecting out one channel gives three independent
+-- | grayscale planes of the same shape — what the scalarED-equivalence
+-- | property in `Test.Dither.PixelSpec` compares against.
+genRGBImage :: Gen (Array (Array RGB))
+genRGBImage = do
+  width <- chooseInt 1 6
+  height <- chooseInt 1 6
+  vectorOf height (vectorOf width genRGB)
+
+newtype TestRGBImage = TestRGBImage (Array (Array RGB))
+
+instance Arbitrary TestRGBImage where
+  arbitrary = TestRGBImage <$> genRGBImage
+
+-- | Generates a non-empty set of 1-8 quantization levels in [0,255],
+-- | in arbitrary (not sorted) order — `nearestLevel` must not depend
+-- | on the order it's given.
+genLevels :: Gen (NonEmptyArray Number)
+genLevels = do
+  n <- chooseInt 0 7
+  h <- choose 0.0 255.0
+  t <- vectorOf n (choose 0.0 255.0)
+  pure (NEA.cons' h t)
+
+newtype TestLevels = TestLevels (NonEmptyArray Number)
+
+instance Arbitrary TestLevels where
+  arbitrary = TestLevels <$> genLevels
+
+-- | Generates a single value to quantize, in [-128,383] — deliberately
+-- | wider than [0,255]: accumulated diffusion error routinely pushes
+-- | `corrected` outside a channel's nominal range, and a Quantize must
+-- | be total over that too (see `Dither.Pixel.Quantize`).
+newtype TestSample = TestSample Number
+
+instance Arbitrary TestSample where
+  arbitrary = TestSample <$> choose (-128.0) 383.0
+
 -- | Generates a small non-empty palette of 1-8 random RGB colors
 -- | (small, so property-test iteration stays fast — same rationale as
 -- | genImage's [1,6] width/height).

@@ -8,6 +8,7 @@
 - [ ] Полиморфная (по `Traversable f`) версия `ditherRow`/`ditherImage` вместо специализированной под `Array` — сравнить производительность (Array.mapAccumL vs Data.Traversable.mapAccumL).
 - [ ] ST-based backend (кольцевой буфер, мутабельные массивы) — сравнить производительность с classic (FIFO/Lazy List) версией.
 - [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` is the production default `Fifo` backend — see `docs/benchmarks.md`.)
+- [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts.
 
 ## Algorithm configuration
 - [ ] Ostromoukhov's Variable Error Diffusion 

@@ -2,6 +2,7 @@ module Test.Dither.PaletteSpec (spec) where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Foldable (minimumBy)
@@ -11,8 +12,8 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Palette (CompiledPalette(..), compilePalette, compilePaletteFromArray, distance2, nearestColorFast)
-import Dither.Pixel (RGB(..))
+import Dither.Palette (CompiledPalette(..), compilePalette, compilePaletteFromArray, distance2, nearestColorFast, websafe216)
+import Dither.Pixel (RGB(..), nearestLevel, perChannel, runQuantize)
 import Test.Dither.Arbitrary (TestPalette(..), TestRGB(..))
 
 black :: RGB
@@ -82,3 +83,43 @@ spec = describe "Dither.Palette" do
       quickCheck \(TestRGB pixel) (TestPalette palette) ->
         nearestColorFast (compilePalette distance2 palette) pixel
           === naiveNearest palette pixel
+
+  describe "websafe216" do
+    let
+      steps = [ 0.0, 51.0, 102.0, 153.0, 204.0, 255.0 ]
+      colors = NEA.toArray websafe216
+
+    it "has exactly 216 colors" do
+      NEA.length websafe216 `shouldEqual` 216
+
+    it "has no duplicates" do
+      Array.length (Array.nubEq colors) `shouldEqual` 216
+
+    it "uses only the six web-safe channel values, in every channel" do
+      let onStep x = Array.elem x steps
+      Array.all (\(RGB c) -> onStep c.r && onStep c.g && onStep c.b) colors `shouldEqual` true
+
+    it "starts at black and ends at white (r slowest, b fastest)" do
+      NEA.head websafe216 `shouldEqual` black
+      NEA.last websafe216 `shouldEqual` white
+      NEA.index websafe216 1 `shouldEqual` Just (RGB { r: 0.0, g: 0.0, b: 51.0 })
+      NEA.index websafe216 6 `shouldEqual` Just (RGB { r: 0.0, g: 51.0, b: 0.0 })
+      NEA.index websafe216 36 `shouldEqual` Just (RGB { r: 51.0, g: 0.0, b: 0.0 })
+
+    -- vectorED and scalarED agree here, and not by accident: web-safe
+    -- is a full Cartesian product of per-channel steps, and squared
+    -- Euclidean distance is a sum of independent per-channel terms, so
+    -- the nearest cube color is exactly the nearest step in each
+    -- channel separately. Exact ties agree too: the cube's r-g-b order
+    -- makes "earliest tied entry" mean "lower step in every tied
+    -- channel", which is also `nearestLevel`'s earlier-wins pick on
+    -- ascending steps. (Float addition is monotonic, so rounding can
+    -- only turn a strict difference into a tie, never reverse it — the
+    -- only possible disagreement needs a random channel value within
+    -- ~1e-13 of a midpoint between steps; not a practical concern.)
+    it "nearest color (vectorED) == perChannel nearest step (scalarED), for any pixel" do
+      let
+        vectorED = nearestColorFast (compilePalette distance2 websafe216)
+        scalarED = runQuantize (perChannel (nearestLevel (NEA.cons' 0.0 (Array.drop 1 steps))))
+      quickCheck \(TestRGB pixel) ->
+        vectorED pixel === scalarED pixel

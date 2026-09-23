@@ -63,3 +63,24 @@ nearestColorFast (CompiledPalette p) pixel =
 -- | the given (non-empty) palette, by squared Euclidean distance.
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
 nearestColor palette = Quantize (nearestColorFast (compilePalette distance2 palette))
+
+-- | The 216-color "web-safe" palette: every combination of the six
+-- | channel values 0, 51, 102, 153, 204, 255 (a 6×6×6 cube). Computed
+-- | from those six steps rather than written out as 216 literals — the
+-- | formula is the definition, and it's checkable at a glance.
+-- |
+-- | Ordered with `r` varying slowest and `b` fastest, so it starts at
+-- | black and ends at white. That order matters for one thing only:
+-- | `nearestColorFast` breaks an exact tie in favor of the earlier
+-- | entry.
+-- |
+-- | A plain palette, not a `CompiledPalette`: pick the distance metric
+-- | yourself, e.g. `compilePalette distance2 websafe216`.
+websafe216 :: NonEmptyArray RGB
+websafe216 = do
+  r <- steps
+  g <- steps
+  b <- steps
+  pure (RGB { r, g, b })
+  where
+  steps = NEA.cons' 0.0 [ 51.0, 102.0, 153.0, 204.0, 255.0 ]

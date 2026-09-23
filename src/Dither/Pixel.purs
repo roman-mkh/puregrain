@@ -2,6 +2,13 @@ module Dither.Pixel where
 
 import Prelude
 
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NEA
+import Data.Int (toNumber)
+import Data.Ord (abs)
+import Data.Tuple (Tuple(..), fst)
+import Dither.Util (safeRange)
+
 -- | Single-channel pixel value (grayscale). A plain alias for `Number` —
 -- | no wrapper, so existing scalar code keeps working unchanged.
 type Gray = Number
@@ -48,9 +55,37 @@ instance Ring RGBA where
   sub (RGBA x) (RGBA y) = RGBA { r: x.r - y.r, g: x.g - y.g, b: x.b - y.b, a: x.a - y.a }
 
 instance Scalable RGBA where
-  scale w (RGBA p) = RGBA { r: w * p.r, g: w * p.g, b: w * p.b, a: w * p.a } 
+  scale w (RGBA p) = RGBA { r: w * p.r, g: w * p.g, b: w * p.b, a: w * p.a }
 
-  
+-- | Applies one `Number -> Number` function to every channel of `a`,
+-- | independently — the building block for scalarED (see `perChannel`,
+-- | and "scalarED / vectorED" in CLAUDE.md). Expected laws, as for any
+-- | Functor-like mapping:
+-- |
+-- |   mapChannels identity      == identity
+-- |   mapChannels (f <<< g)     == mapChannels f <<< mapChannels g
+-- |
+-- | Deliberately separate from `Scalable` for now, even though
+-- | `scale w == mapChannels (w * _)` for every instance here: `Scalable`
+-- | is what the diffusion core needs, `MapChannels` is only what
+-- | quantizer construction needs, and folding one into the other is
+-- | easy later if that split turns out not to earn its keep.
+class MapChannels a where
+  mapChannels :: (Number -> Number) -> a -> a
+
+-- | A single-channel pixel is its own only channel — so `perChannel` on
+-- | `Gray`/`Number` is just the quantizer itself, unchanged.
+instance MapChannels Number where
+  mapChannels f x = f x
+
+instance MapChannels RGB where
+  mapChannels f (RGB p) = RGB { r: f p.r, g: f p.g, b: f p.b }
+
+-- | Alpha is mapped too, like every other channel — consistent with
+-- | RGBA's `Ring`/`Scalable` instances, which diffuse alpha error too.
+instance MapChannels RGBA where
+  mapChannels f (RGBA p) = RGBA { r: f p.r, g: f p.g, b: f p.b, a: f p.a }
+
 -- | A quantization function: given a pixel value with accumulated
 -- | diffused error already applied ("corrected"), returns the quantized
 -- | value to both output and use in further error calculation.
@@ -64,4 +99,54 @@ instance Scalable RGBA where
 newtype Quantize a = Quantize (a -> a)
 
 runQuantize :: forall a. Quantize a -> a -> a
-runQuantize (Quantize f) = f    
+runQuantize (Quantize f) = f
+
+-- | Lifts a single-channel quantizer to a multi-channel pixel type,
+-- | applying it to every channel independently — scalarED (see
+-- | "scalarED / vectorED" in CLAUDE.md). The type is the guarantee: a
+-- | `Quantize Number` only ever sees one channel's value, so it cannot
+-- | couple channels together, by construction rather than by
+-- | convention. The result is an ordinary `Quantize a`, fed to the
+-- | unmodified `ditherImage` — no separate scalarED pipeline exists.
+-- |
+-- | (vectorED is the other case: write a `Quantize a` directly on the
+-- | whole pixel, e.g. `Dither.Palette.nearestColor`.)
+perChannel :: forall a. MapChannels a => Quantize Number -> Quantize a
+perChannel (Quantize q) = Quantize (mapChannels q)
+
+-- | Builds a Quantize that snaps a value to the nearest of the given
+-- | levels — the 1D sibling of `Dither.Palette.nearestColor`, with the
+-- | same shape and the same behavior: each level's distance is computed
+-- | exactly once (paired up before folding), and an exact tie goes to
+-- | the level that comes earlier in `levels`. `levels` need not be
+-- | sorted. Total for any input, including the out-of-range values
+-- | diffusion routinely produces: anything below the lowest level snaps
+-- | to it, anything above the highest snaps to that.
+-- |
+-- | TODO(benchmark): this is an O(N) linear scan per pixel. `Number`
+-- | has a total order (unlike RGB), so sorting `levels` once and
+-- | binary-searching would be O(log N) — deliberately not done yet: at
+-- | realistic N (2–16) the difference should be negligible, and it
+-- | would add a sortedness invariant to maintain. Benchmark first (see
+-- | docs/benchmarks.md) before changing it.
+nearestLevel :: NonEmptyArray Number -> Quantize Number
+nearestLevel levels = Quantize \x ->
+  fst (NEA.foldl1 closer (map (\l -> Tuple l (abs (x - l))) levels))
+  where
+  closer t1@(Tuple _ d1) t2@(Tuple _ d2) = if d1 <= d2 then t1 else t2
+
+-- | `n` evenly spaced levels across [0, 255] (this project's channel-
+-- | value convention), both ends included — e.g. `evenRamp 2 ==
+-- | [0.0, 255.0]` (black/white), `evenRamp 4 == [0.0, 85.0, 170.0,
+-- | 255.0]`. Meant to be used as `nearestLevel (evenRamp n)`.
+-- |
+-- | "Evenly spaced" has no meaning for a single point, so `n <= 1`
+-- | (including zero and negative `n`) collapses to one midpoint level,
+-- | `[127.5]` — the result is a `NonEmptyArray`, so there must always be
+-- | at least one level to return.
+evenRamp :: Int -> NonEmptyArray Number
+evenRamp n
+  | n <= 1 = NEA.singleton 127.5
+  | otherwise = NEA.cons' 0.0 (map level (safeRange 1 (n - 1)))
+  where
+  level i = 255.0 * toNumber i / toNumber (n - 1)
