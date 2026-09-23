@@ -32,7 +32,37 @@
 - [ ] Use 'test-inpit.png' of different size as benchmark images. merge generation into 1 script (with scaling ability).
       without parameters it should generate 256x256 that can be used for visual control, other images should be integrated
       to automation performatce tests.
+- [ ] `Test.Dither.Row`, `Test.Dither.Step`, `Test.Dither.Image`,
+      `Test.Dither.Playground` are leftover `Test.Assert`-style modules
+      from before the `purescript-spec` migration — they compile but
+      **don't actually run**: `Test.Main` only calls `discoverAndRunSpecs
+      [...] """Dither\..*Spec"""`, none of these four module names end in
+      `Spec`, and the old `.main` calls in `Test.Main` are commented out.
+      Kept deliberately for now as a reminder of what they covered; write
+      `*Spec` versions of whatever's still worth keeping from them (via
+      `Test.Spec`/`Test.QuickCheck`, matching `DiffusionMechanicsSpec`/
+      `PaletteSpec`), then delete the four dead originals once migrated.
 
+
+## Future library extension directions (not in scope now)
+- [ ] CMY/CMYK pixel types + GCR/UCR (gray component replacement / under
+      color removal). Algebraically CMY(K) is identical to RGB(A) — same
+      independent-`Ring`-channel shape, same `Scalable` — so the type
+      itself is cheap to add later (a straightforward newtype + instances,
+      same as RGB/RGBA, no new abstraction needed). The real work is GCR/
+      UCR: deriving K from C/M/Y is a color-management step that has to
+      happen *before* dithering, not something plain independent-channel
+      error diffusion gives you — naive 4-independent-channel diffusion is
+      representable in this architecture today but isn't real print-
+      quality CMYK output on its own (no per-channel screen angles, no
+      moiré avoidance). Needs a concrete print/halftone target to justify.
+- [ ] `distance2Lab` — CIELAB-space distance metric for `Dither.Palette`,
+      as a second argument to plug into `compilePalette`/
+      `compilePaletteFromArray` alongside `distance2` (that's exactly what
+      `CompiledPalette` packing the distance function was designed to make
+      swappable — see `Dither.Palette`). Requires an RGB→Lab conversion
+      (through XYZ, with a chosen white point/gamma assumption) that
+      doesn't exist yet anywhere in this codebase.
 
 ## Kernels
 нужна функция normalizeKernel/fillGaps, которая на входе берёт Kernel, а на выходе гарантирует, что для каждого dy от 1 до maxDepth есть все offset'ы в согласованном диапазоне dx (недостающие — добавляются с weight=0.0), чтобы каждый слой past[i]/future[i] имел одинаковую, предсказуемую форму (тот же набор FIFO по количеству и порядку) для любого dy.
