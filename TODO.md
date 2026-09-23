@@ -32,16 +32,19 @@
 - [ ] Use 'test-inpit.png' of different size as benchmark images. merge generation into 1 script (with scaling ability).
       without parameters it should generate 256x256 that can be used for visual control, other images should be integrated
       to automation performatce tests.
-- [ ] `Test.Dither.Row`, `Test.Dither.Step`, `Test.Dither.Image`,
-      `Test.Dither.Playground` are leftover `Test.Assert`-style modules
-      from before the `purescript-spec` migration — they compile but
-      **don't actually run**: `Test.Main` only calls `discoverAndRunSpecs
-      [...] """Dither\..*Spec"""`, none of these four module names end in
-      `Spec`, and the old `.main` calls in `Test.Main` are commented out.
-      Kept deliberately for now as a reminder of what they covered; write
-      `*Spec` versions of whatever's still worth keeping from them (via
-      `Test.Spec`/`Test.QuickCheck`, matching `DiffusionMechanicsSpec`/
-      `PaletteSpec`), then delete the four dead originals once migrated.
+- [x] `Test.Dither.Row`, `Test.Dither.Step` — migrated to
+      `Test.Dither.RowSpec`/`Test.Dither.StepSpec` (property tests +
+      shape invariants + ported regression examples + edge cases), old
+      originals deleted, dead `Test.Main` references removed.
+- [ ] `Test.Dither.Image`, `Test.Dither.Playground` are still leftover
+      `Test.Assert`-style modules from before the `purescript-spec`
+      migration — they compile but **don't actually run**: `Test.Main`
+      only calls `discoverAndRunSpecs [...] """Dither\..*Spec"""`,
+      neither module name ends in `Spec`, and the old `.main` call for
+      `Image` in `Test.Main` is commented out (`Playground` was never
+      called from `Test.Main` at all). Write `*Spec` versions of
+      whatever's still worth keeping from them, then delete the two
+      dead originals once migrated — same treatment `Row`/`Step` just got.
 
 
 ## Future library extension directions (not in scope now)

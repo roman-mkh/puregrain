@@ -44,11 +44,18 @@ from the code alone.
   image-dependent-palette output). Channel *count* never changes mid-
   pipeline — RGBA→grayscale, palette generation, etc. all happen
   *outside* this library (FFI/caller side), not inside `quantize`.
-- **`DelayLine` grows from empty, not pre-padded**: each `DelayLine`
-  starts as `[]` and grows to length `dy` over the first `dy` rows,
-  then stays there (dequeue-then-enqueue each row). An *absent* matured
-  layer contributes zero error for free, since `sumErrors [] = 0.0` —
-  no placeholder/sentinel type needed. (We tried a `Constant | Real`
+- **`DelayLine` is pre-padded to length `dy`, not grown from empty**:
+  `initState` builds each `DelayLine` as `Array.replicate dy []` —
+  already at its full, constant length `dy`, from the very first row
+  (it has to be: `extractMatured`'s `Array.uncons` would crash on a
+  truly empty `DelayLine`). What ramps up over the first `dy` rows is
+  *content*, not length: each row pops one slot off the front
+  (placeholder or real) and pushes one freshly-computed real layer
+  onto the back, so it takes exactly `dy` rows for all `dy` original
+  placeholders to be flushed out — the array's length never changes.
+  An *empty* `RowLayer` (`[]`, a placeholder slot with zero fifos)
+  contributes zero error for free, since `sumErrors [] = 0.0` — no
+  placeholder/sentinel type needed. (We tried a `Constant | Real`
   sum-type wrapper for this first — real, measured per-pixel overhead
   from the extra allocation/unwrap; abandoned in favor of this.)
 - **`replace` is a first-class `Fifo` method**, not `drop` + `<>`,

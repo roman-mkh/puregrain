@@ -43,6 +43,13 @@ newtype TestKernel = TestKernel Kernel
 instance Arbitrary TestKernel where
   arbitrary = TestKernel <$> genKernel
 
+-- | Generates a single arbitrary grayscale pixel row of the given
+-- | width, pixel values in [0,255]. Factored out of genImage so a
+-- | single-row generator (Step-level tests) and a many-same-width-rows
+-- | generator (Row/Image-level tests) share one source of pixel values.
+genRow :: Int -> Gen (Array Number)
+genRow width = vectorOf width (choose 0.0 255.0)
+
 -- | Generates a rectangular grayscale test image: width and height each
 -- | in [1,6] (small, so property-test iteration stays fast), pixel
 -- | values in [0,255].
@@ -50,12 +57,19 @@ genImage :: Gen (Array (Array Number))
 genImage = do
   width <- chooseInt 1 6
   height <- chooseInt 1 6
-  vectorOf height (vectorOf width (choose 0.0 255.0))
+  vectorOf height (genRow width)
 
 newtype TestImage = TestImage (Array (Array Number))
 
 instance Arbitrary TestImage where
   arbitrary = TestImage <$> genImage
+
+-- | Generates a single arbitrary grayscale pixel row: width in [1,6]
+-- | (same range as genImage), pixel values in [0,255].
+newtype TestRow = TestRow (Array Number)
+
+instance Arbitrary TestRow where
+  arbitrary = TestRow <$> (chooseInt 1 6 >>= genRow)
 
 -- | Generates one arbitrary RGB color, channels in [0,255] — same
 -- | range convention as genImage's grayscale pixel values.
