@@ -10,6 +10,8 @@ generated-docs/
 .purs*
 .psa*
 .spago
-samples/output-*.png
-samples/bench/bench-*.png
+# Generated test images, dithering outputs, and any private test photos
+# (all reproducible: npm run generate-images). Doc previews are the one
+# committed exception, under docs/images/test-images/.
+samples/
 .spec-results

@@ -22,7 +22,7 @@
 - [ ] Метрики качества (PSNR/SSIM) для сравнения алгоритмов.
 
 ## Testing infrastructure
-- [ ] generate test-input.png  as well the same way as benchmark images
+- [x] generate test-input.png  as well the same way as benchmark images (done: one generator, `scripts/generate-images.mjs`, for both — see `docs/test-images.md`)
 - [x] Перейти с простых `Test.Assert`-тестов на `purescript-spec` (describe/it) для более структурированного вывода.
 - [x] Добавить `purescript-quickcheck` и property-based тесты, начиная с:
   - `prop_backendsAgree` — реализовано как `Test.Dither.DiffusionMechanicsSpec`: все четыре `Fifo`-бэкенда (`Seq`, `List.Lazy`, `List`, `Array`) сверяются со независимым ST-based reference (`Test.Dither.Reference`), а не только друг с другом.
@@ -30,9 +30,12 @@
   - [ ] Инвариант детерминизма для константного входа — всё ещё не проверен отдельной property (тривиально верен для чистых функций, но explicit-тест отсутствует).
 - [x] `Arbitrary`-генераторы для `Kernel` (валидные ядра: сумма весов ≈ 1.0, хотя бы один forward и один downward offset) и для тестовых изображений разных размеров. (`Test.Dither.Arbitrary` — `TestKernel`/`TestImage`; заметка: сгенерированные ядра НЕ гарантируют сумму весов ≈ 1.0 явно, просто случайные веса в [0,1].)
 - [x] `purescript-spec` также даст удобный selective test run (--example "pattern"/focus), не только структурированный вывод — учтено, переход уже сделан.
-- [ ] Use 'test-inpit.png' of different size as benchmark images. merge generation into 1 script (with scaling ability).
+- [x] Use 'test-inpit.png' of different size as benchmark images. merge generation into 1 script (with scaling ability).
       without parameters it should generate 256x256 that can be used for visual control, other images should be integrated
       to automation performatce tests.
+      (done: `scripts/generate-images.mjs` — gray + truecolor composites, `--size`/`--sizes`/`WxH`; default changed to 512² by
+      decision, see `docs/test-images.md`. Benchmark automation on these images is still to come — `benchmark.sh` only
+      got the minimal switch to the new generator.)
 - [x] `Test.Dither.Row`, `Test.Dither.Step` — migrated to
       `Test.Dither.RowSpec`/`Test.Dither.StepSpec` (property tests +
       shape invariants + ported regression examples + edge cases), old

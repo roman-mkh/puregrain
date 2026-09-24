@@ -6,11 +6,11 @@
     "repl": "spago repl",
     "test": "spago test",
     "dither-cli": "node scripts/dither-cli.mjs",
-    "dither:fs": "npm run dither-cli -- samples/test-input.png samples/output-fs.png floyd-steinberg 128",
-    "dither:atkinson": "npm run dither-cli -- samples/test-input.png samples/output-atkinson.png atkinson",
-    "dither:jjn": "npm run dither-cli -- samples/test-input.png samples/output-jjn.png jjn",
-    "generate-bench-images": "node scripts/generate-bench-images.mjs",
-    "generate-test-image": "node scripts/generate-test-input.mjs"
+    "dither:fs": "npm run dither-cli -- samples/gray-512.png samples/output-fs.png floyd-steinberg 128",
+    "dither:atkinson": "npm run dither-cli -- samples/gray-512.png samples/output-atkinson.png atkinson",
+    "dither:jjn": "npm run dither-cli -- samples/gray-512.png samples/output-jjn.png jjn",
+    "generate-images": "node scripts/generate-images.mjs",
+    "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
   },
   "dependencies": {
     "purescript": "^0.15.16",

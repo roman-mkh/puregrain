@@ -121,6 +121,16 @@ this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 `maxDepth ≥ 1`) did not.
 
+Visual checks and benchmarks share one set of generated images:
+`scripts/generate-images.mjs` (drawing code only in
+`scripts/lib/test-patterns.mjs`), documented tile by tile in
+`docs/test-images.md`. Generated images go to gitignored `samples/`;
+the two doc previews in `docs/images/test-images/` are the only ones
+committed (refresh: `npm run docs:images`). pngjs gotcha: the output
+PNG color type must be passed to `PNG.sync.write(png, { colorType })`
+— the `new PNG({ colorType })` constructor option is ignored by the
+sync writer, which silently wrote every "grayscale" image as RGBA.
+
 ## PureScript gotchas hit during development (worth remembering)
 
 - **`(..)` is NOT empty when reversed**: `1 .. 0` evaluates to `[1, 0]`
