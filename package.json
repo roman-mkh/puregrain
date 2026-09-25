@@ -12,6 +12,7 @@
     "dither:color:websafe": "npm run dither-cli -- samples/color-512.png samples/output-color-websafe.png --palette websafe216",
     "dither:color:bw": "npm run dither-cli -- samples/color-512.png samples/output-color-bw.png --palette bw",
     "check:cli": "bash scripts/check-cli.sh",
+    "bench": "node scripts/benchmark.mjs",
     "generate-images": "node scripts/generate-images.mjs",
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
   },

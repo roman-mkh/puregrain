@@ -88,10 +88,12 @@ one. With none of them, the CLI behaves as `--threshold 128`.
 | Name | Error goes to | Character |
 |---|---|---|
 | `floyd-steinberg` | 4 neighbours: 1 to the right, 3 in the row below | The classic. Fine texture; at tones very near black or white, dots tend to line up into curved diagonal strings ("worms"). |
-| `atkinson` | 6 neighbours over the next 2 rows, but only **3/4** of the error | Throws a quarter of the error away on purpose: crisper, higher contrast, but dark and light tones get pushed toward solid black and white, losing detail there. |
-| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 3× Floyd–Steinberg in a quick test. |
+| `atkinson` | 6 neighbours over the next 2 rows, but only **3/4** of the error | Throws a quarter of the error away on purpose: crisper, higher contrast, but dark and light tones get pushed toward solid black and white, losing detail there. About 1.5× Floyd–Steinberg's time. |
+| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 3× Floyd–Steinberg's time. |
 
-The exact weights are in `src/Dither/Kernel.purs`.
+The exact weights are in `src/Dither/Kernel.purs`. Time grows with the
+number of neighbours, because each one costs the same per pixel; the
+measurements are in [the benchmarks](../docs/benchmarks-dithering.md).
 
 ## Palettes
 
@@ -107,8 +109,9 @@ The exact weights are in `src/Dither/Kernel.purs`.
   51, 102, 153, 204 and 255 in each channel. Because it's a complete grid,
   the nearest color is exactly the nearest value in each channel
   separately, so `--palette websafe216` produces a **byte-identical** file
-  to `--levels 6`. `--levels 6` is faster, since it looks up 3 channels
-  instead of searching 216 colors (about 1.5–2× in quick runs).
+  to `--levels 6`. `--levels 6` is a little faster, since it looks up 3
+  channels instead of searching 216 colors: the search takes about
+  1.1–1.4× as long ([benchmarks](../docs/benchmarks-dithering.md)).
 
 ## Examples
 
@@ -195,8 +198,10 @@ error.
   `bw` above).
 - Rows are always scanned left to right. Alternating the direction
   ("serpentine" scanning) would reduce some directional artifacts.
-- It's pure PureScript on Node. A 512×512 gray image takes a few seconds
-  with Floyd–Steinberg.
+- It's pure PureScript on Node: about 10 µs per pixel with Floyd–Steinberg
+  and a threshold, so roughly 2.6 s for 512×512 and 11 s for 1024×1024 on
+  the development machine. Details, and every mode and kernel, are in
+  [the benchmarks](../docs/benchmarks-dithering.md).
 
 ## Development
 

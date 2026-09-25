@@ -16,8 +16,8 @@
 ## Backend variants
 - [ ] Полиморфная (по `Traversable f`) версия `ditherRow`/`ditherImage` вместо специализированной под `Array` — сравнить производительность (Array.mapAccumL vs Data.Traversable.mapAccumL).
 - [ ] ST-based backend (кольцевой буфер, мутабельные массивы) — сравнить производительность с classic (FIFO/Lazy List) версией.
-- [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` is the production default `Fifo` backend — see `docs/benchmarks.md`.)
-- [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts.
+- [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` is the production default `Fifo` backend — see `docs/benchmarks-fifo.md`.)
+- [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts. (2026-09-25 baseline: `--levels 4` costs ×1.06 of a plain threshold, so low priority — `docs/benchmarks-dithering.md`.)
 
 ## Algorithm configuration
 - [ ] Ostromoukhov's Variable Error Diffusion 
@@ -43,8 +43,8 @@
       without parameters it should generate 256x256 that can be used for visual control, other images should be integrated
       to automation performatce tests.
       (done: `scripts/generate-images.mjs` — gray + truecolor composites, `--size`/`--sizes`/`WxH`; default changed to 512² by
-      decision, see `docs/test-images.md`. Benchmark automation on these images is still to come — `benchmark.sh` only
-      got the minimal switch to the new generator.)
+      decision, see `docs/test-images.md`. Benchmark automation on these images: `scripts/benchmark.mjs`
+      (`npm run bench`), results in `docs/benchmarks-dithering.md`.)
 - [x] `Test.Dither.Row`, `Test.Dither.Step` — migrated to
       `Test.Dither.RowSpec`/`Test.Dither.StepSpec` (property tests +
       shape invariants + ported regression examples + edge cases), old

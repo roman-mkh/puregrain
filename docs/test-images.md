@@ -281,4 +281,5 @@ One check covers the whole color composite: **`--palette websafe216` and
 full 6×6×6 cube, so its nearest color is exactly the nearest step in each
 channel separately, and vectorED and scalarED are the same computation (a
 property also tested in `Test.Dither.PaletteSpec`). The two differ only in
-cost: at 512² the palette search took roughly 1.5–2× as long.
+cost: the palette search takes roughly 1.1–1.4× as long (see
+[benchmarks-dithering.md](benchmarks-dithering.md)).

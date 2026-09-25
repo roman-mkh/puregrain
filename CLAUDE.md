@@ -6,7 +6,7 @@ captures architectural decisions and rationale from the design
 conversation that built this codebase, since a lot of it isn't visible
 from the code alone.
 
-@docs/benchmarks.md
+@docs/benchmarks-dithering.md
 @TODO.md
 
 ## Workspace layout (spago monorepo)
@@ -132,7 +132,7 @@ from the code alone.
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
 
-## Performance (see `docs/benchmarks.md` for full history + charts)
+## Performance (history + charts: `docs/benchmarks-fifo.md`; current baseline: `docs/benchmarks-dithering.md`)
 
 Root cause found and fixed: `Data.List.Lazy`'s `snoc` is O(n), so
 accumulating a row's worth of diffused error (`building`, up to
@@ -200,5 +200,8 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   generalization was deliberately deferred until color dithering was
   the actual next task, not done speculatively earlier.
 - Benchmark before optimizing, and document benchmark results with a
-  reproducible method + chart in `docs/benchmarks.md`, including
-  negative/regression results, not just wins.
+  reproducible method + chart, including negative/regression results,
+  not just wins. New runs go in `docs/benchmarks-dithering.md` as a
+  new dated section (`npm run bench`, chart via
+  `scripts/plot-benchmarks.mjs`); `docs/benchmarks-fifo.md` is the
+  finished record of the `Fifo` investigation and isn't extended.

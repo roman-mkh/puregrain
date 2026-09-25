@@ -1,4 +1,13 @@
-# PureGrain — Benchmarks
+# PureGrain — Benchmarks: choosing the `Fifo` backend
+
+> **A finished record, no longer updated.** It follows the investigation
+> that found the O(N³) scaling bug and fixed it with the `Seq` backend.
+> Current measurements live in
+> [benchmarks-dithering.md](benchmarks-dithering.md). The numbers below
+> aren't comparable with that doc. They were measured with the old JS CLI
+> (`scripts/dither-cli.mjs`, since replaced), on the old benchmark images
+> (gradient + circle), as whole-process wall-clock time including Node
+> startup and PNG decoding/encoding.
 
 This document tracks performance measurements of the dithering pipeline
 over time, as different backends and optimizations are introduced.
@@ -238,7 +247,7 @@ tree concatenation) fully resolves it.
   range.
 - Benchmark Atkinson/JJN (`maxDepth = 2`) to confirm the fix
   generalizes beyond Floyd–Steinberg.
-- Revisit `docs/benchmarks.md`'s secondary, non-asymptotic overheads
+- Revisit `docs/benchmarks-fifo.md`'s secondary, non-asymptotic overheads
   noted on 2026-09-09 (first/last-row edge waste) now that the
   dominant cost is gone — they may be worth a look now that they're a
   larger fraction of total time.

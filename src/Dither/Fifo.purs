@@ -20,7 +20,7 @@ import Data.Tuple (Tuple(..))
 -- | document its own actual complexity per method, and should aim for
 -- | the target given here wherever its underlying representation
 -- | allows it — falling short of the target is not a correctness bug,
--- | but it will show up directly in `docs/benchmarks.md`.
+-- | but it will show up directly in `docs/benchmarks-fifo.md`.
 class Fifo (f :: Type -> Type) where
 
   -- | `replicate n x` builds a `Fifo` containing exactly `n` copies of
@@ -50,7 +50,7 @@ class Fifo (f :: Type -> Type) where
   -- | cost on `Data.List.Lazy` — where `n` grows up to the image width
   -- | over the course of a row — is exactly what produced the
   -- | `O(width²)`-per-row, `O(width³)`-per-square-image blowup recorded
-  -- | in `docs/benchmarks.md`.
+  -- | in `docs/benchmarks-fifo.md`.
   -- |
   -- | Target complexity: O(1) amortized. An instance that can only
   -- | offer O(n) here reintroduces precisely the bug this class exists
@@ -107,7 +107,7 @@ class Fifo (f :: Type -> Type) where
 -- | are both O(n) here (a plain singly-linked list has no cheap way to
 -- | append at the tail) — an instance of `Fifo` using this should
 -- | reproduce the `O(N³)` scaling recorded for square images in
--- | `docs/benchmarks.md`, not improve on it. Kept around specifically
+-- | `docs/benchmarks-fifo.md`, not improve on it. Kept around specifically
 -- | to verify that the abstraction itself introduces no regression
 -- | relative to the pre-`class Fifo` code, and as a point of comparison
 -- | for `Seq Number` below.
