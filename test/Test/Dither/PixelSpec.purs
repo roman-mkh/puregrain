@@ -6,20 +6,17 @@ import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Int (toNumber)
-import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
-import Test.QuickCheck ((===))
+import Test.QuickCheck (Result(..), (===))
 import Test.QuickCheck.Gen (chooseInt)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Image (ditherImage)
-import Dither.Kernel (Kernel)
-import Dither.Pixel (class Scalable, Quantize, RGB(..), RGBA(..), evenRamp, mapChannels, nearestLevel, perChannel, runQuantize)
-import Test.Dither.Arbitrary (TestKernel(..), TestLevels(..), TestRGB(..), TestRGBImage(..), TestSample(..))
-import Test.Util (approxEqual)
+import Dither.Pixel (RGB(..), RGBA(..), evenRamp, mapChannels, nearestLevel, perChannel, runQuantize, threshold)
+import Test.Dither.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
+import Test.Util (approxEqual, dither, neutral, nonNeutralCount)
 
 -- | An independent reference for `nearestLevel`, written as the
 -- | specification itself rather than as another fold: "the FIRST level
@@ -47,13 +44,6 @@ blue (RGB p) = p.b
 -- | Projects one channel out of an RGB image, as a grayscale plane.
 plane :: (RGB -> Number) -> Array (Array RGB) -> Array (Array Number)
 plane channel = map (map channel)
-
--- | Runs the public top-level `ditherImage` on an in-memory image.
--- | Polymorphic in the pixel type, so the same helper dithers both a
--- | grayscale plane and a whole RGB image.
-dither :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
-dither kernel quantize image =
-  LL.toUnfoldable (ditherImage kernel quantize (LL.fromFoldable image))
 
 spec :: Spec Unit
 spec = describe "Dither.Pixel" do
@@ -110,6 +100,18 @@ spec = describe "Dither.Pixel" do
               , g: dither kernel q (plane green image)
               , b: dither kernel q (plane blue image)
               }
+
+    -- The exact checks from docs/test-images.md, stated for arbitrary
+    -- input (npm run check:cli runs them end to end on the test images).
+    -- Both also follow from the equivalence above; kept as direct
+    -- statements of the documented claims.
+    it "an image whose every channel value is a level comes back unchanged (zero error), for any levels and kernel" do
+      quickCheck \(TestKernel kernel) (TestLevelsRGBImage { levels, image }) ->
+        dither kernel (perChannel (nearestLevel levels)) image === image
+
+    it "a neutral image stays exactly neutral, for any levels and kernel" do
+      quickCheck \(TestKernel kernel) (TestLevels levels) (TestImage gray) ->
+        nonNeutralCount (dither kernel (perChannel (nearestLevel levels)) (map (map neutral) gray)) === 0
 
   describe "nearestLevel" do
     it "agrees with an independent reference (first level at minimum distance)" do
@@ -178,3 +180,31 @@ spec = describe "Dither.Pixel" do
           }
             ===
               { length: n, first: 0.0, last: 255.0, evenlySpaced: true }
+
+  describe "threshold" do
+    it "below the cut maps to 0, at or above it to 255" do
+      let q = runQuantize (threshold 128.0)
+      q 127.9 `shouldEqual` 0.0
+      q 128.0 `shouldEqual` 255.0
+      q 128.1 `shouldEqual` 255.0
+
+    it "is total for out-of-range input" do
+      let q = runQuantize (threshold 128.0)
+      q (-50.0) `shouldEqual` 0.0
+      q 400.0 `shouldEqual` 255.0
+
+    it "only ever outputs 0 or 255, for any cut and any input" do
+      quickCheck \(TestSample t) (TestSample x) ->
+        let out = runQuantize (threshold t) x
+        in (out == 0.0 || out == 255.0) === true
+
+    -- The relationship its doc comment claims: threshold 127.5 and the
+    -- 2-level ramp differ only exactly at the cut, where threshold says
+    -- 255 (not below the cut) and nearestLevel breaks the tie toward the
+    -- earlier level, 0.
+    it "agrees with nearestLevel (evenRamp 2) everywhere except exactly at 127.5" do
+      quickCheck \(TestSample x) ->
+        if x == 127.5 then Success
+        else runQuantize (threshold 127.5) x === runQuantize (nearestLevel (evenRamp 2)) x
+      runQuantize (threshold 127.5) 127.5 `shouldEqual` 255.0
+      runQuantize (nearestLevel (evenRamp 2)) 127.5 `shouldEqual` 0.0

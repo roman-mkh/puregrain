@@ -11,7 +11,7 @@ import Dither.Kernel (Kernel, Offset)
 import Dither.Pixel (RGB(..))
 import Dither.Util (safeRange)
 import Test.QuickCheck (class Arbitrary, arbitrary)
-import Test.QuickCheck.Gen (Gen, chooseInt, choose, vectorOf)
+import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, vectorOf)
 
 -- | Generates one Offset with dx in [dxLo, dxHi] and the given fixed dy.
 genOffset :: Int -> Int -> Int -> Gen Offset
@@ -139,3 +139,30 @@ newtype TestPalette = TestPalette (NonEmptyArray RGB)
 
 instance Arbitrary TestPalette where
   arbitrary = TestPalette <$> genPalette
+
+-- | A random palette, plus a rectangular image (width and height in
+-- | [1,6]) made only of that palette's colors — every pixel is already a
+-- | palette color, so dithering it with that palette has zero error.
+newtype TestPaletteImage = TestPaletteImage { palette :: NonEmptyArray RGB, image :: Array (Array RGB) }
+
+instance Arbitrary TestPaletteImage where
+  arbitrary = do
+    palette <- genPalette
+    width <- chooseInt 1 6
+    height <- chooseInt 1 6
+    image <- vectorOf height (vectorOf width (elements palette))
+    pure (TestPaletteImage { palette, image })
+
+-- | Random levels, plus a rectangular RGB image (width and height in
+-- | [1,6]) whose every channel value is one of those levels — the
+-- | scalarED counterpart of TestPaletteImage.
+newtype TestLevelsRGBImage = TestLevelsRGBImage { levels :: NonEmptyArray Number, image :: Array (Array RGB) }
+
+instance Arbitrary TestLevelsRGBImage where
+  arbitrary = do
+    levels <- genLevels
+    width <- chooseInt 1 6
+    height <- chooseInt 1 6
+    let level = elements levels
+    image <- vectorOf height (vectorOf width (RGB <$> ({ r: _, g: _, b: _ } <$> level <*> level <*> level)))
+    pure (TestLevelsRGBImage { levels, image })

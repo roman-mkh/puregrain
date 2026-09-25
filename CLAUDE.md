@@ -9,6 +9,32 @@ from the code alone.
 @docs/benchmarks.md
 @TODO.md
 
+## Workspace layout (spago monorepo)
+
+- **`puregrain`** (root `spago.yaml`, `src/`, `test/`) — the library.
+  Its dependencies are what every Pursuit user inherits, so they must
+  stay exact: keep `spago build --pedantic-packages` clean, keep
+  test-only packages under `test.dependencies`, and never add
+  Node-only or app packages here.
+- **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
+  `Puregrain.Cli.*`) — the command-line tool, a separate package that
+  depends on the library. The only JS in it is the pngjs wrapper
+  (`Puregrain.Cli.Png`). Run through `npm run dither-cli -- ...`: the
+  launcher `cli/bin/puregrain-cli.mjs` runs the compiled output
+  directly, with no rebuild per run (benchmark timings rely on this).
+  `npm run check:cli` runs its end-to-end exact checks. User docs:
+  `cli/README.md` (quick start, options, modes, examples). Keep
+  `Puregrain.Cli.Main` I/O-only: decisions go in `Puregrain.Cli.Pipeline`
+  (pure, tested in `cli/test/`). Kernel/palette CLI names are defined
+  once (`kernelName`/`paletteName`); tables and help text derive from
+  them. `spago test` runs both packages' suites (library, then CLI).
+- Module names must be unique across all packages in the workspace
+  (shared `output/`) — hence no `Main` modules; entry points get
+  qualified names like `Puregrain.Cli.Main`.
+- The future web GUI would be another sibling package. Splitting
+  packages into separate repos is possible later; the package
+  boundary is what matters.
+
 ## Core architecture
 
 - `Dither.Kernel` — a `Kernel` is `Array Offset` (`{dx, dy, weight}`),
@@ -31,12 +57,20 @@ from the code alone.
   (kernel weights are always `Number` regardless of channel count).
   `newtype Quantize a = Quantize (a -> a)`. The scalarED toolkit lives
   here too: `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances),
-  `perChannel`, `nearestLevel`, `evenRamp` (see scalarED/vectorED
-  below).
+  `perChannel`, `nearestLevel`, `evenRamp`, `threshold` (see
+  scalarED/vectorED below).
 - `Dither.Palette` — vectorED: `CompiledPalette` (a `NonEmptyArray RGB`
   packed with a swappable distance metric, currently only `distance2`),
-  `nearestColorFast`/`nearestColor`, and fixed presets (`websafe216`),
-  kept as plain `NonEmptyArray RGB` so the caller picks the metric.
+  `nearestColorFast`/`nearestColor`, and fixed presets (`blackWhite`,
+  `websafe216`), kept as plain `NonEmptyArray RGB` so the caller picks
+  the metric. Note `distance2` is plain RGB distance, not perceptual:
+  pure green is nearer to black than to white (pinned by a test).
+- No JS-facing layer exists right now, by decision: the old
+  `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
+  once the JS CLI, its only user, was replaced by `puregrain-cli`. The
+  npm interface gets designed fresh when the npm package work starts
+  — JS can't call typeclass-polymorphic functions (they need instance
+  dictionaries), so it will again be a monomorphic layer.
 - `Dither.State` / `Dither.Step` / `Dither.Row` / `Dither.Image` —
   diffusion core, polymorphic over `Fifo f` and `Ring a, Scalable a`.
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
@@ -120,6 +154,14 @@ checks every `Fifo` backend against the reference on random inputs —
 this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 `maxDepth ≥ 1`) did not.
+
+The documented exact checks (docs/test-images.md → "Exact checks") are
+deliberately tested twice, at two levels: as Spec properties over
+arbitrary kernels/palettes/images ("whole images" blocks in
+`PaletteSpec`/`PixelSpec`), and end to end through the real CLI on the
+generated images (`npm run check:cli`). Not redundant: Spec can't
+reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
+check:cli can't cover arbitrary inputs.
 
 Visual checks and benchmarks share one set of generated images:
 `scripts/generate-images.mjs` (drawing code only in

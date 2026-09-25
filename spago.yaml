@@ -2,19 +2,27 @@ package:
   name: puregrain
   dependencies:
     - arrays
-    - assert
-    - console
-    - effect
+    - foldable-traversable
+    - integers
+    - lazy
     - lists
+    - maybe
+    - partial
     - prelude
     - sequences
-    - spec
-    - spec-discovery
-    - spec-quickcheck
-    - strings
+    - tuples
+    - unfoldable
   test:
     main: Test.Main
-    dependencies: []
+    dependencies:
+      - assert
+      - console
+      - effect
+      - quickcheck
+      - spec
+      - spec-discovery
+      - spec-quickcheck
+      - st
 workspace:
   packageSet:
     registry: 81.1.0

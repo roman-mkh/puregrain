@@ -114,6 +114,13 @@ runQuantize (Quantize f) = f
 perChannel :: forall a. MapChannels a => Quantize Number -> Quantize a
 perChannel (Quantize q) = Quantize (mapChannels q)
 
+-- | The classic 1-bit quantizer: values below `t` become 0.0 (black),
+-- | values at or above it become 255.0 (white). `nearestLevel (evenRamp
+-- | 2)` is the same idea with the cut fixed halfway, at 127.5; this one
+-- | makes the cut point adjustable. Total for any input.
+threshold :: Number -> Quantize Number
+threshold t = Quantize \x -> if x < t then 0.0 else 255.0
+
 -- | Builds a Quantize that snaps a value to the nearest of the given
 -- | levels — the 1D sibling of `Dither.Palette.nearestColor`, with the
 -- | same shape and the same behavior: each level's distance is computed

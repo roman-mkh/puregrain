@@ -1,6 +1,15 @@
 # TODO / Future Improvements
 
 ## Architecture
+- [ ] **Blocker for publishing to the registry/Pursuit:** the library depends on `sequences` through a git fork
+      (`workspace.extraPackages` in `spago.yaml`: flip111/purescript-sequences, pinned commit). A registry package
+      can't depend on a git package — needs the fork's changes released to the registry (upstream or as a new
+      package), or `Seq` replaced/vendored. Decide at the public-interface step.
+      Option worth trying first: our own `Fifo` instance as an Okasaki two-list ("banker's") queue — no
+      dependency at all. `Seq` was chosen only for cheap concatenation in `replace`, but `replace skip` can be
+      `skip` dequeues + `skip` enqueues: O(skip), skip <= kernel reach (<= 3). Enqueue/dequeue are O(1)
+      amortized as long as each queue version is used once, which is how `step`/`ditherRow` use them.
+      Prove it as a 5th backend in `DiffusionMechanicsSpec`, then benchmark against `Seq`.
 - [ ] ditherImage: alias `Array Number` to PixelRow
 - [ ] ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)
 

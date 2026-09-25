@@ -6,20 +6,62 @@
         "core": {
           "dependencies": [
             "arrays",
-            "assert",
-            "console",
-            "effect",
+            "foldable-traversable",
+            "integers",
+            "lazy",
             "lists",
+            "maybe",
+            "partial",
             "prelude",
             "sequences",
-            "spec",
-            "spec-discovery",
-            "spec-quickcheck",
-            "strings"
+            "tuples",
+            "unfoldable"
           ]
         },
         "test": {
-          "dependencies": []
+          "dependencies": [
+            "assert",
+            "console",
+            "effect",
+            "quickcheck",
+            "spec",
+            "spec-discovery",
+            "spec-quickcheck",
+            "st"
+          ]
+        }
+      },
+      "puregrain-cli": {
+        "path": "cli",
+        "core": {
+          "dependencies": [
+            "arrays",
+            "console",
+            "control",
+            "effect",
+            "either",
+            "exceptions",
+            "integers",
+            "lists",
+            "maybe",
+            "node-process",
+            "numbers",
+            "optparse",
+            "prelude",
+            "puregrain",
+            "safe-coerce",
+            "strings",
+            "tuples"
+          ]
+        },
+        "test": {
+          "dependencies": [
+            "aff",
+            "exitcodes",
+            "foldable-traversable",
+            "spec",
+            "spec-node"
+          ]
         }
       }
     },

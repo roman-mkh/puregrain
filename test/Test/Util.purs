@@ -7,6 +7,9 @@ import Data.Foldable (and)
 import Data.Ord (abs)
 import Data.List.Lazy as LL
 
+import Dither.Image (ditherImage)
+import Dither.Kernel (Kernel)
+import Dither.Pixel (class Scalable, Quantize, RGB(..))
 import Dither.State (RowLayer)
 
 approxEqual :: Number -> Number -> Boolean
@@ -22,3 +25,22 @@ takeAsArray n fifo = LL.toUnfoldable (LL.take n fifo)
 
 takeLayersAsArray :: forall f a. Int -> LL.List (RowLayer f a) -> Array (RowLayer f a)
 takeLayersAsArray n dl = LL.toUnfoldable (LL.take n dl)
+
+-- | Runs the public top-level `ditherImage` on an in-memory image.
+-- | Polymorphic in the pixel type, so the same helper dithers a
+-- | grayscale image and an RGB one; `LL.toUnfoldable` forces the whole
+-- | lazy result.
+dither :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
+dither kernel quantize image =
+  LL.toUnfoldable (ditherImage kernel quantize (LL.fromFoldable image))
+
+-- | A neutral (gray) RGB pixel: the same value in every channel.
+neutral :: Number -> RGB
+neutral v = RGB { r: v, g: v, b: v }
+
+-- | How many pixels of an RGB image are not neutral. A count rather than
+-- | a Boolean, so a failing property reports how many pixels broke.
+nonNeutralCount :: Array (Array RGB) -> Int
+nonNeutralCount = Array.length <<< Array.filter (not <<< isNeutral) <<< Array.concat
+  where
+  isNeutral (RGB p) = p.r == p.g && p.g == p.b

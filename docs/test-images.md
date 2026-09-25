@@ -228,9 +228,10 @@ the left, a ~50/50 mix on the right.
 - **Why:** every pixel is already a palette color, so the quantization
   error is exactly zero.
 - **Look for:** with the web-safe palette the patches must come out
-  noise-free. That means vectorED `nearestColor websafe216`, or the
-  equivalent scalarED `perChannel (nearestLevel (evenRamp 6))`. Any dot is a
-  bug. With other palettes they just dither normally.
+  noise-free. That means vectorED `nearestColor websafe216` (CLI:
+  `--palette websafe216`), or the equivalent scalarED `perChannel
+  (nearestLevel (evenRamp 6))` (CLI: `--levels 6`). Any dot is a bug. With
+  other palettes they just dither normally.
 
 ### `color:sphere`
 - **What:** a red-orange sphere lit from the upper left, with a white
@@ -253,23 +254,31 @@ the left, a ~50/50 mix on the right.
 
 ## Exact checks
 
+`npm run check:cli` runs all of these through the real CLI (after
+`npm run build`) and fails on the first one that doesn't hold.
+
 Two tiles have exact, checkable expectations when rendered on their own
 (`--pattern <tile-id>`), where no neighbouring region sends them error:
 
-- **`color:palette-exact`, with the web-safe palette:** output equals input
-  byte for byte, with any kernel. Every pixel is a palette color, so the
-  error is zero everywhere.
-- **`color:channel-ramps`, with scalarED (`perChannel`) or vectorED
-  web-safe:** every pixel of the gray stripe stays exactly neutral
-  (`r = g = b`). It's the first stripe, so all three channels start with
-  zero error and identical input, and therefore produce identical output.
+- **`color:palette-exact`, with the web-safe palette** (`--palette
+  websafe216` or `--levels 6`): output equals input byte for byte, with any
+  kernel. Every pixel is a palette color, so the error is zero everywhere.
+- **`color:channel-ramps`, with scalarED (`--levels N`) or vectorED
+  web-safe (`--palette websafe216`):** every pixel of the gray stripe stays
+  exactly neutral (`r = g = b`). It's the first stripe, so all three
+  channels start with zero error and identical input, and therefore produce
+  identical output.
 
 Neither holds in the composite. Neighbouring regions send in error, and
 below colored content the three channels enter a gray area with different
 error. Their dot patterns then fall out of step, so even a neutral area
-shows colored dots. That's a property of dithering each channel
+shows colored dots: with `--levels 4`, 47% of the composite's gray-stripe
+pixels came out colored. That's a property of dithering each channel
 independently, not a bug.
 
-The dither CLI currently only does grayscale thresholding. Options for
-scalarED levels and vectorED palettes are planned, which is why these checks
-are stated in terms of the library's quantizers for now.
+One check covers the whole color composite: **`--palette websafe216` and
+`--levels 6` must produce byte-identical files.** The web-safe palette is a
+full 6×6×6 cube, so its nearest color is exactly the nearest step in each
+channel separately, and vectorED and scalarED are the same computation (a
+property also tested in `Test.Dither.PaletteSpec`). The two differ only in
+cost: at 512² the palette search took roughly 1.5–2× as long.

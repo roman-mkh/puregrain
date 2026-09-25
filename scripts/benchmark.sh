@@ -4,5 +4,5 @@ node ${scriptDir}/generate-images.mjs --pattern gray --sizes 64,128,256,512,1024
 echo "images has been generated. starting benchmark dithering"
 for s in 64 128 256 512 1024; do
   echo "=== size $s ==="
-  time node ${scriptDir}/dither-cli.mjs ${scriptDir}/../samples/bench/gray-$s.png /tmp/out-$s.png floyd-steinberg
+  time node ${scriptDir}/../cli/bin/puregrain-cli.mjs ${scriptDir}/../samples/bench/gray-$s.png ${scriptDir}/../samples/bench/out-$s.png --kernel floyd-steinberg
 done

@@ -1,0 +1,28 @@
+package:
+  name: puregrain-cli
+  dependencies:
+    - arrays
+    - console
+    - control
+    - effect
+    - either
+    - exceptions
+    - integers
+    - lists
+    - maybe
+    - node-process
+    - numbers
+    - optparse
+    - prelude
+    - puregrain
+    - safe-coerce
+    - strings
+    - tuples
+  test:
+    main: Test.Puregrain.Cli.Main
+    dependencies:
+      - aff
+      - exitcodes
+      - foldable-traversable
+      - spec
+      - spec-node

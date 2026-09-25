@@ -64,6 +64,13 @@ nearestColorFast (CompiledPalette p) pixel =
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
 nearestColor palette = Quantize (nearestColorFast (compilePalette distance2 palette))
 
+-- | The two-color palette, black then white. With `nearestColor` it
+-- | dithers a color image straight down to pure black and white
+-- | (vectorED), as opposed to converting it to gray and thresholding a
+-- | single channel. A plain palette, like `websafe216`.
+blackWhite :: NonEmptyArray RGB
+blackWhite = NEA.cons' (RGB { r: 0.0, g: 0.0, b: 0.0 }) [ RGB { r: 255.0, g: 255.0, b: 255.0 } ]
+
 -- | The 216-color "web-safe" palette: every combination of the six
 -- | channel values 0, 51, 102, 153, 204, 255 (a 6×6×6 cube). Computed
 -- | from those six steps rather than written out as 216 literals — the
