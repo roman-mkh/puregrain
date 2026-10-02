@@ -33,7 +33,7 @@ derive instance Generic KernelName _
 instance Show KernelName where
   show = genericShow
 
-data PaletteName = BlackWhite | Websafe216
+data PaletteName = BlackWhite | Websafe216 | Cga16 | Ansi16 | Ansi256 | C64 | ZxSpectrum
 
 derive instance Eq PaletteName
 derive instance Generic PaletteName _
@@ -68,7 +68,7 @@ allKernels :: Array KernelName
 allKernels = [ FloydSteinberg, Atkinson, JarvisJudiceNinke ]
 
 allPalettes :: Array PaletteName
-allPalettes = [ BlackWhite, Websafe216 ]
+allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
 
 kernels :: Array (Tuple String KernelName)
 kernels = map (\k -> Tuple (kernelName k) k) allKernels
@@ -92,6 +92,11 @@ paletteName :: PaletteName -> String
 paletteName = case _ of
   BlackWhite -> "bw"
   Websafe216 -> "websafe216"
+  Cga16 -> "cga16"
+  Ansi16 -> "ansi16"
+  Ansi256 -> "ansi256"
+  C64 -> "c64"
+  ZxSpectrum -> "zx-spectrum"
 
 describeQuantizer :: QuantizerChoice -> String
 describeQuantizer = case _ of

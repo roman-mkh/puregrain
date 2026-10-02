@@ -53,11 +53,27 @@ function fail(message) {
 const run = (cmd, args) => execFileSync(cmd, args, { encoding: 'utf8' }).trim();
 const tryRun = (cmd, args) => { try { return run(cmd, args); } catch { return 'unknown'; } };
 
+// Mains or battery: on a laptop, power management changes the CPU's
+// clock speed, so runs are only comparable on the same power source.
+// Linux lists power supplies under /sys/class/power_supply (visible even
+// inside the Hyper-V VM this was developed in).
+function powerSource() {
+  const dir = '/sys/class/power_supply';
+  const read = (p) => { try { return fs.readFileSync(p, 'utf8').trim(); } catch { return ''; } };
+  let supplies;
+  try { supplies = fs.readdirSync(dir); } catch { return 'unknown'; }
+  const typed = supplies.map((s) => ({ type: read(`${dir}/${s}/type`), online: read(`${dir}/${s}/online`), status: read(`${dir}/${s}/status`) }));
+  if (typed.some((s) => s.type === 'Mains' && s.online === '1')) return 'mains (AC)';
+  const battery = typed.find((s) => s.type === 'Battery');
+  return battery ? `battery${battery.status ? ` (${battery.status.toLowerCase()})` : ''}` : 'unknown';
+}
+
 function environment() {
   const cpus = os.cpus();
   const dirty = tryRun('git', ['-C', root, 'status', '--porcelain']) !== '';
   return {
     date: new Date().toISOString().slice(0, 10),
+    power: powerSource(),
     node: process.version,
     cpu: `${cpus[0]?.model ?? 'unknown'} (${cpus.length} logical cores)`,
     os: `${os.type()} ${os.release()} (${os.arch()})`,
@@ -119,6 +135,7 @@ function report(env, configs, sizes, runs, suite) {
   out.push('**Environment:**', '');
   out.push(`- Date: ${env.date}; commit ${env.commit}`);
   out.push(`- CPU: ${env.cpu}; memory: ${env.memory}`);
+  out.push(`- Power: ${env.power ?? 'not recorded'}`);
   out.push(`- OS: ${env.os}`);
   out.push(`- Node ${env.node}; purs ${env.purs}; spago ${env.spago}`);
   out.push(`- ${runs} runs per configuration, interleaved; median reported`);

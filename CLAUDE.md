@@ -35,6 +35,18 @@ from the code alone.
   packages into separate repos is possible later; the package
   boundary is what matters.
 
+## Documentation map
+
+- `README.md` — lean entry point by decision: what it is, status,
+  features (each linking to its doc), layout, getting started, doc
+  index. No API usage examples until the public-interface step (the
+  `Dither.*` → `Puregrain.*` rename would invalidate them).
+- Reference docs live in `docs/` and are the single source of truth:
+  `palettes.md`, `test-images.md`, `benchmarks-dithering.md` (current),
+  `benchmarks-fifo.md` (finished record). READMEs summarize and link
+  rather than copy, so tables don't drift apart.
+- `cli/README.md` — the CLI's user docs.
+
 ## Core architecture
 
 - `Dither.Kernel` — a `Kernel` is `Array Offset` (`{dx, dy, weight}`),
@@ -61,10 +73,24 @@ from the code alone.
   scalarED/vectorED below).
 - `Dither.Palette` — vectorED: `CompiledPalette` (a `NonEmptyArray RGB`
   packed with a swappable distance metric, currently only `distance2`),
-  `nearestColorFast`/`nearestColor`, and fixed presets (`blackWhite`,
-  `websafe216`), kept as plain `NonEmptyArray RGB` so the caller picks
-  the metric. Note `distance2` is plain RGB distance, not perceptual:
-  pure green is nearer to black than to white (pinned by a test).
+  `nearestColorFast`/`nearestColor`. Note `distance2` is plain RGB
+  distance, not perceptual: pure green is nearer to black than to white
+  (pinned by a test).
+- `Dither.Palette.Presets` — fixed palettes as plain `NonEmptyArray RGB`
+  (the caller picks the metric): `blackWhite`, `websafe216`, `cga16`
+  (= EGA/VGA default; the Linux console's values, in ANSI order —
+  verified in the kernel's vt.c; Wikipedia's terminal table has a
+  display-adjusted "CGA/EGA/VGA" column, not these digital values),
+  `ansi16`/`ansi256` (xterm's values — plain presets, deliberately no
+  terminal-scheme parameter: the console/VGA colors are already
+  `cga16`), `c64` (Pepto), `zxSpectrum`
+  (normal = 0xD8). Historical/terminal palettes have no official RGB, so
+  every preset cites its source in a comment — values were checked
+  against those sources, not recalled. Per-pixel only; block-constrained
+  looks (ZX 8×8 attribute cells, pseudo-graphics) are a TODO.md item.
+  User-facing reference: `docs/palettes.md` — keep it in step with the
+  module (a new preset means a new row there and in cli/README.md's
+  short table).
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The

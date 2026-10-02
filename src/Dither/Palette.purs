@@ -64,30 +64,5 @@ nearestColorFast (CompiledPalette p) pixel =
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
 nearestColor palette = Quantize (nearestColorFast (compilePalette distance2 palette))
 
--- | The two-color palette, black then white. With `nearestColor` it
--- | dithers a color image straight down to pure black and white
--- | (vectorED), as opposed to converting it to gray and thresholding a
--- | single channel. A plain palette, like `websafe216`.
-blackWhite :: NonEmptyArray RGB
-blackWhite = NEA.cons' (RGB { r: 0.0, g: 0.0, b: 0.0 }) [ RGB { r: 255.0, g: 255.0, b: 255.0 } ]
-
--- | The 216-color "web-safe" palette: every combination of the six
--- | channel values 0, 51, 102, 153, 204, 255 (a 6×6×6 cube). Computed
--- | from those six steps rather than written out as 216 literals — the
--- | formula is the definition, and it's checkable at a glance.
--- |
--- | Ordered with `r` varying slowest and `b` fastest, so it starts at
--- | black and ends at white. That order matters for one thing only:
--- | `nearestColorFast` breaks an exact tie in favor of the earlier
--- | entry.
--- |
--- | A plain palette, not a `CompiledPalette`: pick the distance metric
--- | yourself, e.g. `compilePalette distance2 websafe216`.
-websafe216 :: NonEmptyArray RGB
-websafe216 = do
-  r <- steps
-  g <- steps
-  b <- steps
-  pure (RGB { r, g, b })
-  where
-  steps = NEA.cons' 0.0 [ 51.0, 102.0, 153.0, 204.0, 255.0 ]
+-- Ready-made palettes (black/white, web-safe, CGA, ANSI, C64, ZX Spectrum)
+-- live in `Dither.Palette.Presets`.

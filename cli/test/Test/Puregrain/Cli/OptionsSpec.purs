@@ -62,9 +62,9 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       for_ allPalettes \p ->
         parse (files <> [ "--palette", paletteName p ]) `shouldEqual` Right (defaults { quantizer = Palette p })
 
-    it "the documented names are exactly floyd-steinberg, atkinson, jjn and bw, websafe216" do
+    it "the documented kernel and palette names are exactly the ones in the README" do
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn" ]
-      map paletteName allPalettes `shouldEqual` [ "bw", "websafe216" ]
+      map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx-spectrum" ]
 
     it "--threshold takes a number, --levels a whole number" do
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
@@ -93,7 +93,8 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
 
     it "an unknown kernel or palette, listing the valid names" do
       parse (files <> [ "--kernel", "sierra" ]) `shouldSatisfy` failsWith "use one of: floyd-steinberg, atkinson, jjn"
-      parse (files <> [ "--palette", "cga16" ]) `shouldSatisfy` failsWith "use one of: bw, websafe216"
+      parse (files <> [ "--palette", "nes" ]) `shouldSatisfy`
+        failsWith "use one of: bw, websafe216, cga16, ansi16, ansi256, c64, zx-spectrum"
 
     it "a threshold that isn't a number" do
       parse (files <> [ "--threshold", "half" ]) `shouldSatisfy` isLeft

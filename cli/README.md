@@ -52,7 +52,7 @@ puregrain-cli INPUT.png OUTPUT.png [-k|--kernel NAME]
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn` | `floyd-steinberg` | The error-diffusion kernel. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
-| `--palette` | `bw`, `websafe216` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
+| `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx-spectrum` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
@@ -97,21 +97,29 @@ measurements are in [the benchmarks](../docs/benchmarks-dithering.md).
 
 ## Palettes
 
-- **`bw`** is black and white. Unlike `--threshold` it works on the full
-  color pixel: each pixel becomes whichever of black and white is nearer
-  in RGB. That's not the same as brightness. Pure green `(0, 255, 0)`
-  looks bright, yet it's nearer to black, so saturated colors can come out
-  darker than expected. When brightness is what matters, use the default
-  threshold mode or add `--gray`. On a gray input, `bw` makes the same
-  decisions as `--threshold 127.5` (apart from exact ties), but writes an
-  RGB PNG.
-- **`websafe216`** is the 216 "web-safe" colors: every combination of 0,
-  51, 102, 153, 204 and 255 in each channel. Because it's a complete grid,
-  the nearest color is exactly the nearest value in each channel
-  separately, so `--palette websafe216` produces a **byte-identical** file
-  to `--levels 6`. `--levels 6` is a little faster, since it looks up 3
-  channels instead of searching 216 colors: the search takes about
-  1.1–1.4× as long ([benchmarks](../docs/benchmarks-dithering.md)).
+| Name | Colors | What it is |
+|---|---:|---|
+| `bw` | 2 | Black and white |
+| `websafe216` | 216 | The web-safe colors |
+| `cga16` | 16 | The IBM PC palette (CGA, EGA/VGA default, DOS/Linux console) |
+| `ansi16` | 16 | The 16 ANSI terminal colors, as xterm's defaults |
+| `ansi256` | 256 | xterm's 256 colors |
+| `c64` | 16 | Commodore 64 |
+| `zx-spectrum` | 15 | ZX Spectrum, normal and bright |
+
+Where each palette's values come from, and notes on each, are in
+[docs/palettes.md](../docs/palettes.md). Three things matter when using
+the CLI:
+
+- **`bw` goes by RGB distance, not brightness.** Pure green comes out
+  black. To go by brightness, use the default `--threshold` mode or add
+  `--gray`.
+- **`--palette websafe216` and `--levels 6` produce byte-identical
+  files,** and `--levels 6` is a little faster. The same holds for EGA's
+  full 64 colors and `--levels 4`.
+- **`zx-spectrum` gives each pixel a Spectrum color, not the real
+  Spectrum look.** The machine allowed only 2 colors per 8×8 block, which
+  this tool doesn't imitate.
 
 ## Examples
 
@@ -142,8 +150,8 @@ where the first dots appear in very dark or very light areas.
 # 2 levels per channel: the 8 corners of the RGB cube
 npm run dither-cli -- samples/color-512.png samples/c8.png --levels 2
 
-# 4 levels per channel: up to 64 colors
-npm run dither-cli -- samples/color-512.png samples/c64.png --levels 4
+# 4 levels per channel: up to 64 colors (also EGA's full palette)
+npm run dither-cli -- samples/color-512.png samples/levels4.png --levels 4
 
 # the web-safe palette (same result as --levels 6)
 npm run dither-cli -- samples/color-512.png samples/websafe.png --palette websafe216
@@ -153,6 +161,20 @@ npm run dither-cli -- samples/color-512.png samples/bw-color.png --palette bw
 # ... versus by brightness
 npm run dither-cli -- samples/color-512.png samples/bw-gray.png
 ```
+
+### Retro and terminal palettes
+
+```bash
+npm run dither-cli -- samples/color-512.png samples/cga.png --palette cga16
+npm run dither-cli -- samples/color-512.png samples/c64.png --palette c64
+npm run dither-cli -- samples/color-512.png samples/zx.png  --palette zx-spectrum
+
+# xterm's 256 colors, e.g. as the basis for terminal art
+npm run dither-cli -- samples/color-512.png samples/xterm.png --palette ansi256
+```
+
+A different kernel changes the character of the result as much as the
+palette does: try `--kernel atkinson` with `c64` or `zx-spectrum`.
 
 ### Shortcuts
 

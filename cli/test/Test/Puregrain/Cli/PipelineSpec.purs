@@ -7,7 +7,8 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Ord (abs)
 import Dither.Kernel (atkinson, floydSteinberg, jarvisJudiceNinke)
-import Dither.Palette (blackWhite, nearestColor, websafe216)
+import Dither.Palette (nearestColor)
+import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
 import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
 import Effect.Aff (Aff)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
@@ -75,6 +76,11 @@ spec = describe "Puregrain.Cli.Pipeline" do
     it "each palette name maps to the library's palette" do
       paletteOf BlackWhite `shouldEqual` blackWhite
       paletteOf Websafe216 `shouldEqual` websafe216
+      paletteOf Cga16 `shouldEqual` cga16
+      paletteOf Ansi16 `shouldEqual` ansi16
+      paletteOf Ansi256 `shouldEqual` ansi256
+      paletteOf C64 `shouldEqual` c64
+      paletteOf ZxSpectrum `shouldEqual` zxSpectrum
 
   describe "luma (gray conversion)" do
     -- Regression test: with the Rec. 601 weights applied to r = g = b = v,

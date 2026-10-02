@@ -15,7 +15,8 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Dither.Kernel (Kernel, atkinson, floydSteinberg, jarvisJudiceNinke)
-import Dither.Palette (blackWhite, nearestColor, websafe216)
+import Dither.Palette (nearestColor)
+import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
 import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, threshold)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 
@@ -45,6 +46,11 @@ paletteOf :: PaletteName -> NonEmptyArray RGB
 paletteOf = case _ of
   BlackWhite -> blackWhite
   Websafe216 -> websafe216
+  Cga16 -> cga16
+  Ansi16 -> ansi16
+  Ansi256 -> ansi256
+  C64 -> c64
+  ZxSpectrum -> zxSpectrum
 
 isNeutral :: RGB -> Boolean
 isNeutral (RGB p) = p.r == p.g && p.g == p.b

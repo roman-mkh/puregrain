@@ -72,6 +72,12 @@
       representable in this architecture today but isn't real print-
       quality CMYK output on its own (no per-channel screen angles, no
       moiré avoidance). Needs a concrete print/halftone target to justify.
+- [ ] Block-constrained output — a different kind of algorithm, out of scope for now. The real ZX Spectrum look
+      (2 colors per 8×8 cell), C64 multicolor modes, and pseudo-graphics (ANSI/Unicode block characters,
+      PETSCII, teletext mosaics) all restrict each *cell* rather than each pixel. The per-pixel `Quantize`
+      can't see a cell, so it needs a cell step first — choose each cell's colors (or its character plus
+      foreground/background), then dither inside the cell with that small palette (reusable:
+      `nearestColor` on a 2-color palette). The per-pixel presets (`zxSpectrum`, `c64`) exist today.
 - [ ] `distance2Lab` — CIELAB-space distance metric for `Dither.Palette`,
       as a second argument to plug into `compilePalette`/
       `compilePaletteFromArray` alongside `distance2` (that's exactly what

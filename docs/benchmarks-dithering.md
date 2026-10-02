@@ -41,6 +41,9 @@ see [Noise](#noise) for why.
   largest sizes, as a geometric mean of two steps. A single step can be
   thrown off by one noisy median. ×4 per doubling means time proportional
   to the pixel count.
+- **Power source:** on a laptop, battery power management changes the
+  CPU's clock speed, so compare only runs made on the same power source.
+  The script records it (mains or battery) in the Environment block.
 - **Inputs:** the generated composites from
   [test-images.md](test-images.md), the gray composite for the gray modes
   and the color composite for the RGB modes. The content doesn't affect
@@ -66,6 +69,9 @@ images.
   change to the library or CLI code)
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
   virtual machine; memory: 34 GiB
+- Power: **battery** (the laptop was unplugged; noted afterwards, since
+  the script didn't record the power source yet). Compare later runs
+  with this one only if they also ran on battery.
 - OS: Linux 6.8.0-1065-azure (x64)
 - Node v22.14.0; purs 0.15.16; spago 1.0.4
 - 5 runs per configuration, interleaved; median reported
@@ -156,9 +162,12 @@ Floyd–Steinberg at 512² ran 2,546–2,706 ms, and JJN at 1024²
 35,059–36,330 ms. The spread comes from occasional runs 20–40% **faster**
 than the rest, never slower, such as 404 ms among runs of 665–755 ms.
 
-A possible explanation, not verified: the machine is a Hyper-V virtual
-machine on a hybrid CPU with both performance and efficiency cores, so a
-virtual core may sometimes run on a faster physical core than usual.
+Two possible explanations, neither verified. The run was on **battery**,
+where the laptop's power management changes clock speeds from moment to
+moment. And the machine is a Hyper-V virtual machine on a hybrid CPU with
+both performance and efficiency cores, so a virtual core may sometimes run
+on a faster physical core than usual. A rerun on mains power would show
+how much of the spread the battery accounts for.
 Medians of 5 absorb a single outlier, but a single size step can still be
 off. websafe216's ×4.64 and then ×3.38 average to ×3.96 per doubling.
 Differences under about 20% between two configurations need more runs, or
@@ -172,8 +181,9 @@ a quieter machine, before they mean anything.
   section here.
 - **Confirm linear scaling at 2048² and 4096²,** still open from
   benchmarks-fifo.md. One mode is enough.
-- **Reduce the noise** (bare metal, or a core reserved for the benchmark)
-  before relying on differences under 20%.
+- **Reduce the noise** before relying on differences under 20%: first a
+  rerun on mains power, then if needed bare metal or a core reserved for
+  the benchmark.
 - **The `nearestLevel` binary search** (`TODO(benchmark)` in
   `Dither.Pixel`) looks low priority now: `--levels 4` costs only ×1.06 of
   a threshold. It could still matter at level counts far above 4.

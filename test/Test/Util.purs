@@ -3,6 +3,8 @@ module Test.Util where
 import Prelude
 
 import Data.Array as Array
+import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array.NonEmpty as NEA
 import Data.Foldable (and)
 import Data.Ord (abs)
 import Data.List.Lazy as LL
@@ -33,6 +35,11 @@ takeLayersAsArray n dl = LL.toUnfoldable (LL.take n dl)
 dither :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
 dither kernel quantize image =
   LL.toUnfoldable (ditherImage kernel quantize (LL.fromFoldable image))
+
+-- | The six channel values the web-safe cube is built from, written out
+-- | independently of `websafe216` (tests check the palette against it).
+websafeSteps :: NonEmptyArray Number
+websafeSteps = NEA.cons' 0.0 [ 51.0, 102.0, 153.0, 204.0, 255.0 ]
 
 -- | A neutral (gray) RGB pixel: the same value in every channel.
 neutral :: Number -> RGB
