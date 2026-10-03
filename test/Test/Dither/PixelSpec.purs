@@ -8,15 +8,15 @@ import Data.Array.NonEmpty as NEA
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
-import Test.QuickCheck (Result(..), (===))
-import Test.QuickCheck.Gen (chooseInt)
+import Test.QuickCheck (Result(..), arbitrary, (===))
+import Test.QuickCheck.Gen (choose, chooseInt)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Pixel (RGB(..), RGBA(..), evenRamp, mapChannels, nearestLevel, perChannel, runQuantize, threshold)
+import Dither.Pixel (Quantize(..), RGB(..), RGBA(..), evenRamp, mapChannels, nearestLevel, perChannel, runQuantize, threshold)
 import Test.Dither.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
-import Test.Util (approxEqual, dither, neutral, nonNeutralCount)
+import Test.Util (approxEqual, dither, neutral, nonNeutralCount, runAtOrigin)
 
 -- | An independent reference for `nearestLevel`, written as the
 -- | specification itself rather than as another fold: "the FIRST level
@@ -71,16 +71,35 @@ spec = describe "Dither.Pixel" do
     it "Number: a single-channel pixel is its own only channel" do
       mapChannels (_ * 10.0) 4.0 `shouldEqual` 40.0
 
+  describe "Context (the pixel's position)" do
+    -- What makes runAtOrigin (used throughout these tests) sound.
+    it "position-blind quantizers give the same answer at every position" do
+      quickCheck do
+        x <- chooseInt 0 4096
+        y <- chooseInt 0 4096
+        v <- choose (-128.0) 383.0
+        t <- choose 0.0 255.0
+        TestLevels levels <- arbitrary
+        let sameEverywhere q = runQuantize q { x, y } v == runAtOrigin q v
+        pure (Array.all sameEverywhere [ threshold t, nearestLevel levels ] === true)
+
+    -- A quantizer that ignores the value and returns its position as
+    -- x + 1000·y, making the position it was given directly visible.
+    it "perChannel hands every channel the same position" do
+      let revealPosition = Quantize \c _ -> toNumber (c.x + 1000 * c.y)
+      runQuantize (perChannel revealPosition) { x: 3, y: 5 } (RGB { r: 0.0, g: 0.0, b: 0.0 })
+        `shouldEqual` RGB { r: 5003.0, g: 5003.0, b: 5003.0 }
+
   describe "perChannel" do
     it "on Number, is the scalar quantizer itself, unchanged" do
       quickCheck \(TestLevels levels) (TestSample x) ->
         let q = nearestLevel levels
-        in runQuantize (perChannel q) x === runQuantize q x
+        in runAtOrigin (perChannel q) x === runAtOrigin q x
 
     it "on RGB, applies the scalar quantizer to each channel independently" do
       quickCheck \(TestLevels levels) (TestRGB p@(RGB c)) ->
-        let q = runQuantize (nearestLevel levels)
-        in runQuantize (perChannel (nearestLevel levels)) p
+        let q = runAtOrigin (nearestLevel levels)
+        in runAtOrigin (perChannel (nearestLevel levels)) p
              === RGB { r: q c.r, g: q c.g, b: q c.b }
 
     -- The claim the whole scalarED design rests on: because RGB's
@@ -116,18 +135,18 @@ spec = describe "Dither.Pixel" do
   describe "nearestLevel" do
     it "agrees with an independent reference (first level at minimum distance)" do
       quickCheck \(TestLevels levels) (TestSample x) ->
-        runQuantize (nearestLevel levels) x === referenceNearestLevel levels x
+        runAtOrigin (nearestLevel levels) x === referenceNearestLevel levels x
 
     it "always returns one of the given levels" do
       quickCheck \(TestLevels levels) (TestSample x) ->
-        NEA.elem (runQuantize (nearestLevel levels) x) levels === true
+        NEA.elem (runAtOrigin (nearestLevel levels) x) levels === true
 
     it "is total for out-of-range input: below the lowest level snaps to it, above the highest snaps to that" do
       quickCheck \(TestLevels levels) (TestSample x) ->
         let
           lo = NEA.foldl1 min levels
           hi = NEA.foldl1 max levels
-          result = runQuantize (nearestLevel levels) x
+          result = runAtOrigin (nearestLevel levels) x
         in
           if x <= lo then result === lo
           else if x >= hi then result === hi
@@ -135,23 +154,23 @@ spec = describe "Dither.Pixel" do
 
     it "a single-level set maps every input to that level" do
       quickCheck \(TestSample x) ->
-        runQuantize (nearestLevel (NEA.singleton 42.0)) x === 42.0
+        runAtOrigin (nearestLevel (NEA.singleton 42.0)) x === 42.0
 
     it "an input exactly equal to a level maps to that level" do
-      let q = runQuantize (nearestLevel (evenRamp 4))
+      let q = runAtOrigin (nearestLevel (evenRamp 4))
       q 0.0 `shouldEqual` 0.0
       q 85.0 `shouldEqual` 85.0
       q 170.0 `shouldEqual` 170.0
       q 255.0 `shouldEqual` 255.0
 
     it "breaks an exact tie in favor of the earlier level" do
-      runQuantize (nearestLevel (NEA.cons' 0.0 [ 255.0 ])) 127.5 `shouldEqual` 0.0
-      runQuantize (nearestLevel (NEA.cons' 255.0 [ 0.0 ])) 127.5 `shouldEqual` 255.0
+      runAtOrigin (nearestLevel (NEA.cons' 0.0 [ 255.0 ])) 127.5 `shouldEqual` 0.0
+      runAtOrigin (nearestLevel (NEA.cons' 255.0 [ 0.0 ])) 127.5 `shouldEqual` 255.0
 
     it "does not depend on the order levels are given in (away from ties)" do
       quickCheck \(TestLevels levels) (TestSample x) ->
-        runQuantize (nearestLevel (NEA.reverse levels)) x
-          === runQuantize (nearestLevel levels) x
+        runAtOrigin (nearestLevel (NEA.reverse levels)) x
+          === runAtOrigin (nearestLevel levels) x
 
   describe "evenRamp" do
     it "matches hand-computed ramps" do
@@ -183,19 +202,19 @@ spec = describe "Dither.Pixel" do
 
   describe "threshold" do
     it "below the cut maps to 0, at or above it to 255" do
-      let q = runQuantize (threshold 128.0)
+      let q = runAtOrigin (threshold 128.0)
       q 127.9 `shouldEqual` 0.0
       q 128.0 `shouldEqual` 255.0
       q 128.1 `shouldEqual` 255.0
 
     it "is total for out-of-range input" do
-      let q = runQuantize (threshold 128.0)
+      let q = runAtOrigin (threshold 128.0)
       q (-50.0) `shouldEqual` 0.0
       q 400.0 `shouldEqual` 255.0
 
     it "only ever outputs 0 or 255, for any cut and any input" do
       quickCheck \(TestSample t) (TestSample x) ->
-        let out = runQuantize (threshold t) x
+        let out = runAtOrigin (threshold t) x
         in (out == 0.0 || out == 255.0) === true
 
     -- The relationship its doc comment claims: threshold 127.5 and the
@@ -205,6 +224,6 @@ spec = describe "Dither.Pixel" do
     it "agrees with nearestLevel (evenRamp 2) everywhere except exactly at 127.5" do
       quickCheck \(TestSample x) ->
         if x == 127.5 then Success
-        else runQuantize (threshold 127.5) x === runQuantize (nearestLevel (evenRamp 2)) x
-      runQuantize (threshold 127.5) 127.5 `shouldEqual` 255.0
-      runQuantize (nearestLevel (evenRamp 2)) 127.5 `shouldEqual` 0.0
+        else runAtOrigin (threshold 127.5) x === runAtOrigin (nearestLevel (evenRamp 2)) x
+      runAtOrigin (threshold 127.5) 127.5 `shouldEqual` 255.0
+      runAtOrigin (nearestLevel (evenRamp 2)) 127.5 `shouldEqual` 0.0

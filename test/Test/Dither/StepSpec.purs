@@ -11,7 +11,7 @@ import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Dither.Kernel (CompiledKernel, Kernel, compileKernel, floydSteinberg)
-import Dither.Pixel (Quantize(..))
+import Dither.Pixel (quantize)
 import Dither.Row (initBuilding)
 import Dither.State (RowLayer, RowState, freshLayer)
 import Dither.Step (step)
@@ -39,6 +39,8 @@ freshRowState1 compiled =
   { current: freshLayer compiled.currentOffsets
   , matured: map (const ([] :: RowLayer LL.List Number)) compiled.futureLayers
   , building: initBuilding compiled
+  , x: 0
+  , y: 0
   }
 
 -- | current's shape (fifo count) always matches compiled.currentOffsets
@@ -62,7 +64,7 @@ foldStepsCheckingShape compiled row =
   snd (Array.foldl go (Tuple (freshRowState1 compiled) true) row)
   where
   go (Tuple rs okSoFar) px =
-    let Tuple rs' _q = step compiled (Quantize quantizeThreshold) rs px
+    let Tuple rs' _q = step compiled (quantize quantizeThreshold) rs px
     in Tuple rs' (okSoFar && currentShapeOk compiled rs' && buildingShapeOk compiled rs')
 
 spec :: Spec Unit
@@ -73,13 +75,23 @@ spec = describe "Dither.Step" do
       quickCheck \(TestKernel kernel) (TestRow row) ->
         foldStepsCheckingShape (compileKernel kernel) row === true
 
+    it "advances x by one per pixel and keeps the row's y" do
+      quickCheck \(TestKernel kernel) (TestRow row) ->
+        let
+          compiled = compileKernel kernel
+          final = Array.foldl
+            (\rs px -> fst (step compiled (quantize quantizeThreshold) rs px))
+            ((freshRowState1 compiled) { y = 7 })
+            row
+        in { x: final.x, y: final.y } === { x: Array.length row, y: 7 }
+
     it "matured's shape (placeholder seed) is preserved across an arbitrary row" do
       quickCheck \(TestKernel kernel) (TestRow row) ->
         let
           compiled = compileKernel kernel
           expectedShape = map Array.length (freshRowState1 compiled).matured
           finalState = Array.foldl
-            (\rs px -> fst (step compiled (Quantize quantizeThreshold) rs px))
+            (\rs px -> fst (step compiled (quantize quantizeThreshold) rs px))
             (freshRowState1 compiled)
             row
         in map Array.length finalState.matured === expectedShape
@@ -89,7 +101,7 @@ spec = describe "Dither.Step" do
       let
         compiled = compileKernel floydSteinberg
         initial = freshRowState1 compiled
-        Tuple rowState1 quantizedPixel = step compiled (Quantize quantizeThreshold) initial 100.0
+        Tuple rowState1 quantizedPixel = step compiled (quantize quantizeThreshold) initial 100.0
         outErr = 100.0
 
       quantizedPixel `shouldEqual` 0.0
@@ -115,7 +127,7 @@ spec = describe "Dither.Step" do
       compiled.futureLayers `shouldEqual` []
       Array.length initial.building `shouldEqual` 0
 
-      let Tuple rowState1 q = step compiled (Quantize quantizeThreshold) initial 200.0
+      let Tuple rowState1 q = step compiled (quantize quantizeThreshold) initial 200.0
       q `shouldEqual` 255.0
       Array.length rowState1.building `shouldEqual` 0
       case rowState1.current of
@@ -128,7 +140,7 @@ spec = describe "Dither.Step" do
           compiled = compileKernel ([] :: Kernel)
           outputs = Array.foldl
             ( \(Tuple rs acc) px ->
-                let Tuple rs' q = step compiled (Quantize quantizeThreshold) rs px
+                let Tuple rs' q = step compiled (quantize quantizeThreshold) rs px
                 in Tuple rs' (Array.snoc acc q)
             )
             (Tuple (freshRowState1 compiled) [])
@@ -140,7 +152,7 @@ spec = describe "Dither.Step" do
         kernel = [ { dx: 1, dy: 0, weight: 0.0 } ] :: Kernel
         compiled = compileKernel kernel
         initial = freshRowState1 compiled
-        Tuple rowState1 _ = step compiled (Quantize quantizeThreshold) initial 200.0
+        Tuple rowState1 _ = step compiled (quantize quantizeThreshold) initial 200.0
       case rowState1.current of
         [ f ] -> approxArrayEqual (takeAsArray 1 f) [ 0.0 ] `shouldEqual` true
         _ -> fail "unexpected current shape"

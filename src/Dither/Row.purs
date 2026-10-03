@@ -10,7 +10,7 @@ import Dither.Fifo (class Fifo, replace)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
 import Dither.Pixel (class Scalable, Quantize)
-import Dither.State (DelayLine, RowLayer, RowState, freshLayer)
+import Dither.State (DelayLine, DitherState, RowLayer, RowState, freshLayer)
 import Dither.Step (step)
 import Partial.Unsafe (unsafeCrashWith)
 
@@ -49,24 +49,26 @@ ditherRow
   => Scalable a
   => CompiledKernel
   -> Quantize a
-  -> Array (DelayLine f a)
+  -> DitherState f a
   -> Array a
-  -> Tuple (Array (DelayLine f a)) (Array a)
-ditherRow compiled quantize delayLines0 pixels =
+  -> Tuple (DitherState f a) (Array a)
+ditherRow compiled quantize state pixels =
   let
-    Tuple matured0 shortenedDelayLines = extractMatured delayLines0
+    Tuple matured0 shortenedDelayLines = extractMatured state.delayLines
 
     initial :: RowState f a
     initial =
       { current: freshLayer compiled.currentOffsets
       , matured: matured0
       , building: initBuilding compiled
+      , x: 0
+      , y: state.nextRow
       }
 
     result = mapAccumL stepAdapter initial pixels
     delayLines' = commitBuilding compiled result.accum.building shortenedDelayLines
   in
-    Tuple delayLines' result.value
+    Tuple { delayLines: delayLines', nextRow: state.nextRow + 1 } result.value
   where
     stepAdapter rowState px =
       let Tuple rowState' q = step compiled quantize rowState px

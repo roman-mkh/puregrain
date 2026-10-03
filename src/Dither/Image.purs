@@ -11,7 +11,7 @@ import Dither.Fifo (class Fifo)
 import Dither.Kernel (Kernel, compileKernel)
 import Dither.Pixel (class Scalable, Quantize)
 import Dither.Row (ditherRow)
-import Dither.State (DelayLine, initState)
+import Dither.State (DitherState, initState)
 import Type.Proxy (Proxy(..))
 
 ditherImageWith
@@ -25,17 +25,17 @@ ditherImageWith
   -> LL.List (Array a)
   -> LL.List (Array a)
 ditherImageWith _ kernel quantize rows =
-  go (initState compiled).delayLines rows
+  go (initState compiled) rows
   where
     compiled = compileKernel kernel
 
-    go :: Array (DelayLine f a) -> LL.List (Array a) -> LL.List (Array a)
-    go delayLines remainingRows =
+    go :: DitherState f a -> LL.List (Array a) -> LL.List (Array a)
+    go state remainingRows =
       case LL.step remainingRows of
         Nil -> LL.nil
         Cons row rest ->
-          let Tuple delayLines' quantizedRow = ditherRow compiled quantize delayLines row
-          in List (defer \_ -> Cons quantizedRow (go delayLines' rest))
+          let Tuple state' quantizedRow = ditherRow compiled quantize state row
+          in List (defer \_ -> Cons quantizedRow (go state' rest))
 
 ditherImage
   :: forall a

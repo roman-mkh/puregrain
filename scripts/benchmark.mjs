@@ -185,6 +185,21 @@ function report(env, configs, sizes, runs, suite) {
   };
   out.push(`**Run-to-run spread** ((max − min) ÷ median): ${upperLabel}: ${spreadLine(configs.filter((c) => upper.includes(c.size)))}; ` +
     `all sizes: ${spreadLine(configs)}.`);
+
+  // Rounds are interleaved, so something else slowing the machine down for
+  // a few minutes shows up as one round holding the slowest run of most
+  // configurations. Medians ignore one bad round; this makes it visible.
+  if (runs >= 3) {
+    const large = configs.filter((c) => upper.includes(c.size));
+    const slowest = Array(runs).fill(0);
+    for (const c of large) slowest[c.times.indexOf(Math.max(...c.times))]++;
+    const worst = slowest.indexOf(Math.max(...slowest));
+    const line = `**Slowest run by round** (${upperLabel}, rounds 1–${runs}): ${slowest.join(' / ')}`;
+    out.push('', slowest[worst] > large.length / 2
+      ? `${line}. Round ${worst + 1} was slowest for ${slowest[worst]} of ${large.length} configurations: likely an outside ` +
+        `disturbance during that round. The medians are unaffected; the spread figures include it.`
+      : `${line}. No single round stands out.`);
+  }
   return out.join('\n');
 }
 

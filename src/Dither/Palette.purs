@@ -6,7 +6,7 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Maybe (Maybe)
 import Data.Tuple (Tuple(..), fst)
-import Dither.Pixel (RGB(..), Quantize(..))
+import Dither.Pixel (RGB(..), Quantize, quantize)
 
 -- | Squared Euclidean distance in RGB space — no need for the actual
 -- | (more expensive) square root, since we only ever compare distances
@@ -62,7 +62,7 @@ nearestColorFast (CompiledPalette p) pixel =
 -- | Builds a Quantize that snaps every pixel to the nearest color in
 -- | the given (non-empty) palette, by squared Euclidean distance.
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
-nearestColor palette = Quantize (nearestColorFast (compilePalette distance2 palette))
+nearestColor palette = quantize (nearestColorFast (compilePalette distance2 palette))
 
 -- Ready-made palettes (black/white, web-safe, CGA, ANSI, C64, ZX Spectrum)
 -- live in `Dither.Palette.Presets`.

@@ -96,9 +96,24 @@ instance MapChannels RGBA where
 -- | pixel's nominal bounds (e.g. below 0 or above 255 for an 8-bit
 -- | channel) before this function sees it, and it must still return a
 -- | sensible in-range result.
-newtype Quantize a = Quantize (a -> a)
+-- |
+-- | It also receives the pixel's position (`Context`), for quantizers
+-- | whose decision depends on where the pixel is — ordered (Bayer)
+-- | dithering, seeded noise. Most don't care: build those with `quantize`,
+-- | which ignores the position.
+newtype Quantize a = Quantize (Context -> a -> a)
 
-runQuantize :: forall a. Quantize a -> a -> a
+-- | Where the pixel being quantized sits: column `x` and row `y`, both
+-- | counted from 0 at the top-left. A record so it can grow (e.g. a seed)
+-- | without breaking quantizers: helpers that need only some fields can
+-- | take `forall r. { x :: Int, y :: Int | r }` and keep compiling.
+type Context = { x :: Int, y :: Int }
+
+-- | A quantizer that ignores the pixel's position — the common case.
+quantize :: forall a. (a -> a) -> Quantize a
+quantize f = Quantize \_ -> f
+
+runQuantize :: forall a. Quantize a -> Context -> a -> a
 runQuantize (Quantize f) = f
 
 -- | Lifts a single-channel quantizer to a multi-channel pixel type,
@@ -106,20 +121,21 @@ runQuantize (Quantize f) = f
 -- | "scalarED / vectorED" in CLAUDE.md). The type is the guarantee: a
 -- | `Quantize Number` only ever sees one channel's value, so it cannot
 -- | couple channels together, by construction rather than by
--- | convention. The result is an ordinary `Quantize a`, fed to the
+-- | convention. (It also gets the pixel's position — the same one for
+-- | every channel.) The result is an ordinary `Quantize a`, fed to the
 -- | unmodified `ditherImage` — no separate scalarED pipeline exists.
 -- |
 -- | (vectorED is the other case: write a `Quantize a` directly on the
 -- | whole pixel, e.g. `Dither.Palette.nearestColor`.)
 perChannel :: forall a. MapChannels a => Quantize Number -> Quantize a
-perChannel (Quantize q) = Quantize (mapChannels q)
+perChannel (Quantize q) = Quantize \ctx -> mapChannels (q ctx)
 
 -- | The classic 1-bit quantizer: values below `t` become 0.0 (black),
 -- | values at or above it become 255.0 (white). `nearestLevel (evenRamp
 -- | 2)` is the same idea with the cut fixed halfway, at 127.5; this one
 -- | makes the cut point adjustable. Total for any input.
 threshold :: Number -> Quantize Number
-threshold t = Quantize \x -> if x < t then 0.0 else 255.0
+threshold t = quantize \x -> if x < t then 0.0 else 255.0
 
 -- | Builds a Quantize that snaps a value to the nearest of the given
 -- | levels — the 1D sibling of `Dither.Palette.nearestColor`, with the
@@ -139,7 +155,7 @@ threshold t = Quantize \x -> if x < t then 0.0 else 255.0
 -- | share of the time (docs/benchmarks-dithering.md). Benchmark again
 -- | before changing it.
 nearestLevel :: NonEmptyArray Number -> Quantize Number
-nearestLevel levels = Quantize \x ->
+nearestLevel levels = quantize \x ->
   fst (NEA.foldl1 closer (map (\l -> Tuple l (abs (x - l))) levels))
   where
   closer t1@(Tuple _ d1) t2@(Tuple _ d2) = if d1 <= d2 then t1 else t2

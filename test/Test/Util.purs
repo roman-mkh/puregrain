@@ -11,7 +11,7 @@ import Data.List.Lazy as LL
 
 import Dither.Image (ditherImage)
 import Dither.Kernel (Kernel)
-import Dither.Pixel (class Scalable, Quantize, RGB(..))
+import Dither.Pixel (class Scalable, Quantize, RGB(..), runQuantize)
 import Dither.State (RowLayer)
 
 approxEqual :: Number -> Number -> Boolean
@@ -40,6 +40,12 @@ dither kernel quantize image =
 -- | independently of `websafe216` (tests check the palette against it).
 websafeSteps :: NonEmptyArray Number
 websafeSteps = NEA.cons' 0.0 [ 51.0, 102.0, 153.0, 204.0, 255.0 ]
+
+-- | Runs a quantizer at position (0, 0). Only meaningful for position-
+-- | blind quantizers (`threshold`, `nearestLevel`, `nearestColor`, …),
+-- | which give the same answer everywhere — PixelSpec checks that they do.
+runAtOrigin :: forall a. Quantize a -> a -> a
+runAtOrigin q = runQuantize q { x: 0, y: 0 }
 
 -- | A neutral (gray) RGB pixel: the same value in every channel.
 neutral :: Number -> RGB

@@ -13,6 +13,7 @@
     "dither:color:bw": "npm run dither-cli -- samples/color-512.png samples/output-color-bw.png --palette bw",
     "check:cli": "bash scripts/check-cli.sh",
     "bench": "node scripts/benchmark.mjs",
+    "clean:bench": "rm -f samples/bench/*.png",
     "generate-images": "node scripts/generate-images.mjs",
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
   },

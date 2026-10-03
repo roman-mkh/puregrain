@@ -67,7 +67,14 @@ from the code alone.
   `mul`/`one`, unused by diffusion but a legitimate algebra) and a
   custom `class Ring a <= Scalable a where scale :: Number -> a -> a`
   (kernel weights are always `Number` regardless of channel count).
-  `newtype Quantize a = Quantize (a -> a)`. The scalarED toolkit lives
+  `newtype Quantize a = Quantize (Context -> a -> a)` with
+  `type Context = { x :: Int, y :: Int }` (the pixel's position, for
+  Bayer/noise later). Position-blind quantizers are built with
+  `quantize :: (a -> a) -> Quantize a`; helpers needing only some
+  context fields take `forall r. { x :: Int | r }` (row polymorphism —
+  PureScript's answer to Haskell's `HasX` classes), so `Context` can
+  grow without breaking them. No Reader monad: a plain function of a
+  record, by decision. The scalarED toolkit lives
   here too: `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances),
   `perChannel`, `nearestLevel`, `evenRamp`, `threshold` (see
   scalarED/vectorED below).
@@ -101,7 +108,12 @@ from the code alone.
   diffusion core, polymorphic over `Fifo f` and `Ring a, Scalable a`.
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
   `current`/`matured`/`building` are row-local (`RowState`); only
-  `delayLines` crosses row boundaries (`DitherState`).
+  `delayLines` and the row counter `nextRow` cross row boundaries
+  (`DitherState`). Positions: `y` is `DitherState.nextRow` (a caller
+  stepping rows can't pass a wrong one); `x`/`y` ride in `RowState`, which `step` rebuilds per pixel
+  anyway. Not `mapAccumLWithIndex`: on Array it's a generic default
+  (`sequence <<< mapWithIndex`, an extra pass per row), while
+  `mapAccumL` uses the native `traverse`.
 
 ## Key design decisions (with rationale)
 

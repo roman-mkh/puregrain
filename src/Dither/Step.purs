@@ -38,7 +38,7 @@ step
   -> RowState f a
   -> a
   -> Tuple (RowState f a) a
-step compiled (Quantize quantize) { current, matured, building } pixel =
+step compiled (Quantize quantize) { current, matured, building, x, y } pixel =
   let
     Tuple currentErrs current' = dequeueAllLayer current
 
@@ -52,7 +52,7 @@ step compiled (Quantize quantize) { current, matured, building } pixel =
         + Array.foldl (\acc errs -> acc + sumErrors errs) zero maturedErrs
 
     corrected = pixel + incomingError
-    quantized = quantize corrected
+    quantized = quantize { x, y } corrected
     outErr    = corrected - quantized
 
     current'' = Array.zipWith (enqueueWeighted outErr) compiled.currentOffsets current'
@@ -61,4 +61,4 @@ step compiled (Quantize quantize) { current, matured, building } pixel =
       where
         enqueueLayer offsets layer = Array.zipWith (enqueueWeighted outErr) offsets layer
   in
-    Tuple { current: current'', matured: matured', building: building' } quantized
+    Tuple { current: current'', matured: matured', building: building', x: x + 1, y } quantized

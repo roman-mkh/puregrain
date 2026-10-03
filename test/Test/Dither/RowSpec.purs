@@ -11,9 +11,9 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Dither.Kernel (CompiledKernel, Kernel, compileKernel, floydSteinberg)
-import Dither.Pixel (Quantize(..))
+import Dither.Pixel (quantize)
 import Dither.Row (ditherRow)
-import Dither.State (DelayLine, DitherState, initState)
+import Dither.State (DitherState, initState)
 import Dither.Util (safeRange)
 import Test.Dither.Arbitrary (TestImage(..), TestKernel(..))
 
@@ -22,19 +22,19 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
 -- | Folds ditherRow across every row of an image, starting from
 -- | initState, calling `check` after every row with (this row's
--- | resulting delayLines, the input row, the output row). True only if
+-- | resulting state, the input row, the output row). True only if
 -- | `check` held after every single row, not just the last one.
 foldRows
   :: CompiledKernel
-  -> (Array (DelayLine LL.List Number) -> Array Number -> Array Number -> Boolean)
+  -> (DitherState LL.List Number -> Array Number -> Array Number -> Boolean)
   -> Array (Array Number)
   -> Boolean
 foldRows compiled check rows =
-  snd (Array.foldl go (Tuple (initState compiled).delayLines true) rows)
+  snd (Array.foldl go (Tuple (initState compiled) true) rows)
   where
-  go (Tuple delayLines okSoFar) row =
-    let Tuple delayLines' outRow = ditherRow compiled (Quantize quantizeThreshold) delayLines row
-    in Tuple delayLines' (okSoFar && check delayLines' row outRow)
+  go (Tuple state okSoFar) row =
+    let Tuple state' outRow = ditherRow compiled (quantize quantizeThreshold) state row
+    in Tuple state' (okSoFar && check state' row outRow)
 
 spec :: Spec Unit
 spec = describe "Dither.Row" do
@@ -45,13 +45,26 @@ spec = describe "Dither.Row" do
         foldRows (compileKernel kernel) (\_ row outRow -> Array.length outRow == Array.length row) image
           === true
 
+    it "counts rows: after k rows, nextRow (the next row's y) is k" do
+      quickCheck \(TestKernel kernel) (TestImage image) ->
+        let
+          compiled = compileKernel kernel
+          counts = Array.foldl
+            ( \(Tuple state acc) row ->
+                let Tuple state' _ = ditherRow compiled (quantize quantizeThreshold) state row
+                in Tuple state' (Array.snoc acc state'.nextRow)
+            )
+            (Tuple (initState compiled :: DitherState LL.List Number) [])
+            image
+        in snd counts === Array.range 1 (Array.length image)
+
     it "each DelayLine's length is always exactly its dy, from the first row onward" do
       quickCheck \(TestKernel kernel) (TestImage image) ->
         let
           compiled = compileKernel kernel
           expectedLengths = safeRange 1 compiled.maxDepth
         in
-          foldRows compiled (\delayLines _ _ -> map Array.length delayLines == expectedLengths) image
+          foldRows compiled (\state _ _ -> map Array.length state.delayLines == expectedLengths) image
             === true
 
   describe "Floyd-Steinberg example (regression, ported from the old Test.Assert version)" do
@@ -61,7 +74,7 @@ spec = describe "Dither.Row" do
         state0 :: DitherState LL.List Number
         state0 = initState compiled
         row = [ 100.0, 200.0, 50.0 ]
-        Tuple _delayLines1 quantizedRow = ditherRow compiled (Quantize quantizeThreshold) state0.delayLines row
+        Tuple _state1 quantizedRow = ditherRow compiled (quantize quantizeThreshold) state0 row
 
       Array.length quantizedRow `shouldEqual` Array.length row
       Array.all (\p -> p == 0.0 || p == 255.0) quantizedRow `shouldEqual` true
@@ -70,7 +83,7 @@ spec = describe "Dither.Row" do
     it "maxDepth == 0 kernel: DelayLines stay empty across a multi-row image" do
       quickCheck \(TestImage image) ->
         let kernel = [ { dx: 1, dy: 0, weight: 1.0 } ] :: Kernel
-        in foldRows (compileKernel kernel) (\delayLines _ _ -> Array.length delayLines == 0) image === true
+        in foldRows (compileKernel kernel) (\state _ _ -> Array.length state.delayLines == 0) image === true
 
     it "completely empty kernel: every row is quantized directly, with no diffusion" do
       quickCheck \(TestImage image) ->
@@ -83,9 +96,9 @@ spec = describe "Dither.Row" do
         image = [ [ 10.0 ], [ 200.0 ], [ 90.0 ] ] -- height 3, width 1
         expectedLengths = safeRange 1 compiled.maxDepth
       foldRows compiled
-        ( \delayLines row outRow ->
+        ( \state row outRow ->
             Array.length outRow == Array.length row
-              && map Array.length delayLines == expectedLengths
+              && map Array.length state.delayLines == expectedLengths
         )
         image
         `shouldEqual` true
@@ -95,5 +108,5 @@ spec = describe "Dither.Row" do
         compiled = compileKernel floydSteinberg
         image = [ [ 10.0, 200.0, 90.0 ] ]
         expectedLengths = safeRange 1 compiled.maxDepth
-      foldRows compiled (\delayLines _ _ -> map Array.length delayLines == expectedLengths) image
+      foldRows compiled (\state _ _ -> map Array.length state.delayLines == expectedLengths) image
         `shouldEqual` true

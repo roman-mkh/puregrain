@@ -9,7 +9,7 @@ import Data.Ord (abs)
 import Dither.Kernel (atkinson, floydSteinberg, jarvisJudiceNinke)
 import Dither.Palette (nearestColor)
 import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
-import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
+import Dither.Pixel (Context, Quantize, RGB(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
 import Effect.Aff (Aff)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, paletteOf, pipelineFor, toNeutral)
@@ -33,14 +33,20 @@ rgbProbes =
   , RGB { r: -20.0, g: 300.0, b: 127.5 }
   ]
 
+-- | Where the probes are quantized. Every quantizer the CLI builds is
+-- | position-blind (the library's PixelSpec checks that), so any position
+-- | gives the same answer.
+origin :: Context
+origin = { x: 0, y: 0 }
+
 shouldBeGray :: Pipeline -> Quantize Number -> Aff Unit
 shouldBeGray pipeline expected = case pipeline of
-  Gray q -> map (runQuantize q) grayProbes `shouldEqual` map (runQuantize expected) grayProbes
+  Gray q -> map (runQuantize q origin) grayProbes `shouldEqual` map (runQuantize expected origin) grayProbes
   Color _ -> fail "expected gray processing, got RGB"
 
 shouldBeColor :: Pipeline -> Quantize RGB -> Aff Unit
 shouldBeColor pipeline expected = case pipeline of
-  Color q -> map (runQuantize q) rgbProbes `shouldEqual` map (runQuantize expected) rgbProbes
+  Color q -> map (runQuantize q origin) rgbProbes `shouldEqual` map (runQuantize expected origin) rgbProbes
   Gray _ -> fail "expected RGB processing, got gray"
 
 approx :: Number -> Number -> Boolean

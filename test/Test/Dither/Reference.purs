@@ -71,7 +71,7 @@ referenceDither kernel (Quantize quantize) image =
             Nothing -> pure unit  -- unreachable: idx is always in range by construction
             Just corrected -> do
               let
-                quantized = quantize corrected
+                quantized = quantize { x, y } corrected
                 err = corrected - quantized
               _ <- STArray.poke idx quantized output
               forKernel_ kernel \{ dx, dy, weight } -> do

@@ -18,9 +18,9 @@ import Test.Spec.QuickCheck (quickCheck)
 
 import Dither.Palette (compilePalette, distance2, nearestColor, nearestColorFast)
 import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
-import Dither.Pixel (RGB(..), nearestLevel, perChannel, runQuantize)
+import Dither.Pixel (RGB(..), nearestLevel, perChannel)
 import Test.Dither.Arbitrary (TestKernel(..), TestRGB(..), TestSample(..))
-import Test.Util (dither, websafeSteps)
+import Test.Util (dither, runAtOrigin, websafeSteps)
 
 rgb :: Int -> Int -> Int -> RGB
 rgb r g b = RGB { r: toNumber r, g: toNumber g, b: toNumber b }
@@ -56,7 +56,7 @@ spec = describe "Dither.Palette.Presets" do
     -- including the exact tie at 127.5, which goes to the earlier entry.
     it "on neutral pixels, acts as a threshold at 127.5 (ties go to black)" do
       quickCheck \(TestSample v) ->
-        runQuantize (nearestColor blackWhite) (RGB { r: v, g: v, b: v })
+        runAtOrigin (nearestColor blackWhite) (RGB { r: v, g: v, b: v })
           === if v <= 127.5 then black else white
 
     -- RGB distance is not perceptual: pure green's luma (~150) is well
@@ -65,7 +65,7 @@ spec = describe "Dither.Palette.Presets" do
     -- from converting to gray and thresholding — and the reason a
     -- perceptual metric (distance2Lab, see TODO.md) is on the list.
     it "on saturated colors, follows RGB distance, not brightness (pure green -> black)" do
-      let q = runQuantize (nearestColor blackWhite)
+      let q = runAtOrigin (nearestColor blackWhite)
       q (RGB { r: 0.0, g: 255.0, b: 0.0 }) `shouldEqual` black
       q (RGB { r: 255.0, g: 0.0, b: 0.0 }) `shouldEqual` black
       q (RGB { r: 255.0, g: 255.0, b: 0.0 }) `shouldEqual` white
@@ -106,7 +106,7 @@ spec = describe "Dither.Palette.Presets" do
     it "nearest color (vectorED) == perChannel nearest step (scalarED), for any pixel" do
       let
         vectorED = nearestColorFast (compilePalette distance2 websafe216)
-        scalarED = runQuantize (perChannel (nearestLevel websafeSteps))
+        scalarED = runAtOrigin (perChannel (nearestLevel websafeSteps))
       quickCheck \(TestRGB pixel) ->
         vectorED pixel === scalarED pixel
 

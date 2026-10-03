@@ -23,8 +23,12 @@
 - [ ] Ostromoukhov's Variable Error Diffusion 
 - [ ] Обобщить `Kernel + quantize` в единую конфигурацию алгоритма (см. раннюю идею `DitherAlgo` record). 
 - [ ] Рассмотреть typeclass + Reader Monad для протаскивания конфигурации алгоритма через весь pipeline, вместо явной передачи параметрами.
-- [ ] Pass custom user data for itsown impl of `quantize`
-- [ ] Maybe `quantize` has to know some stateful imformation as begin row-
+- [x] Pass custom user data for itsown impl of `quantize`
+      (covered 2026-10-03: a quantizer is a closure, so it captures whatever data it needs; with `Context` it
+      can also look up per-pixel data, such as a mask, by the pixel's position.)
+- [x] Maybe `quantize` has to know some stateful imformation as begin row-
+      (done 2026-10-03: `Context { x, y }`, the pixel's position; `x == 0` is the row start. State carried over
+      from earlier pixels isn't offered: quantizers stay pure, effectful ones are postponed.)
 
 ## Application
 - [ ] Browser demo (Canvas API через FFI, purescript-canvas) — сравнение всех вариантов дизеринга visually.

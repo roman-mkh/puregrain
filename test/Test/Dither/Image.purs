@@ -7,7 +7,7 @@ import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Dither.Image (ditherImage)
 import Dither.Kernel (floydSteinberg)
-import Dither.Pixel (Quantize(..))
+import Dither.Pixel (quantize)
 import Effect (Effect)
 import Effect.Console (log)
 import Test.Assert (assertEqual)
@@ -22,7 +22,7 @@ main = do
       [ [ 100.0, 200.0, 50.0 ]
       , [ 150.0, 30.0, 220.0 ]
       ]
-    result = ditherImage floydSteinberg (Quantize quantizeThreshold) rows
+    result = ditherImage floydSteinberg (quantize quantizeThreshold) rows
 
   assertEqual { actual: LL.length result, expected: LL.length rows }
 
