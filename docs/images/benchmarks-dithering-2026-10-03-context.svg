@@ -1,0 +1,104 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="760" height="480" viewBox="0 0 760 480" role="img" aria-labelledby="t d">
+<title id="t">Dithering time vs. image size, by quantizer mode</title>
+<desc id="d">Log-log line chart of median dithering time for 5 quantizer modes. From 256² to 1024² the times grow ×3.96 to ×4.39 per doubling of the side (×4 is proportional to the pixel count, the dashed O(N²) reference). Exact values are in the table next to this chart.</desc>
+<style>
+  svg {
+    --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+    --grid: #e1e0d9; --axis: #c3c2b7; --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4;
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    svg {
+      --surface: #1a1a19; --ink: #ffffff; --ink-2: #c3c2b7; --muted: #898781;
+      --grid: #2c2c2a; --axis: #383835; --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181;
+    }
+  }
+  .bg { fill: var(--surface); }
+  .grid { stroke: var(--grid); stroke-width: 1; }
+  .axis { stroke: var(--axis); stroke-width: 1; }
+  .tick { fill: var(--ink-2); font-size: 11px; font-variant-numeric: tabular-nums; }
+  .axis-title, .legend, .ref-label { fill: var(--ink-2); font-size: 12px; }
+  .title { fill: var(--ink); font-size: 16px; font-weight: 600; }
+  .subtitle { fill: var(--ink-2); font-size: 12px; }
+  .reference { fill: none; stroke: var(--muted); stroke-width: 1.5; stroke-dasharray: 5 4; }
+  .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .mark { stroke: var(--surface); stroke-width: 2; }
+  .line.s1 { stroke: var(--s1); } .mark.s1 { fill: var(--s1); }
+  .line.s2 { stroke: var(--s2); } .mark.s2 { fill: var(--s2); }
+  .line.s3 { stroke: var(--s3); } .mark.s3 { fill: var(--s3); }
+  .line.s4 { stroke: var(--s4); } .mark.s4 { fill: var(--s4); }
+  .line.s5 { stroke: var(--s5); } .mark.s5 { fill: var(--s5); }
+</style>
+<rect class="bg" width="760" height="480" rx="8"/>
+<line class="grid" x1="78" x2="732" y1="347.1" y2="347.1"/>
+<text class="tick" x="68" y="351.1" text-anchor="end">100 ms</text>
+<line class="grid" x1="78" x2="732" y1="251.4" y2="251.4"/>
+<text class="tick" x="68" y="255.4" text-anchor="end">1 s</text>
+<line class="grid" x1="78" x2="732" y1="155.7" y2="155.7"/>
+<text class="tick" x="68" y="159.7" text-anchor="end">10 s</text>
+<line class="grid" x1="126.7" x2="126.7" y1="118" y2="416"/>
+<text class="tick" x="126.7" y="436" text-anchor="middle">64</text>
+<line class="grid" x1="265.9" x2="265.9" y1="118" y2="416"/>
+<text class="tick" x="265.9" y="436" text-anchor="middle">128</text>
+<line class="grid" x1="405.0" x2="405.0" y1="118" y2="416"/>
+<text class="tick" x="405.0" y="436" text-anchor="middle">256</text>
+<line class="grid" x1="544.1" x2="544.1" y1="118" y2="416"/>
+<text class="tick" x="544.1" y="436" text-anchor="middle">512</text>
+<line class="grid" x1="683.3" x2="683.3" y1="118" y2="416"/>
+<text class="tick" x="683.3" y="436" text-anchor="middle">1024</text>
+<line class="axis" x1="78" x2="732" y1="416" y2="416"/>
+<line class="axis" x1="78" x2="78" y1="118" y2="416"/>
+<text class="axis-title" x="405.0" y="458" text-anchor="middle">Image side N (px) — log scale</text>
+<text class="axis-title" transform="translate(20 267.0) rotate(-90)" text-anchor="middle">Dithering time — log scale</text>
+<path class="reference" d="M126.7 396.5L265.9 338.9L405.0 281.3L544.1 223.7L683.3 166.1"/>
+<text class="ref-label" x="134.7" y="414.5">O(N²) reference</text>
+<path class="line s1" d="M126.7 352.6L265.9 332.0L405.0 283.4L544.1 224.7L683.3 166.1"><title>threshold 128</title></path>
+<path class="line s2" d="M126.7 355.5L265.9 331.0L405.0 280.3L544.1 226.6L683.3 165.9"><title>levels 4 (gray)</title></path>
+<path class="line s3" d="M126.7 352.2L265.9 319.3L405.0 270.5L544.1 209.2L683.3 147.6"><title>levels 6 (RGB)</title></path>
+<path class="line s4" d="M126.7 350.1L265.9 306.3L405.0 253.0L544.1 196.8L683.3 137.5"><title>websafe216</title></path>
+<path class="line s5" d="M126.7 356.4L265.9 322.0L405.0 273.9L544.1 215.2L683.3 154.3"><title>bw</title></path>
+<g><title>threshold 128, 64²: 88 ms</title><circle class="mark s1" cx="126.7" cy="352.6" r="4.5"/></g>
+<g><title>threshold 128, 128²: 144 ms</title><circle class="mark s1" cx="265.9" cy="332.0" r="4.5"/></g>
+<g><title>threshold 128, 256²: 463 ms</title><circle class="mark s1" cx="405.0" cy="283.4" r="4.5"/></g>
+<g><title>threshold 128, 512²: 1,901 ms</title><circle class="mark s1" cx="544.1" cy="224.7" r="4.5"/></g>
+<g><title>threshold 128, 1024²: 7,797 ms</title><circle class="mark s1" cx="683.3" cy="166.1" r="4.5"/></g>
+<g><title>levels 4 (gray), 64²: 82 ms</title><rect class="mark s2" x="122.2" y="351.0" width="9" height="9" rx="1"/></g>
+<g><title>levels 4 (gray), 128²: 147 ms</title><rect class="mark s2" x="261.4" y="326.5" width="9" height="9" rx="1"/></g>
+<g><title>levels 4 (gray), 256²: 499 ms</title><rect class="mark s2" x="400.5" y="275.8" width="9" height="9" rx="1"/></g>
+<g><title>levels 4 (gray), 512²: 1,818 ms</title><rect class="mark s2" x="539.6" y="222.1" width="9" height="9" rx="1"/></g>
+<g><title>levels 4 (gray), 1024²: 7,830 ms</title><rect class="mark s2" x="678.8" y="161.4" width="9" height="9" rx="1"/></g>
+<g><title>levels 6 (RGB), 64²: 88 ms</title><path class="mark s3" d="M126.7 346.4L132.6 352.2L126.7 358.1L120.9 352.2Z"/></g>
+<g><title>levels 6 (RGB), 128²: 195 ms</title><path class="mark s3" d="M265.9 313.5L271.7 319.3L265.9 325.2L260.0 319.3Z"/></g>
+<g><title>levels 6 (RGB), 256²: 632 ms</title><path class="mark s3" d="M405.0 264.6L410.9 270.5L405.0 276.3L399.1 270.5Z"/></g>
+<g><title>levels 6 (RGB), 512²: 2,764 ms</title><path class="mark s3" d="M544.1 203.3L550.0 209.2L544.1 215.0L538.3 209.2Z"/></g>
+<g><title>levels 6 (RGB), 1024²: 12,171 ms</title><path class="mark s3" d="M683.3 141.7L689.1 147.6L683.3 153.4L677.4 147.6Z"/></g>
+<g><title>websafe216, 64²: 93 ms</title><path class="mark s4" d="M126.7 344.2L132.6 354.8L120.9 354.8Z"/></g>
+<g><title>websafe216, 128²: 267 ms</title><path class="mark s4" d="M265.9 300.5L271.7 311.0L260.0 311.0Z"/></g>
+<g><title>websafe216, 256²: 961 ms</title><path class="mark s4" d="M405.0 247.2L410.9 257.7L399.1 257.7Z"/></g>
+<g><title>websafe216, 512²: 3,722 ms</title><path class="mark s4" d="M544.1 190.9L550.0 201.5L538.3 201.5Z"/></g>
+<g><title>websafe216, 1024²: 15,497 ms</title><path class="mark s4" d="M683.3 131.7L689.1 142.2L677.4 142.2Z"/></g>
+<g><title>bw, 64²: 80 ms</title><path class="mark s5" d="M126.7 362.2L132.6 351.7L120.9 351.7Z"/></g>
+<g><title>bw, 128²: 183 ms</title><path class="mark s5" d="M265.9 327.9L271.7 317.3L260.0 317.3Z"/></g>
+<g><title>bw, 256²: 582 ms</title><path class="mark s5" d="M405.0 279.8L410.9 269.2L399.1 269.2Z"/></g>
+<g><title>bw, 512²: 2,392 ms</title><path class="mark s5" d="M544.1 221.0L550.0 210.5L538.3 210.5Z"/></g>
+<g><title>bw, 1024²: 10,338 ms</title><path class="mark s5" d="M683.3 160.2L689.1 149.7L677.4 149.7Z"/></g>
+<text class="title" x="28" y="36">Dithering time vs. image size, by quantizer mode</text>
+<text class="subtitle" x="28" y="58">Floyd–Steinberg · median of 5 runs · dithering only (no PNG I/O, no startup) · 2026-10-03</text>
+<line class="line s1" x1="28" x2="50" y1="88" y2="88"/>
+<circle class="mark s1" cx="39.0" cy="88.0" r="4.5"/>
+<text class="legend" x="58" y="92">threshold 128</text>
+<line class="line s2" x1="171" x2="193" y1="88" y2="88"/>
+<rect class="mark s2" x="177.5" y="83.5" width="9" height="9" rx="1"/>
+<text class="legend" x="201" y="92">levels 4 (gray)</text>
+<line class="line s3" x1="328" x2="350" y1="88" y2="88"/>
+<path class="mark s3" d="M339.0 82.2L344.9 88.0L339.0 93.8L333.1 88.0Z"/>
+<text class="legend" x="358" y="92">levels 6 (RGB)</text>
+<line class="line s4" x1="478" x2="500" y1="88" y2="88"/>
+<path class="mark s4" d="M489.0 82.2L494.9 92.7L483.1 92.7Z"/>
+<text class="legend" x="508" y="92">websafe216</text>
+<line class="line s5" x1="600" x2="622" y1="88" y2="88"/>
+<path class="mark s5" d="M611.0 93.8L616.9 83.3L605.1 83.3Z"/>
+<text class="legend" x="630" y="92">bw</text>
+<line class="reference" x1="666" x2="688" y1="88" y2="88"/>
+<text class="legend" x="696" y="92">O(N²)</text>
+</svg>
