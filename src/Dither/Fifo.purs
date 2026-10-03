@@ -3,11 +3,13 @@ module Dither.Fifo where
 import Prelude
 
 import Data.Array as Array
+import Data.CatQueue (CatQueue(..))
+import Data.CatQueue as CQ
 import Data.List.Lazy as LL
 import Data.List as DL
-import Data.Maybe (Maybe)
-import Data.Sequence as Seq
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..))
+import Data.Unfoldable as Unfoldable
 
 -- | A FIFO-like container of `Number`s, used to hold error-diffusion
 -- | fractions for a single kernel offset as they travel from the pixel
@@ -110,7 +112,7 @@ class Fifo (f :: Type -> Type) where
 -- | `docs/benchmarks-fifo.md`, not improve on it. Kept around specifically
 -- | to verify that the abstraction itself introduces no regression
 -- | relative to the pre-`class Fifo` code, and as a point of comparison
--- | for `Seq Number` below.
+-- | for the `CatQueue` instance below.
 instance Fifo LL.List where
   replicate = LL.replicate
   enqueue = LL.snoc
@@ -123,21 +125,43 @@ instance Fifo DL.List where
   dequeue = DL.uncons
   replace skip fifo = DL.drop skip fifo <> replicate skip zero
 
--- | The actual fix. `Data.Sequence.Seq` is a 2-3 finger tree: `enqueue`
--- | (`snoc`) and `dequeue` (`uncons`) are O(1) amortized on either end,
--- | and — just as importantly for `replace` — `<>` is
--- | O(log(min(n1, n2))), so appending a small tail to a long sequence
--- | is cheap regardless of how long that sequence already is. That
--- | second property is what makes `replace` genuinely sub-linear here,
--- | not just `enqueue`/`dequeue`.
-instance Fifo Seq.Seq where
-  replicate n x = Seq.fromFoldable (Array.replicate n x)
-  enqueue = Seq.snoc
-  dequeue fifo = (\(Tuple h t) -> { head: h, tail: t }) <$> Seq.uncons fifo
-  replace skip fifo = Seq.drop skip fifo <> Seq.fromFoldable (Array.replicate skip zero)
-
 instance Fifo Array where
   replicate = Array.replicate
   enqueue = Array.snoc
   dequeue = Array.uncons
   replace skip fifo = Array.drop skip fifo <> Array.replicate skip zero
+
+-- | The production default (`Dither.Image.ditherImage`). It replaced
+-- | `Data.Sequence.Seq`, the finger tree that first fixed the O(N³)
+-- | scaling (docs/benchmarks-fifo.md), on 2026-10-03: about 3.6× faster,
+-- | and a registry package instead of a git fork
+-- | (docs/benchmarks-dithering.md).
+-- |
+-- | `Data.CatQueue` (package `catenable-lists`) is Okasaki's strict
+-- | two-list queue: a front list to dequeue from and a back list,
+-- | newest first, to enqueue onto. `enqueue` (`snoc`) is O(1).
+-- | `dequeue` (`uncons`) is O(1) amortized: when the front list runs
+-- | out, it reverses the back list once, in O(n). `replace skip` is
+-- | `skip` dequeues followed by `skip` enqueues of `zero`, so O(skip)
+-- | amortized, and `skip` is at most the kernel's reach. `replicate`
+-- | builds straight into the front list, so a fresh queue never needs
+-- | reversing.
+-- |
+-- | The amortized bounds hold only if each queue version is used once:
+-- | an old version used again would redo the same reversal. `step` and
+-- | `ditherRow` use them that way, since every operation's result
+-- | replaces its input.
+instance Fifo CatQueue where
+  replicate n x = CatQueue (Unfoldable.replicate n x) DL.Nil
+  enqueue = CQ.snoc
+  dequeue fifo = (\(Tuple head tail) -> { head, tail }) <$> CQ.uncons fifo
+  replace skip fifo = enqueueZeros skip (dropFront skip fifo)
+    where
+      dropFront n q
+        | n <= 0 = q
+        | otherwise = case CQ.uncons q of
+            Nothing -> q
+            Just (Tuple _ rest) -> dropFront (n - 1) rest
+      enqueueZeros n q
+        | n <= 0 = q
+        | otherwise = enqueueZeros (n - 1) (CQ.snoc q zero)

@@ -5,11 +5,11 @@ module Test.Dither.DiffusionMechanicsSpec
 import Prelude
 
 import Data.Array (mapWithIndex)
+import Data.CatQueue (CatQueue)
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.List.Lazy as LL
 import Data.List as DL
-import Data.Sequence (Seq)
 import Data.Tuple (Tuple(..))
 import Test.QuickCheck (Result, (===))
 import Test.Spec (Spec, describe, it)
@@ -62,8 +62,8 @@ spec = describe "Dither.Image properties" do
   for_ [ Tuple "a position-blind threshold" testQuantize, Tuple "a position-dependent threshold" positionalThreshold ]
     \(Tuple label q) ->
       describe ("agrees with the independent reference implementation, with " <> label) do
-        it "Seq backend" do
-          quickCheck (agreesWithReference (Proxy :: Proxy Seq) q)
+        it "CatQueue backend" do
+          quickCheck (agreesWithReference (Proxy :: Proxy CatQueue) q)
         it "List.Lazy backend" do
           quickCheck (agreesWithReference (Proxy :: Proxy LL.List) q)
         it "List backend" do
@@ -74,5 +74,5 @@ spec = describe "Dither.Image properties" do
   describe "pixel positions" do
     it "each pixel's quantizer gets its own position: x from 0 in every row, y from 0 for the image" do
       quickCheck \(TestKernel kernel) (TestImage image) ->
-        runWith (Proxy :: Proxy Seq) kernel revealPosition image
+        runWith (Proxy :: Proxy CatQueue) kernel revealPosition image
           === mapWithIndex (\y row -> mapWithIndex (\x _ -> toNumber (x + 1000 * y)) row) image

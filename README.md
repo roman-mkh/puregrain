@@ -8,9 +8,7 @@ the Commodore 64. It comes with a command-line tool for PNG images.
 > **Status: pre-release.** The library works and is tested, but its public
 > interface hasn't been designed yet, and the module names will change
 > (`Dither.*` → `Puregrain.*`). It isn't published on Pursuit or npm yet.
-> Before it can be: it needs a license, and its `sequences` dependency has
-> to come from the package registry instead of a git fork (see
-> [TODO.md](TODO.md)).
+> Before it can be, it still needs a license.
 
 ## What it does
 
@@ -24,8 +22,9 @@ the Commodore 64. It comes with a command-line tool for PNG images.
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
 - **Row by row:** an image goes in and comes out as a lazy list of rows.
-- **Time grows linearly with the pixel count,** currently about 10 µs per
-  pixel. See [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).
+- **Time grows linearly with the pixel count,** currently about 2 µs per
+  pixel for gray Floyd–Steinberg. See
+  [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).
 
 ## Getting started
 

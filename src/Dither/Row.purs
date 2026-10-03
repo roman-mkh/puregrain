@@ -42,6 +42,9 @@ commitBuilding compiled building shortenedDelayLines =
 
     adjustFifo o fifo = replace (K.skipFor o) fifo
 
+-- | Dithers one row and returns the state for the next one. Use each
+-- | `DitherState` once: passing an old state in again gives the right
+-- | result, but can be slower (see `DitherState`).
 ditherRow
   :: forall f a
    . Fifo f

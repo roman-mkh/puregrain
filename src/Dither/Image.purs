@@ -2,10 +2,10 @@ module Dither.Image where
 
 import Prelude
 
+import Data.CatQueue (CatQueue)
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..), Step(..))
-import Data.Sequence (Seq)
 import Data.Tuple (Tuple(..))
 import Dither.Fifo (class Fifo)
 import Dither.Kernel (Kernel, compileKernel)
@@ -45,4 +45,4 @@ ditherImage
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
-ditherImage = ditherImageWith (Proxy :: Proxy Seq)
+ditherImage = ditherImageWith (Proxy :: Proxy CatQueue)

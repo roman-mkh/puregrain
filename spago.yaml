@@ -2,6 +2,7 @@ package:
   name: puregrain
   dependencies:
     - arrays
+    - catenable-lists
     - foldable-traversable
     - integers
     - lazy
@@ -9,7 +10,6 @@ package:
     - maybe
     - partial
     - prelude
-    - sequences
     - tuples
     - unfoldable
   test:
@@ -26,7 +26,3 @@ package:
 workspace:
   packageSet:
     registry: 81.1.0
-  extraPackages:
-    sequences:
-      git: https://github.com/flip111/purescript-sequences.git
-      ref: e8a2e9ef2ad9c74b2e61552c7158a08cbf73ec7e

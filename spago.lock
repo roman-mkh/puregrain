@@ -6,6 +6,7 @@
         "core": {
           "dependencies": [
             "arrays",
+            "catenable-lists",
             "foldable-traversable",
             "integers",
             "lazy",
@@ -13,7 +14,6 @@
             "maybe",
             "partial",
             "prelude",
-            "sequences",
             "tuples",
             "unfoldable"
           ]
@@ -721,12 +721,7 @@
         "zipperarray": "2.0.0"
       }
     },
-    "extra_packages": {
-      "sequences": {
-        "git": "https://github.com/flip111/purescript-sequences.git",
-        "ref": "e8a2e9ef2ad9c74b2e61552c7158a08cbf73ec7e"
-      }
-    }
+    "extra_packages": {}
   },
   "packages": {
     "aff": {
@@ -1641,26 +1636,6 @@
       "version": "2.0.0",
       "integrity": "sha256-EJrxtKt5xC7TYjBZrSBO/J7Aw3DmtilYjt4olpAXWVc=",
       "dependencies": [
-        "unsafe-coerce"
-      ]
-    },
-    "sequences": {
-      "type": "git",
-      "url": "https://github.com/flip111/purescript-sequences.git",
-      "rev": "e8a2e9ef2ad9c74b2e61552c7158a08cbf73ec7e",
-      "dependencies": [
-        "arrays",
-        "control",
-        "effect",
-        "lazy",
-        "maybe",
-        "newtype",
-        "nonempty",
-        "partial",
-        "prelude",
-        "profunctor",
-        "tuples",
-        "unfoldable",
         "unsafe-coerce"
       ]
     },

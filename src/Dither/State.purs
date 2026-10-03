@@ -4,7 +4,6 @@ import Prelude
 
 import Data.Array ((..))
 import Data.Array as Array
-import Data.Sequence (Seq)
 import Dither.Fifo (class Fifo, replicate)
 import Dither.Kernel (CompiledKernel)
 import Dither.Kernel as K
@@ -24,6 +23,10 @@ type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 -- | of the next row (`nextRow`, the `y` the quantizer will see). Keeping
 -- | the row counter in the state, rather than passing `y` in, means a
 -- | caller stepping row by row can't pass a wrong one.
+-- |
+-- | Use each `DitherState` once. Passing an old state in again gives the
+-- | right result, but can be slower: the queues inside it then repeat
+-- | work they already did (see the `CatQueue` instance in `Dither.Fifo`).
 type DitherState (f :: Type -> Type) a =
   { delayLines :: Array (DelayLine f a)
   , nextRow :: Int

@@ -1,7 +1,7 @@
 # TODO / Future Improvements
 
 ## Architecture
-- [ ] **Blocker for publishing to the registry/Pursuit:** the library depends on `sequences` through a git fork
+- [x] **Blocker for publishing to the registry/Pursuit:** the library depends on `sequences` through a git fork
       (`workspace.extraPackages` in `spago.yaml`: flip111/purescript-sequences, pinned commit). A registry package
       can't depend on a git package — needs the fork's changes released to the registry (upstream or as a new
       package), or `Seq` replaced/vendored. Decide at the public-interface step.
@@ -10,13 +10,22 @@
       `skip` dequeues + `skip` enqueues: O(skip), skip <= kernel reach (<= 3). Enqueue/dequeue are O(1)
       amortized as long as each queue version is used once, which is how `step`/`ditherRow` use them.
       Prove it as a 5th backend in `DiffusionMechanicsSpec`, then benchmark against `Seq`.
+      (done 2026-10-03: `Seq` replaced by `Data.CatQueue` from the registry package `catenable-lists` — the same
+      two-list queue, ready-made rather than our own. `sequences` and the `extraPackages` entry are gone, so the
+      library depends only on registry packages; and it's ~3.6× faster — `docs/benchmarks-dithering.md`.)
+- [ ] **Public row-by-row stepper (public-interface step): reusing an old state.** `Fifo CatQueue` is O(1)
+      amortized only if each queue version is used once. A reused old one repeats the list reversal it already
+      did: still correct, just slower. Inside the library every state is used once, but a public stepper would
+      let callers keep a state and run from it again (e.g. undo in the web demo). Its API docs must state "use
+      each state once", or the design must handle reuse otherwise. See the `CatQueue` instance in `Dither.Fifo`
+      and the `DitherState` doc comment in `Dither.State`.
 - [ ] ditherImage: alias `Array Number` to PixelRow
 - [ ] ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)
 
 ## Backend variants
 - [ ] Полиморфная (по `Traversable f`) версия `ditherRow`/`ditherImage` вместо специализированной под `Array` — сравнить производительность (Array.mapAccumL vs Data.Traversable.mapAccumL).
 - [ ] ST-based backend (кольцевой буфер, мутабельные массивы) — сравнить производительность с classic (FIFO/Lazy List) версией.
-- [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` is the production default `Fifo` backend — see `docs/benchmarks-fifo.md`.)
+- [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` was the production default `Fifo` backend — see `docs/benchmarks-fifo.md` — until `Data.CatQueue` replaced it on 2026-10-03.)
 - [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts. (2026-09-25 baseline: `--levels 4` costs ×1.06 of a plain threshold, so low priority — `docs/benchmarks-dithering.md`.)
 
 ## Algorithm configuration
@@ -38,7 +47,7 @@
 - [x] generate test-input.png  as well the same way as benchmark images (done: one generator, `scripts/generate-images.mjs`, for both — see `docs/test-images.md`)
 - [x] Перейти с простых `Test.Assert`-тестов на `purescript-spec` (describe/it) для более структурированного вывода.
 - [x] Добавить `purescript-quickcheck` и property-based тесты, начиная с:
-  - `prop_backendsAgree` — реализовано как `Test.Dither.DiffusionMechanicsSpec`: все четыре `Fifo`-бэкенда (`Seq`, `List.Lazy`, `List`, `Array`) сверяются со независимым ST-based reference (`Test.Dither.Reference`), а не только друг с другом.
+  - `prop_backendsAgree` — реализовано как `Test.Dither.DiffusionMechanicsSpec`: все четыре `Fifo`-бэкенда (`CatQueue`, `List.Lazy`, `List`, `Array`) сверяются со независимым ST-based reference (`Test.Dither.Reference`), а не только друг с другом.
   - Инвариант длины выходной строки/картинки — не отдельная property, но покрыт неявно: `===` на `Array` уже требует равной длины, так что несовпадение длины валит тест.
   - [ ] Инвариант детерминизма для константного входа — всё ещё не проверен отдельной property (тривиально верен для чистых функций, но explicit-тест отсутствует).
 - [x] `Arbitrary`-генераторы для `Kernel` (валидные ядра: сумма весов ≈ 1.0, хотя бы один forward и один downward offset) и для тестовых изображений разных размеров. (`Test.Dither.Arbitrary` — `TestKernel`/`TestImage`; заметка: сгенерированные ядра НЕ гарантируют сумму весов ≈ 1.0 явно, просто случайные веса в [0,1].)

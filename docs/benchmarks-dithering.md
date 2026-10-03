@@ -15,7 +15,7 @@ and as whole-process time.
 
 ```bash
 npm run build
-npm run bench -- --json samples/bench/results.json > samples/bench/results.md   # ~11 min on mains
+npm run bench -- --json samples/bench/results.json > samples/bench/results.md   # ~4 min on mains
 node scripts/plot-benchmarks.mjs samples/bench/results.json docs/images/benchmarks-dithering-<date>.svg
 node scripts/benchmark.mjs --report samples/bench/results.json   # the tables again, without measuring
 npm run clean:bench   # delete the generated images in samples/bench/ (keeps the results)
@@ -38,8 +38,9 @@ main checkout, build it there and run that worktree's
   conversion, not Node startup (see [cli/README.md](../cli/README.md#output-and-timing)).
 - **A fresh process for every run,** because that's how the CLI is used.
   V8 compiles the dithering code during the timed part, which adds a
-  fixed cold-start cost of roughly 0.05–0.1 s. It dominates the time at
-  64² and 128² and is negligible from 256² up.
+  fixed cold-start cost: about 0.06 s with the `Seq` backend, 0.02 s
+  with `CatQueue` (2026-10-03). It dominates the time at 64² and 128²,
+  and is a small share from 256² up.
 - **5 runs per configuration; the median is reported.** Runs are
   interleaved: round 1 of every configuration, then round 2, and so on.
   Slow drift during the run (heat, background load) therefore spreads
@@ -424,3 +425,126 @@ baseline's ×1.29; at the smaller sizes it scatters (×1.52 and ×1.35).
   measured in the same run, interleaved: for example by letting one build
   run either backend. To be decided with that step.
 - The other next steps of the mains baseline still apply.
+
+---
+
+## 2026-10-03 — `CatQueue` as the `Fifo` backend
+
+The `Fifo` backend changed from `Data.Sequence.Seq`, a finger tree from
+a git fork of `sequences`, to `Data.CatQueue` from the registry package
+`catenable-lists`: Okasaki's strict two-list queue. Enqueue is O(1),
+dequeue O(1) amortized, and `replace skip` is `skip` dequeues and
+enqueues. Nothing else changed, so this run compares the two queues
+against the `Context` run above, which used `Seq`.
+
+**Environment:**
+
+- Commit `a49e841`, plus the uncommitted `CatQueue` change. During the
+  run, the `Seq` instance was still compiled in but unused; it was
+  removed right afterwards, which doesn't touch the timed code.
+- CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
+  virtual machine; memory: 29 GiB
+- Power: mains (AC)
+- OS: Linux 6.8.0-1065-azure (x64)
+- Node v22.14.0; purs 0.15.16; spago 1.0.4
+- 5 runs per configuration, interleaved; median reported
+
+### Results
+
+**Quantizer modes** (Floyd–Steinberg; median ms, with growth over the
+previous size):
+
+| Side N | Pixels | threshold 128 | levels 4 (gray) | levels 6 (RGB) | websafe216 | bw |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 4,096 | 27.3 | 29.8 | 46.4 | 49.4 | 37.3 |
+| 128 | 16,384 | 49.5 (×1.81) | 51.4 (×1.72) | 90.8 (×1.96) | 145 (×2.93) | 77.4 (×2.08) |
+| 256 | 65,536 | 119 (×2.41) | 137 (×2.66) | 239 (×2.63) | 554 (×3.83) | 205 (×2.65) |
+| 512 | 262,144 | 410 (×3.44) | 486 (×3.55) | 1,032 (×4.32) | 2,185 (×3.94) | 733 (×3.58) |
+| 1024 | 1,048,576 | 1,995 (×4.86) | 2,269 (×4.67) | 4,602 (×4.46) | 10,428 (×4.77) | 3,834 (×5.23) |
+| per doubling, 256²→1024² | | ×4.09 | ×4.07 | ×4.39 | ×4.34 | ×4.33 |
+
+**Cost relative to threshold 128, at 1024²:** levels 4 (gray) ×1.14;
+levels 6 (RGB) ×2.31; websafe216 ×5.23; bw ×1.92. websafe216 ÷ levels 6
+(RGB), which give identical output: ×2.27.
+
+**Kernels** (threshold 128, gray; median ms):
+
+| Side N | floyd-steinberg | atkinson | jjn | atkinson ÷ FS | jjn ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 27.3 | 29.8 | 32.0 | ×1.09 | ×1.17 |
+| 128 | 49.5 | 59.2 | 78.9 | ×1.20 | ×1.59 |
+| 256 | 119 | 159 | 252 | ×1.34 | ×2.11 |
+| 512 | 410 | 583 | 994 | ×1.42 | ×2.42 |
+| 1024 | 1,995 | 2,917 | 4,561 | ×1.46 | ×2.29 |
+| per doubling, 256²→1024² | ×4.09 | ×4.28 | ×4.26 | | |
+
+**Run-to-run spread** ((max − min) ÷ median): median 18% for sizes 256²
+to 1024² (largest 44%, websafe216 at 256²); median 23% over all sizes.
+**Slowest run by round** (256² to 1024², rounds 1–5): 6 / 1 / 6 / 4 / 4:
+no round stands out.
+
+![Median dithering time with the CatQueue backend against image side for five quantizer modes, log-log: all five rise roughly in parallel with the dashed O(N²) reference from 256² up, and bend above it at the smallest sizes](images/benchmarks-dithering-2026-10-03-catqueue.svg)
+
+**Against the `Context` run with `Seq`** (this run's median ÷ that run's):
+
+| Configuration | 256² | 512² | 1024² |
+| --- | ---: | ---: | ---: |
+| Floyd–Steinberg, threshold 128 | ×0.26 | ×0.22 | ×0.26 |
+| Floyd–Steinberg, levels 4 (gray) | ×0.27 | ×0.27 | ×0.29 |
+| Floyd–Steinberg, levels 6 (RGB) | ×0.38 | ×0.37 | ×0.38 |
+| Floyd–Steinberg, websafe216 | ×0.58 | ×0.59 | ×0.67 |
+| Floyd–Steinberg, bw | ×0.35 | ×0.31 | ×0.37 |
+| Atkinson, threshold 128 | ×0.24 | ×0.21 | ×0.26 |
+| JJN, threshold 128 | ×0.17 | ×0.17 | ×0.18 |
+
+### Analysis
+
+**`CatQueue` makes dithering 3.6 times faster.** That's the median over
+the 21 configurations from 256² up; the range is 1.5 times (websafe216
+at 1024²) to 6.0 times (JJN at 512²). No configuration's runs overlap
+with its runs on `Seq`, so this is far outside the noise. Floyd–Steinberg
+with a threshold now takes 2.0 s at 1024²: 1.9 µs per pixel instead of
+7.4, or about 525,000 pixels per second. That's the new number to beat.
+
+**The queue was the main cost, as the first baseline suspected.** The
+gain is largest where the rest of the work per pixel is smallest: JJN,
+which sends each pixel's error to 12 neighbours, got 5.7 to 6.0 times
+faster; the other gray configurations 3.5 to 4.7 times; the RGB modes
+2.6 to 3.3 times; websafe216 1.5 to 1.7 times.
+
+**Now the work outside the queue shows, mostly for color.** At 1024²,
+RGB `--levels 6` takes ×2.31 of a gray threshold (×1.56 with `Seq`), and
+`--palette bw`, the cheapest RGB mode, ×1.92: the arithmetic on RGB
+values is now a large share. websafe216 takes ×2.27 as long as
+`--levels 6`, which gives the same output (×1.27 with `Seq`), so its
+palette search is now more than half its time. The search's extra time
+over `--levels 6` even grew, from 3.3 s to 5.8 s at 1024²; not
+investigated. For gray, `--levels 4` costs ×1.14 of a threshold.
+
+**The cold start shrank.** At 64², Floyd–Steinberg with a threshold takes
+27 ms, against 8 ms predicted from 1024² by O(N²): about 0.02 s of fixed
+cost. With `Seq` it was about 0.06 s, so most of what looked like V8
+compiling the dithering code was compiling the `Seq` code.
+
+**Scaling is still close to linear,** ×4.07 to ×4.39 per doubling from
+256² to 1024². But every configuration takes 12% to 31% more time per
+pixel at 1024² than at 512² (3% to 10% with `Seq`). Not investigated;
+larger images would show whether that keeps growing.
+
+**Noise:** the spread is higher than in the `Seq` runs (a median of 18%,
+against 9%), since the same absolute jitter weighs more on times four
+times shorter. The middle three of each configuration's five runs still
+lie within about 4% of each other.
+
+### Next steps
+
+- **RGB arithmetic:** `--levels 6` takes ×2.31 of a gray threshold, and
+  even `--palette bw` ×1.92. Look at how `RGB` values are added and
+  scaled per pixel.
+- **The palette search** (`nearestColorFast`): websafe216 takes ×2.27 of
+  `--levels 6` for the same output.
+- **Confirm linear scaling at 2048² and 4096²,** still open from
+  benchmarks-fifo.md, now also to see whether the rise in time per pixel
+  at 1024² continues. One mode is enough.
+- **The `nearestLevel` binary search** stays low priority: `--levels 4`
+  costs ×1.14 of a threshold.

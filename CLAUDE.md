@@ -59,8 +59,12 @@ from the code alone.
   `replicate`, `enqueue`, `dequeue`, `replace` (shift-left-by-n +
   zero-fill, its own method rather than `drop`+`<>` because that
   composition is O(n) even when n is small — see below). Instances:
-  `List.Lazy`, `Data.List` (strict), `Array`, `Data.Sequence.Seq`.
-  **`Seq` is the production default** (see Performance below).
+  `List.Lazy`, `Data.List` (strict), `Array`, `Data.CatQueue` (registry
+  package `catenable-lists`: Okasaki's strict two-list queue).
+  **`CatQueue` is the production default** (see Performance below). Its
+  O(1) amortized `dequeue` assumes each queue version is used once
+  (an old version used again redoes the list reversal) — which is how
+  `step`/`ditherRow` use them.
 - `Dither.Pixel` — `Gray = Number`; `RGB`/`RGBA` are `newtype`s (not
   `type` aliases — aliases sharing record shape would collide on
   instance resolution) with hand-written `Semiring`/`Ring` (honest
@@ -158,15 +162,16 @@ from the code alone.
   from the extra allocation/unwrap; abandoned in favor of this.)
 - **`replace` is a first-class `Fifo` method**, not `drop` + `<>`,
   because that composition is O(n) regardless of how small the drop
-  count is (the `<>` walks the whole kept prefix). A finger-tree-backed
-  instance (`Seq`) can implement `replace` via cheap concatenation
-  (O(log n)) instead.
+  count is (the `<>` walks the whole kept prefix). `CatQueue` does it
+  as `skip` dequeues + `skip` enqueues: O(skip), and `skip` is at most
+  the kernel's reach. (The former default, the finger tree `Seq`, used
+  its O(log n) concatenation.)
 - **`ST` doesn't fit the `Fifo` abstraction**: `enqueue`/`dequeue` are
   called from separate call sites across a value's lifetime (not one
   `runST` block), so real `O(1)` mutation there would require either
   unsafe linear-use assumptions or a hand-rolled consumed-flag +
-  defensive-copy scheme — both rejected as not worth it given `Seq`
-  already achieves the target asymptotic complexity. A genuinely
+  defensive-copy scheme — both rejected as not worth it given
+  `CatQueue` already achieves the target asymptotic complexity. A genuinely
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
 
@@ -181,6 +186,13 @@ switching the default `Fifo` backend to `Seq`. ~38× speedup at
 1024×1024. `Array` was benchmarked too (native memcpy-speed constants
 beat asymptotics at tested sizes, ≤1024) — worth re-testing at larger
 N since its growth-ratio trend was climbing back toward cubic.
+
+2026-10-03: `Seq` (from a git fork of `sequences`, which blocked
+publishing) was replaced by `Data.CatQueue`: ~3.6× faster again
+(median over configurations; JJN ~6×), and the library now depends
+only on registry packages. With the queue no longer dominant, the RGB
+arithmetic and the palette search are the next costs
+(`docs/benchmarks-dithering.md`).
 
 ## Testing
 
