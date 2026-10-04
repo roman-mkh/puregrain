@@ -85,7 +85,7 @@ images.
 
 **Environment:**
 
-- Commit `f603796`, plus uncommitted changes to docs and scripts only (no
+- Commit `75bd5d6`, plus uncommitted changes to docs and scripts only (no
   change to the library or CLI code)
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
   virtual machine; memory: 34 GiB
@@ -226,10 +226,10 @@ so it was discarded and the run repeated with the machine left alone.
 
 **Environment:**
 
-- Commit `dbb3416`, built in a separate git worktree. The script reports
+- Commit `ef91d69`, built in a separate git worktree. The script reports
   it as having uncommitted changes; the only one is that worktree's link
   to the main checkout's `node_modules`. The dithering code is the same as
-  in `f603796`, the commit of the 2026-09-25 run: in between, only the
+  in `75bd5d6`, the commit of the 2026-09-25 run: in between, only the
   palettes moved to `Dither.Palette.Presets`, and the CLI gained the new
   palettes.
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
@@ -346,7 +346,7 @@ alone; a first attempt was discarded along with the baseline's.
 
 **Environment:**
 
-- Commit `5242b7c` (the `Context` change), plus uncommitted changes to
+- Commit `ce63a5d` (the `Context` change), plus uncommitted changes to
   docs only
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
   virtual machine; memory: 31 GiB
@@ -447,7 +447,7 @@ against the `Context` run above, which used `Seq`.
 
 **Environment:**
 
-- Commit `a49e841`, plus the uncommitted `CatQueue` change. During the
+- Commit `5e110dd`, plus the uncommitted `CatQueue` change. During the
   run, the `Seq` instance was still compiled in but unused; it was
   removed right afterwards, which doesn't touch the timed code.
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
@@ -570,7 +570,7 @@ show how much two runs of the same code differ.
 
 **Environment:**
 
-- Commit `4b591a8`
+- Commit `7f082bb`
 - CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
   virtual machine; memory: 30 GiB
 - Power: mains (AC)
