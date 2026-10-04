@@ -9,8 +9,7 @@ for PNG images.
 > **Status: pre-release.** The library works and is tested. Its public
 > interface is being settled: the modules have their final names
 > (`Puregrain.*`), but some functions may still change before the first
-> release. It isn't published on Pursuit or npm yet; it still needs a
-> license.
+> release. It isn't published on Pursuit or npm yet.
 
 ## What it does
 
@@ -72,3 +71,8 @@ workspace and are built together.
 | [docs/benchmarks-fifo.md](docs/benchmarks-fifo.md) | History: how an O(N³) slowdown was found and fixed |
 | [CLAUDE.md](CLAUDE.md) | Design decisions and their reasons (kept up to date for the AI assistant used in development) |
 | [TODO.md](TODO.md) | Open work and ideas |
+
+## License
+
+MIT: use it in any project, open or closed, free or commercial; keep the
+copyright and license notice. See [LICENSE](LICENSE).

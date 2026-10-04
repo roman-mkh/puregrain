@@ -37,7 +37,7 @@ the v0.1 release.
       or does it stay internal? Does `Quantize` keep its exported constructor (needed today for
       position-dependent quantizers), or get a smart constructor so its representation stays free to change?
       "Start closed": internal or closed until a need shows.
-- [ ] **Release v0.1:** a license; version ranges for the dependencies (`spago build --ensure-ranges`); a
+- [ ] **Release v0.1:** version ranges for the dependencies (`spago build --ensure-ranges`); a
       `release.yml` workflow; review the git history, then make the repository public; publish to the
       registry and Pursuit; drop the "Done" list from this file.
 
@@ -114,6 +114,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       stay pure; if ever, as an extension package.
 
 ## Done (record; dropped at the v0.1 release)
+
+- 2026-10-04 — License: MIT (`LICENSE`, covering the library and the CLI), declared in `spago.yaml`
+  (`package.publish`, with the planned version 0.1.0) and `package.json`.
 
 - 2026-10-03 — Publishing unblocked: `Seq` (a git fork of `sequences`) replaced by `Data.CatQueue` from the
   registry package `catenable-lists`; also ~3.6× faster (`docs/benchmarks-dithering.md`).

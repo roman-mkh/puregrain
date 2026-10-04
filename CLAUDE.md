@@ -15,7 +15,10 @@ from the code alone.
   Its dependencies are what every Pursuit user inherits, so they must
   stay exact: keep `spago build --pedantic-packages` clean, keep
   test-only packages under `test.dependencies`, and never add
-  Node-only or app packages here.
+  Node-only or app packages here. MIT-licensed (`LICENSE` at the root
+  covers the library and the CLI); `package.publish` in `spago.yaml`
+  holds the license and the planned version (0.1.0), and
+  `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
   `Puregrain.Cli.*`) — the command-line tool, a separate package that
   depends on the library. The only JS in it is the pngjs wrapper
