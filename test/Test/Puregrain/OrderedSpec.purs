@@ -19,6 +19,7 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
+import Puregrain.Kernel (noDiffusion)
 import Puregrain.Ordered (ThresholdMap, bayer, bayerMatrix, compileThresholdMap, ordered, thresholdAt)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (Quantize, evenRamp, nearestLevel, perChannel, runQuantize)
@@ -195,7 +196,7 @@ spec = describe "Puregrain.Ordered" do
     it "the empty kernel quantizes each pixel on its own, at its position" do
       quickCheck \(TestRanks ranks) (TestLevels levels) (TestImage image) ->
         let q = ordered (compiledMap ranks) levels
-        in dither [] q image === pointwise q image
+        in dither noDiffusion q image === pointwise q image
 
     -- Counted exactly in whole numbers: (r + 0.5) / n² < g / 255 is
     -- 255 · (2r + 1) < 2 · g · n².
@@ -203,7 +204,7 @@ spec = describe "Puregrain.Ordered" do
       for_ [ 2, 4, 8 ] \n -> for_ (0 .. 255) \g -> do
         let
           image = Array.replicate (2 * n) (Array.replicate (2 * n) (toNumber g))
-          out = dither [] (ordered (bayerMap n) (evenRamp 2)) image
+          out = dither noDiffusion (ordered (bayerMap n) (evenRamp 2)) image
           expected = Array.length (Array.filter (\r -> 255 * (2 * r + 1) < 2 * g * n * n) (0 .. (n * n - 1)))
           whiteIn tileY tileX = Array.length do
             y <- (tileY * n) .. (tileY * n + n - 1)
@@ -225,7 +226,7 @@ spec = describe "Puregrain.Ordered" do
           maybeNeutral y x px = case Array.index grays y >>= flip Array.index x of
             Just v -> neutral v
             Nothing -> px
-          out = dither [] (perChannel (ordered (compiledMap ranks) levels)) image
+          out = dither noDiffusion (perChannel (ordered (compiledMap ranks) levels)) image
           broken = Array.length do
             Tuple input output <- Array.concat (Array.zipWith (Array.zipWith Tuple) image out)
             if isNeutralRGB input && not (isNeutralRGB output) then [ unit ] else []

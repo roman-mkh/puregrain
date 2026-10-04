@@ -12,6 +12,7 @@ module Puregrain.Internal.State
 import Prelude
 
 import Data.Array as Array
+import Data.Maybe (Maybe(..))
 import Puregrain.Internal.Fifo (class Fifo, replicate)
 import Puregrain.Internal.Kernel (CompiledKernel, paddingFor)
 import Puregrain.Internal.Util (safeRange)
@@ -29,10 +30,11 @@ type RowLayer (f :: Type -> Type) a = Array (f a)
 -- | the kernel's `maxDepth`.
 type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 
--- | What crosses from one row to the next: the delay lines, and the index
--- | of the next row (`nextRow`, the `y` the quantizer will see). Keeping
--- | the row counter in the state, rather than passing `y` in, means a
--- | caller stepping row by row can't pass a wrong one.
+-- | What crosses from one row to the next: the delay lines; the index of
+-- | the next row (`nextRow`, the `y` the quantizer will see), kept here
+-- | rather than passed in, so a caller stepping row by row can't pass a
+-- | wrong one; and the image's `width`, taken from the first row
+-- | (`Nothing` before it), which every later row must match.
 -- |
 -- | Use each `DitherState` once. Passing an old state in again gives the
 -- | right result, but can be slower: the queues inside it then repeat
@@ -40,6 +42,7 @@ type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 type DitherState (f :: Type -> Type) a =
   { delayLines :: Array (DelayLine f a)
   , nextRow :: Int
+  , width :: Maybe Int
   }
 
 -- | Row-local state, rebuilt for every pixel. `x` is the column of the
@@ -62,4 +65,5 @@ initState :: forall f a. CompiledKernel -> DitherState f a
 initState compiled =
   { delayLines: map (\dy -> Array.replicate dy ([] :: RowLayer f a)) (safeRange 1 compiled.maxDepth)
   , nextRow: 0
+  , width: Nothing
   }

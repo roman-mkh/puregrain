@@ -9,6 +9,7 @@ package:
     - lazy
     - lists
     - maybe
+    - numbers
     - partial
     - prelude
     - tuples
@@ -17,6 +18,7 @@ package:
     main: Test.Main
     dependencies:
       - effect
+      - exceptions
       - quickcheck
       - spec
       - spec-discovery

@@ -13,6 +13,7 @@
             "lazy",
             "lists",
             "maybe",
+            "numbers",
             "partial",
             "prelude",
             "tuples",
@@ -22,6 +23,7 @@
         "test": {
           "dependencies": [
             "effect",
+            "exceptions",
             "quickcheck",
             "spec",
             "spec-discovery",

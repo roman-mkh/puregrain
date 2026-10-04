@@ -81,10 +81,18 @@ from the code alone.
     repo docs.
   - The reshape was verified byte-identical: 17 CLI configurations
     produced the same PNGs before and after.
-- `Puregrain.Kernel` — a `Kernel` is `Array Offset` (`{dx, dy, weight}`),
-  user-facing and simple; offsets must point forward in scan order (not
-  validated yet: a backward or self offset crashes at the first pixel —
-  validation is the next API step). `Puregrain.Internal.Kernel`:
+- `Puregrain.Kernel` — `Kernel` is an opaque, checked `Array Offset`
+  (`{dx, dy, weight}`), the same pattern as `ThresholdMap`:
+  `fromOffsets :: Array Offset -> Either String Kernel` checks that every
+  offset points forward in scan order (`dy > 0`, or `dy == 0 && dx > 0`;
+  unchecked, a backward/self offset crashed at the first pixel and
+  `dy < 0` was silently dropped), every weight is finite, and no
+  neighbour appears twice (rules 2–3 by "start closed": relaxing later
+  is compatible). Weight sign and sum aren't checked (Atkinson's 3/4 is
+  deliberate). `offsets` reads them back; presets `floydSteinberg`,
+  `atkinson`, `jarvisJudiceNinke`, and `noDiffusion` (the empty kernel;
+  `[]` is no longer a `Kernel`). The test generator draws distinct
+  offsets per row, so its kernels always pass. `Puregrain.Internal.Kernel`:
   `CompiledKernel` (record: `currentOffsets`, `futureLayers`, `maxDepth`)
   is a precomputed cache built once via `compileKernel`, threaded through
   the hot path instead of recomputing `Array.filter`s per pixel
@@ -141,7 +149,7 @@ from the code alone.
   short table).
 - `Puregrain.Ordered` — ordered (Bayer) dithering as an ordinary
   `Quantize Number`, over levels; color via `perChannel`. Pure ordered
-  dithering = the empty kernel (`[]`); with any other kernel it's the
+  dithering = `noDiffusion`; with any other kernel it's the
   hybrid ("threshold modulation"): the error stays `corrected − q`,
   measured against the value, so diffusion keeps the tones and the map
   only places the dots. `ThresholdMap` is opaque, so every map is
@@ -167,8 +175,15 @@ from the code alone.
   `Puregrain.Dither.ditherImage` is `ditherImageWith (Proxy CatQueue)`.
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
   `current`/`matured`/`building` are row-local (`RowState`); only
-  `delayLines` and the row counter `nextRow` cross row boundaries
-  (`DitherState`). Positions: `y` is `DitherState.nextRow` (a caller
+  `delayLines`, the row counter `nextRow` and the image `width` (from
+  the first row) cross row boundaries (`DitherState`). `ditherRow` checks
+  each row's length against `width` first: a different length is a
+  caller's bug, stopped with `unsafeCrashWith` naming the row (a runtime
+  error by decision — `ditherImage`'s lazy list has no error channel; a
+  typed error is for the future stepper, see TODO.md). `ditherImageWith`
+  does all its work inside `defer`, so each row is read and dithered
+  only when its cell is forced (until 2026-10-04 a strict `let` outside
+  the `defer` dithered each row one cell early). Positions: `y` is `DitherState.nextRow` (a caller
   stepping rows can't pass a wrong one); `x`/`y` ride in `RowState`, which `step` rebuilds per pixel
   anyway. Not `mapAccumLWithIndex`: on Array it's a generic default
   (`sequence <<< mapWithIndex`, an extra pass per row), while
@@ -286,6 +301,17 @@ PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 sync writer, which silently wrote every "grayscale" image as RGBA.
 
 ## PureScript gotchas hit during development (worth remembering)
+
+- **`where`/`let` bindings are strict**, evaluated before the body: a
+  check in the body runs after them (`ditherRow`'s row-length check
+  first ran after the row had already crashed), and a lazy-list cell
+  built after a `let` doesn't delay that `let`. Put the work in the
+  branch or the `defer` that should guard it.
+- **In an `Effect` do-block, a leading `let` is evaluated when the
+  effect is built, not when it runs** (`do let x = e; …` is just
+  `let x = e in …`), so `try` can't catch an error it throws. Delay it
+  behind a bind: `pure unit >>= \_ -> pure (f unit)` (`whenRun` in
+  `Test.Puregrain.DitherSpec`).
 
 - **A `where` after guards belongs to the last guard only** — unlike
   Haskell, where it scopes over all of them. `f n | c = g n | otherwise

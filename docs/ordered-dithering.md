@@ -101,8 +101,8 @@ The error is measured against the value, not against the threshold. So
 error diffusion still keeps the average tone right, and the map only
 decides where the dots land. The result shows the Bayer texture, broken up
 wherever diffusion moves a dot; this is known as *threshold modulation*.
-With the empty kernel (`--kernel none`), no error is passed on and it's
-pure ordered dithering.
+With no kernel (`noDiffusion` in the library, `--kernel none` in the
+CLI), no error is passed on and it's pure ordered dithering.
 
 ## What to look for
 

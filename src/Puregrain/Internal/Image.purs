@@ -35,10 +35,13 @@ ditherImageWith _ kernel quantize rows =
   where
     compiled = compileKernel kernel
 
+    -- All the work happens inside `defer`: a row is read and dithered only
+    -- when its cell is forced. (With the `let` outside it, as before, a
+    -- strict `let` dithered each row one cell early.)
     go :: DitherState f a -> LL.List (Array a) -> LL.List (Array a)
-    go state remainingRows =
+    go state remainingRows = List $ defer \_ ->
       case LL.step remainingRows of
-        Nil -> LL.nil
+        Nil -> Nil
         Cons row rest ->
           let Tuple state' quantizedRow = ditherRow compiled quantize state row
-          in List (defer \_ -> Cons quantizedRow (go state' rest))
+          in Cons quantizedRow (go state' rest)

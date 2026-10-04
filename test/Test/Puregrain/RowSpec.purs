@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.List.Lazy as LL
+import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), snd)
 import Test.QuickCheck ((===))
 import Test.Spec (Spec, describe, it)
@@ -11,12 +12,13 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
-import Puregrain.Kernel (Kernel, floydSteinberg)
+import Puregrain.Kernel (floydSteinberg, noDiffusion)
 import Puregrain.Quantize (quantize)
 import Puregrain.Internal.Row (ditherRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Internal.Util (safeRange)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..))
+import Test.Puregrain.Util (validKernel)
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
@@ -59,6 +61,21 @@ spec = describe "Puregrain.Internal.Row" do
             image
         in snd counts === Array.range 1 (Array.length image)
 
+    it "remembers the image's width: none before the first row, then the first row's length" do
+      quickCheck \(TestKernel kernel) (TestImage image) ->
+        let
+          compiled = compileKernel kernel
+          start = initState compiled :: DitherState LL.List Number
+          widths = Array.foldl
+            ( \(Tuple state acc) row ->
+                let Tuple state' _ = ditherRow compiled (quantize quantizeThreshold) state row
+                in Tuple state' (Array.snoc acc state'.width)
+            )
+            (Tuple start [])
+            image
+          firstWidth = Array.length <$> Array.head image
+        in { before: start.width, after: snd widths } === { before: Nothing, after: map (const firstWidth) image }
+
     it "each DelayLine's length is always exactly its dy, from the first row onward" do
       quickCheck \(TestKernel kernel) (TestImage image) ->
         let
@@ -83,12 +100,12 @@ spec = describe "Puregrain.Internal.Row" do
   describe "edge cases" do
     it "maxDepth == 0 kernel: DelayLines stay empty across a multi-row image" do
       quickCheck \(TestImage image) ->
-        let kernel = [ { dx: 1, dy: 0, weight: 1.0 } ] :: Kernel
+        let kernel = validKernel [ { dx: 1, dy: 0, weight: 1.0 } ]
         in foldRows (compileKernel kernel) (\state _ _ -> Array.length state.delayLines == 0) image === true
 
     it "completely empty kernel: every row is quantized directly, with no diffusion" do
       quickCheck \(TestImage image) ->
-        let compiled = compileKernel ([] :: Kernel)
+        let compiled = compileKernel noDiffusion
         in foldRows compiled (\_ row outRow -> outRow == map quantizeThreshold row) image === true
 
     it "width-1 image with Floyd-Steinberg does not crash and preserves invariants" do

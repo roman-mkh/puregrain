@@ -11,13 +11,13 @@ import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
-import Puregrain.Kernel (Kernel, floydSteinberg)
+import Puregrain.Kernel (floydSteinberg, noDiffusion)
 import Puregrain.Quantize (quantize)
 import Puregrain.Internal.Row (initBuilding)
 import Puregrain.Internal.State (RowLayer, RowState, freshLayer)
 import Puregrain.Internal.Step (step)
 import Test.Puregrain.Arbitrary (TestKernel(..), TestRow(..))
-import Test.Puregrain.Util (approxArrayEqual, takeAsArray)
+import Test.Puregrain.Util (approxArrayEqual, takeAsArray, validKernel)
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
@@ -121,7 +121,7 @@ spec = describe "Puregrain.Internal.Step" do
   describe "edge cases" do
     it "maxDepth == 0 kernel: no future layers, only current-row diffusion" do
       let
-        kernel = [ { dx: 1, dy: 0, weight: 1.0 } ] :: Kernel
+        kernel = validKernel [ { dx: 1, dy: 0, weight: 1.0 } ]
         compiled = compileKernel kernel
         initial = freshRowState1 compiled
 
@@ -138,7 +138,7 @@ spec = describe "Puregrain.Internal.Step" do
     it "completely empty kernel: quantize is applied directly, with no diffusion, for any row" do
       quickCheck \(TestRow row) ->
         let
-          compiled = compileKernel ([] :: Kernel)
+          compiled = compileKernel noDiffusion
           outputs = Array.foldl
             ( \(Tuple rs acc) px ->
                 let Tuple rs' q = step compiled (quantize quantizeThreshold) rs px
@@ -150,7 +150,7 @@ spec = describe "Puregrain.Internal.Step" do
 
     it "a zero-weight offset contributes exactly zero error, not NaN/Infinity" do
       let
-        kernel = [ { dx: 1, dy: 0, weight: 0.0 } ] :: Kernel
+        kernel = validKernel [ { dx: 1, dy: 0, weight: 0.0 } ]
         compiled = compileKernel kernel
         initial = freshRowState1 compiled
         Tuple rowState1 _ = step compiled (quantize quantizeThreshold) initial 200.0

@@ -15,7 +15,7 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Maybe (Maybe(..))
-import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
+import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 
@@ -51,7 +51,7 @@ kernelOf = case _ of
   FloydSteinberg -> floydSteinberg
   Atkinson -> atkinson
   JarvisJudiceNinke -> jarvisJudiceNinke
-  NoDiffusion -> []
+  NoDiffusion -> noDiffusion
 
 paletteOf :: PaletteName -> NonEmptyArray RGB
 paletteOf = case _ of

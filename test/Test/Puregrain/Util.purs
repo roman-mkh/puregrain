@@ -13,7 +13,7 @@ import Data.List.Lazy as LL
 import Partial.Unsafe (unsafePartial)
 
 import Puregrain.Dither (ditherImage)
-import Puregrain.Kernel (Kernel)
+import Puregrain.Kernel (Kernel, Offset, fromOffsets)
 import Puregrain.Ordered (ThresholdMap, bayer, compileThresholdMap)
 import Puregrain.Pixel (class Scalable, RGB(..))
 import Puregrain.Quantize (Quantize, runQuantize)
@@ -75,3 +75,9 @@ bayerMap n = unsafePartial case bayer n of
 compiledMap :: Array (Array Int) -> ThresholdMap
 compiledMap ranks = unsafePartial case compileThresholdMap ranks of
   Right m -> m
+
+-- | A kernel from offsets that tests know are valid. Crashes otherwise;
+-- | `Test.Puregrain.KernelSpec` checks the rejections.
+validKernel :: Array Offset -> Kernel
+validKernel list = unsafePartial case fromOffsets list of
+  Right k -> k

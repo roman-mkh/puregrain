@@ -15,8 +15,8 @@ for PNG images.
 ## What it does
 
 - **Error diffusion with a choice of kernel:** Floyd–Steinberg, Atkinson,
-  Jarvis–Judice–Ninke, or your own (a kernel is just a list of neighbour
-  offsets and weights).
+  Jarvis–Judice–Ninke, or your own (a list of neighbour offsets and
+  weights, checked when you build it).
 - **Grayscale and color.** For color there are two approaches:
   - dither each channel on its own, e.g. 4 levels per channel;
   - or pick the nearest color from a palette, looking at the whole pixel.

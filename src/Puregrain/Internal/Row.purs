@@ -52,6 +52,11 @@ commitBuilding compiled building shortenedDelayLines =
 -- | Dithers one row and returns the state for the next one. Use each
 -- | `DitherState` once: passing an old state in again gives the right
 -- | result, but can be slower (see `DitherState`).
+-- |
+-- | Every row must be as long as the first one. A row of a different
+-- | length is a caller's bug: it stops with an error naming the row,
+-- | rather than reading past the queued error or leaving it misaligned
+-- | for the rows below.
 ditherRow
   :: forall f a
    . Fifo f
@@ -63,23 +68,36 @@ ditherRow
   -> Array a
   -> Tuple (DitherState f a) (Array a)
 ditherRow compiled quantize state pixels =
-  let
-    Tuple matured0 shortenedDelayLines = extractMatured state.delayLines
+  -- The check comes first, and the row's work lives in the branch after
+  -- it: PureScript evaluates `where` bindings before the body, so work
+  -- placed there would run (and, for a longer row, crash) before the check.
+  case state.width of
+    Just width | width /= length ->
+      unsafeCrashWith
+        ( "puregrain: row " <> show state.nextRow <> " has " <> show length
+            <> " pixels, but the first row has " <> show width
+            <> "; all rows of an image must have the same length"
+        )
+    _ ->
+      let
+        Tuple matured0 shortenedDelayLines = extractMatured state.delayLines
 
-    initial :: RowState f a
-    initial =
-      { current: freshLayer compiled.currentOffsets
-      , matured: matured0
-      , building: initBuilding compiled
-      , x: 0
-      , y: state.nextRow
-      }
+        initial :: RowState f a
+        initial =
+          { current: freshLayer compiled.currentOffsets
+          , matured: matured0
+          , building: initBuilding compiled
+          , x: 0
+          , y: state.nextRow
+          }
 
-    result = mapAccumL stepAdapter initial pixels
-    delayLines' = commitBuilding compiled result.accum.building shortenedDelayLines
-  in
-    Tuple { delayLines: delayLines', nextRow: state.nextRow + 1 } result.value
+        result = mapAccumL stepAdapter initial pixels
+        delayLines' = commitBuilding compiled result.accum.building shortenedDelayLines
+      in
+        Tuple { delayLines: delayLines', nextRow: state.nextRow + 1, width: Just length } result.value
   where
+    length = Array.length pixels
+
     stepAdapter rowState px =
       let Tuple rowState' q = step compiled quantize rowState px
       in { accum: rowState', value: q }

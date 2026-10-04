@@ -2,40 +2,42 @@ module Test.Puregrain.Arbitrary where
 
 import Prelude
 
+import Data.Array ((..))
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Traversable (traverse)
 import Puregrain.Kernel (Kernel, Offset)
+import Test.Puregrain.Util (validKernel)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Internal.Util (safeRange)
 import Test.QuickCheck (class Arbitrary)
-import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, vectorOf)
+import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, shuffle, vectorOf)
 
--- | Generates one Offset with dx in [dxLo, dxHi] and the given fixed dy.
-genOffset :: Int -> Int -> Int -> Gen Offset
-genOffset dxLo dxHi dy = do
-  dx <- chooseInt dxLo dxHi
-  weight <- choose 0.0 1.0
-  pure { dx, dy, weight }
-
--- | Generates a structurally arbitrary Kernel: 0-3 "current" (dy=0)
--- | offsets with dx in [1,3], and, for each dy from 1 up to a random
--- | maxDy (0-3), 0-3 offsets with dx in [-3,3]. An empty kernel (no
--- | diffusion at all) is a valid, occasionally-generated edge case —
--- | deliberately not excluded.
-genKernel :: Gen Kernel
-genKernel = do
-  numCurrent <- chooseInt 0 3
-  currentOffsets <- vectorOf numCurrent (genOffset 1 3 0)
+-- | Generates the offsets of a structurally arbitrary kernel: 0-3
+-- | "current" (dy=0) offsets with distinct dx in [1,3], and, for each dy
+-- | from 1 up to a random maxDy (0-3), 0-3 offsets with distinct dx in
+-- | [-3,3]; weights in [0,1]. So every generated list is a valid kernel
+-- | (forward, finite, no duplicates). An empty kernel (no diffusion at
+-- | all) is a valid, occasionally-generated edge case — deliberately not
+-- | excluded.
+genOffsets :: Gen (Array Offset)
+genOffsets = do
+  currentOffsets <- genLayer 0 (1 .. 3)
   maxDy <- chooseInt 0 3
-  futureOffsets <- Array.concat <$> traverse genLayer (safeRange 1 maxDy)
+  futureOffsets <- Array.concat <$> traverse (\dy -> genLayer dy ((-3) .. 3)) (safeRange 1 maxDy)
   pure (currentOffsets <> futureOffsets)
   where
-    genLayer :: Int -> Gen (Array Offset)
-    genLayer dy = do
+    genLayer :: Int -> Array Int -> Gen (Array Offset)
+    genLayer dy candidates = do
       n <- chooseInt 0 3
-      vectorOf n (genOffset (-3) 3 dy)
+      dxs <- Array.take n <$> shuffle candidates
+      traverse (\dx -> { dx, dy, weight: _ } <$> choose 0.0 1.0) dxs
+
+-- | A kernel made from `genOffsets`; `fromOffsets` always accepts those
+-- | (`Test.Puregrain.KernelSpec` checks that it does).
+genKernel :: Gen Kernel
+genKernel = validKernel <$> genOffsets
 
 newtype TestKernel = TestKernel Kernel
 

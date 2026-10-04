@@ -4,8 +4,8 @@
 -- | the Bayer matrix (Bryce E. Bayer, Kodak, 1973).
 -- |
 -- | It's an ordinary `Quantize`, so it works with `ditherImage` like any
--- | other quantizer. With the empty kernel (`[]`, no error passed on), that
--- | gives pure ordered dithering; with any other kernel, the hybrid
+-- | other quantizer. With `noDiffusion` (no error passed on), that gives
+-- | pure ordered dithering; with any other kernel, the hybrid
 -- | "threshold modulation": error diffusion keeps the tones right, and
 -- | the map decides where the dots land. Background, formulas and what to
 -- | look for: [docs/ordered-dithering.md](https://github.com/roman-mkh/puregrain/blob/master/docs/ordered-dithering.md).

@@ -6,7 +6,7 @@ import Control.Monad.ST (ST, run)
 import Data.Array as Array
 import Data.Array.ST as STArray
 import Data.Maybe (Maybe(..))
-import Puregrain.Kernel (Kernel)
+import Puregrain.Kernel (Kernel, offsets)
 import Puregrain.Pixel (class Scalable, scale)
 import Puregrain.Quantize (Quantize(..))
 
@@ -100,8 +100,9 @@ referenceDither kernel (Quantize quantize) image =
           go (i + 1)
 
     forKernel_ :: forall r. Kernel -> ({ dx :: Int, dy :: Int, weight :: Number } -> ST r Unit) -> ST r Unit
-    forKernel_ ks f = go 0
+    forKernel_ k f = go 0
       where
+        ks = offsets k
         n = Array.length ks
         go i = when (i < n) do
           case Array.index ks i of

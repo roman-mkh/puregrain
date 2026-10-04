@@ -2,7 +2,8 @@
 -- | re-exports what a typical application needs:
 -- |
 -- | - `ditherImage`, which dithers an image row by row;
--- | - the kernels `floydSteinberg`, `atkinson` and `jarvisJudiceNinke`;
+-- | - the kernels `floydSteinberg`, `atkinson` and `jarvisJudiceNinke`, and
+-- |   `noDiffusion` for none;
 -- | - the quantizers `threshold`, `nearestLevel` with `evenRamp`, and
 -- |   `perChannel` for color; `nearestColor` with the palette presets;
 -- |   `bayer` and `ordered` for ordered dithering;
@@ -31,7 +32,7 @@ module Puregrain
   ) where
 
 import Puregrain.Dither (ditherImage)
-import Puregrain.Kernel (Kernel, Offset, atkinson, floydSteinberg, jarvisJudiceNinke)
+import Puregrain.Kernel (Kernel, Offset, atkinson, floydSteinberg, jarvisJudiceNinke, noDiffusion)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)
 import Puregrain.Palette (nearestColor)
 import Puregrain.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)

@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
-import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
+import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, paletteOf, pipelineFor, toNeutral)
@@ -98,7 +98,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
       kernelOf FloydSteinberg `shouldEqual` floydSteinberg
       kernelOf Atkinson `shouldEqual` atkinson
       kernelOf JarvisJudiceNinke `shouldEqual` jarvisJudiceNinke
-      kernelOf NoDiffusion `shouldEqual` []
+      kernelOf NoDiffusion `shouldEqual` noDiffusion
 
     it "each palette name maps to the library's palette" do
       paletteOf BlackWhite `shouldEqual` blackWhite

@@ -16,13 +16,16 @@ import Puregrain.Quantize (Quantize)
 import Type.Proxy (Proxy(..))
 
 -- | Dithers an image given as a lazy list of rows, top to bottom, each an
--- | array of pixels from left to right; all rows must have the same
--- | length. The result comes back the same way, and lazily: each row is
--- | computed when it's first needed, so an image can be processed as a
--- | stream.
+-- | array of pixels from left to right. The result comes back the same
+-- | way, and lazily: each row is read and dithered when its result is
+-- | first needed, so an image can be processed as a stream.
 -- |
--- | `kernel` says where each pixel's quantization error goes; the empty
--- | kernel `[]` passes none on. `quantize` picks each output value.
+-- | All rows must have the same length. A row of a different length is
+-- | a bug in the caller: when that row is reached, `ditherImage` stops
+-- | with an error naming it (the rows before it have come out already).
+-- |
+-- | `kernel` says where each pixel's quantization error goes;
+-- | `noDiffusion` passes none on. `quantize` picks each output value.
 ditherImage
   :: forall a
    . Ring a
