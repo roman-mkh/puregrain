@@ -5,12 +5,16 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
+import Data.Either (Either(..))
 import Data.Foldable (and)
+import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
 import Data.List.Lazy as LL
+import Partial.Unsafe (unsafePartial)
 
 import Dither.Image (ditherImage)
 import Dither.Kernel (Kernel)
+import Dither.Ordered (ThresholdMap, bayer, compileThresholdMap)
 import Dither.Pixel (class Scalable, Quantize, RGB(..), runQuantize)
 import Dither.State (RowLayer)
 
@@ -57,3 +61,16 @@ nonNeutralCount :: Array (Array RGB) -> Int
 nonNeutralCount = Array.length <<< Array.filter (not <<< isNeutral) <<< Array.concat
   where
   isNeutral (RGB p) = p.r == p.g && p.g == p.b
+
+-- | The n × n Bayer map, for tests that pass a valid side. Crashes
+-- | otherwise: `bayer` itself returns `Nothing` there, and
+-- | `Test.Dither.OrderedSpec` checks that it does.
+bayerMap :: Int -> ThresholdMap
+bayerMap n = unsafePartial case bayer n of
+  Just m -> m
+
+-- | A custom map from ranks that tests know are valid. Crashes
+-- | otherwise; `Test.Dither.OrderedSpec` checks the rejections.
+compiledMap :: Array (Array Int) -> ThresholdMap
+compiledMap ranks = unsafePartial case compileThresholdMap ranks of
+  Right m -> m

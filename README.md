@@ -1,9 +1,10 @@
 # puregrain
 
-Error-diffusion dithering in PureScript: Floyd–Steinberg, Atkinson and
-Jarvis–Judice–Ninke, for grayscale and color images, down to a few gray
-levels, a few levels per color channel, or a fixed palette such as CGA or
-the Commodore 64. It comes with a command-line tool for PNG images.
+Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
+Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
+down to a few gray levels, a few levels per color channel, or a fixed
+palette such as CGA or the Commodore 64. It comes with a command-line tool
+for PNG images.
 
 > **Status: pre-release.** The library works and is tested, but its public
 > interface hasn't been designed yet, and the module names will change
@@ -18,6 +19,9 @@ the Commodore 64. It comes with a command-line tool for PNG images.
 - **Grayscale and color.** For color there are two approaches:
   - dither each channel on its own, e.g. 4 levels per channel;
   - or pick the nearest color from a palette, looking at the whole pixel.
+- **Ordered (Bayer) dithering:** Bayer matrices of any power-of-2 size,
+  or your own threshold map; on its own, or combined with error diffusion.
+  See [docs/ordered-dithering.md](docs/ordered-dithering.md).
 - **Ready-made palettes:** black & white, web-safe, CGA/EGA/VGA, ANSI
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
@@ -60,6 +64,7 @@ workspace and are built together.
 | Document | Contents |
 |---|---|
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
+| [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |
 | [docs/test-images.md](docs/test-images.md) | The generated test images, and what to look for in the results |
 | [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md) | Current performance, per mode and kernel |

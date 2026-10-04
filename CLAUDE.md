@@ -27,7 +27,14 @@ from the code alone.
   `Puregrain.Cli.Main` I/O-only: decisions go in `Puregrain.Cli.Pipeline`
   (pure, tested in `cli/test/`). Kernel/palette CLI names are defined
   once (`kernelName`/`paletteName`); tables and help text derive from
-  them. `spago test` runs both packages' suites (library, then CLI).
+  them. `--kernel none` is the empty kernel. `--bayer N` (2–16) is its own
+  option; how it combines with the quantizer options (only with
+  `--levels`; `--palette` is rejected) is checked after optparse, in
+  `Options.resolve`, whose rejections `parseOptions` turns into ordinary
+  optparse failures (same usage text, exit code 1) — optparse's
+  alternatives commit to the first matching option, so the rule can't be
+  an alternative without defining `--levels` twice. `spago test` runs
+  both packages' suites (library, then CLI).
 - Module names must be unique across all packages in the workspace
   (shared `output/`) — hence no `Main` modules; entry points get
   qualified names like `Puregrain.Cli.Main`.
@@ -42,7 +49,8 @@ from the code alone.
   index. No API usage examples until the public-interface step (the
   `Dither.*` → `Puregrain.*` rename would invalidate them).
 - Reference docs live in `docs/` and are the single source of truth:
-  `palettes.md`, `test-images.md`, `benchmarks-dithering.md` (current),
+  `ordered-dithering.md`, `palettes.md`, `test-images.md`,
+  `benchmarks-dithering.md` (current),
   `benchmarks-fifo.md` (finished record). READMEs summarize and link
   rather than copy, so tables don't drift apart.
 - `cli/README.md` — the CLI's user docs.
@@ -102,6 +110,24 @@ from the code alone.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
   short table).
+- `Dither.Ordered` — ordered (Bayer) dithering as an ordinary
+  `Quantize Number`, over levels; color via `perChannel`. Pure ordered
+  dithering = the empty kernel (`[]`); with any other kernel it's the
+  hybrid ("threshold modulation"): the error stays `corrected − q`,
+  measured against the value, so diffusion keeps the tones and the map
+  only places the dots. `ThresholdMap` is opaque — the first module with
+  an explicit export list (the rest get theirs at the public-interface
+  step) — so every map is checked: built by `bayer n` (side, any power
+  of 2 incl. 1; `Maybe`, one failure reason, like
+  `compilePaletteFromArray`) or `compileThresholdMap` (ranks;
+  `Either String`, several failure reasons the caller must tell apart).
+  Thresholds `(rank + 0.5) / (maxRank + 1)`; `thresholdAt` takes any
+  `{ x, y | r }` (row polymorphism, as planned for `Context` helpers).
+  `ordered` sorts the levels once, decides `v − lo > t·(hi − lo)`
+  (division-free), is total (clamps; a NaN can't loop), and
+  `ordered (bayer 1)` ≡ `nearestLevel` on sorted levels. Against a
+  palette (vectorED) it's not supported: TODO.md, and
+  docs/ordered-dithering.md "Not supported".
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -208,7 +234,7 @@ hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
 arbitrary kernels/palettes/images ("whole images" blocks in
-`PaletteSpec`/`PixelSpec`), and end to end through the real CLI on the
+`PaletteSpec`/`PixelSpec`/`OrderedSpec`), and end to end through the real CLI on the
 generated images (`npm run check:cli`). Not redundant: Spec can't
 reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
 check:cli can't cover arbitrary inputs.
@@ -224,6 +250,12 @@ PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 sync writer, which silently wrote every "grayscale" image as RGBA.
 
 ## PureScript gotchas hit during development (worth remembering)
+
+- **A `where` after guards belongs to the last guard only** — unlike
+  Haskell, where it scopes over all of them. `f n | c = g n | otherwise
+  = h where g = …` fails with "Unknown value g" in the first guard.
+  Use `if`/`case` instead, or put the shared bindings in a `where` of an
+  unguarded equation (as in `Dither.Ordered.bayerMatrix`).
 
 - **`(..)` is NOT empty when reversed**: `1 .. 0` evaluates to `[1, 0]`
   (descending), NOT `[]` like Haskell's `[1..0]`. This caused a real,

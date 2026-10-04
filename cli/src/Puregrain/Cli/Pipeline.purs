@@ -14,20 +14,24 @@ module Puregrain.Cli.Pipeline
 import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Maybe (Maybe(..))
 import Dither.Kernel (Kernel, atkinson, floydSteinberg, jarvisJudiceNinke)
+import Dither.Ordered (ThresholdMap, bayer, ordered)
 import Dither.Palette (nearestColor)
 import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
 import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, threshold)
+import Partial.Unsafe (unsafeCrashWith)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 
 -- | Dither in one gray channel, or in RGB.
 data Pipeline = Gray (Quantize Number) | Color (Quantize RGB)
 
--- | A threshold always runs on gray. Levels run on gray when the image is
--- | gray, and per channel (scalarED) otherwise. A palette always runs on
--- | RGB (vectorED) — its colors needn't be gray, even for a gray input.
--- | `grayImage` is true for an all-neutral input, or after `--gray`.
--- | This is the table in cli/README.md, "How the output is chosen".
+-- | A threshold always runs on gray. Levels, with or without `--bayer`,
+-- | run on gray when the image is gray, and per channel (scalarED)
+-- | otherwise. A palette always runs on RGB (vectorED) — its colors
+-- | needn't be gray, even for a gray input. `grayImage` is true for an
+-- | all-neutral input, or after `--gray`. This is the table in
+-- | cli/README.md, "How the output is chosen".
 pipelineFor :: QuantizerChoice -> Boolean -> Pipeline
 pipelineFor choice grayImage = case choice of
   Threshold t -> Gray (threshold t)
@@ -35,12 +39,23 @@ pipelineFor choice grayImage = case choice of
     | grayImage -> Gray (nearestLevel (evenRamp n))
     | otherwise -> Color (perChannel (nearestLevel (evenRamp n)))
   Palette p -> Color (nearestColor (paletteOf p))
+  Bayer { side, levels }
+    | grayImage -> Gray (ordered (bayerOf side) (evenRamp levels))
+    | otherwise -> Color (perChannel (ordered (bayerOf side) (evenRamp levels)))
+
+-- | The `--bayer` option only accepts powers of 2, for which `bayer`
+-- | always has a map.
+bayerOf :: Int -> ThresholdMap
+bayerOf side = case bayer side of
+  Just m -> m
+  Nothing -> unsafeCrashWith ("Puregrain.Cli.Pipeline.bayerOf: no Bayer map of side " <> show side)
 
 kernelOf :: KernelName -> Kernel
 kernelOf = case _ of
   FloydSteinberg -> floydSteinberg
   Atkinson -> atkinson
   JarvisJudiceNinke -> jarvisJudiceNinke
+  NoDiffusion -> []
 
 paletteOf :: PaletteName -> NonEmptyArray RGB
 paletteOf = case _ of

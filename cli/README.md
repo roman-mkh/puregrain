@@ -1,10 +1,11 @@
 # puregrain-cli
 
-Error-diffusion dithering of PNG images from the command line, built on
-the puregrain library in this repository. It reads a PNG, dithers it with
-a classic error-diffusion kernel (Floyd–Steinberg, Atkinson or
-Jarvis–Judice–Ninke), and writes the result as a PNG: 1-bit black and
-white, a few gray or color levels, or a fixed palette.
+Error-diffusion and ordered dithering of PNG images from the command
+line, built on the puregrain library in this repository. It reads a PNG,
+dithers it with a classic error-diffusion kernel (Floyd–Steinberg, Atkinson
+or Jarvis–Judice–Ninke), with ordered (Bayer) dithering, or with both
+combined, and writes the result as a PNG: 1-bit black and white, a few gray
+or color levels, or a fixed palette.
 
 > **Status:** a development tool inside the puregrain workspace. It isn't
 > published as a package yet, so run it from a checkout of this repository.
@@ -26,6 +27,9 @@ npm run dither-cli -- samples/color-512.png samples/out-websafe.png --palette we
 
 # a color image as 4 levels of gray
 npm run dither-cli -- samples/color-512.png samples/out-gray4.png --gray --levels 4
+
+# ordered dithering with the 4×4 Bayer map, no error diffusion
+npm run dither-cli -- samples/gray-512.png samples/out-bayer4.png --bayer 4 --kernel none
 ```
 
 View the results at **100% zoom**. Any other zoom level resamples the dot
@@ -40,7 +44,7 @@ keep them.
 
 ```
 puregrain-cli INPUT.png OUTPUT.png [-k|--kernel NAME]
-              [--threshold T | --levels N | --palette NAME] [--gray]
+              [--threshold T | --levels N | --palette NAME] [--bayer N] [--gray]
 ```
 
 ## Options
@@ -49,15 +53,18 @@ puregrain-cli INPUT.png OUTPUT.png [-k|--kernel NAME]
 |---|---|---|---|
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
 | `OUTPUT.png` | path | required | Where to write the result. An existing file is overwritten; the directory must already exist. |
-| `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn` | `floyd-steinberg` | The error-diffusion kernel. See [Kernels](#kernels). |
+| `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx-spectrum` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
+| `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it). Pure with `--kernel none`, combined with error diffusion otherwise. See [Ordered dithering](#ordered-dithering). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
 `--threshold`, `--levels` and `--palette` are alternatives; give at most
-one. With none of them, the CLI behaves as `--threshold 128`.
+one. With none of them, the CLI behaves as `--threshold 128`. `--bayer`
+works over levels: give it alone or with `--levels`, not with `--threshold`
+or `--palette`.
 
 ## How the output is chosen
 
@@ -65,6 +72,7 @@ one. With none of them, the CLI behaves as `--threshold 128`.
 |---|---|---|
 | `--threshold T` (default) | gray, 1-bit | converted to gray, then 1-bit |
 | `--levels N` | gray, `N` levels | each channel on its own, `N` levels per channel |
+| `--bayer N`, with or without `--levels L` | gray, ordered over `L` levels (2 without `--levels`) | each channel on its own, ordered over `L` levels per channel |
 | `--palette NAME` | whole pixel → nearest palette color | whole pixel → nearest palette color |
 
 - **Gray or color?** An input counts as gray when every pixel has
@@ -90,10 +98,33 @@ one. With none of them, the CLI behaves as `--threshold 128`.
 | `floyd-steinberg` | 4 neighbours: 1 to the right, 3 in the row below | The classic. Fine texture; at tones very near black or white, dots tend to line up into curved diagonal strings ("worms"). |
 | `atkinson` | 6 neighbours over the next 2 rows, but only **3/4** of the error | Throws a quarter of the error away on purpose: crisper, higher contrast, but dark and light tones get pushed toward solid black and white, losing detail there. About 1.5× Floyd–Steinberg's time. |
 | `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 3× Floyd–Steinberg's time. |
+| `none` | nowhere | No error diffusion: each pixel is decided on its own. With `--bayer`, that's pure ordered dithering. With `--threshold` or `--levels`, each pixel is just rounded to a level (posterization). |
 
 The exact weights are in `src/Dither/Kernel.purs`. Time grows with the
 number of neighbours, because each one costs the same per pixel; the
 measurements are in [the benchmarks](../docs/benchmarks-dithering.md).
+
+## Ordered dithering
+
+`--bayer N` compares each pixel against a threshold that depends on its
+position, taken from the `N`×`N` Bayer matrix repeated across the image.
+
+- **Pure, with `--kernel none`:** regular crosshatch patterns, the same for
+  the same gray everywhere, and no "worms". An `N`×`N` map gives `N`² + 1
+  patterns between two levels: 17 for `--bayer 4`, 65 for `--bayer 8`.
+- **Combined with a kernel** (Floyd–Steinberg by default): the Bayer
+  pattern decides where the dots land, and error diffusion keeps the tones
+  right. The texture is the Bayer one, broken up where diffusion moves a
+  dot.
+- **Levels and color** work as for `--levels`: `--bayer 4 --levels 4` gives
+  4 grays, or 4 levels per channel on color input.
+- **Not with palettes.** `--bayer` with `--palette` is rejected: ordered
+  dithering against a palette needs a different method. For palettes that
+  are a grid of per-channel levels, use `--levels` instead: `--bayer 4
+  --levels 6` gives exactly the web-safe colors.
+
+The math, the matrices, and what to look for in the results are in
+[docs/ordered-dithering.md](../docs/ordered-dithering.md).
 
 ## Palettes
 
@@ -176,6 +207,21 @@ npm run dither-cli -- samples/color-512.png samples/xterm.png --palette ansi256
 A different kernel changes the character of the result as much as the
 palette does: try `--kernel atkinson` with `c64` or `zx-spectrum`.
 
+### Ordered (Bayer)
+
+```bash
+# pure ordered dithering with the 4×4 and the 8×8 map
+npm run dither-cli -- samples/gray-512.png samples/bayer4.png --bayer 4 --kernel none
+npm run dither-cli -- samples/gray-512.png samples/bayer8.png --bayer 8 --kernel none
+
+# the 4×4 map combined with Floyd–Steinberg
+npm run dither-cli -- samples/gray-512.png samples/bayer4-fs.png --bayer 4
+
+# color: 4 levels per channel, or exactly the web-safe colors (6 levels)
+npm run dither-cli -- samples/color-512.png samples/bayer4-color.png --bayer 4 --kernel none --levels 4
+npm run dither-cli -- samples/color-512.png samples/bayer4-websafe.png --bayer 4 --kernel none --levels 6
+```
+
 ### Shortcuts
 
 `package.json` has ready-made scripts, all writing to `samples/output-*.png`:
@@ -186,6 +232,9 @@ palette does: try `--kernel atkinson` with `c64` or `zx-spectrum`.
 | `npm run dither:color:levels` | `color-512.png` with `--levels 4` |
 | `npm run dither:color:websafe` | `color-512.png` with `--palette websafe216` |
 | `npm run dither:color:bw` | `color-512.png` with `--palette bw` |
+| `npm run dither:bayer` | `gray-512.png` with `--bayer 4 --kernel none` |
+| `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4`, combined with Floyd–Steinberg |
+| `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
 
 ## Output and timing
 
@@ -193,7 +242,7 @@ The CLI reports each step on standard output:
 
 ```
 Read samples/gray-512.png: 512x512, gray
-Dithered in 2507.2 ms (floyd-steinberg, threshold 128.0, gray)
+Dithered in 458.1 ms (floyd-steinberg, threshold 128.0, gray)
 Wrote samples/out-bw.png (grayscale PNG)
 ```
 
@@ -218,6 +267,8 @@ error.
   linear light, which skews mid-tones slightly; fixing this is planned.
 - Palette matching uses plain RGB distance, which isn't perceptual (see
   `bw` above).
+- Ordered dithering works over levels only, not against a palette, and
+  only with the Bayer maps (the library also takes custom maps).
 - Rows are always scanned left to right. Alternating the direction
   ("serpentine" scanning) would reduce some directional artifacts.
 - It's pure PureScript on Node: about 2 µs per pixel with Floyd–Steinberg
@@ -238,6 +289,8 @@ error.
   - `Options.purs` parses the command line with the `optparse` package, a
     port of Haskell's optparse-applicative. Each kernel and palette name is
     defined once there; the parser and the help text are derived from it.
+    Checks across options that optparse can't express (`--bayer` only with
+    `--levels`) are in `resolve`, and reported like optparse's own errors.
   - `Png.purs` and `Png.js` read and write PNGs through pngjs. This is the
     only JavaScript in the package.
 - Tests live in `cli/test/`. `OptionsSpec` checks the command-line

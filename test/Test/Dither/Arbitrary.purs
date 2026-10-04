@@ -166,3 +166,15 @@ instance Arbitrary TestLevelsRGBImage where
     let level = elements levels
     image <- vectorOf height (vectorOf width (RGB <$> ({ r: _, g: _, b: _ } <$> level <*> level <*> level)))
     pure (TestLevelsRGBImage { levels, image })
+-- | The ranks of a random custom threshold map: rectangular, width and
+-- | height each in [1,5], every rank in [0,24]. Repeats and gaps are
+-- | allowed, as they are in custom maps (`Dither.Ordered.compileThresholdMap`);
+-- | the Bayer matrices, which use each rank exactly once, are tested
+-- | separately.
+newtype TestRanks = TestRanks (Array (Array Int))
+
+instance Arbitrary TestRanks where
+  arbitrary = do
+    width <- chooseInt 1 5
+    height <- chooseInt 1 5
+    TestRanks <$> vectorOf height (vectorOf width (chooseInt 0 24))

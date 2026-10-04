@@ -17,16 +17,17 @@ import Dither.Pixel (class Scalable, Quantize, RGB(..))
 import Effect (Effect)
 import Effect.Console (error, log)
 import Effect.Exception (message, try)
-import Node.Process (exit')
-import Options.Applicative (execParser)
-import Puregrain.Cli.Options (Options, describeQuantizer, kernelName, parserInfo)
+import Node.Process (argv, exit')
+import Options.Applicative (handleParseResult)
+import Puregrain.Cli.Options (Options, describeQuantizer, kernelName, parseOptions)
 import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, pipelineFor, toNeutral)
 import Puregrain.Cli.Png (nowMs, readRgbRows, writeGrayRows, writeRgbRows)
 import Safe.Coerce (coerce)
 
 main :: Effect Unit
 main = do
-  opts <- execParser parserInfo
+  args <- argv
+  opts <- handleParseResult (parseOptions (Array.drop 2 args))
   result <- try (run opts)
   case result of
     Left err -> do

@@ -22,7 +22,7 @@ npm run clean:bench   # delete the generated images in samples/bench/ (keeps the
 ```
 
 Options: `--runs` (default 5), `--sizes` (default `64,128,256,512,1024`),
-`--suite modes|kernels|all` (default `all`). Plug the laptop in, close
+`--suite modes|kernels|ordered|all` (default `all`). Plug the laptop in, close
 other programs, and leave the machine alone until the run ends; see
 [Noise](#noise-1) for why.
 
@@ -61,12 +61,15 @@ main checkout, build it there and run that worktree's
   and the color composite for the RGB modes. The content doesn't affect
   timing: every quantizer does the same work per pixel whatever the pixel's
   value.
-- **Two suites:**
+- **Three suites:**
   - **Modes:** five quantizer modes, all with Floyd–Steinberg. RGB uses
     `--levels 6` so it compares directly with `--palette websafe216`: the
     two produce byte-identical output.
   - **Kernels:** the three kernels, all on the default `--threshold 128`
     with the gray composite.
+  - **Ordered** (since 2026-10-04): `--bayer 8` on the gray composite,
+    without diffusion (`--kernel none`) and with Floyd–Steinberg, against
+    Floyd–Steinberg with `--threshold 128`.
 
 ---
 

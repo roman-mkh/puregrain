@@ -29,6 +29,10 @@
 - [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts. (2026-09-25 baseline: `--levels 4` costs ×1.06 of a plain threshold, so low priority — `docs/benchmarks-dithering.md`.)
 
 ## Algorithm configuration
+- [ ] Noise dithering: thresholds from a seeded hash of the pixel's position (white noise), a `Quantize` over
+      `Context` with no state, combinable with any kernel like `Dither.Ordered`. Needs a seed in `Context` (or
+      closed over by the quantizer) and a deterministic hash. Blue-noise masks already work as custom threshold
+      maps (`Dither.Ordered.compileThresholdMap`).
 - [ ] Ostromoukhov's Variable Error Diffusion 
 - [ ] Обобщить `Kernel + quantize` в единую конфигурацию алгоритма (см. раннюю идею `DitherAlgo` record). 
 - [ ] Рассмотреть typeclass + Reader Monad для протаскивания конфигурации алгоритма через весь pipeline, вместо явной передачи параметрами.
@@ -91,6 +95,10 @@
       can't see a cell, so it needs a cell step first — choose each cell's colors (or its character plus
       foreground/background), then dither inside the cell with that small palette (reusable:
       `nearestColor` on a 2-color palette). The per-pixel presets (`zxSpectrum`, `c64`) exist today.
+- [ ] Ordered dithering against a palette (vectorED) — not supported: `Dither.Ordered` decides between two
+      neighbouring levels per channel, and a palette's colors have no such order. Needs a different method,
+      e.g. Joel Yliluoma's positional dithering algorithms. Until then, palettes that are a grid of per-channel
+      levels work through `--levels` (`--levels 6` = web-safe). See docs/ordered-dithering.md, "Not supported".
 - [ ] `distance2Lab` — CIELAB-space distance metric for `Dither.Palette`,
       as a second argument to plug into `compilePalette`/
       `compilePaletteFromArray` alongside `distance2` (that's exactly what

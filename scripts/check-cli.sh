@@ -54,3 +54,36 @@ for mode in "--levels 4" "--palette websafe216"; do
     && pass "color:channel-ramps alone, $mode: gray stripe exactly neutral" \
     || fail "color:channel-ramps alone, $mode: $colored non-neutral pixels in the gray stripe"
 done
+
+# 4. Ordered dithering without diffusion passes no error between pixels,
+#    and hands all three channels of a pixel the same value and the same
+#    position: every neutral pixel of the whole color composite must stay
+#    neutral (with error diffusion this only holds for a tile on its own).
+$cli $out/color-512.png $out/bayer-none.png --bayer 4 --kernel none --levels 4 >/dev/null
+counts=$(node -e '
+  const fs = require("fs"); const { PNG } = require("pngjs");
+  const a = PNG.sync.read(fs.readFileSync(process.argv[1]));
+  const b = PNG.sync.read(fs.readFileSync(process.argv[2]));
+  let neutral = 0, colored = 0;
+  for (let i = 0; i < a.data.length; i += 4) {
+    if (a.data[i] === a.data[i + 1] && a.data[i + 1] === a.data[i + 2]) {
+      neutral++;
+      if (b.data[i] !== b.data[i + 1] || b.data[i + 1] !== b.data[i + 2]) colored++;
+    }
+  }
+  console.log(neutral + " " + colored);' $out/color-512.png $out/bayer-none.png)
+set -- $counts
+[ "$1" -gt 0 ] && [ "$2" -eq 0 ] \
+  && pass "color composite, --bayer 4 --kernel none --levels 4: all $1 neutral pixels stay neutral" \
+  || fail "color composite, --bayer 4 --kernel none --levels 4: $2 of $1 neutral pixels came out colored"
+
+# 5. Ordered dithering keeps a value that is exactly a level, so an image
+#    made only of web-safe colors (6 levels per channel) comes back
+#    unchanged: without diffusion, and in the hybrid, where the error is
+#    zero everywhere too.
+for kernel in none floyd-steinberg; do
+  $cli $out/color-palette-exact-512.png $out/exact-bayer.png --levels 6 --bayer 4 --kernel $kernel >/dev/null
+  cmp -s $out/color-palette-exact-512.png $out/exact-bayer.png \
+    && pass "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output == input" \
+    || fail "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output differs from input"
+done

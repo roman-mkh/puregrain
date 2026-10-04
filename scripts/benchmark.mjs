@@ -37,11 +37,19 @@ const MODES = [
 // Kernels, all with the default 1-bit threshold on the gray composite.
 const KERNELS = ['floyd-steinberg', 'atkinson', 'jjn'];
 
+// Ordered dithering: the 8x8 Bayer map over 2 levels on the gray
+// composite, without diffusion (kernel none) and combined with
+// Floyd–Steinberg. Floyd–Steinberg with the threshold is the reference.
+const BAYER = { id: 'bayer8', label: 'Bayer 8', image: 'gray', args: ['--bayer', '8'] };
+const ALL_MODES = [...MODES, BAYER];
+const SUITES = ['all', 'modes', 'kernels', 'ordered'];
+const inSuite = (suite, name) => suite === 'all' || suite === name;
+
 const USAGE = `Usage: node scripts/benchmark.mjs [options]
 
   --runs <n>      runs per configuration; the median is reported (default: 5)
   --sizes <list>  square image sides, comma-separated (default: 64,128,256,512,1024)
-  --suite <s>     modes, kernels or all (default: all)
+  --suite <s>     modes, kernels, ordered or all (default: all)
   --json <file>   also write every run's time, and the environment, as JSON
   --report <file> don't measure: print the tables for a JSON file written by --json`;
 
@@ -84,8 +92,9 @@ function environment() {
   };
 }
 
-// The configurations to measure. The kernel suite's Floyd–Steinberg row is
-// the modes suite's threshold row, so that configuration is measured once.
+// The configurations to measure. Floyd–Steinberg with the threshold is in
+// every suite (the kernels' first row, the ordered suite's reference), and
+// is measured once.
 function configurations(suite, sizes) {
   const byKey = new Map();
   const add = (size, kernel, mode) => {
@@ -93,8 +102,13 @@ function configurations(suite, sizes) {
     if (!byKey.has(key)) byKey.set(key, { key, size, kernel, mode, times: [] });
   };
   for (const size of sizes) {
-    if (suite !== 'kernels') for (const mode of MODES) add(size, 'floyd-steinberg', mode);
-    if (suite !== 'modes') for (const kernel of KERNELS) add(size, kernel, MODES[0]);
+    if (inSuite(suite, 'modes')) for (const mode of MODES) add(size, 'floyd-steinberg', mode);
+    if (inSuite(suite, 'kernels')) for (const kernel of KERNELS) add(size, kernel, MODES[0]);
+    if (inSuite(suite, 'ordered')) {
+      add(size, 'floyd-steinberg', MODES[0]);
+      add(size, 'none', BAYER);
+      add(size, 'floyd-steinberg', BAYER);
+    }
   }
   return [...byKey.values()];
 }
@@ -141,7 +155,7 @@ function report(env, configs, sizes, runs, suite) {
   out.push(`- ${runs} runs per configuration, interleaved; median reported`);
   out.push('');
 
-  if (suite !== 'kernels') {
+  if (inSuite(suite, 'modes')) {
     out.push('**Quantizer modes** (Floyd–Steinberg; median ms, ×growth vs. the previous size):', '');
     const rows = sizes.map((size, i) => [
       `${size}`,
@@ -163,7 +177,7 @@ function report(env, configs, sizes, runs, suite) {
       `. websafe216 ÷ levels 6 (RGB), identical output: ×${(find(big, 'floyd-steinberg', 'websafe216').median / find(big, 'floyd-steinberg', 'levels-rgb').median).toFixed(2)}.`, '');
   }
 
-  if (suite !== 'modes') {
+  if (inSuite(suite, 'kernels')) {
     out.push('**Kernels** (threshold 128, gray; median ms):', '');
     const rows = sizes.map((size) => {
       const fs = find(size, 'floyd-steinberg', 'threshold').median;
@@ -175,6 +189,22 @@ function report(env, configs, sizes, runs, suite) {
       rows.push([`per doubling, ${upperLabel}`, ...KERNELS.map((k) => `×${perDoubling(k, 'threshold').toFixed(2)}`), '', '']);
     }
     out.push(table(['Side N', 'floyd-steinberg', 'atkinson', 'jjn', 'atkinson ÷ FS', 'jjn ÷ FS'], rows), '');
+  }
+
+  // Runs saved before this suite existed have no ordered configurations.
+  if (inSuite(suite, 'ordered') && configs.some((c) => c.mode.id === BAYER.id)) {
+    out.push('**Ordered dithering** (Bayer 8×8 over 2 levels, gray; median ms):', '');
+    const rows = sizes.map((size) => {
+      const none = find(size, 'none', BAYER.id).median;
+      const hybrid = find(size, 'floyd-steinberg', BAYER.id).median;
+      const fs = find(size, 'floyd-steinberg', 'threshold').median;
+      return [`${size}`, ms(none), ms(hybrid), ms(fs), `×${(none / fs).toFixed(2)}`, `×${(hybrid / fs).toFixed(2)}`];
+    });
+    if (upper.length >= 2) {
+      rows.push([`per doubling, ${upperLabel}`, `×${perDoubling('none', BAYER.id).toFixed(2)}`,
+        `×${perDoubling('floyd-steinberg', BAYER.id).toFixed(2)}`, `×${perDoubling('floyd-steinberg', 'threshold').toFixed(2)}`, '', '']);
+    }
+    out.push(table(['Side N', 'no diffusion', 'with FS', 'FS, threshold 128', 'no diffusion ÷ FS', 'with FS ÷ FS'], rows), '');
   }
 
   // Spread for the large sizes separately: at the small ones a ~0.1 s
@@ -225,7 +255,7 @@ function main() {
   }
   if (values.report) {
     const saved = JSON.parse(fs.readFileSync(values.report, 'utf8'));
-    const configs = saved.results.map((r) => ({ ...r, mode: MODES.find((m) => m.id === r.mode) }));
+    const configs = saved.results.map((r) => ({ ...r, mode: ALL_MODES.find((m) => m.id === r.mode) }));
     console.log(report(saved.environment, configs, saved.sizes, saved.runs, saved.suite));
     return;
   }
@@ -233,7 +263,7 @@ function main() {
   if (!Number.isInteger(runs) || runs < 1) fail(`Invalid --runs "${values.runs}": a whole number >= 1.`);
   const sizes = values.sizes.split(',').map(Number);
   if (sizes.some((s) => !Number.isInteger(s) || s < 1)) fail(`Invalid --sizes "${values.sizes}": whole numbers >= 1.`);
-  if (!['all', 'modes', 'kernels'].includes(values.suite)) fail(`Invalid --suite "${values.suite}".`);
+  if (!SUITES.includes(values.suite)) fail(`Invalid --suite "${values.suite}".`);
 
   const env = environment();
   run(process.execPath, [generator, '--pattern', 'all', '--sizes', sizes.join(','), '--out', benchDir]);

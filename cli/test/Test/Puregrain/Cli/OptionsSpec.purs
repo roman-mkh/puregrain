@@ -11,15 +11,15 @@ import Data.String (Pattern(..), contains)
 import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
 import ExitCodes as ExitCode
-import Options.Applicative (ParserResult(..), defaultPrefs, execParserPure, renderFailure)
-import Puregrain.Cli.Options (KernelName(..), Options, QuantizerChoice(..), allKernels, allPalettes, kernelName, paletteName, parserInfo)
+import Options.Applicative (ParserResult(..), renderFailure)
+import Puregrain.Cli.Options (KernelName(..), Options, QuantizerChoice(..), allKernels, allPalettes, kernelName, paletteName, parseOptions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
 -- | Runs the real parser on an argument list, purely: no process argv and
 -- | no exit. `Left` carries the text optparse would print for a failure.
 parse :: Array String -> Either String Options
-parse args = case execParserPure defaultPrefs parserInfo args of
+parse args = case parseOptions args of
   Success opts -> Right opts
   Failure failure -> Left (fst (renderFailure failure "puregrain-cli"))
   CompletionInvoked _ -> Left "unexpected shell-completion request"
@@ -28,7 +28,7 @@ parse args = case execParserPure defaultPrefs parserInfo args of
 -- | answers itself (like --help). A command line that parses successfully
 -- | has no such code, and is reported as a `Left`.
 exitCodeOf :: Array String -> Either String ExitCode
-exitCodeOf args = case execParserPure defaultPrefs parserInfo args of
+exitCodeOf args = case parseOptions args of
   Failure failure -> let Tuple _ code = renderFailure failure "puregrain-cli" in Right code
   _ -> Left "the command line parsed successfully"
 
@@ -63,12 +63,20 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         parse (files <> [ "--palette", paletteName p ]) `shouldEqual` Right (defaults { quantizer = Palette p })
 
     it "the documented kernel and palette names are exactly the ones in the README" do
-      map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn" ]
+      map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx-spectrum" ]
 
     it "--threshold takes a number, --levels a whole number" do
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
       parse (files <> [ "--levels", "4" ]) `shouldEqual` Right (defaults { quantizer = Levels 4 })
+
+    it "--bayer N alone: ordered dithering over 2 levels; with --levels L, over L levels" do
+      parse (files <> [ "--bayer", "4" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 4, levels: 2 } })
+      parse (files <> [ "--bayer", "8", "--levels", "6" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 8, levels: 6 } })
+      parse (files <> [ "--levels", "6", "--bayer", "8" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 8, levels: 6 } })
+      for_ [ 2, 4, 8, 16 ] \n ->
+        parse (files <> [ "--bayer", show n, "-k", "none" ])
+          `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = Bayer { side: n, levels: 2 } })
 
     it "--gray turns gray conversion on" do
       parse (files <> [ "--gray" ]) `shouldEqual` Right (defaults { gray = true })
@@ -96,6 +104,15 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse (files <> [ "--palette", "nes" ]) `shouldSatisfy`
         failsWith "use one of: bw, websafe216, cga16, ansi16, ansi256, c64, zx-spectrum"
 
+    it "--bayer that isn't a power of 2 from 2 to 16, naming the rule" do
+      for_ [ "1", "3", "6", "32", "0", "-4", "four" ] \n ->
+        parse (files <> [ "--bayer", n ]) `shouldSatisfy` failsWith "bayer must be a power of 2 from 2 to 16"
+
+    it "--bayer with --threshold or --palette, saying why" do
+      parse (files <> [ "--bayer", "4", "--threshold", "100" ]) `shouldSatisfy` failsWith "--bayer works over levels"
+      parse (files <> [ "--palette", "bw", "--bayer", "4" ]) `shouldSatisfy`
+        failsWith "ordered dithering against a palette isn't supported"
+
     it "a threshold that isn't a number" do
       parse (files <> [ "--threshold", "half" ]) `shouldSatisfy` isLeft
 
@@ -112,7 +129,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         Left why -> fail why
 
     it "a rejected command line exits with 1" do
-      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ] ] \args ->
+      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ] ] \args ->
         case exitCodeOf args of
           Right code -> code `shouldEqual` ExitCode.Error
           Left why -> fail why

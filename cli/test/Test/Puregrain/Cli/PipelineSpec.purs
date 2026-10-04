@@ -5,8 +5,10 @@ import Prelude
 import Data.Array ((..))
 import Data.Foldable (for_)
 import Data.Int (toNumber)
+import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
 import Dither.Kernel (atkinson, floydSteinberg, jarvisJudiceNinke)
+import Dither.Ordered (ThresholdMap, bayer, ordered)
 import Dither.Palette (nearestColor)
 import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
 import Dither.Pixel (Context, Quantize, RGB(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
@@ -33,21 +35,36 @@ rgbProbes =
   , RGB { r: -20.0, g: 300.0, b: 127.5 }
   ]
 
--- | Where the probes are quantized. Every quantizer the CLI builds is
--- | position-blind (the library's PixelSpec checks that), so any position
--- | gives the same answer.
-origin :: Context
-origin = { x: 0, y: 0 }
+-- | Where the probes are quantized. Ordered dithering (`--bayer`) answers
+-- | differently at different positions, so every probe runs at several:
+-- | together they'd tell apart Bayer maps of different sides. For the
+-- | position-blind quantizers, the answers are simply the same at each.
+positions :: Array Context
+positions =
+  [ { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 1 }, { x: 3, y: 3 }
+  , { x: 5, y: 2 }, { x: 7, y: 6 }, { x: 9, y: 13 }, { x: 15, y: 15 }
+  ]
+
+probe :: forall a. Quantize a -> Array a -> Array a
+probe q values = do
+  position <- positions
+  map (runQuantize q position) values
 
 shouldBeGray :: Pipeline -> Quantize Number -> Aff Unit
 shouldBeGray pipeline expected = case pipeline of
-  Gray q -> map (runQuantize q origin) grayProbes `shouldEqual` map (runQuantize expected origin) grayProbes
+  Gray q -> probe q grayProbes `shouldEqual` probe expected grayProbes
   Color _ -> fail "expected gray processing, got RGB"
 
 shouldBeColor :: Pipeline -> Quantize RGB -> Aff Unit
 shouldBeColor pipeline expected = case pipeline of
-  Color q -> map (runQuantize q origin) rgbProbes `shouldEqual` map (runQuantize expected origin) rgbProbes
+  Color q -> probe q rgbProbes `shouldEqual` probe expected rgbProbes
   Gray _ -> fail "expected RGB processing, got gray"
+
+-- | The library's Bayer map of a side the test knows is valid.
+withBayer :: Int -> (ThresholdMap -> Aff Unit) -> Aff Unit
+withBayer side check = case bayer side of
+  Just m -> check m
+  Nothing -> fail ("no Bayer map of side " <> show side)
 
 approx :: Number -> Number -> Boolean
 approx expected actual = abs (actual - expected) < 1.0e-9
@@ -68,6 +85,13 @@ spec = describe "Puregrain.Cli.Pipeline" do
     it "--levels on color input: each channel on its own (scalarED), RGB" do
       pipelineFor (Levels 4) false `shouldBeColor` perChannel (nearestLevel (evenRamp 4))
 
+    it "--bayer on gray input: gray, ordered over N levels" do
+      withBayer 4 \m -> pipelineFor (Bayer { side: 4, levels: 2 }) true `shouldBeGray` ordered m (evenRamp 2)
+      withBayer 8 \m -> pipelineFor (Bayer { side: 8, levels: 3 }) true `shouldBeGray` ordered m (evenRamp 3)
+
+    it "--bayer on color input: each channel on its own (scalarED), RGB" do
+      withBayer 4 \m -> pipelineFor (Bayer { side: 4, levels: 4 }) false `shouldBeColor` perChannel (ordered m (evenRamp 4))
+
     it "--palette: whole pixel (vectorED), RGB — for gray and for color input" do
       for_ [ true, false ] \grayImage -> do
         pipelineFor (Palette BlackWhite) grayImage `shouldBeColor` nearestColor blackWhite
@@ -78,6 +102,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
       kernelOf FloydSteinberg `shouldEqual` floydSteinberg
       kernelOf Atkinson `shouldEqual` atkinson
       kernelOf JarvisJudiceNinke `shouldEqual` jarvisJudiceNinke
+      kernelOf NoDiffusion `shouldEqual` []
 
     it "each palette name maps to the library's palette" do
       paletteOf BlackWhite `shouldEqual` blackWhite

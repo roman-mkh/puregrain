@@ -19,9 +19,11 @@ import Type.Proxy (Proxy(..))
 import Dither.Fifo (class Fifo)
 import Dither.Image (ditherImageWith)
 import Dither.Kernel (Kernel)
-import Dither.Pixel (Quantize(..), quantize)
+import Dither.Ordered (ordered)
+import Dither.Pixel (Quantize(..), evenRamp, quantize)
 import Test.Dither.Arbitrary (TestKernel(..), TestImage(..))
 import Test.Dither.Reference (referenceDither)
+import Test.Util (bayerMap)
 
 -- | A fixed, simple, position-blind quantizer. These properties check the
 -- | DIFFUSION MECHANICS (padding, Fifo backend, DelayLine growth) against
@@ -35,6 +37,12 @@ testQuantize = quantize \x -> if x < 128.0 then 0.0 else 255.0
 -- | reference's, so agreement proves the positions match pixel for pixel.
 positionalThreshold :: Quantize Number
 positionalThreshold = Quantize \c v -> if v < toNumber (32 + (37 * c.x + 61 * c.y) `mod` 192) then 0.0 else 255.0
+
+-- | Ordered dithering over three levels with the 4×4 Bayer map: the
+-- | position-dependent quantizer the library actually ships, run through
+-- | diffusion (the hybrid).
+bayerHybrid :: Quantize Number
+bayerHybrid = ordered (bayerMap 4) (evenRamp 3)
 
 -- | Ignores the value and returns the pixel's position as x + 1000·y, so
 -- | the dithered image shows exactly which position each pixel was given.
@@ -59,7 +67,11 @@ agreesWithReference proxy q (TestKernel kernel) (TestImage image) =
 spec :: Spec Unit
 spec = describe "Dither.Image properties" do
 
-  for_ [ Tuple "a position-blind threshold" testQuantize, Tuple "a position-dependent threshold" positionalThreshold ]
+  for_
+    [ Tuple "a position-blind threshold" testQuantize
+    , Tuple "a position-dependent threshold" positionalThreshold
+    , Tuple "ordered (Bayer 4×4) dithering" bayerHybrid
+    ]
     \(Tuple label q) ->
       describe ("agrees with the independent reference implementation, with " <> label) do
         it "CatQueue backend" do

@@ -61,6 +61,11 @@ of rows.
 - **Clean and exact checks need a tile on its own:** `--pattern <tile-id>`.
   In the composite, neighbours send each other error, and some regions are
   too small to settle, such as the extreme wedge patches.
+- **Ordered dithering without diffusion** (`--bayer N --kernel none`) has
+  none of the border, onset and settling effects above: each pixel is
+  decided on its own, so even narrow regions in the composites show their
+  exact pattern. What to look for there is in
+  [ordered-dithering.md](ordered-dithering.md#what-to-look-for).
 - **For benchmarks, content doesn't matter.** Threshold, `nearestLevel` and
   `nearestColor` do the same work per pixel whatever its value. So timing
   runs can use the composites at any size, even 64², where regions are only
@@ -281,5 +286,21 @@ One check covers the whole color composite: **`--palette websafe216` and
 full 6×6×6 cube, so its nearest color is exactly the nearest step in each
 channel separately, and vectorED and scalarED are the same computation (a
 property also tested in `Test.Dither.PaletteSpec`). The two differ only in
-cost: the palette search takes roughly 1.1–1.4× as long (see
+cost: the palette search takes about twice as long (see
 [benchmarks-dithering.md](benchmarks-dithering.md)).
+
+Two more checks cover ordered dithering (`--bayer`), which passes no error
+between pixels without a kernel, and keeps exact levels:
+
+- **The whole color composite, with `--bayer 4 --kernel none --levels 4`:**
+  every neutral pixel stays exactly neutral, wherever it is. All three
+  channels of a pixel get the same value and the same threshold, and no
+  error arrives from colored neighbours. (With error diffusion this only
+  holds for a gray area rendered on its own; see above.)
+- **`color:palette-exact`, with `--levels 6 --bayer 4`:** output equals
+  input byte for byte, both with `--kernel none` and combined with
+  Floyd–Steinberg. Every channel value is a level, and a level stays that
+  level, so the error is zero everywhere.
+
+Both are also properties in `Test.Dither.OrderedSpec`, for arbitrary
+images, maps and levels.

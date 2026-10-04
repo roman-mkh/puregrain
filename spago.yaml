@@ -3,6 +3,7 @@ package:
   dependencies:
     - arrays
     - catenable-lists
+    - either
     - foldable-traversable
     - integers
     - lazy
@@ -23,6 +24,7 @@ package:
       - spec-discovery
       - spec-quickcheck
       - st
+      - strings
 workspace:
   packageSet:
     registry: 81.1.0
