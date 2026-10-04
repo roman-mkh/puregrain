@@ -1,5 +1,8 @@
 # puregrain
 
+[![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/github/license/roman-mkh/puregrain)](LICENSE)
+
 Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
 down to a few gray levels, a few levels per color channel, or a fixed
@@ -54,6 +57,7 @@ More examples, every option, and how gray and color output are chosen:
 | `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
+| `.github/workflows/` | CI: build, tests and end-to-end checks on every push |
 | `docs/` | Documentation (below) |
 
 Both packages live in one [spago](https://github.com/purescript/spago)
@@ -70,6 +74,7 @@ workspace and are built together.
 | [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md) | Current performance, per mode and kernel |
 | [docs/benchmarks-fifo.md](docs/benchmarks-fifo.md) | History: how an O(N³) slowdown was found and fixed |
 | [CLAUDE.md](CLAUDE.md) | Design decisions and their reasons (kept up to date for the AI assistant used in development) |
+| [CONTRIBUTING.md](CONTRIBUTING.md) | How work is done: setup, branches, CI, versions, releases |
 | [TODO.md](TODO.md) | Open work and ideas |
 
 ## License

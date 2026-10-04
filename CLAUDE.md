@@ -47,6 +47,8 @@ from the code alone.
 
 ## Documentation map
 
+- `CONTRIBUTING.md` — the workflow rules (setup, branches, CI,
+  versions, release checklist).
 - `README.md` — lean entry point by decision: what it is, status,
   features (each linking to its doc), layout, getting started, doc
   index. No API usage examples until the API decisions are settled
@@ -340,6 +342,11 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
 
 ## Working style established in this project
 
+- The workflow rules — branches (`master`, short-lived branches only for
+  risky work), CI, versions, releases — are in `CONTRIBUTING.md`; follow
+  them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
+  build with `--pedantic-packages --strict`, both test suites,
+  `check:cli`. Keep the two in step.
 - Go slow, one architectural change at a time; confirm before moving
   to the next step on anything non-trivial.
 - Don't add generality/abstraction ahead of a concrete, current need

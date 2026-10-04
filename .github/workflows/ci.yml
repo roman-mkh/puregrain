@@ -1,0 +1,53 @@
+# Builds and tests the whole workspace (library and CLI) on every push to
+# master and on every pull request against it. The same three checks run
+# locally with `npm run check` (package.json); keep the two in step.
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+# A newer push to the same branch cancels a run that's still in progress.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install the toolchain (purs, spago, pngjs)
+        run: npm ci
+
+      # Only the downloaded PureScript packages are cached, never output/:
+      # every run is a clean build, so no warning hides in a cached module.
+      - name: Cache PureScript packages
+        uses: actions/cache@v6
+        with:
+          path: |
+            .spago
+            ~/.cache/spago-nodejs
+          key: spago-${{ runner.os }}-${{ hashFiles('spago.lock') }}
+          restore-keys: spago-${{ runner.os }}-
+
+      - name: Build (dependency check, warnings as errors)
+        run: npx spago build --pedantic-packages --strict
+
+      - name: Tests (library, then CLI)
+        run: npx spago test
+
+      - name: End-to-end CLI checks
+        run: npm run check:cli
