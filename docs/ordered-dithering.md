@@ -20,7 +20,8 @@ The matrix decides in which order the cells turn on as the input rises.
 The result is a regular texture: the same pattern for the same gray, in
 every tile, from the first pixel on. Each pixel is decided on its own, so
 nothing builds up, nothing flows across region borders, and there are no
-"worms".
+"worms". It's also fast: about a third of Floyd–Steinberg's time
+([benchmarks](benchmarks-dithering.md#2026-10-04--ordered-dithering-bayer)).
 
 ## Thresholds
 

@@ -274,7 +274,8 @@ error.
 - It's pure PureScript on Node: about 2 µs per pixel with Floyd–Steinberg
   and a threshold, so roughly 0.4 s for 512×512 and 2 s for 1024×1024 on
   the development machine. The color modes take about 2 to 5 times as
-  long. Details, and every mode and kernel, are in
+  long, and ordered dithering without diffusion (`--bayer N --kernel
+  none`) about a third. Details, and every mode and kernel, are in
   [the benchmarks](../docs/benchmarks-dithering.md).
 
 ## Development

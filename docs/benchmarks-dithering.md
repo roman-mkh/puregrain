@@ -551,3 +551,105 @@ lie within about 4% of each other.
   at 1024² continues. One mode is enough.
 - **The `nearestLevel` binary search** stays low priority: `--levels 4`
   costs ×1.14 of a threshold.
+
+---
+
+## 2026-10-04 — Ordered dithering (Bayer)
+
+The first run with ordered dithering (`--bayer`, see
+[ordered-dithering.md](ordered-dithering.md)), and with the new `ordered`
+suite: the 8×8 Bayer map over 2 levels on the gray composite, without
+diffusion and combined with Floyd–Steinberg. The error-diffusion code
+itself didn't change since the `CatQueue` run above, so the other suites
+show how much two runs of the same code differ.
+
+**Environment:**
+
+- Commit `4b591a8`
+- CPU: Intel Core Ultra 9 185H (11 logical cores), inside a Hyper-V
+  virtual machine; memory: 30 GiB
+- Power: mains (AC)
+- OS: Linux 6.8.0-1065-azure (x64)
+- Node v22.14.0; purs 0.15.16; spago 1.0.4
+- 5 runs per configuration, interleaved; median reported
+
+### Results
+
+**Ordered dithering** (Bayer 8×8 over 2 levels, gray; median ms):
+
+| Side N | no diffusion | with FS | FS, threshold 128 | no diffusion ÷ FS | with FS ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 18.1 | 30.1 | 31.6 | ×0.57 | ×0.95 |
+| 128 | 28.8 | 55.0 | 45.7 | ×0.63 | ×1.20 |
+| 256 | 60.1 | 129 | 121 | ×0.50 | ×1.06 |
+| 512 | 172 | 552 | 453 | ×0.38 | ×1.22 |
+| 1024 | 664 | 2,193 | 2,038 | ×0.33 | ×1.08 |
+| per doubling, 256²→1024² | ×3.32 | ×4.12 | ×4.10 | | |
+
+**Quantizer modes** (Floyd–Steinberg; median ms, with growth over the
+previous size):
+
+| Side N | Pixels | threshold 128 | levels 4 (gray) | levels 6 (RGB) | websafe216 | bw |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 4,096 | 31.6 | 28.0 | 38.7 | 49.9 | 38.2 |
+| 128 | 16,384 | 45.7 (×1.45) | 49.7 (×1.78) | 83.0 (×2.14) | 136 (×2.72) | 83.2 (×2.18) |
+| 256 | 65,536 | 121 (×2.66) | 131 (×2.63) | 274 (×3.31) | 561 (×4.14) | 201 (×2.41) |
+| 512 | 262,144 | 453 (×3.73) | 477 (×3.65) | 1,159 (×4.22) | 2,237 (×3.99) | 734 (×3.66) |
+| 1024 | 1,048,576 | 2,038 (×4.50) | 2,311 (×4.85) | 4,854 (×4.19) | 10,218 (×4.57) | 3,882 (×5.29) |
+| per doubling, 256²→1024² | | ×4.10 | ×4.20 | ×4.21 | ×4.27 | ×4.40 |
+
+**Cost relative to threshold 128, at 1024²:** levels 4 (gray) ×1.13;
+levels 6 (RGB) ×2.38; websafe216 ×5.01; bw ×1.90. websafe216 ÷ levels 6
+(RGB), which give identical output: ×2.11.
+
+**Kernels** (threshold 128, gray; median ms):
+
+| Side N | floyd-steinberg | atkinson | jjn | atkinson ÷ FS | jjn ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 31.6 | 28.2 | 35.1 | ×0.89 | ×1.11 |
+| 128 | 45.7 | 57.5 | 72.5 | ×1.26 | ×1.59 |
+| 256 | 121 | 163 | 254 | ×1.34 | ×2.09 |
+| 512 | 453 | 650 | 1,166 | ×1.43 | ×2.57 |
+| 1024 | 2,038 | 3,060 | 4,817 | ×1.50 | ×2.36 |
+| per doubling, 256²→1024² | ×4.10 | ×4.33 | ×4.36 | | |
+
+**Run-to-run spread** ((max − min) ÷ median): median 17% for sizes 256²
+to 1024² (largest 45%, levels 6 RGB at 512²); median 21% over all sizes.
+**Slowest run by round** (256² to 1024², rounds 1–5): 8 / 4 / 1 / 7 / 7:
+no round stands out.
+
+![Median dithering time for five quantizer modes against image side, log-log: all five rise roughly in parallel with the dashed O(N²) reference from 256² up, and bend above it at the smallest sizes](images/benchmarks-dithering-2026-10-04.svg)
+
+### Analysis
+
+**Ordered dithering without diffusion takes a third of Floyd–Steinberg's
+time:** 664 ms at 1024², against 2,038 ms with a threshold. That's
+0.63 µs per pixel, about 1.6 million pixels per second. With no error to
+pass on, it's close to the cost of everything but the diffusion: reading
+the rows, the step for each pixel, and the quantizer. So diffusion to
+Floyd–Steinberg's four neighbours is still about two thirds of its time
+(1.3 of 1.9 µs per pixel).
+
+**Combined with Floyd–Steinberg, ordered dithering costs about as much as
+a threshold:** ×1.06 to ×1.22 of it, ×1.08 at 1024². The Bayer decision
+(the map lookup and choosing between two levels) adds about 0.15 µs per
+pixel; the diffusion around it dominates.
+
+**Without diffusion, the growth per doubling is ×3.32, below ×4, but the
+time per pixel isn't falling:** it's 0.92 µs at 256², then 0.65 and 0.63
+at 512² and 1024². The fixed startup cost, about 15 ms (24 ms with
+Floyd–Steinberg's code), is a quarter of the 60 ms at 256², and that
+lowers the first step. From 512² up, time grows with the pixel count.
+
+**The unchanged configurations agree with the `CatQueue` run:** ×1.02 in
+the median from 256² up, and within ×0.98 to ×1.06 at 1024². At 512²,
+several came out 10% to 17% slower, as large as the biggest differences
+seen between separate runs before. The code they run didn't change.
+
+### Next steps
+
+- The next steps of the `CatQueue` run still apply: the RGB arithmetic,
+  the palette search, and scaling at 2048² and 4096².
+- **The no-diffusion time is a floor** for judging diffusion
+  optimizations: at 1024², Floyd–Steinberg can't get below about 0.63 µs
+  per pixel without also making the rest faster.
