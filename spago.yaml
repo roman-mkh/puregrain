@@ -30,4 +30,4 @@ package:
       - strings
 workspace:
   packageSet:
-    registry: 81.1.0
+    registry: 81.3.0

@@ -70,7 +70,7 @@
     },
     "package_set": {
       "address": {
-        "registry": "81.1.0"
+        "registry": "81.3.0"
       },
       "compiler": ">=0.15.15 <0.16.0",
       "content": {
@@ -526,6 +526,7 @@
         "selection-foldable": "0.2.0",
         "selective-functors": "1.0.1",
         "semirings": "7.0.0",
+        "seowebchecker": "1.0.4",
         "shuffle": "2.0.0",
         "sigil": "0.3.0",
         "sigil-hats": "0.3.0",
@@ -579,6 +580,8 @@
         "tidy-codegen": "4.0.1",
         "tldr": "0.0.0",
         "toestand": "0.9.0",
+        "tramaj-halogen": "0.3.3",
+        "tramaj-purs": "0.3.3",
         "transformation-matrix": "1.0.1",
         "transformers": "6.1.0",
         "transit": "1.0.0",
