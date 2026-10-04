@@ -1,4 +1,4 @@
-module Test.Dither.PixelSpec (spec) where
+module Test.Puregrain.QuantizeSpec (spec) where
 
 import Prelude
 
@@ -14,9 +14,10 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Pixel (Quantize(..), RGB(..), RGBA(..), evenRamp, mapChannels, nearestLevel, perChannel, runQuantize, threshold)
-import Test.Dither.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
-import Test.Util (approxEqual, dither, neutral, nonNeutralCount, runAtOrigin)
+import Puregrain.Pixel (RGB(..))
+import Puregrain.Quantize (Quantize(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
+import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
+import Test.Puregrain.Util (approxEqual, dither, neutral, nonNeutralCount, runAtOrigin)
 
 -- | An independent reference for `nearestLevel`, written as the
 -- | specification itself rather than as another fold: "the FIRST level
@@ -46,30 +47,7 @@ plane :: (RGB -> Number) -> Array (Array RGB) -> Array (Array Number)
 plane channel = map (map channel)
 
 spec :: Spec Unit
-spec = describe "Dither.Pixel" do
-
-  describe "mapChannels" do
-    it "identity law: mapChannels identity == identity" do
-      quickCheck \(TestRGB p) ->
-        mapChannels identity p === p
-
-    it "composition law: mapChannels (f <<< g) == mapChannels f <<< mapChannels g" do
-      let
-        f = (_ * 2.0)
-        g = (_ + 1.0)
-      quickCheck \(TestRGB p) ->
-        mapChannels (f <<< g) p === (mapChannels f <<< mapChannels g) p
-
-    it "RGB: applies the function to each channel independently" do
-      mapChannels (_ * 10.0) (RGB { r: 1.0, g: 2.0, b: 3.0 })
-        `shouldEqual` RGB { r: 10.0, g: 20.0, b: 30.0 }
-
-    it "RGBA: applies the function to alpha too, like every other channel" do
-      let RGBA result = mapChannels (_ * 10.0) (RGBA { r: 1.0, g: 2.0, b: 3.0, a: 4.0 })
-      result `shouldEqual` { r: 10.0, g: 20.0, b: 30.0, a: 40.0 }
-
-    it "Number: a single-channel pixel is its own only channel" do
-      mapChannels (_ * 10.0) 4.0 `shouldEqual` 40.0
+spec = describe "Puregrain.Quantize" do
 
   describe "Context (the pixel's position)" do
     -- What makes runAtOrigin (used throughout these tests) sound.

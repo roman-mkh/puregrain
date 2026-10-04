@@ -1,4 +1,13 @@
-module Dither.Fifo where
+-- | The queues that carry error fractions from the pixel that produces
+-- | them to the pixel that receives them, and their implementations.
+-- | Internal: may change without notice.
+module Puregrain.Internal.Fifo
+  ( class Fifo
+  , replicate
+  , enqueue
+  , dequeue
+  , replace
+  ) where
 
 import Prelude
 
@@ -30,10 +39,10 @@ class Fifo (f :: Type -> Type) where
   -- | times before the `Fifo` becomes empty.
   -- |
   -- | Called once per row, to build the leading zero-padding for an
-  -- | offset with a positive `dx` (see `Dither.Kernel.paddingFor`), and
+  -- | offset with a positive `dx` (see `Puregrain.Internal.Kernel.paddingFor`), and
   -- | to build the leading zero-padding for the `current`/`building`
   -- | layers at the start of every row. `n` is always small — bounded
-  -- | by the kernel's horizontal reach (`maxForward`), never by image
+  -- | by the kernel's horizontal reach (its largest `dx`), never by image
   -- | width or height.
   -- |
   -- | Target complexity: O(n). Since `n` is always small, this is never
@@ -68,7 +77,7 @@ class Fifo (f :: Type -> Type) where
   -- | bounds the per-pixel cost of the whole algorithm.
   -- |
   -- | `Nothing` is a real, expected outcome only when padding runs out
-  -- | at the very edge of the image. `Dither.Step` treats any other
+  -- | at the very edge of the image. `Puregrain.Internal.Step` treats any other
   -- | `Nothing` as a violated invariant and crashes loudly rather than
   -- | silently substituting a value — instances must not paper over
   -- | emptiness themselves (e.g. by returning a fabricated zero).
@@ -80,11 +89,11 @@ class Fifo (f :: Type -> Type) where
   -- | front of `fifo` and appends `skip` zeros to the tail, returning a
   -- | `Fifo` of the SAME LENGTH as the input. `skip` is always small
   -- | (bounded by the kernel's horizontal reach — see
-  -- | `Dither.Kernel.skipFor`), but `fifo` itself may be as long as the
+  -- | `Puregrain.Internal.Kernel.skipFor`), but `fifo` itself may be as long as the
   -- | image width by the time this is called.
   -- |
   -- | Called once per row, per offset with a negative `dx`, in
-  -- | `Dither.Row.commitBuilding` — this re-aligns a fully-built row's
+  -- | `Puregrain.Internal.Row.commitBuilding` — this re-aligns a fully-built row's
   -- | worth of error fractions with the next row's pixel positions
   -- | before it's handed off to its `DelayLine` slot.
   -- |
@@ -102,7 +111,7 @@ class Fifo (f :: Type -> Type) where
   -- | structure allows it. O(n) is acceptable only if the instance
   -- | genuinely cannot do better, and should be called out as a known
   -- | limitation in that instance's own documentation.
-  replace :: forall a. Ring a => Int -> f a -> f a -- нужен zero для заполнения хвоста
+  replace :: forall a. Ring a => Int -> f a -> f a -- Ring: for the zeros appended at the tail
 
 -- | Sanity-check baseline instance: this is the representation the
 -- | project used before `class Fifo` existed. `enqueue` and `replace`
@@ -131,7 +140,7 @@ instance Fifo Array where
   dequeue = Array.uncons
   replace skip fifo = Array.drop skip fifo <> Array.replicate skip zero
 
--- | The production default (`Dither.Image.ditherImage`). It replaced
+-- | The production default (`Puregrain.Internal.Image.ditherImage`). It replaced
 -- | `Data.Sequence.Seq`, the finger tree that first fixed the O(N³)
 -- | scaling (docs/benchmarks-fifo.md), on 2026-10-03: about 3.6× faster,
 -- | and a registry package instead of a git fork

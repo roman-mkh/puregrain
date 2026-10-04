@@ -1,4 +1,4 @@
-module Test.Dither.RowSpec (spec) where
+module Test.Puregrain.RowSpec (spec) where
 
 import Prelude
 
@@ -10,12 +10,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Kernel (CompiledKernel, Kernel, compileKernel, floydSteinberg)
-import Dither.Pixel (quantize)
-import Dither.Row (ditherRow)
-import Dither.State (DitherState, initState)
-import Dither.Util (safeRange)
-import Test.Dither.Arbitrary (TestImage(..), TestKernel(..))
+import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
+import Puregrain.Kernel (Kernel, floydSteinberg)
+import Puregrain.Quantize (quantize)
+import Puregrain.Internal.Row (ditherRow)
+import Puregrain.Internal.State (DitherState, initState)
+import Puregrain.Internal.Util (safeRange)
+import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..))
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
@@ -37,7 +38,7 @@ foldRows compiled check rows =
     in Tuple state' (okSoFar && check state' row outRow)
 
 spec :: Spec Unit
-spec = describe "Dither.Row" do
+spec = describe "Puregrain.Internal.Row" do
 
   describe "invariants" do
     it "output row length always equals input row length" do

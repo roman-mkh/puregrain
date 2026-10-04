@@ -6,10 +6,11 @@ down to a few gray levels, a few levels per color channel, or a fixed
 palette such as CGA or the Commodore 64. It comes with a command-line tool
 for PNG images.
 
-> **Status: pre-release.** The library works and is tested, but its public
-> interface hasn't been designed yet, and the module names will change
-> (`Dither.*` → `Puregrain.*`). It isn't published on Pursuit or npm yet.
-> Before it can be, it still needs a license.
+> **Status: pre-release.** The library works and is tested. Its public
+> interface is being settled: the modules have their final names
+> (`Puregrain.*`), but some functions may still change before the first
+> release. It isn't published on Pursuit or npm yet; it still needs a
+> license.
 
 ## What it does
 
@@ -51,7 +52,7 @@ More examples, every option, and how gray and color output are chosen:
 
 | Path | What |
 |---|---|
-| `src/`, `test/` | The library (`Dither.*` modules) and its tests |
+| `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
 | `docs/` | Documentation (below) |

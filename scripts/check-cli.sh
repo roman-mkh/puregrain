@@ -20,7 +20,7 @@ fail() { echo "FAIL  $1"; exit 1; }
 
 # 1. vectorED with the web-safe palette == scalarED with 6 levels per
 #    channel (the cube's steps), byte for byte — proved as a property in
-#    Test.Dither.PaletteSpec, checked here through the whole CLI.
+#    Test.Puregrain.PaletteSpec, checked here through the whole CLI.
 $cli $out/color-512.png $out/websafe.png --palette websafe216 >/dev/null
 $cli $out/color-512.png $out/levels6.png --levels 6 >/dev/null
 cmp -s $out/websafe.png $out/levels6.png \

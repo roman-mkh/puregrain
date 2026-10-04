@@ -1,22 +1,32 @@
-module Dither.State where
+-- | The state the diffusion carries along: the queues of error fractions
+-- | waiting for later pixels. Internal: may change without notice.
+module Puregrain.Internal.State
+  ( RowLayer
+  , DelayLine
+  , DitherState
+  , RowState
+  , freshLayer
+  , initState
+  ) where
 
 import Prelude
 
-import Data.Array ((..))
 import Data.Array as Array
-import Dither.Fifo (class Fifo, replicate)
-import Dither.Kernel (CompiledKernel)
-import Dither.Kernel as K
-import Dither.Util (safeRange)
+import Puregrain.Internal.Fifo (class Fifo, replicate)
+import Puregrain.Internal.Kernel (CompiledKernel, paddingFor)
+import Puregrain.Internal.Util (safeRange)
+import Puregrain.Kernel (Offset)
 
+-- | One queue per kernel offset of one row: the error fractions on their
+-- | way to the pixels of a later row (or, for the current row's offsets,
+-- | to pixels further right).
 type RowLayer (f :: Type -> Type) a = Array (f a)
 
--- | Очередь "созревающих" RowLayer для одного конкретного dy. Стартует
--- | западдинной dy копиями пустого RowLayer ([]) — placeholder,
--- | естественно дающий нулевой вклад через sumErrors [] = 0.0, без
--- | какой-либо специальной обработки в Step.purs. Array, не Seq/List — 
--- | размер всегда мал (ограничен maxDepth ядра).
-
+-- | The maturing `RowLayer`s for one `dy`. It starts padded with `dy`
+-- | copies of the empty `RowLayer` (`[]`): a placeholder that contributes
+-- | zero error for free (`sumErrors [] = zero`), with no special case in
+-- | the step. An `Array` rather than a queue: it's always short, at most
+-- | the kernel's `maxDepth`.
 type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 
 -- | What crosses from one row to the next: the delay lines, and the index
@@ -26,7 +36,7 @@ type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 -- |
 -- | Use each `DitherState` once. Passing an old state in again gives the
 -- | right result, but can be slower: the queues inside it then repeat
--- | work they already did (see the `CatQueue` instance in `Dither.Fifo`).
+-- | work they already did (see the `CatQueue` instance in `Puregrain.Internal.Fifo`).
 type DitherState (f :: Type -> Type) a =
   { delayLines :: Array (DelayLine f a)
   , nextRow :: Int
@@ -45,8 +55,8 @@ type RowState (f :: Type -> Type) a =
   , y :: Int
   }
 
-freshLayer :: forall f a. Fifo f => Ring a => Array K.Offset -> RowLayer f a
-freshLayer = map (\o -> replicate (K.paddingFor o) zero)
+freshLayer :: forall f a. Fifo f => Ring a => Array Offset -> RowLayer f a
+freshLayer = map (\o -> replicate (paddingFor o) zero)
 
 initState :: forall f a. CompiledKernel -> DitherState f a
 initState compiled =

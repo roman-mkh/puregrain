@@ -5,7 +5,7 @@ the pixel's position. The thresholds come from a small matrix, a
 *threshold map*, repeated across the image like tiles. The best known one
 is the Bayer matrix, after Bryce E. Bayer (Kodak, 1973).
 
-puregrain has it in the library (`Dither.Ordered`) and in the CLI
+puregrain has it in the library (`Puregrain.Ordered`) and in the CLI
 (`--bayer N`, see [cli/README.md](../cli/README.md#ordered-dithering)). It
 works on its own, or combined with any error-diffusion kernel.
 
@@ -119,7 +119,7 @@ zoom, as always.
 
 ## Exact properties
 
-Tested on arbitrary input in `Test.Dither.OrderedSpec`; the last two also
+Tested on arbitrary input in `Test.Puregrain.OrderedSpec`; the last two also
 run through the real CLI (`npm run check:cli`, see
 [test-images.md](test-images.md#exact-checks)):
 

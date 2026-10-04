@@ -1,4 +1,4 @@
-module Test.Dither.StepSpec (spec) where
+module Test.Puregrain.StepSpec (spec) where
 
 import Prelude
 
@@ -10,29 +10,30 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Kernel (CompiledKernel, Kernel, compileKernel, floydSteinberg)
-import Dither.Pixel (quantize)
-import Dither.Row (initBuilding)
-import Dither.State (RowLayer, RowState, freshLayer)
-import Dither.Step (step)
-import Test.Dither.Arbitrary (TestKernel(..), TestRow(..))
-import Test.Util (approxArrayEqual, takeAsArray)
+import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
+import Puregrain.Kernel (Kernel, floydSteinberg)
+import Puregrain.Quantize (quantize)
+import Puregrain.Internal.Row (initBuilding)
+import Puregrain.Internal.State (RowLayer, RowState, freshLayer)
+import Puregrain.Internal.Step (step)
+import Test.Puregrain.Arbitrary (TestKernel(..), TestRow(..))
+import Test.Puregrain.Util (approxArrayEqual, takeAsArray)
 
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
 -- | A valid starting RowState for row 1 of any kernel: `current` and
 -- | `building` freshly built to match the CompiledKernel's shape
--- | exactly (the only way `Dither.Row.ditherRow` ever builds them),
+-- | exactly (the only way `Puregrain.Internal.Row.ditherRow` ever builds them),
 -- | `matured` seeded with one placeholder ([], 0 fifos) per future
--- | layer — the same placeholder `Dither.State.initState` uses, and
+-- | layer — the same placeholder `Puregrain.Internal.State.initState` uses, and
 -- | the only `matured` shape that's safe to fold an arbitrary number
 -- | of `step` calls over in isolation: a `[]` layer has zero fifos, so
 -- | `dequeueAllLayer` makes zero dequeue calls on it, for any row
 -- | length. (An "already real" matured layer, as row 2+ would see in
 -- | practice, only gets its real depth from having been built by a
 -- | full row via `commitBuilding`'s `replace` — faking that safely in
--- | isolation isn't worth it; `Test.Dither.RowSpec`'s multi-row fold
+-- | isolation isn't worth it; `Test.Puregrain.RowSpec`'s multi-row fold
 -- | exercises that case naturally, via the real code path.)
 freshRowState1 :: CompiledKernel -> RowState LL.List Number
 freshRowState1 compiled =
@@ -68,7 +69,7 @@ foldStepsCheckingShape compiled row =
     in Tuple rs' (okSoFar && currentShapeOk compiled rs' && buildingShapeOk compiled rs')
 
 spec :: Spec Unit
-spec = describe "Dither.Step" do
+spec = describe "Puregrain.Internal.Step" do
 
   describe "shape invariants" do
     it "current/building shapes always match the CompiledKernel, across arbitrary kernels and rows" do

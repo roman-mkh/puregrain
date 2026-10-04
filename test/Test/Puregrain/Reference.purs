@@ -1,4 +1,4 @@
-module Test.Dither.Reference where
+module Test.Puregrain.Reference where
 
 import Prelude
 
@@ -6,8 +6,9 @@ import Control.Monad.ST (ST, run)
 import Data.Array as Array
 import Data.Array.ST as STArray
 import Data.Maybe (Maybe(..))
-import Dither.Kernel (Kernel)
-import Dither.Pixel (class Scalable, Quantize(..), scale)
+import Puregrain.Kernel (Kernel)
+import Puregrain.Pixel (class Scalable, scale)
+import Puregrain.Quantize (Quantize(..))
 
 -- | Flattens a rectangular Array (Array a) into a single Array a,
 -- | row-major (row 0 first, then row 1, ...).

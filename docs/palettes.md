@@ -6,7 +6,7 @@ three channels together**. This project calls that *vectorED*, as
 opposed to dithering each channel on its own with `--levels` (*scalarED*).
 
 In the library they're plain `NonEmptyArray RGB` values in
-`Dither.Palette.Presets`. On the command line you name them with
+`Puregrain.Palette.Presets`. On the command line you name them with
 `--palette NAME` (see [cli/README.md](../cli/README.md)).
 
 ## Overview
@@ -35,10 +35,9 @@ In the library, a palette becomes a quantizer with `nearestColor`, which
 is passed to `ditherImage` like any other quantizer:
 
 ```purescript
-import Dither.Palette (nearestColor)
-import Dither.Palette.Presets (c64)
+import Puregrain as P
 
-quantizer = nearestColor c64   -- :: Quantize RGB
+quantizer = P.nearestColor P.c64   -- :: Quantize RGB
 ```
 
 `nearestColor` compares colors by plain RGB distance. To choose the

@@ -5,6 +5,11 @@ real CLI, for each quantizer mode and kernel. Each dated section is one
 self-contained run. New runs are appended as new sections rather than
 overwriting old ones, so improvements and regressions stay visible.
 
+Module names: until 2026-10-04 the library's modules were called
+`Dither.*` (e.g. `Dither.Pixel`), and the older sections use those names.
+They're now `Puregrain.*`, with the queue machinery in
+`Puregrain.Internal.*`.
+
 The investigation that found and fixed the O(N³) scaling bug by choosing
 the `Seq` `Fifo` backend is a finished record in
 [benchmarks-fifo.md](benchmarks-fifo.md). Its numbers aren't comparable

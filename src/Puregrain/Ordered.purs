@@ -3,13 +3,13 @@
 -- | repeating grid of thresholds — a threshold map. The best known one is
 -- | the Bayer matrix (Bryce E. Bayer, Kodak, 1973).
 -- |
--- | It's an ordinary `Quantize`, so it plugs into the unchanged
--- | `ditherImage`. With the empty kernel (`[]`, no error passed on), that
+-- | It's an ordinary `Quantize`, so it works with `ditherImage` like any
+-- | other quantizer. With the empty kernel (`[]`, no error passed on), that
 -- | gives pure ordered dithering; with any other kernel, the hybrid
 -- | "threshold modulation": error diffusion keeps the tones right, and
 -- | the map decides where the dots land. Background, formulas and what to
--- | look for: docs/ordered-dithering.md.
-module Dither.Ordered
+-- | look for: [docs/ordered-dithering.md](https://github.com/roman-mkh/puregrain/blob/master/docs/ordered-dithering.md).
+module Puregrain.Ordered
   ( ThresholdMap
   , bayer
   , bayerMatrix
@@ -27,7 +27,7 @@ import Data.Either (Either(..))
 import Data.Foldable (foldl)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
-import Dither.Pixel (Quantize(..))
+import Puregrain.Quantize (Quantize(..))
 import Partial.Unsafe (unsafePartial)
 
 -- | A threshold map, checked and precomputed: a `width` × `height` grid

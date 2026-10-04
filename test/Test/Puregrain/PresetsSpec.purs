@@ -1,4 +1,4 @@
-module Test.Dither.PresetsSpec (spec) where
+module Test.Puregrain.PresetsSpec (spec) where
 
 import Prelude
 
@@ -16,11 +16,12 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Palette (compilePalette, distance2, nearestColor, nearestColorFast)
-import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
-import Dither.Pixel (RGB(..), nearestLevel, perChannel)
-import Test.Dither.Arbitrary (TestKernel(..), TestRGB(..), TestSample(..))
-import Test.Util (dither, runAtOrigin, websafeSteps)
+import Puregrain.Palette (compilePalette, distance2, nearestColor, nearestColorFast)
+import Puregrain.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
+import Puregrain.Pixel (RGB(..))
+import Puregrain.Quantize (nearestLevel, perChannel)
+import Test.Puregrain.Arbitrary (TestKernel(..), TestRGB(..), TestSample(..))
+import Test.Puregrain.Util (dither, runAtOrigin, websafeSteps)
 
 rgb :: Int -> Int -> Int -> RGB
 rgb r g b = RGB { r: toNumber r, g: toNumber g, b: toNumber b }
@@ -45,7 +46,7 @@ presets =
   ]
 
 spec :: Spec Unit
-spec = describe "Dither.Palette.Presets" do
+spec = describe "Puregrain.Palette.Presets" do
 
   describe "blackWhite" do
     it "is exactly black, then white" do

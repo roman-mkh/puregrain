@@ -1,4 +1,11 @@
-module Dither.Row where
+-- | One row of the diffusion: the step for each pixel, then handing the
+-- | row's queues over to the rows below. Internal: may change without
+-- | notice.
+module Puregrain.Internal.Row
+  ( ditherRow
+  , initBuilding
+  , commitBuilding
+  ) where
 
 import Prelude
 
@@ -6,13 +13,13 @@ import Data.Array as Array
 import Data.Maybe (Maybe(..))
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
-import Dither.Fifo (class Fifo, replace)
-import Dither.Kernel (CompiledKernel)
-import Dither.Kernel as K
-import Dither.Pixel (class Scalable, Quantize)
-import Dither.State (DelayLine, DitherState, RowLayer, RowState, freshLayer)
-import Dither.Step (step)
 import Partial.Unsafe (unsafeCrashWith)
+import Puregrain.Internal.Fifo (class Fifo, replace)
+import Puregrain.Internal.Kernel (CompiledKernel, skipFor)
+import Puregrain.Internal.State (DelayLine, DitherState, RowLayer, RowState, freshLayer)
+import Puregrain.Internal.Step (step)
+import Puregrain.Pixel (class Scalable)
+import Puregrain.Quantize (Quantize)
 
 extractMatured :: forall f a. Array (DelayLine f a) -> Tuple (Array (RowLayer f a)) (Array (DelayLine f a))
 extractMatured delayLines =
@@ -20,7 +27,7 @@ extractMatured delayLines =
   in Tuple (map fst fronts) (map snd fronts)
   where
     takeFront dl = case Array.uncons dl of
-      Nothing -> unsafeCrashWith "Dither.Row.extractMatured: delayLine unexpectedly empty — padding invariant violated"
+      Nothing -> unsafeCrashWith "Puregrain.Internal.Row.extractMatured: delayLine unexpectedly empty — padding invariant violated"
       Just { head, tail } -> Tuple head tail
 
 initBuilding :: forall f a. Fifo f => Ring a => CompiledKernel -> Array (RowLayer f a)
@@ -40,7 +47,7 @@ commitBuilding compiled building shortenedDelayLines =
     commitLayer offsets (Tuple layer dl) =
       Array.snoc dl (Array.zipWith adjustFifo offsets layer)
 
-    adjustFifo o fifo = replace (K.skipFor o) fifo
+    adjustFifo o fifo = replace (skipFor o) fifo
 
 -- | Dithers one row and returns the state for the next one. Use each
 -- | `DitherState` once: passing an old state in again gives the right

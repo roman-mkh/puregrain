@@ -1,16 +1,15 @@
-module Test.Dither.Arbitrary where
+module Test.Puregrain.Arbitrary where
 
 import Prelude
 
-import Data.Array ((..))
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Traversable (traverse)
-import Dither.Kernel (Kernel, Offset)
-import Dither.Pixel (RGB(..))
-import Dither.Util (safeRange)
-import Test.QuickCheck (class Arbitrary, arbitrary)
+import Puregrain.Kernel (Kernel, Offset)
+import Puregrain.Pixel (RGB(..))
+import Puregrain.Internal.Util (safeRange)
+import Test.QuickCheck (class Arbitrary)
 import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, vectorOf)
 
 -- | Generates one Offset with dx in [dxLo, dxHi] and the given fixed dy.
@@ -89,7 +88,7 @@ instance Arbitrary TestRGB where
 -- | [1,6], like genImage. Each pixel's three channels are independent
 -- | draws, so projecting out one channel gives three independent
 -- | grayscale planes of the same shape — what the scalarED-equivalence
--- | property in `Test.Dither.PixelSpec` compares against.
+-- | property in `Test.Puregrain.PixelSpec` compares against.
 genRGBImage :: Gen (Array (Array RGB))
 genRGBImage = do
   width <- chooseInt 1 6
@@ -119,7 +118,7 @@ instance Arbitrary TestLevels where
 -- | Generates a single value to quantize, in [-128,383] — deliberately
 -- | wider than [0,255]: accumulated diffusion error routinely pushes
 -- | `corrected` outside a channel's nominal range, and a Quantize must
--- | be total over that too (see `Dither.Pixel.Quantize`).
+-- | be total over that too (see `Puregrain.Pixel.Quantize`).
 newtype TestSample = TestSample Number
 
 instance Arbitrary TestSample where
@@ -168,7 +167,7 @@ instance Arbitrary TestLevelsRGBImage where
     pure (TestLevelsRGBImage { levels, image })
 -- | The ranks of a random custom threshold map: rectangular, width and
 -- | height each in [1,5], every rank in [0,24]. Repeats and gaps are
--- | allowed, as they are in custom maps (`Dither.Ordered.compileThresholdMap`);
+-- | allowed, as they are in custom maps (`Puregrain.Ordered.compileThresholdMap`);
 -- | the Bayer matrices, which use each rank exactly once, are tested
 -- | separately.
 newtype TestRanks = TestRanks (Array (Array Int))

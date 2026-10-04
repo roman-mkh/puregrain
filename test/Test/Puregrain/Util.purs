@@ -1,4 +1,4 @@
-module Test.Util where
+module Test.Puregrain.Util where
 
 import Prelude
 
@@ -12,11 +12,12 @@ import Data.Ord (abs)
 import Data.List.Lazy as LL
 import Partial.Unsafe (unsafePartial)
 
-import Dither.Image (ditherImage)
-import Dither.Kernel (Kernel)
-import Dither.Ordered (ThresholdMap, bayer, compileThresholdMap)
-import Dither.Pixel (class Scalable, Quantize, RGB(..), runQuantize)
-import Dither.State (RowLayer)
+import Puregrain.Dither (ditherImage)
+import Puregrain.Kernel (Kernel)
+import Puregrain.Ordered (ThresholdMap, bayer, compileThresholdMap)
+import Puregrain.Pixel (class Scalable, RGB(..))
+import Puregrain.Quantize (Quantize, runQuantize)
+import Puregrain.Internal.State (RowLayer)
 
 approxEqual :: Number -> Number -> Boolean
 approxEqual a b = abs (a - b) < 0.0001
@@ -64,13 +65,13 @@ nonNeutralCount = Array.length <<< Array.filter (not <<< isNeutral) <<< Array.co
 
 -- | The n × n Bayer map, for tests that pass a valid side. Crashes
 -- | otherwise: `bayer` itself returns `Nothing` there, and
--- | `Test.Dither.OrderedSpec` checks that it does.
+-- | `Test.Puregrain.OrderedSpec` checks that it does.
 bayerMap :: Int -> ThresholdMap
 bayerMap n = unsafePartial case bayer n of
   Just m -> m
 
 -- | A custom map from ranks that tests know are valid. Crashes
--- | otherwise; `Test.Dither.OrderedSpec` checks the rejections.
+-- | otherwise; `Test.Puregrain.OrderedSpec` checks the rejections.
 compiledMap :: Array (Array Int) -> ThresholdMap
 compiledMap ranks = unsafePartial case compileThresholdMap ranks of
   Right m -> m

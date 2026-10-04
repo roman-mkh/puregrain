@@ -1,4 +1,4 @@
-module Test.Dither.OrderedSpec (spec) where
+module Test.Puregrain.OrderedSpec (spec) where
 
 import Prelude
 
@@ -19,10 +19,11 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Ordered (ThresholdMap, bayer, bayerMatrix, compileThresholdMap, ordered, thresholdAt)
-import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, runQuantize)
-import Test.Dither.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGBImage(..), TestRanks(..), TestSample(..))
-import Test.Util (bayerMap, compiledMap, dither, neutral)
+import Puregrain.Ordered (ThresholdMap, bayer, bayerMatrix, compileThresholdMap, ordered, thresholdAt)
+import Puregrain.Pixel (RGB(..))
+import Puregrain.Quantize (Quantize, evenRamp, nearestLevel, perChannel, runQuantize)
+import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGBImage(..), TestRanks(..), TestSample(..))
+import Test.Puregrain.Util (bayerMap, compiledMap, dither, neutral)
 
 -- | Cell (row, column) of a matrix, for indices the test knows are valid.
 at :: forall a. Array (Array a) -> Int -> Int -> a
@@ -54,7 +55,7 @@ sides :: Array Int
 sides = [ 1, 2, 4, 8, 16, 32 ]
 
 spec :: Spec Unit
-spec = describe "Dither.Ordered" do
+spec = describe "Puregrain.Ordered" do
 
   describe "bayerMatrix" do
     it "is the standard 1×1, 2×2 and 4×4 Bayer matrix" do

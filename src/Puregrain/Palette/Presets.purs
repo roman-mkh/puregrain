@@ -1,15 +1,15 @@
--- | Ready-made fixed palettes, for `Dither.Palette.nearestColor` (vectorED).
+-- | Ready-made fixed palettes, for `Puregrain.Palette.nearestColor`.
 -- | Each is a plain `NonEmptyArray RGB`, not a `CompiledPalette`, so the
 -- | caller picks the distance metric: `compilePalette distance2 cga16`.
 -- |
 -- | Historical and terminal palettes have no single official RGB
 -- | definition — machines were analog, terminals are themable — so each
 -- | preset below says where its values come from. Overview, sources and
--- | notes for users: docs/palettes.md (keep it in step with this module).
+-- | notes: [docs/palettes.md](https://github.com/roman-mkh/puregrain/blob/master/docs/palettes.md).
 -- |
 -- | Order matters in one respect: when a pixel is exactly as near to two
 -- | colors, `nearestColor` picks the one that comes first.
-module Dither.Palette.Presets
+module Puregrain.Palette.Presets
   ( blackWhite
   , websafe216
   , cga16
@@ -19,12 +19,15 @@ module Dither.Palette.Presets
   , zxSpectrum
   ) where
 
+-- Keep docs/palettes.md in step with this module: a new preset means a
+-- new row there, and in cli/README.md's short table.
+
 import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Int (toNumber)
-import Dither.Pixel (RGB(..))
+import Puregrain.Pixel (RGB(..))
 
 rgb :: Int -> Int -> Int -> RGB
 rgb r g b = RGB { r: toNumber r, g: toNumber g, b: toNumber b }
@@ -128,7 +131,7 @@ c64 = NEA.cons' (rgb 0x00 0x00 0x00)
 -- | ZX_Spectrum_graphic_modes; values as lospec.com/palette-list/zx-spectrum).
 -- | Many emulators use 0xD7 or 0xCD instead.
 -- | This is the per-pixel palette only: the real machine allowed just 2 of
--- | these colors per 8×8 cell, which this library doesn't model (TODO.md).
+-- | these colors per 8×8 cell, which this library doesn't model (yet).
 zxSpectrum :: NonEmptyArray RGB
 zxSpectrum = normal <> bright
   where

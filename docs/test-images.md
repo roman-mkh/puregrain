@@ -285,7 +285,7 @@ One check covers the whole color composite: **`--palette websafe216` and
 `--levels 6` must produce byte-identical files.** The web-safe palette is a
 full 6×6×6 cube, so its nearest color is exactly the nearest step in each
 channel separately, and vectorED and scalarED are the same computation (a
-property also tested in `Test.Dither.PaletteSpec`). The two differ only in
+property also tested in `Test.Puregrain.PaletteSpec`). The two differ only in
 cost: the palette search takes about twice as long (see
 [benchmarks-dithering.md](benchmarks-dithering.md)).
 
@@ -302,5 +302,5 @@ between pixels without a kernel, and keeps exact levels:
   Floyd–Steinberg. Every channel value is a level, and a level stays that
   level, so the error is zero everywhere.
 
-Both are also properties in `Test.Dither.OrderedSpec`, for arbitrary
+Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.

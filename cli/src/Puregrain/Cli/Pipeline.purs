@@ -15,11 +15,7 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Maybe (Maybe(..))
-import Dither.Kernel (Kernel, atkinson, floydSteinberg, jarvisJudiceNinke)
-import Dither.Ordered (ThresholdMap, bayer, ordered)
-import Dither.Palette (nearestColor)
-import Dither.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
-import Dither.Pixel (Quantize, RGB(..), evenRamp, nearestLevel, perChannel, threshold)
+import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
 

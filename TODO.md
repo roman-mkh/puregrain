@@ -17,8 +17,8 @@
       amortized only if each queue version is used once. A reused old one repeats the list reversal it already
       did: still correct, just slower. Inside the library every state is used once, but a public stepper would
       let callers keep a state and run from it again (e.g. undo in the web demo). Its API docs must state "use
-      each state once", or the design must handle reuse otherwise. See the `CatQueue` instance in `Dither.Fifo`
-      and the `DitherState` doc comment in `Dither.State`.
+      each state once", or the design must handle reuse otherwise. See the `CatQueue` instance in `Puregrain.Internal.Fifo`
+      and the `DitherState` doc comment in `Puregrain.Internal.State`.
 - [ ] ditherImage: alias `Array Number` to PixelRow
 - [ ] ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)
 
@@ -26,13 +26,13 @@
 - [ ] Полиморфная (по `Traversable f`) версия `ditherRow`/`ditherImage` вместо специализированной под `Array` — сравнить производительность (Array.mapAccumL vs Data.Traversable.mapAccumL).
 - [ ] ST-based backend (кольцевой буфер, мутабельные массивы) — сравнить производительность с classic (FIFO/Lazy List) версией.
 - [x] Data.Sequence-based Fifo вместо Data.List.Lazy — сравнить. (`Seq` was the production default `Fifo` backend — see `docs/benchmarks-fifo.md` — until `Data.CatQueue` replaced it on 2026-10-03.)
-- [ ] Benchmark `Dither.Pixel.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts. (2026-09-25 baseline: `--levels 4` costs ×1.06 of a plain threshold, so low priority — `docs/benchmarks-dithering.md`.)
+- [ ] Benchmark `Puregrain.Quantize.nearestLevel`: O(N) linear scan today vs. sort-once + binary search O(log N) (see the `TODO(benchmark)` note on it). Only worth changing if it shows up at realistic level counts. (2026-09-25 baseline: `--levels 4` costs ×1.06 of a plain threshold, so low priority — `docs/benchmarks-dithering.md`.)
 
 ## Algorithm configuration
 - [ ] Noise dithering: thresholds from a seeded hash of the pixel's position (white noise), a `Quantize` over
-      `Context` with no state, combinable with any kernel like `Dither.Ordered`. Needs a seed in `Context` (or
+      `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed in `Context` (or
       closed over by the quantizer) and a deterministic hash. Blue-noise masks already work as custom threshold
-      maps (`Dither.Ordered.compileThresholdMap`).
+      maps (`Puregrain.Ordered.compileThresholdMap`).
 - [ ] Ostromoukhov's Variable Error Diffusion 
 - [ ] Обобщить `Kernel + quantize` в единую конфигурацию алгоритма (см. раннюю идею `DitherAlgo` record). 
 - [ ] Рассмотреть typeclass + Reader Monad для протаскивания конфигурации алгоритма через весь pipeline, вместо явной передачи параметрами.
@@ -51,10 +51,10 @@
 - [x] generate test-input.png  as well the same way as benchmark images (done: one generator, `scripts/generate-images.mjs`, for both — see `docs/test-images.md`)
 - [x] Перейти с простых `Test.Assert`-тестов на `purescript-spec` (describe/it) для более структурированного вывода.
 - [x] Добавить `purescript-quickcheck` и property-based тесты, начиная с:
-  - `prop_backendsAgree` — реализовано как `Test.Dither.DiffusionMechanicsSpec`: все четыре `Fifo`-бэкенда (`CatQueue`, `List.Lazy`, `List`, `Array`) сверяются со независимым ST-based reference (`Test.Dither.Reference`), а не только друг с другом.
+  - `prop_backendsAgree` — реализовано как `Test.Puregrain.DiffusionMechanicsSpec`: все четыре `Fifo`-бэкенда (`CatQueue`, `List.Lazy`, `List`, `Array`) сверяются со независимым ST-based reference (`Test.Puregrain.Reference`), а не только друг с другом.
   - Инвариант длины выходной строки/картинки — не отдельная property, но покрыт неявно: `===` на `Array` уже требует равной длины, так что несовпадение длины валит тест.
   - [ ] Инвариант детерминизма для константного входа — всё ещё не проверен отдельной property (тривиально верен для чистых функций, но explicit-тест отсутствует).
-- [x] `Arbitrary`-генераторы для `Kernel` (валидные ядра: сумма весов ≈ 1.0, хотя бы один forward и один downward offset) и для тестовых изображений разных размеров. (`Test.Dither.Arbitrary` — `TestKernel`/`TestImage`; заметка: сгенерированные ядра НЕ гарантируют сумму весов ≈ 1.0 явно, просто случайные веса в [0,1].)
+- [x] `Arbitrary`-генераторы для `Kernel` (валидные ядра: сумма весов ≈ 1.0, хотя бы один forward и один downward offset) и для тестовых изображений разных размеров. (`Test.Puregrain.Arbitrary` — `TestKernel`/`TestImage`; заметка: сгенерированные ядра НЕ гарантируют сумму весов ≈ 1.0 явно, просто случайные веса в [0,1].)
 - [x] `purescript-spec` также даст удобный selective test run (--example "pattern"/focus), не только структурированный вывод — учтено, переход уже сделан.
 - [x] Use 'test-inpit.png' of different size as benchmark images. merge generation into 1 script (with scaling ability).
       without parameters it should generate 256x256 that can be used for visual control, other images should be integrated
@@ -63,18 +63,13 @@
       decision, see `docs/test-images.md`. Benchmark automation on these images: `scripts/benchmark.mjs`
       (`npm run bench`), results in `docs/benchmarks-dithering.md`.)
 - [x] `Test.Dither.Row`, `Test.Dither.Step` — migrated to
-      `Test.Dither.RowSpec`/`Test.Dither.StepSpec` (property tests +
+      `Test.Puregrain.RowSpec`/`Test.Puregrain.StepSpec` (property tests +
       shape invariants + ported regression examples + edge cases), old
       originals deleted, dead `Test.Main` references removed.
-- [ ] `Test.Dither.Image`, `Test.Dither.Playground` are still leftover
-      `Test.Assert`-style modules from before the `purescript-spec`
-      migration — they compile but **don't actually run**: `Test.Main`
-      only calls `discoverAndRunSpecs [...] """Dither\..*Spec"""`,
-      neither module name ends in `Spec`, and the old `.main` call for
-      `Image` in `Test.Main` is commented out (`Playground` was never
-      called from `Test.Main` at all). Write `*Spec` versions of
-      whatever's still worth keeping from them, then delete the two
-      dead originals once migrated — same treatment `Row`/`Step` just got.
+- [x] `Test.Dither.Image`, `Test.Dither.Playground`: leftover `Test.Assert`-style modules that never ran.
+      Deleted in the `Puregrain.*` reshape (2026-10-04): `Image` only checked the output's row count and width,
+      which the backend checks in `Test.Puregrain.DiffusionMechanicsSpec` already cover; `Playground` had no
+      assertions at all.
 
 
 ## Future library extension directions (not in scope now)
@@ -95,15 +90,15 @@
       can't see a cell, so it needs a cell step first — choose each cell's colors (or its character plus
       foreground/background), then dither inside the cell with that small palette (reusable:
       `nearestColor` on a 2-color palette). The per-pixel presets (`zxSpectrum`, `c64`) exist today.
-- [ ] Ordered dithering against a palette (vectorED) — not supported: `Dither.Ordered` decides between two
+- [ ] Ordered dithering against a palette (vectorED) — not supported: `Puregrain.Ordered` decides between two
       neighbouring levels per channel, and a palette's colors have no such order. Needs a different method,
       e.g. Joel Yliluoma's positional dithering algorithms. Until then, palettes that are a grid of per-channel
       levels work through `--levels` (`--levels 6` = web-safe). See docs/ordered-dithering.md, "Not supported".
-- [ ] `distance2Lab` — CIELAB-space distance metric for `Dither.Palette`,
+- [ ] `distance2Lab` — CIELAB-space distance metric for `Puregrain.Palette`,
       as a second argument to plug into `compilePalette`/
       `compilePaletteFromArray` alongside `distance2` (that's exactly what
       `CompiledPalette` packing the distance function was designed to make
-      swappable — see `Dither.Palette`). Requires an RGB→Lab conversion
+      swappable — see `Puregrain.Palette`). Requires an RGB→Lab conversion
       (through XYZ, with a chosen white point/gamma assumption) that
       doesn't exist yet anywhere in this codebase.
 

@@ -100,7 +100,7 @@ or `--palette`.
 | `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 3× Floyd–Steinberg's time. |
 | `none` | nowhere | No error diffusion: each pixel is decided on its own. With `--bayer`, that's pure ordered dithering. With `--threshold` or `--levels`, each pixel is just rounded to a level (posterization). |
 
-The exact weights are in `src/Dither/Kernel.purs`. Time grows with the
+The exact weights are in `src/Puregrain/Kernel.purs`. Time grows with the
 number of neighbours, because each one costs the same per pixel; the
 measurements are in [the benchmarks](../docs/benchmarks-dithering.md).
 

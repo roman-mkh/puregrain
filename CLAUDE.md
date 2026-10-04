@@ -46,8 +46,9 @@ from the code alone.
 
 - `README.md` — lean entry point by decision: what it is, status,
   features (each linking to its doc), layout, getting started, doc
-  index. No API usage examples until the public-interface step (the
-  `Dither.*` → `Puregrain.*` rename would invalidate them).
+  index. No API usage examples until the API decisions are settled
+  (kernel validation etc.); until then the one canonical example is in
+  the `Puregrain` facade's module doc.
 - Reference docs live in `docs/` and are the single source of truth:
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
   `benchmarks-dithering.md` (current),
@@ -57,13 +58,39 @@ from the code alone.
 
 ## Core architecture
 
-- `Dither.Kernel` — a `Kernel` is `Array Offset` (`{dx, dy, weight}`),
-  user-facing and simple. `CompiledKernel` (record: `currentOffsets`,
-  `futureLayers`, `maxDepth`) is a precomputed cache built once via
-  `compileKernel`, threaded through the hot path instead of recomputing
-  `Array.filter`s per pixel (PureScript does NOT auto-memoize like GHC
-  sometimes does — this bit us once as a real, measured regression).
-- `Dither.Fifo` — `class Fifo (f :: Type -> Type)` with 4 methods:
+- **Module structure (reshape of 2026-10-04, `Dither.*` → `Puregrain.*`).**
+  Guiding rule: *start closed, open later* — exporting more later is
+  compatible, removing an export breaks users, so anything still an open
+  API decision stays internal. Every module has an explicit export list.
+  - Public: `Puregrain.Dither` (`ditherImage`), `.Kernel`, `.Pixel`,
+    `.Quantize`, `.Palette`, `.Palette.Presets`, `.Ordered`.
+  - `Puregrain` — a facade, re-exports only: what a typical application
+    needs plus the types for signatures; building blocks for
+    customization (`compilePalette`, `distance2`, `nearestColorFast`,
+    `paletteColors`, `compileThresholdMap`, `bayerMatrix`, `thresholdAt`)
+    stay in their modules. Docs recommend `import Puregrain as P`. The
+    CLI imports only `Puregrain`, so its build checks the facade covers a
+    real application.
+  - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
+    `Row`, `Image` (`ditherImageWith`), `Util`) — exported (PureScript has
+    no package-private modules; the tests need them) but documented as
+    unstable. `Fifo` and `ditherImageWith` are internal until decided.
+  - Public doc comments are self-contained (Pursuit shows them): no
+    `CLAUDE.md`/test references, absolute GitHub links to `docs/`;
+    dev notes go in plain `--` comments. Internal modules may point at
+    repo docs.
+  - The reshape was verified byte-identical: 17 CLI configurations
+    produced the same PNGs before and after.
+- `Puregrain.Kernel` — a `Kernel` is `Array Offset` (`{dx, dy, weight}`),
+  user-facing and simple; offsets must point forward in scan order (not
+  validated yet: a backward or self offset crashes at the first pixel —
+  validation is the next API step). `Puregrain.Internal.Kernel`:
+  `CompiledKernel` (record: `currentOffsets`, `futureLayers`, `maxDepth`)
+  is a precomputed cache built once via `compileKernel`, threaded through
+  the hot path instead of recomputing `Array.filter`s per pixel
+  (PureScript does NOT auto-memoize like GHC sometimes does — this bit us
+  once as a real, measured regression).
+- `Puregrain.Internal.Fifo` — `class Fifo (f :: Type -> Type)` with 4 methods:
   `replicate`, `enqueue`, `dequeue`, `replace` (shift-left-by-n +
   zero-fill, its own method rather than `drop`+`<>` because that
   composition is O(n) even when n is small — see below). Instances:
@@ -73,13 +100,14 @@ from the code alone.
   O(1) amortized `dequeue` assumes each queue version is used once
   (an old version used again redoes the list reversal) — which is how
   `step`/`ditherRow` use them.
-- `Dither.Pixel` — `Gray = Number`; `RGB`/`RGBA` are `newtype`s (not
+- `Puregrain.Pixel` — `Gray = Number`; `RGB`/`RGBA` are `newtype`s (not
   `type` aliases — aliases sharing record shape would collide on
   instance resolution) with hand-written `Semiring`/`Ring` (honest
   `mul`/`one`, unused by diffusion but a legitimate algebra) and a
   custom `class Ring a <= Scalable a where scale :: Number -> a -> a`
-  (kernel weights are always `Number` regardless of channel count).
-  `newtype Quantize a = Quantize (Context -> a -> a)` with
+  (kernel weights are always `Number` regardless of channel count), plus
+  `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances).
+- `Puregrain.Quantize` — `newtype Quantize a = Quantize (Context -> a -> a)` with
   `type Context = { x :: Int, y :: Int }` (the pixel's position, for
   Bayer/noise later). Position-blind quantizers are built with
   `quantize :: (a -> a) -> Quantize a`; helpers needing only some
@@ -87,15 +115,16 @@ from the code alone.
   PureScript's answer to Haskell's `HasX` classes), so `Context` can
   grow without breaking them. No Reader monad: a plain function of a
   record, by decision. The scalarED toolkit lives
-  here too: `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances),
-  `perChannel`, `nearestLevel`, `evenRamp`, `threshold` (see
+  here too: `perChannel`, `nearestLevel`, `evenRamp`, `threshold` (see
   scalarED/vectorED below).
-- `Dither.Palette` — vectorED: `CompiledPalette` (a `NonEmptyArray RGB`
+- `Puregrain.Palette` — vectorED: `CompiledPalette` (a `NonEmptyArray RGB`
   packed with a swappable distance metric, currently only `distance2`),
-  `nearestColorFast`/`nearestColor`. Note `distance2` is plain RGB
+  `nearestColorFast`/`nearestColor`. `CompiledPalette` is opaque (read
+  the colors with `paletteColors`): the palette search is the next
+  performance target and may change its representation. Note `distance2` is plain RGB
   distance, not perceptual: pure green is nearer to black than to white
   (pinned by a test).
-- `Dither.Palette.Presets` — fixed palettes as plain `NonEmptyArray RGB`
+- `Puregrain.Palette.Presets` — fixed palettes as plain `NonEmptyArray RGB`
   (the caller picks the metric): `blackWhite`, `websafe216`, `cga16`
   (= EGA/VGA default; the Linux console's values, in ANSI order —
   verified in the kernel's vt.c; Wikipedia's terminal table has a
@@ -110,14 +139,13 @@ from the code alone.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
   short table).
-- `Dither.Ordered` — ordered (Bayer) dithering as an ordinary
+- `Puregrain.Ordered` — ordered (Bayer) dithering as an ordinary
   `Quantize Number`, over levels; color via `perChannel`. Pure ordered
   dithering = the empty kernel (`[]`); with any other kernel it's the
   hybrid ("threshold modulation"): the error stays `corrected − q`,
   measured against the value, so diffusion keeps the tones and the map
-  only places the dots. `ThresholdMap` is opaque — the first module with
-  an explicit export list (the rest get theirs at the public-interface
-  step) — so every map is checked: built by `bayer n` (side, any power
+  only places the dots. `ThresholdMap` is opaque, so every map is
+  checked: built by `bayer n` (side, any power
   of 2 incl. 1; `Maybe`, one failure reason, like
   `compilePaletteFromArray`) or `compileThresholdMap` (ranks;
   `Either String`, several failure reasons the caller must tell apart).
@@ -134,8 +162,9 @@ from the code alone.
   npm interface gets designed fresh when the npm package work starts
   — JS can't call typeclass-polymorphic functions (they need instance
   dictionaries), so it will again be a monomorphic layer.
-- `Dither.State` / `Dither.Step` / `Dither.Row` / `Dither.Image` —
-  diffusion core, polymorphic over `Fifo f` and `Ring a, Scalable a`.
+- `Puregrain.Internal.State` / `.Step` / `.Row` / `.Image` — diffusion
+  core, polymorphic over `Fifo f` and `Ring a, Scalable a`; the public
+  `Puregrain.Dither.ditherImage` is `ditherImageWith (Proxy CatQueue)`.
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
   `current`/`matured`/`building` are row-local (`RowState`); only
   `delayLines` and the row counter `nextRow` cross row boundaries
@@ -160,9 +189,9 @@ from the code alone.
     `Ring`/`Scalable` instances are component-wise, one pass over an
     RGB image gives exactly what three separate grayscale passes over
     the channel planes would (property-tested in
-    `Test.Dither.PixelSpec`).
+    `Test.Puregrain.QuantizeSpec`).
   - **vectorED** — the quantizer sees the whole pixel at once, e.g.
-    `Dither.Palette.nearestColor` (nearest palette color by a distance
+    `Puregrain.Palette.nearestColor` (nearest palette color by a distance
     metric). Write the `Quantize a` directly on the composite type.
   - Channel *count* never changes mid-pipeline — reconsidered and kept
     (2026-09-23): a `Quantize a b` was rejected because `outErr =
@@ -222,14 +251,21 @@ arithmetic and the palette search are the next costs
 
 ## Testing
 
-`Test.Dither.Reference` — an independent, deliberately naive
+`Test.Puregrain.Reference` — an independent, deliberately naive
 `ST`-based two-loop reference implementation (no `Fifo`/padding
-machinery), used as a QuickCheck oracle. `Test.Dither.Arbitrary`
-generates random `Kernel`s and images. `Test.Dither.DiffusionMechanicsSpec`
+machinery), used as a QuickCheck oracle. `Test.Puregrain.Arbitrary`
+generates random `Kernel`s and images. `Test.Puregrain.DiffusionMechanicsSpec`
 checks every `Fifo` backend against the reference on random inputs —
 this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 `maxDepth ≥ 1`) did not.
+
+Library specs are flat `Test.Puregrain.<Name>Spec` modules, one per
+module tested (e.g. `PixelSpec`, `QuantizeSpec`, `RowSpec`). `Test.Main`
+discovers them with `^Test\.Puregrain\.[A-Za-z]+Spec$`: spec-discovery
+runs an unanchored `RegExp.test` over the shared `output/`, and the
+anchors plus the single name segment keep out the CLI's
+`Test.Puregrain.Cli.*` specs, which the CLI lists explicitly.
 
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
@@ -255,12 +291,12 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   Haskell, where it scopes over all of them. `f n | c = g n | otherwise
   = h where g = …` fails with "Unknown value g" in the first guard.
   Use `if`/`case` instead, or put the shared bindings in a `where` of an
-  unguarded equation (as in `Dither.Ordered.bayerMatrix`).
+  unguarded equation (as in `Puregrain.Ordered.bayerMatrix`).
 
 - **`(..)` is NOT empty when reversed**: `1 .. 0` evaluates to `[1, 0]`
   (descending), NOT `[]` like Haskell's `[1..0]`. This caused a real,
   QuickCheck-caught bug whenever `maxDepth == 0` (a legitimately valid
-  kernel with no cross-row diffusion). Fixed via `Dither.Util.safeRange`
+  kernel with no cross-row diffusion). Fixed via `Puregrain.Internal.Util.safeRange`
   — use it, not raw `(..)`, anywhere the upper bound can legitimately
   be less than the lower bound.
 - **No automatic memoization**: unlike GHC, PureScript never shares

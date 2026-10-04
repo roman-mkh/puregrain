@@ -1,4 +1,4 @@
-module Test.Dither.DiffusionMechanicsSpec
+module Test.Puregrain.DiffusionMechanicsSpec
   ( spec
   ) where
 
@@ -16,14 +16,14 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.QuickCheck (quickCheck)
 import Type.Proxy (Proxy(..))
 
-import Dither.Fifo (class Fifo)
-import Dither.Image (ditherImageWith)
-import Dither.Kernel (Kernel)
-import Dither.Ordered (ordered)
-import Dither.Pixel (Quantize(..), evenRamp, quantize)
-import Test.Dither.Arbitrary (TestKernel(..), TestImage(..))
-import Test.Dither.Reference (referenceDither)
-import Test.Util (bayerMap)
+import Puregrain.Internal.Fifo (class Fifo)
+import Puregrain.Internal.Image (ditherImageWith)
+import Puregrain.Kernel (Kernel)
+import Puregrain.Ordered (ordered)
+import Puregrain.Quantize (Quantize(..), evenRamp, quantize)
+import Test.Puregrain.Arbitrary (TestKernel(..), TestImage(..))
+import Test.Puregrain.Reference (referenceDither)
+import Test.Puregrain.Util (bayerMap)
 
 -- | A fixed, simple, position-blind quantizer. These properties check the
 -- | DIFFUSION MECHANICS (padding, Fifo backend, DelayLine growth) against
@@ -65,7 +65,7 @@ agreesWithReference proxy q (TestKernel kernel) (TestImage image) =
   runWith proxy kernel q image === referenceDither kernel q image
 
 spec :: Spec Unit
-spec = describe "Dither.Image properties" do
+spec = describe "Puregrain.Internal.Image properties" do
 
   for_
     [ Tuple "a position-blind threshold" testQuantize

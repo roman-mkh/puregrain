@@ -1,4 +1,7 @@
-module Dither.Util where
+-- | Small helpers. Internal: may change without notice.
+module Puregrain.Internal.Util
+  ( safeRange
+  ) where
 
 import Prelude
 

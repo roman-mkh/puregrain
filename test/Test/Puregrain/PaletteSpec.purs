@@ -1,4 +1,4 @@
-module Test.Dither.PaletteSpec (spec) where
+module Test.Puregrain.PaletteSpec (spec) where
 
 import Prelude
 
@@ -11,11 +11,12 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Dither.Palette (CompiledPalette(..), compilePalette, compilePaletteFromArray, distance2, nearestColor, nearestColorFast)
-import Dither.Palette.Presets (websafe216)
-import Dither.Pixel (RGB(..), nearestLevel, perChannel)
-import Test.Dither.Arbitrary (TestImage(..), TestKernel(..), TestPalette(..), TestPaletteImage(..), TestRGB(..), TestRGBImage(..))
-import Test.Util (dither, neutral, nonNeutralCount, websafeSteps)
+import Puregrain.Palette (compilePalette, compilePaletteFromArray, distance2, nearestColor, nearestColorFast, paletteColors)
+import Puregrain.Palette.Presets (websafe216)
+import Puregrain.Pixel (RGB(..))
+import Puregrain.Quantize (nearestLevel, perChannel)
+import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestPalette(..), TestPaletteImage(..), TestRGB(..), TestRGBImage(..))
+import Test.Puregrain.Util (dither, neutral, nonNeutralCount, websafeSteps)
 
 black :: RGB
 black = RGB { r: 0.0, g: 0.0, b: 0.0 }
@@ -26,7 +27,7 @@ white = RGB { r: 255.0, g: 255.0, b: 255.0 }
 -- | An independent, naive reference: minimizes distance2 directly via
 -- | Data.Foldable.minimumBy, without CompiledPalette/the paired-fold
 -- | machinery in nearestColorFast. Used as a QuickCheck oracle for
--- | nearestColorFast — the same role Test.Dither.Reference plays for
+-- | nearestColorFast — the same role Test.Puregrain.Reference plays for
 -- | the Fifo backends.
 naiveNearest :: NonEmptyArray RGB -> RGB -> RGB
 naiveNearest palette pixel = case minimumBy (comparing (distance2 pixel)) palette of
@@ -34,7 +35,7 @@ naiveNearest palette pixel = case minimumBy (comparing (distance2 pixel)) palett
   Nothing -> pixel -- unreachable: palette is a NonEmptyArray
 
 spec :: Spec Unit
-spec = describe "Dither.Palette" do
+spec = describe "Puregrain.Palette" do
 
   describe "distance2" do
     it "is zero for identical colors" do
@@ -55,7 +56,7 @@ spec = describe "Dither.Palette" do
       isJust (compilePaletteFromArray distance2 [ black, white ]) `shouldEqual` true
       case compilePaletteFromArray distance2 [ black, white ] of
         Nothing -> fail "expected Just, got Nothing"
-        Just (CompiledPalette p) -> NEA.toArray p.colors `shouldEqual` [ black, white ]
+        Just p -> NEA.toArray (paletteColors p) `shouldEqual` [ black, white ]
 
   describe "nearestColorFast" do
     it "returns the single color of a one-color palette, regardless of pixel" do

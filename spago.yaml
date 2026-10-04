@@ -16,8 +16,6 @@ package:
   test:
     main: Test.Main
     dependencies:
-      - assert
-      - console
       - effect
       - quickcheck
       - spec
