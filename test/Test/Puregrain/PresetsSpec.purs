@@ -16,12 +16,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
+import Puregrain.Dither (ditherImage)
 import Puregrain.Palette (compilePalette, distance2, nearestColor, nearestColorFast)
 import Puregrain.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (nearestLevel, perChannel)
 import Test.Puregrain.Arbitrary (TestKernel(..), TestRGB(..), TestSample(..))
-import Test.Puregrain.Util (dither, runAtOrigin, websafeSteps)
+import Test.Puregrain.Util (runAtOrigin, websafeSteps)
 
 rgb :: Int -> Int -> Int -> RGB
 rgb r g b = RGB { r: toNumber r, g: toNumber g, b: toNumber b }
@@ -204,4 +205,4 @@ spec = describe "Puregrain.Palette.Presets" do
           width <- chooseInt 1 6
           height <- chooseInt 1 6
           image <- vectorOf height (vectorOf width (elements palette))
-          pure (dither kernel (nearestColor palette) image === image)
+          pure (ditherImage kernel (nearestColor palette) image === image)

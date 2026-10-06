@@ -7,11 +7,10 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..))
-import Data.List.Lazy as LL
 import Data.Maybe (maybe)
 import Data.Number.Format (fixed, toStringWith)
 import Data.Tuple (Tuple(..))
-import Puregrain (class Scalable, Kernel, Quantize, RGB(..), ditherImage)
+import Puregrain (RGB(..), ditherImage)
 import Effect (Effect)
 import Effect.Console (error, log)
 import Effect.Exception (message, try)
@@ -33,14 +32,9 @@ main = do
       exit' 1
     Right _ -> pure unit
 
--- | The library's top-level `ditherImage`, on an in-memory image. The
--- | result list is lazy; `LL.toUnfoldable` forces all of it.
-dither :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
-dither kernel quantize rows = LL.toUnfoldable (ditherImage kernel quantize (LL.fromFoldable rows))
-
 -- | Evaluates `f unit` between two clock reads and returns the elapsed
--- | milliseconds with the result. PureScript is strict and `dither`
--- | forces the whole lazy image, so this measures exactly the dithering —
+-- | milliseconds with the result. PureScript is strict and `ditherImage`
+-- | computes the whole image at once, so this measures exactly the dithering —
 -- | not PNG decoding/encoding, gray conversion, or process startup.
 timed :: forall a. (Unit -> a) -> Effect (Tuple Number a)
 timed f = do
@@ -63,12 +57,12 @@ run opts = do
   case pipelineFor opts.quantizer grayImage of
     Gray q -> do
       let grayRows = map (map luma) image
-      Tuple ms out <- timed \_ -> dither kernel q grayRows
+      Tuple ms out <- timed \_ -> ditherImage kernel q grayRows
       report ms "gray"
       writeGrayRows opts.output out
       log $ "Wrote " <> opts.output <> " (grayscale PNG)"
     Color q -> do
-      Tuple ms out <- timed \_ -> dither kernel q image
+      Tuple ms out <- timed \_ -> ditherImage kernel q image
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"

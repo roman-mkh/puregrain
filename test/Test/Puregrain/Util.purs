@@ -12,10 +12,9 @@ import Data.Ord (abs)
 import Data.List.Lazy as LL
 import Partial.Unsafe (unsafePartial)
 
-import Puregrain.Dither (ditherImage)
 import Puregrain.Kernel (Kernel, Offset, fromOffsets)
 import Puregrain.Ordered (ThresholdMap, bayer, compileThresholdMap)
-import Puregrain.Pixel (class Scalable, RGB(..))
+import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (Quantize, runQuantize)
 import Puregrain.Internal.State (RowLayer)
 
@@ -32,14 +31,6 @@ takeAsArray n fifo = LL.toUnfoldable (LL.take n fifo)
 
 takeLayersAsArray :: forall f a. Int -> LL.List (RowLayer f a) -> Array (RowLayer f a)
 takeLayersAsArray n dl = LL.toUnfoldable (LL.take n dl)
-
--- | Runs the public top-level `ditherImage` on an in-memory image.
--- | Polymorphic in the pixel type, so the same helper dithers a
--- | grayscale image and an RGB one; `LL.toUnfoldable` forces the whole
--- | lazy result.
-dither :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
-dither kernel quantize image =
-  LL.toUnfoldable (ditherImage kernel quantize (LL.fromFoldable image))
 
 -- | The six channel values the web-safe cube is built from, written out
 -- | independently of `websafe216` (tests check the palette against it).

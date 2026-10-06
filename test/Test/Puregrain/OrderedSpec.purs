@@ -19,12 +19,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
+import Puregrain.Dither (ditherImage)
 import Puregrain.Kernel (noDiffusion)
 import Puregrain.Ordered (ThresholdMap, bayer, bayerMatrix, compileThresholdMap, ordered, thresholdAt)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (Quantize, evenRamp, nearestLevel, perChannel, runQuantize)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGBImage(..), TestRanks(..), TestSample(..))
-import Test.Puregrain.Util (bayerMap, compiledMap, dither, neutral)
+import Test.Puregrain.Util (bayerMap, compiledMap, neutral)
 
 -- | Cell (row, column) of a matrix, for indices the test knows are valid.
 at :: forall a. Array (Array a) -> Int -> Int -> a
@@ -196,7 +197,7 @@ spec = describe "Puregrain.Ordered" do
     it "the empty kernel quantizes each pixel on its own, at its position" do
       quickCheck \(TestRanks ranks) (TestLevels levels) (TestImage image) ->
         let q = ordered (compiledMap ranks) levels
-        in dither noDiffusion q image === pointwise q image
+        in ditherImage noDiffusion q image === pointwise q image
 
     -- Counted exactly in whole numbers: (r + 0.5) / n² < g / 255 is
     -- 255 · (2r + 1) < 2 · g · n².
@@ -204,7 +205,7 @@ spec = describe "Puregrain.Ordered" do
       for_ [ 2, 4, 8 ] \n -> for_ (0 .. 255) \g -> do
         let
           image = Array.replicate (2 * n) (Array.replicate (2 * n) (toNumber g))
-          out = dither noDiffusion (ordered (bayerMap n) (evenRamp 2)) image
+          out = ditherImage noDiffusion (ordered (bayerMap n) (evenRamp 2)) image
           expected = Array.length (Array.filter (\r -> 255 * (2 * r + 1) < 2 * g * n * n) (0 .. (n * n - 1)))
           whiteIn tileY tileX = Array.length do
             y <- (tileY * n) .. (tileY * n + n - 1)
@@ -226,7 +227,7 @@ spec = describe "Puregrain.Ordered" do
           maybeNeutral y x px = case Array.index grays y >>= flip Array.index x of
             Just v -> neutral v
             Nothing -> px
-          out = dither noDiffusion (perChannel (ordered (compiledMap ranks) levels)) image
+          out = ditherImage noDiffusion (perChannel (ordered (compiledMap ranks) levels)) image
           broken = Array.length do
             Tuple input output <- Array.concat (Array.zipWith (Array.zipWith Tuple) image out)
             if isNeutralRGB input && not (isNeutralRGB output) then [ unit ] else []
@@ -235,7 +236,7 @@ spec = describe "Puregrain.Ordered" do
 
     it "an image made only of levels comes back unchanged, with any kernel" do
       quickCheck \(TestKernel kernel) (TestRanks ranks) (TestLevelsRGBImage { levels, image }) ->
-        dither kernel (perChannel (ordered (compiledMap ranks) levels)) image === image
+        ditherImage kernel (perChannel (ordered (compiledMap ranks) levels)) image === image
 
 -- | 1-8 whole-number levels in [-20, 275], unsorted, repeats allowed.
 genWholeLevels :: Gen (NonEmptyArray Number)

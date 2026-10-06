@@ -14,10 +14,11 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
+import Puregrain.Dither (ditherImage)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (evenRamp, nearestLevel, perChannel, quantizeWith, runQuantize, threshold)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
-import Test.Puregrain.Util (approxEqual, dither, neutral, nonNeutralCount, runAtOrigin)
+import Test.Puregrain.Util (approxEqual, neutral, nonNeutralCount, runAtOrigin)
 
 -- | An independent reference for `nearestLevel`, written as the
 -- | specification itself rather than as another fold: "the FIRST level
@@ -89,13 +90,13 @@ spec = describe "Puregrain.Quantize" do
       quickCheck \(TestKernel kernel) (TestLevels levels) (TestRGBImage image) ->
         let
           q = nearestLevel levels
-          out = dither kernel (perChannel q) image
+          out = ditherImage kernel (perChannel q) image
         in
           { r: plane red out, g: plane green out, b: plane blue out }
             ===
-              { r: dither kernel q (plane red image)
-              , g: dither kernel q (plane green image)
-              , b: dither kernel q (plane blue image)
+              { r: ditherImage kernel q (plane red image)
+              , g: ditherImage kernel q (plane green image)
+              , b: ditherImage kernel q (plane blue image)
               }
 
     -- The exact checks from docs/test-images.md, stated for arbitrary
@@ -104,11 +105,11 @@ spec = describe "Puregrain.Quantize" do
     -- statements of the documented claims.
     it "an image whose every channel value is a level comes back unchanged (zero error), for any levels and kernel" do
       quickCheck \(TestKernel kernel) (TestLevelsRGBImage { levels, image }) ->
-        dither kernel (perChannel (nearestLevel levels)) image === image
+        ditherImage kernel (perChannel (nearestLevel levels)) image === image
 
     it "a neutral image stays exactly neutral, for any levels and kernel" do
       quickCheck \(TestKernel kernel) (TestLevels levels) (TestImage gray) ->
-        nonNeutralCount (dither kernel (perChannel (nearestLevel levels)) (map (map neutral) gray)) === 0
+        nonNeutralCount (ditherImage kernel (perChannel (nearestLevel levels)) (map (map neutral) gray)) === 0
 
   describe "nearestLevel" do
     it "agrees with an independent reference (first level at minimum distance)" do

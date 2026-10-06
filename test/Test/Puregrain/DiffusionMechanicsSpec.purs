@@ -57,8 +57,7 @@ runWith
   -> Quantize Number
   -> Array (Array Number)
   -> Array (Array Number)
-runWith proxy kernel q image =
-  LL.toUnfoldable (ditherImageWith proxy kernel q (LL.fromFoldable image))
+runWith proxy kernel q image = ditherImageWith proxy kernel q image
 
 agreesWithReference :: forall f. Fifo f => Proxy f -> Quantize Number -> TestKernel -> TestImage -> Result
 agreesWithReference proxy q (TestKernel kernel) (TestImage image) =

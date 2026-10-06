@@ -67,7 +67,7 @@ from the code alone.
   Guiding rule: *start closed, open later* — exporting more later is
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
-  - Public: `Puregrain.Dither` (`ditherImage`), `.Kernel`, `.Pixel`,
+  - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`), `.Kernel`, `.Pixel`,
     `.Quantize`, `.Palette`, `.Palette.Presets`, `.Ordered`.
   - `Puregrain` — a facade, re-exports only: what a typical application
     needs plus the types for signatures; building blocks for
@@ -77,9 +77,10 @@ from the code alone.
     CLI imports only `Puregrain`, so its build checks the facade covers a
     real application.
   - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
-    `Row`, `Image` (`ditherImageWith`), `Util`) — exported (PureScript has
-    no package-private modules; the tests need them) but documented as
-    unstable. `Fifo` and `ditherImageWith` stay internal (decided 2026-10-05).
+    `Row`, `Image` (`ditherImageWith`, `ditherRowsWith`), `Util`) — exported
+    (PureScript has no package-private modules; the tests need them) but
+    documented as unstable. `Fifo` and the backend-choosing drivers stay
+    internal (decided 2026-10-05).
   - Public doc comments are self-contained (Pursuit shows them): no
     `CLAUDE.md`/test references, absolute GitHub links to `docs/`;
     dev notes go in plain `--` comments. Internal modules may point at
@@ -181,19 +182,27 @@ from the code alone.
   — JS can't call typeclass-polymorphic functions (they need instance
   dictionaries), so it will again be a monomorphic layer.
 - `Puregrain.Internal.State` / `.Step` / `.Row` / `.Image` — diffusion
-  core, polymorphic over `Fifo f` and `Ring a, Scalable a`; the public
-  `Puregrain.Dither.ditherImage` is `ditherImageWith (Proxy CatQueue)`.
+  core, polymorphic over `Fifo f` and `Ring a, Scalable a`. Public image
+  type (decided 2026-10-06): `Puregrain.Dither.ditherImage` takes and
+  returns `Array (Array a)` (in memory, strict) and `ditherRows` a lazy
+  `List (Array a)` (streaming): `ditherImageWith`/`ditherRowsWith (Proxy
+  CatQueue)`, two thin drivers (a strict `mapAccumL`, a lazy unfold) over
+  one `ditherRow`, pinned equal by a property in `DitherSpec`. No type
+  aliases for rows or images (no safety, hides laziness, `Row` clashes).
+  Effectful row sources aren't for `ditherRows` but for the future
+  stepper (TODO.md).
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
   `current`/`matured`/`building` are row-local (`RowState`); only
   `delayLines`, the row counter `nextRow` and the image `width` (from
   the first row) cross row boundaries (`DitherState`). `ditherRow` checks
   each row's length against `width` first: a different length is a
   caller's bug, stopped with `unsafeCrashWith` naming the row (a runtime
-  error by decision — `ditherImage`'s lazy list has no error channel; a
-  typed error is for the future stepper, see TODO.md). `ditherImageWith`
+  error by decision — `ditherRows`' lazy list has no error channel; a
+  typed error is for the future stepper, see TODO.md). `ditherRowsWith`
   does all its work inside `defer`, so each row is read and dithered
   only when its cell is forced (until 2026-10-04 a strict `let` outside
-  the `defer` dithered each row one cell early). Positions: `y` is `DitherState.nextRow` (a caller
+  the `defer` dithered each row one cell early); `DitherSpec` pins it
+  (an endless input; an input whose third row crashes when read). Positions: `y` is `DitherState.nextRow` (a caller
   stepping rows can't pass a wrong one); `x`/`y` ride in `RowState`, which `step` rebuilds per pixel
   anyway. Not `mapAccumLWithIndex`: on Array it's a generic default
   (`sequence <<< mapWithIndex`, an extra pass per row), while

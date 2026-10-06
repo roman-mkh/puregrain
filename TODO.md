@@ -18,15 +18,9 @@ the v0.1 release.
       a `Left` into the same runtime error.
       The stepper's design also decides whether the kernel and the quantizer travel together as one
       configuration record held inside the opaque state (the early `DitherAlgo` idea).
-- [ ] **Public image type.** Keep `ditherImage` on the lazy `List (Array a)`, for streaming. Consider an
-      in-memory convenience on `Array (Array a)` next to it (e.g. `ditherArray`): the CLI
-      (`Puregrain.Cli.Main.dither`) and the tests (`Test.Puregrain.Util.dither`) each carry the same
-      `LL.toUnfoldable (ditherImage k q (LL.fromFoldable rows))` helper today. No type aliases for rows or
-      images (decided 2026-10-04, replacing the old "alias `Array Number` to PixelRow" entry): a `type` adds
-      no safety, hides the laziness behind a lookup, and `Row`/`Image` clash with PureScript's `Row` kind
-      and with common names in users' code. If a name is ever wanted after all: `Scanline a`.
-      Folded in, meaning to be recalled: the older note "ditherImage: LL.List - maybe define custom impl
-      here (diff to typeclass Fifo)".
+      It must also serve rows produced by effects (a network stream, a file read piece by piece), which the
+      pure `ditherRows` can't: as a pure state machine (`start`, then `step`: one row in, one row out), with
+      the caller running the loop and the effects. Unlike a lazy list, it caches nothing.
 - [ ] **Release v0.1:** version ranges for the dependencies (`spago build --ensure-ranges`); a
       `release.yml` workflow; publish to the registry and Pursuit; drop the "Done" list from this file.
 
@@ -100,9 +94,22 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       (through XYZ, with a chosen white point/gamma assumption) that
       doesn't exist yet anywhere in this codebase.
 - [ ] Effectful quantizers and row sources (pipes/coroutines): postponed until someone needs them. Quantizers
-      stay pure; if ever, as an extension package.
+      stay pure; if ever, as an extension package. For row sources, a generic driver on top of the stepper
+      would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)
+      -> m Unit` (read rows with an action, pass results to a callback, in `Effect`, `Aff` or any monad that
+      supports long loops). Start closed: only for a real use case.
 
 ## Done (record; dropped at the v0.1 release)
+
+- 2026-10-06 — Public image type: `ditherImage` takes and returns `Array (Array a)` (in memory, strict),
+  `ditherRows` a lazy `List (Array a)` (streaming: each row read and dithered when asked for). Two thin
+  drivers over one `ditherRow`, pinned equal by a property; the CLI and test helpers that converted between
+  the two are gone. No type aliases for rows or images: a `type` adds no safety, hides the laziness, and
+  `Row`/`Image` clash with PureScript's `Row` kind and users' names (`Scanline a` if ever wanted). Closed
+  with it, the old note "ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)": we
+  stick with `Data.List.Lazy` for pure streaming. A custom pure iterator would have the same power without
+  the library functions around it, and `Data.Lazy` is one deferred value, not a stream; effectful sources
+  belong to the stepper.
 
 - 2026-10-05 — API decisions: the `Fifo` class (with `ditherImageWith`) stays internal; `Quantize` is opaque,
   built by `quantize` (position-blind) or the new `quantizeWith` (uses the position), run by `runQuantize`.
@@ -131,8 +138,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - One generator for visual-check and benchmark images (`scripts/generate-images.mjs`), and benchmark
   automation (`npm run bench`).
 - Closed without doing (2026-10-04):
-  - a version of `ditherRow`/`ditherImage` polymorphic over `Traversable f`: rows stay `Array a` (see
-    "Public image type"), and no use needs another container;
+  - a version of `ditherRow`/`ditherImage` polymorphic over `Traversable f`: rows stay `Array a` (the
+    public image type, 2026-10-06), and no use needs another container;
   - a typeclass + Reader monad to pass the algorithm configuration: decided against, plain values
     (CLAUDE.md);
   - a determinism property for constant input: every function involved is pure, so it holds trivially;

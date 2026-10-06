@@ -8,7 +8,6 @@ package:
     - either
     - exceptions
     - integers
-    - lists
     - maybe
     - node-process
     - numbers

@@ -1,7 +1,8 @@
 -- | Error-diffusion and ordered dithering, in one import. This module
 -- | re-exports what a typical application needs:
 -- |
--- | - `ditherImage`, which dithers an image row by row;
+-- | - `ditherImage`, which dithers an image in memory, and `ditherRows`,
+-- |   which dithers a lazy stream of rows, each when it's needed;
 -- | - the kernels `floydSteinberg`, `atkinson` and `jarvisJudiceNinke`, and
 -- |   `noDiffusion` for none;
 -- | - the quantizers `threshold`, `nearestLevel` with `evenRamp`, and
@@ -14,7 +15,7 @@
 -- | ```purescript
 -- | import Puregrain as P
 -- |
--- | dithered = P.ditherImage P.floydSteinberg (P.threshold 128.0) rows
+-- | dithered = P.ditherImage P.floydSteinberg (P.threshold 128.0) image
 -- | ```
 -- |
 -- | The building blocks for your own variants (distance metrics, threshold
@@ -31,7 +32,7 @@ module Puregrain
   , module Puregrain.Quantize
   ) where
 
-import Puregrain.Dither (ditherImage)
+import Puregrain.Dither (ditherImage, ditherRows)
 import Puregrain.Kernel (Kernel, Offset, atkinson, floydSteinberg, jarvisJudiceNinke, noDiffusion)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)
 import Puregrain.Palette (nearestColor)

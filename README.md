@@ -28,7 +28,9 @@ for PNG images.
 - **Ready-made palettes:** black & white, web-safe, CGA/EGA/VGA, ANSI
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
-- **Row by row:** an image goes in and comes out as a lazy list of rows.
+- **In memory or as a stream:** dither a whole image at once, or a lazy
+  stream of rows, each dithered only when it's needed, so only the rows in
+  flight are in memory and the input can even be endless.
 - **Time grows linearly with the pixel count,** currently about 2 µs per
   pixel for gray Floyd–Steinberg. See
   [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).

@@ -11,12 +11,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
+import Puregrain.Dither (ditherImage)
 import Puregrain.Palette (compilePalette, compilePaletteFromArray, distance2, nearestColor, nearestColorFast, paletteColors)
 import Puregrain.Palette.Presets (websafe216)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (nearestLevel, perChannel)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestPalette(..), TestPaletteImage(..), TestRGB(..), TestRGBImage(..))
-import Test.Puregrain.Util (dither, neutral, nonNeutralCount, websafeSteps)
+import Test.Puregrain.Util (neutral, nonNeutralCount, websafeSteps)
 
 black :: RGB
 black = RGB { r: 0.0, g: 0.0, b: 0.0 }
@@ -95,13 +96,13 @@ spec = describe "Puregrain.Palette" do
     -- a direct statement of the documented byte-identity claim.
     it "websafe216 (vectorED) == 6 levels per channel (scalarED), for any kernel and image" do
       quickCheck \(TestKernel kernel) (TestRGBImage image) ->
-        dither kernel (nearestColor websafe216) image
-          === dither kernel (perChannel (nearestLevel websafeSteps)) image
+        ditherImage kernel (nearestColor websafe216) image
+          === ditherImage kernel (perChannel (nearestLevel websafeSteps)) image
 
     it "an image made only of palette colors dithers to itself (zero error), for any palette and kernel" do
       quickCheck \(TestKernel kernel) (TestPaletteImage { palette, image }) ->
-        dither kernel (nearestColor palette) image === image
+        ditherImage kernel (nearestColor palette) image === image
 
     it "a neutral image stays exactly neutral under websafe216, for any kernel" do
       quickCheck \(TestKernel kernel) (TestImage gray) ->
-        nonNeutralCount (dither kernel (nearestColor websafe216) (map (map neutral) gray)) === 0
+        nonNeutralCount (ditherImage kernel (nearestColor websafe216) (map (map neutral) gray)) === 0
