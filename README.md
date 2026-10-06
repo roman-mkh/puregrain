@@ -30,7 +30,9 @@ for PNG images.
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
 - **In memory or as a stream:** dither a whole image at once, or a lazy
   stream of rows, each dithered only when it's needed, so only the rows in
-  flight are in memory and the input can even be endless.
+  flight are in memory and the input can even be endless. Or go one row
+  at a time from any source, a network stream for example, with your own
+  loop.
 - **Time grows linearly with the pixel count,** currently about 2 µs per
   pixel for gray Floyd–Steinberg. See
   [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).

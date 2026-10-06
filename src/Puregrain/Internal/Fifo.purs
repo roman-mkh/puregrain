@@ -158,8 +158,10 @@ instance Fifo Array where
 -- |
 -- | The amortized bounds hold only if each queue version is used once:
 -- | an old version used again would redo the same reversal. `step` and
--- | `ditherRow` use them that way, since every operation's result
--- | replaces its input.
+-- | `stepRow` use them that way, since every operation's result
+-- | replaces its input. Reusing a whole row's state (the public
+-- | `Dithering`) is fine: stepping from it again redoes that row's work,
+-- | the reversal included, and no more.
 instance Fifo CatQueue where
   replicate n x = CatQueue (Unfoldable.replicate n x) DL.Nil
   enqueue = CQ.snoc

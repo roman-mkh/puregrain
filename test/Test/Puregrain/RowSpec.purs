@@ -3,9 +3,11 @@ module Test.Puregrain.RowSpec (spec) where
 import Prelude
 
 import Data.Array as Array
+import Data.Either (Either, either)
 import Data.List.Lazy as LL
 import Data.Maybe (Maybe(..))
 import Data.Tuple (Tuple(..), snd)
+import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck ((===))
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -14,7 +16,7 @@ import Test.Spec.QuickCheck (quickCheck)
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
 import Puregrain.Kernel (floydSteinberg, noDiffusion)
 import Puregrain.Quantize (quantize)
-import Puregrain.Internal.Row (ditherRow)
+import Puregrain.Internal.Row (stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Internal.Util (safeRange)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..))
@@ -23,7 +25,12 @@ import Test.Puregrain.Util (validKernel)
 quantizeThreshold :: Number -> Number
 quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
--- | Folds ditherRow across every row of an image, starting from
+-- | The row's result, for rows the test knows are valid (its images are
+-- | rectangular, so `stepRow` never rejects one).
+rowOk :: forall a. Either String a -> a
+rowOk = either unsafeCrashWith identity
+
+-- | Folds stepRow across every row of an image, starting from
 -- | initState, calling `check` after every row with (this row's
 -- | resulting state, the input row, the output row). True only if
 -- | `check` held after every single row, not just the last one.
@@ -36,7 +43,7 @@ foldRows compiled check rows =
   snd (Array.foldl go (Tuple (initState compiled) true) rows)
   where
   go (Tuple state okSoFar) row =
-    let Tuple state' outRow = ditherRow compiled (quantize quantizeThreshold) state row
+    let Tuple state' outRow = rowOk (stepRow compiled (quantize quantizeThreshold) state row)
     in Tuple state' (okSoFar && check state' row outRow)
 
 spec :: Spec Unit
@@ -54,7 +61,7 @@ spec = describe "Puregrain.Internal.Row" do
           compiled = compileKernel kernel
           counts = Array.foldl
             ( \(Tuple state acc) row ->
-                let Tuple state' _ = ditherRow compiled (quantize quantizeThreshold) state row
+                let Tuple state' _ = rowOk (stepRow compiled (quantize quantizeThreshold) state row)
                 in Tuple state' (Array.snoc acc state'.nextRow)
             )
             (Tuple (initState compiled :: DitherState LL.List Number) [])
@@ -68,7 +75,7 @@ spec = describe "Puregrain.Internal.Row" do
           start = initState compiled :: DitherState LL.List Number
           widths = Array.foldl
             ( \(Tuple state acc) row ->
-                let Tuple state' _ = ditherRow compiled (quantize quantizeThreshold) state row
+                let Tuple state' _ = rowOk (stepRow compiled (quantize quantizeThreshold) state row)
                 in Tuple state' (Array.snoc acc state'.width)
             )
             (Tuple start [])
@@ -92,7 +99,7 @@ spec = describe "Puregrain.Internal.Row" do
         state0 :: DitherState LL.List Number
         state0 = initState compiled
         row = [ 100.0, 200.0, 50.0 ]
-        Tuple _state1 quantizedRow = ditherRow compiled (quantize quantizeThreshold) state0 row
+        Tuple _state1 quantizedRow = rowOk (stepRow compiled (quantize quantizeThreshold) state0 row)
 
       Array.length quantizedRow `shouldEqual` Array.length row
       Array.all (\p -> p == 0.0 || p == 255.0) quantizedRow `shouldEqual` true

@@ -2,7 +2,7 @@
 -- | row's queues over to the rows below. Internal: may change without
 -- | notice.
 module Puregrain.Internal.Row
-  ( ditherRow
+  ( stepRow
   , initBuilding
   , commitBuilding
   ) where
@@ -10,6 +10,7 @@ module Puregrain.Internal.Row
 import Prelude
 
 import Data.Array as Array
+import Data.Either (Either(..))
 import Data.Maybe (Maybe(..))
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
@@ -49,15 +50,16 @@ commitBuilding compiled building shortenedDelayLines =
 
     adjustFifo o fifo = replace (skipFor o) fifo
 
--- | Dithers one row and returns the state for the next one. Use each
--- | `DitherState` once: passing an old state in again gives the right
--- | result, but can be slower (see `DitherState`).
+-- | Dithers one row and returns the state for the next one. States are
+-- | plain immutable values: stepping from an old one again (an undo, say)
+-- | redoes that row's work, the queues' list reversals included, and no
+-- | more.
 -- |
 -- | Every row must be as long as the first one. A row of a different
--- | length is a caller's bug: it stops with an error naming the row,
+-- | length is a caller's bug: `Left` with a message naming the row,
 -- | rather than reading past the queued error or leaving it misaligned
--- | for the rows below.
-ditherRow
+-- | for the rows below. The state isn't touched, so the caller can retry.
+stepRow
   :: forall f a
    . Fifo f
   => Ring a
@@ -66,14 +68,14 @@ ditherRow
   -> Quantize a
   -> DitherState f a
   -> Array a
-  -> Tuple (DitherState f a) (Array a)
-ditherRow compiled quantize state pixels =
+  -> Either String (Tuple (DitherState f a) (Array a))
+stepRow compiled quantize state pixels =
   -- The check comes first, and the row's work lives in the branch after
   -- it: PureScript evaluates `where` bindings before the body, so work
   -- placed there would run (and, for a longer row, crash) before the check.
   case state.width of
     Just width | width /= length ->
-      unsafeCrashWith
+      Left
         ( "puregrain: row " <> show state.nextRow <> " has " <> show length
             <> " pixels, but the first row has " <> show width
             <> "; all rows of an image must have the same length"
@@ -94,7 +96,7 @@ ditherRow compiled quantize state pixels =
         result = mapAccumL stepAdapter initial pixels
         delayLines' = commitBuilding compiled result.accum.building shortenedDelayLines
       in
-        Tuple { delayLines: delayLines', nextRow: state.nextRow + 1, width: Just length } result.value
+        Right (Tuple { delayLines: delayLines', nextRow: state.nextRow + 1, width: Just length } result.value)
   where
     length = Array.length pixels
 

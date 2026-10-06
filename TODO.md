@@ -6,29 +6,20 @@ the v0.1 release.
 
 ## Public interface (v0.1)
 
-- [ ] **Public row-by-row stepper: reusing an old state.** `Fifo CatQueue` is O(1) amortized only if each
-      queue version is used once. A reused old one repeats the list reversal it already did: still correct,
-      just slower. Inside the library every state is used once, but a public stepper would let callers keep a
-      state and run from it again (e.g. undo in the web demo). Its API docs must state "use each state once",
-      or the design must handle reuse otherwise. See the `CatQueue` instance in `Puregrain.Internal.Fifo` and
-      the `DitherState` doc comment in `Puregrain.Internal.State`.
-      Also: a row of a different length is a runtime error today (`unsafeCrashWith` in `ditherRow`, by
-      decision, since `ditherImage`'s lazy list has no error channel). A stepper fed one row at a time could
-      return `Either String (Tuple state row)` instead, so the caller can react; `ditherImage` would then turn
-      a `Left` into the same runtime error.
-      The stepper's design also decides whether the kernel and the quantizer travel together as one
-      configuration record held inside the opaque state (the early `DitherAlgo` idea).
-      It must also serve rows produced by effects (a network stream, a file read piece by piece), which the
-      pure `ditherRows` can't: as a pure state machine (`start`, then `step`: one row in, one row out), with
-      the caller running the loop and the effects. Unlike a lazy list, it caches nothing.
 - [ ] **Release v0.1:** version ranges for the dependencies (`spago build --ensure-ranges`); a
       `release.yml` workflow; publish to the registry and Pursuit; drop the "Done" list from this file.
+- [ ] **After the first publish:** a Pursuit badge in README.md
+      (`https://pursuit.purescript.org/packages/purescript-puregrain/badge`), and the Pursuit link as the
+      repo's "Website".
 
 ## Performance
 
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per
 pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
+- [ ] **Evaluate purs-backend-es** (a PureScript-aware optimizing backend) for the CLI and the npm bundle:
+      an A/B benchmark in one session, byte-identical outputs. The first performance step after v0.1; its
+      result decides the items below. (It doesn't affect the library on Pursuit, which ships source.)
 - [ ] **RGB arithmetic:** `--levels 6` takes ×2.3 of a gray threshold, and even `--palette bw` ×1.9. Look at
       how `RGB` values are added and scaled per pixel (each operation allocates a new record).
 - [ ] **Palette search** (`nearestColorFast`): websafe216 takes ×2.1–2.3 of `--levels 6`, for the same output.
@@ -61,6 +52,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       stepper, in a Web Worker so the page stays responsive.
 - [ ] **npm package:** a monomorphic JS layer (JavaScript can't call class-polymorphic functions), a bundle,
       and `.d.ts` types.
+      The CLI ships through npm too, not the PureScript registry (spago can't install pngjs): one JS file
+      bundled with esbuild, pngjs as an npm dependency, a `bin` entry, so `npx puregrain …` works. It could
+      come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 
 ## Future directions (not in scope now)
@@ -101,9 +95,21 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Done (record; dropped at the v0.1 release)
 
+- 2026-10-07 — Public row-by-row stepper: `initDithering kernel quantize` builds an opaque `Dithering a`
+  (compiled kernel, quantizer and state inside: the early `DitherAlgo` idea, settled without a public
+  configuration record), and `ditherRow` dithers one row, returning `Either String { row, next }`. A pure
+  state machine: the caller runs the loop, so rows produced by effects (a network stream, a file read piece
+  by piece) work, and nothing is cached. A row of a different length gives `Left` and leaves the state
+  usable; `ditherImage` and `ditherRows` turn the same message into a runtime error. States are freely
+  reusable (an undo): stepping from an old state redoes that row's work, the queue reversals included, and
+  no more, so the earlier "use each state once" worry was unfounded at the row level.
+
+- 2026-10-07 — Publish location in `spago.yaml` (`package.publish.location`: GitHub `roman-mkh/puregrain`),
+  which the registry needs to find the source and Pursuit links to.
+
 - 2026-10-06 — Public image type: `ditherImage` takes and returns `Array (Array a)` (in memory, strict),
   `ditherRows` a lazy `List (Array a)` (streaming: each row read and dithered when asked for). Two thin
-  drivers over one `ditherRow`, pinned equal by a property; the CLI and test helpers that converted between
+  drivers over one row function (now `stepRow`), pinned equal by a property; the CLI and test helpers that converted between
   the two are gone. No type aliases for rows or images: a `type` adds no safety, hides the laziness, and
   `Row`/`Image` clash with PureScript's `Row` kind and users' names (`Scanline a` if ever wanted). Closed
   with it, the old note "ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)": we

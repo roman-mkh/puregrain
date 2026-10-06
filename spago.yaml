@@ -3,6 +3,9 @@ package:
   publish:
     version: 0.1.0
     license: MIT
+    location:
+      githubOwner: roman-mkh
+      githubRepo: puregrain
   dependencies:
     - arrays
     - catenable-lists

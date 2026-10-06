@@ -36,9 +36,9 @@ type DelayLine (f :: Type -> Type) a = Array (RowLayer f a)
 -- | wrong one; and the image's `width`, taken from the first row
 -- | (`Nothing` before it), which every later row must match.
 -- |
--- | Use each `DitherState` once. Passing an old state in again gives the
--- | right result, but can be slower: the queues inside it then repeat
--- | work they already did (see the `CatQueue` instance in `Puregrain.Internal.Fifo`).
+-- | A plain immutable value: stepping from an old state again (an undo,
+-- | say) redoes that row's work, the queues' list reversals included, and
+-- | no more (see the `CatQueue` instance in `Puregrain.Internal.Fifo`).
 type DitherState (f :: Type -> Type) a =
   { delayLines :: Array (DelayLine f a)
   , nextRow :: Int

@@ -67,7 +67,8 @@ from the code alone.
   Guiding rule: *start closed, open later* — exporting more later is
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
-  - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`), `.Kernel`, `.Pixel`,
+  - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`, and the
+    stepper `Dithering`/`initDithering`/`ditherRow`), `.Kernel`, `.Pixel`,
     `.Quantize`, `.Palette`, `.Palette.Presets`, `.Ordered`.
   - `Puregrain` — a facade, re-exports only: what a typical application
     needs plus the types for signatures; building blocks for
@@ -113,7 +114,10 @@ from the code alone.
   **`CatQueue` is the production default** (see Performance below). Its
   O(1) amortized `dequeue` assumes each queue version is used once
   (an old version used again redoes the list reversal) — which is how
-  `step`/`ditherRow` use them.
+  `step`/`stepRow` use them. At the row level, reuse costs nothing
+  extra: stepping from an old state redoes that row's work, the
+  reversal included, so public `Dithering` states are freely reusable
+  (an earlier "use each state once" worry, corrected 2026-10-07).
 - `Puregrain.Pixel` — `Gray = Number`; `RGB`/`RGBA` are `newtype`s (not
   `type` aliases — aliases sharing record shape would collide on
   instance resolution) with hand-written `Semiring`/`Ring` (honest
@@ -187,18 +191,25 @@ from the code alone.
   returns `Array (Array a)` (in memory, strict) and `ditherRows` a lazy
   `List (Array a)` (streaming): `ditherImageWith`/`ditherRowsWith (Proxy
   CatQueue)`, two thin drivers (a strict `mapAccumL`, a lazy unfold) over
-  one `ditherRow`, pinned equal by a property in `DitherSpec`. No type
+  one `stepRow`, pinned equal by a property in `DitherSpec`. No type
   aliases for rows or images (no safety, hides laziness, `Row` clashes).
-  Effectful row sources aren't for `ditherRows` but for the future
-  stepper (TODO.md).
+  The stepper (decided 2026-10-07): `initDithering kernel quantize`
+  builds an opaque `Dithering a` (compiled kernel, quantizer and a
+  `DitherState CatQueue a` inside — the old `DitherAlgo` idea, settled
+  without a public config record), and `ditherRow :: Dithering a ->
+  Array a -> Either String { row, next }` dithers one row. A pure state
+  machine: the caller runs the loop, so effectful sources (network
+  streams, files) work; it caches nothing; states are reusable (undo).
+  The generic `MonadRec` driver stays a TODO.md "future direction".
   `RowLayer f a = Array (f a)`, `DelayLine f a = Array (RowLayer f a)`.
   `current`/`matured`/`building` are row-local (`RowState`); only
   `delayLines`, the row counter `nextRow` and the image `width` (from
-  the first row) cross row boundaries (`DitherState`). `ditherRow` checks
-  each row's length against `width` first: a different length is a
-  caller's bug, stopped with `unsafeCrashWith` naming the row (a runtime
-  error by decision — `ditherRows`' lazy list has no error channel; a
-  typed error is for the future stepper, see TODO.md). `ditherRowsWith`
+  the first row) cross row boundaries (`DitherState`). `stepRow`
+  (internal, formerly `ditherRow`) checks each row's length against
+  `width` first: a different length is a caller's bug, a `Left` with a
+  message naming the row. The public stepper `ditherRow` returns it;
+  `ditherImage`/`ditherRows` turn it into a runtime error
+  (`unsafeCrashWith`), since their result types have no error channel. `ditherRowsWith`
   does all its work inside `defer`, so each row is read and dithered
   only when its cell is forced (until 2026-10-04 a strict `let` outside
   the `defer` dithered each row one cell early); `DitherSpec` pins it
@@ -322,7 +333,7 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
 ## PureScript gotchas hit during development (worth remembering)
 
 - **`where`/`let` bindings are strict**, evaluated before the body: a
-  check in the body runs after them (`ditherRow`'s row-length check
+  check in the body runs after them (`stepRow`'s row-length check
   first ran after the row had already crashed), and a lazy-list cell
   built after a `let` doesn't delay that `let`. Put the work in the
   branch or the `defer` that should guard it.

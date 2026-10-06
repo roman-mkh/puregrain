@@ -1,7 +1,9 @@
 -- | The two drivers that run the diffusion over a whole image, row by row,
 -- | with any `Fifo` backend: `ditherImageWith` over an array of rows (all at
 -- | once) and `ditherRowsWith` over a lazy list of rows (each when asked
--- | for). Both drive the same `ditherRow`, so they give the same result.
+-- | for). Both drive the same `stepRow`, so they give the same result; a
+-- | row of a different length, a `Left` from `stepRow`, becomes a runtime
+-- | error here, since neither result type can carry it.
 -- | Internal: `Puregrain.Dither` exports them with the production backend;
 -- | the tests use them to check every backend against a reference.
 module Puregrain.Internal.Image
@@ -11,6 +13,7 @@ module Puregrain.Internal.Image
 
 import Prelude
 
+import Data.Either (Either(..))
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..), Step(..))
@@ -18,7 +21,8 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Kernel (compileKernel)
-import Puregrain.Internal.Row (ditherRow)
+import Partial.Unsafe (unsafeCrashWith)
+import Puregrain.Internal.Row (stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Kernel (Kernel)
 import Puregrain.Pixel (class Scalable)
@@ -42,7 +46,7 @@ ditherImageWith _ kernel quantize rows =
     compiled = compileKernel kernel
 
     next state row =
-      let Tuple state' quantizedRow = ditherRow compiled quantize state row
+      let Tuple state' quantizedRow = orStop (stepRow compiled quantize state row)
       in { accum: state', value: quantizedRow }
 
 -- | A stream of rows: a lazy unfold over the list of rows.
@@ -69,5 +73,11 @@ ditherRowsWith _ kernel quantize rows =
       case LL.step remainingRows of
         Nil -> Nil
         Cons row rest ->
-          let Tuple state' quantizedRow = ditherRow compiled quantize state row
+          let Tuple state' quantizedRow = orStop (stepRow compiled quantize state row)
           in Cons quantizedRow (go state' rest)
+
+-- | A rejected row (a caller's bug) stops with `stepRow`'s message.
+orStop :: forall a. Either String a -> a
+orStop = case _ of
+  Left problem -> unsafeCrashWith problem
+  Right a -> a

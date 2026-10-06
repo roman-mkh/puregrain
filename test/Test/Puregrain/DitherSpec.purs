@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..))
+import Data.Foldable (foldM)
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..))
@@ -15,12 +16,13 @@ import Effect.Exception (message, try)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck ((===))
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
+import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Dither (ditherImage, ditherRows)
-import Puregrain.Kernel (floydSteinberg)
+import Puregrain.Dither (ditherImage, ditherRow, ditherRows, initDithering)
+import Puregrain.Kernel (Kernel, floydSteinberg)
 import Puregrain.Ordered (ordered)
+import Puregrain.Pixel (class Scalable)
 import Puregrain.Quantize (Quantize, evenRamp, threshold)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..))
 import Test.Puregrain.Util (bayerMap)
@@ -46,6 +48,12 @@ errorOf f = do
 mentions :: String -> Maybe String -> Boolean
 mentions text = maybe false (contains (Pattern text))
 
+-- | The rows dithered one at a time with `ditherRow`, from `initDithering`.
+ditherEach :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Either String (Array (Array a))
+ditherEach kernel quantizer rows = _.out <$> foldM next { state: initDithering kernel quantizer, out: [] } rows
+  where
+  next acc row = ditherRow acc.state row <#> \r -> { state: r.next, out: Array.snoc acc.out r.row }
+
 -- | All rows of the lazy result, which forces each of them.
 allRows :: forall a. LL.List (Array a) -> Array (Array a)
 allRows = LL.toUnfoldable
@@ -53,13 +61,47 @@ allRows = LL.toUnfoldable
 spec :: Spec Unit
 spec = describe "Puregrain.Dither" do
 
-  describe "ditherImage and ditherRows" do
-    -- A position-dependent quantizer, so the two must also give every
-    -- pixel the same position.
+  describe "ditherImage, ditherRows and ditherRow" do
+    -- A position-dependent quantizer, so they must also give every pixel
+    -- the same position.
     it "give the same rows, for any kernel and image" do
       quickCheck \(TestKernel kernel) (TestImage image) ->
         let bayer = ordered (bayerMap 4) (evenRamp 3)
-        in ditherImage kernel bayer image === allRows (ditherRows kernel bayer (LL.fromFoldable image))
+        in { rows: allRows (ditherRows kernel bayer (LL.fromFoldable image)), each: ditherEach kernel bayer image }
+             === { rows: ditherImage kernel bayer image, each: Right (ditherImage kernel bayer image) }
+
+  describe "ditherRow" do
+    let
+      first = [ 10.0, 200.0, 90.0 ]
+      second = [ 30.0, 140.0, 250.0 ]
+      other = [ 250.0, 5.0, 120.0 ]
+
+    it "rejects a row of a different length, leaving the state as it was" do
+      case ditherRow (initDithering floydSteinberg q) first of
+        Left problem -> fail problem
+        Right r1 -> do
+          case ditherRow r1.next [ 1.0 ] of
+            Left problem -> Just problem `shouldSatisfy` mentions "row 1 has 1 pixels, but the first row has 3"
+            Right _ -> fail "expected the short row to be rejected"
+          -- Carrying on with a corrected row works as if nothing happened.
+          case ditherRow r1.next second of
+            Left problem -> fail problem
+            Right r2 -> [ r1.row, r2.row ] `shouldEqual` ditherImage floydSteinberg q [ first, second ]
+
+    -- States are immutable values. This also guards that promise for a
+    -- future, faster backend that might use mutable arrays inside.
+    it "can reuse a state: going back to an older one (an undo) works like dithering that history fresh" do
+      case ditherRow (initDithering floydSteinberg q) first of
+        Left problem -> fail problem
+        Right r1 -> do
+          -- Go on with `second`…
+          case ditherRow r1.next second of
+            Left problem -> fail problem
+            Right _ -> pure unit
+          -- …then go back to the state after `first` and take `other` instead.
+          case ditherRow r1.next other of
+            Left problem -> fail problem
+            Right r2 -> [ r1.row, r2.row ] `shouldEqual` ditherImage floydSteinberg q [ first, other ]
 
   describe "ditherRows is lazy" do
     it "works on an endless stream of rows" do

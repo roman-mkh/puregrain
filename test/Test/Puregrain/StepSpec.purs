@@ -24,7 +24,7 @@ quantizeThreshold x = if x < 128.0 then 0.0 else 255.0
 
 -- | A valid starting RowState for row 1 of any kernel: `current` and
 -- | `building` freshly built to match the CompiledKernel's shape
--- | exactly (the only way `Puregrain.Internal.Row.ditherRow` ever builds them),
+-- | exactly (the only way `Puregrain.Internal.Row.stepRow` ever builds them),
 -- | `matured` seeded with one placeholder ([], 0 fifos) per future
 -- | layer — the same placeholder `Puregrain.Internal.State.initState` uses, and
 -- | the only `matured` shape that's safe to fold an arbitrary number
