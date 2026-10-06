@@ -27,7 +27,7 @@ import Data.Either (Either(..))
 import Data.Foldable (foldl)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
-import Puregrain.Quantize (Quantize(..))
+import Puregrain.Quantize (Quantize, quantizeWith)
 import Partial.Unsafe (unsafePartial)
 
 -- | A threshold map, checked and precomputed: a `width` × `height` grid
@@ -156,7 +156,7 @@ thresholdAt (ThresholdMap m) { x, y } =
 -- | with `nearestLevel`. That matters in the hybrid with error diffusion,
 -- | where accumulated error pushes values past the ends.
 ordered :: ThresholdMap -> NonEmptyArray Number -> Quantize Number
-ordered thresholdMap levels = Quantize \ctx v -> between (thresholdAt thresholdMap ctx) v
+ordered thresholdMap levels = quantizeWith \ctx v -> between (thresholdAt thresholdMap ctx) v
   where
     sorted = NEA.toArray (NEA.sort levels)
     lastIndex = Array.length sorted - 1

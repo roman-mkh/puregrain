@@ -15,7 +15,7 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Pixel (RGB(..))
-import Puregrain.Quantize (Quantize(..), evenRamp, nearestLevel, perChannel, runQuantize, threshold)
+import Puregrain.Quantize (evenRamp, nearestLevel, perChannel, quantizeWith, runQuantize, threshold)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
 import Test.Puregrain.Util (approxEqual, dither, neutral, nonNeutralCount, runAtOrigin)
 
@@ -64,7 +64,7 @@ spec = describe "Puregrain.Quantize" do
     -- A quantizer that ignores the value and returns its position as
     -- x + 1000·y, making the position it was given directly visible.
     it "perChannel hands every channel the same position" do
-      let revealPosition = Quantize \c _ -> toNumber (c.x + 1000 * c.y)
+      let revealPosition = quantizeWith \c _ -> toNumber (c.x + 1000 * c.y)
       runQuantize (perChannel revealPosition) { x: 3, y: 5 } (RGB { r: 0.0, g: 0.0, b: 0.0 })
         `shouldEqual` RGB { r: 5003.0, g: 5003.0, b: 5003.0 }
 

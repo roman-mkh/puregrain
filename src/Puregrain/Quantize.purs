@@ -6,11 +6,13 @@
 -- | Ready-made: `threshold` (1-bit), `nearestLevel` with `evenRamp` (a few
 -- | levels), and `perChannel` to use either on every channel of a color
 -- | pixel. Palettes are in `Puregrain.Palette`, ordered (Bayer) dithering
--- | in `Puregrain.Ordered`.
+-- | in `Puregrain.Ordered`. Build your own with `quantize` (position-blind)
+-- | or `quantizeWith` (uses the position).
 module Puregrain.Quantize
-  ( Quantize(..)
+  ( Quantize
   , Context
   , quantize
+  , quantizeWith
   , runQuantize
   , perChannel
   , threshold
@@ -41,8 +43,10 @@ import Puregrain.Pixel (class MapChannels, mapChannels)
 -- |
 -- | It also receives the pixel's position (`Context`), for quantizers
 -- | whose decision depends on where the pixel is — ordered (Bayer)
--- | dithering, seeded noise. Most don't care: build those with `quantize`,
--- | which ignores the position.
+-- | dithering, seeded noise. Build one with `quantize` when the position
+-- | doesn't matter (most quantizers), or with `quantizeWith` when it does;
+-- | run one with `runQuantize`. Opaque, so its representation can change
+-- | without breaking anyone.
 newtype Quantize a = Quantize (Context -> a -> a)
 
 -- | Where the pixel being quantized sits: column `x` and row `y`, both
@@ -55,6 +59,12 @@ type Context = { x :: Int, y :: Int }
 quantize :: forall a. (a -> a) -> Quantize a
 quantize f = Quantize \_ -> f
 
+-- | A quantizer that also gets the pixel's position: ordered or noise
+-- | dithering, say, or a lookup in per-pixel data such as a mask.
+quantizeWith :: forall a. (Context -> a -> a) -> Quantize a
+quantizeWith = Quantize
+
+-- | Runs a quantizer on a value, at a position.
 runQuantize :: forall a. Quantize a -> Context -> a -> a
 runQuantize (Quantize f) = f
 

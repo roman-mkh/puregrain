@@ -4,12 +4,6 @@ Open work, roughly in order. The reasons behind past decisions are in
 `CLAUDE.md`; the "Done" list at the end is a short-lived record, dropped at
 the v0.1 release.
 
-## Next up
-
-- [ ] **CI:** a GitHub Actions workflow (`ci.yml`) that runs the build with the dependency check
-      (`spago build --pedantic-packages`), both test suites (`spago test`) and the end-to-end checks
-      (`npm run check:cli`), plus a build badge in README.md.
-
 ## Public interface (v0.1)
 
 - [ ] **Public row-by-row stepper: reusing an old state.** `Fifo CatQueue` is O(1) amortized only if each
@@ -33,13 +27,8 @@ the v0.1 release.
       and with common names in users' code. If a name is ever wanted after all: `Scanline a`.
       Folded in, meaning to be recalled: the older note "ditherImage: LL.List - maybe define custom impl
       here (diff to typeclass Fifo)".
-- [ ] **Remaining API decisions.** Is the `Fifo` class (with `ditherImageWith`, to choose the queue) public,
-      or does it stay internal? Does `Quantize` keep its exported constructor (needed today for
-      position-dependent quantizers), or get a smart constructor so its representation stays free to change?
-      "Start closed": internal or closed until a need shows.
 - [ ] **Release v0.1:** version ranges for the dependencies (`spago build --ensure-ranges`); a
-      `release.yml` workflow; review the git history, then make the repository public; publish to the
-      registry and Pursuit; drop the "Done" list from this file.
+      `release.yml` workflow; publish to the registry and Pursuit; drop the "Done" list from this file.
 
 ## Performance
 
@@ -114,6 +103,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       stay pure; if ever, as an extension package.
 
 ## Done (record; dropped at the v0.1 release)
+
+- 2026-10-05 — API decisions: the `Fifo` class (with `ditherImageWith`) stays internal; `Quantize` is opaque,
+  built by `quantize` (position-blind) or the new `quantizeWith` (uses the position), run by `runQuantize`.
+- 2026-10-05 — Repository public, after rewriting the history so every commit carries the GitHub no-reply
+  address instead of a private one.
+
+- 2026-10-05 — CI: `.github/workflows/ci.yml` runs the build (`--pedantic-packages --strict`), both test
+  suites and `check:cli` on every push and pull request to `master`, as a clean build; badge in README.md;
+  `npm run check` runs the same locally. First run green in about a minute.
 
 - 2026-10-04 — License: MIT (`LICENSE`, covering the library and the CLI), declared in `spago.yaml`
   (`package.publish`, with the planned version 0.1.0) and `package.json`.

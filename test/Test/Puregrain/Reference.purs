@@ -8,7 +8,7 @@ import Data.Array.ST as STArray
 import Data.Maybe (Maybe(..))
 import Puregrain.Kernel (Kernel, offsets)
 import Puregrain.Pixel (class Scalable, scale)
-import Puregrain.Quantize (Quantize(..))
+import Puregrain.Quantize (Quantize, runQuantize)
 
 -- | Flattens a rectangular Array (Array a) into a single Array a,
 -- | row-major (row 0 first, then row 1, ...).
@@ -44,7 +44,7 @@ referenceDither
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-referenceDither kernel (Quantize quantize) image =
+referenceDither kernel quantize image =
   unflatten width height (run (ditherFlat width height (flatten image)))
   where
     width :: Int
@@ -72,7 +72,7 @@ referenceDither kernel (Quantize quantize) image =
             Nothing -> pure unit  -- unreachable: idx is always in range by construction
             Just corrected -> do
               let
-                quantized = quantize { x, y } corrected
+                quantized = runQuantize quantize { x, y } corrected
                 err = corrected - quantized
               _ <- STArray.poke idx quantized output
               forKernel_ kernel \{ dx, dy, weight } -> do

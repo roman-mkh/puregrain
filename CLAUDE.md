@@ -79,7 +79,7 @@ from the code alone.
   - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
     `Row`, `Image` (`ditherImageWith`), `Util`) — exported (PureScript has
     no package-private modules; the tests need them) but documented as
-    unstable. `Fifo` and `ditherImageWith` are internal until decided.
+    unstable. `Fifo` and `ditherImageWith` stay internal (decided 2026-10-05).
   - Public doc comments are self-contained (Pursuit shows them): no
     `CLAUDE.md`/test references, absolute GitHub links to `docs/`;
     dev notes go in plain `--` comments. Internal modules may point at
@@ -120,10 +120,15 @@ from the code alone.
   custom `class Ring a <= Scalable a where scale :: Number -> a -> a`
   (kernel weights are always `Number` regardless of channel count), plus
   `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances).
-- `Puregrain.Quantize` — `newtype Quantize a = Quantize (Context -> a -> a)` with
-  `type Context = { x :: Int, y :: Int }` (the pixel's position, for
-  Bayer/noise later). Position-blind quantizers are built with
-  `quantize :: (a -> a) -> Quantize a`; helpers needing only some
+- `Puregrain.Quantize` — `Quantize a` is opaque: a newtype over
+  `Context -> a -> a` whose constructor isn't exported (decided
+  2026-10-05, "start closed"), with `type Context = { x :: Int, y :: Int }`
+  (the pixel's position). Built by `quantize :: (a -> a) -> Quantize a`
+  (position-blind) or `quantizeWith :: (Context -> a -> a) -> Quantize a`
+  (uses the position; e.g. `Puregrain.Ordered`), run by `runQuantize`.
+  Same power as the constructor, but users can't take one apart, so the
+  representation may change (a position-blind flag to skip the
+  per-pixel `Context`, a per-row setup) without breaking them. Helpers needing only some
   context fields take `forall r. { x :: Int | r }` (row polymorphism —
   PureScript's answer to Haskell's `HasX` classes), so `Context` can
   grow without breaking them. No Reader monad: a plain function of a

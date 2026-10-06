@@ -20,7 +20,7 @@ import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Image (ditherImageWith)
 import Puregrain.Kernel (Kernel)
 import Puregrain.Ordered (ordered)
-import Puregrain.Quantize (Quantize(..), evenRamp, quantize)
+import Puregrain.Quantize (Quantize, evenRamp, quantize, quantizeWith)
 import Test.Puregrain.Arbitrary (TestKernel(..), TestImage(..))
 import Test.Puregrain.Reference (referenceDither)
 import Test.Puregrain.Util (bayerMap)
@@ -36,7 +36,7 @@ testQuantize = quantize \x -> if x < 128.0 then 0.0 else 255.0
 -- | any pixel a wrong position, its output would differ from the
 -- | reference's, so agreement proves the positions match pixel for pixel.
 positionalThreshold :: Quantize Number
-positionalThreshold = Quantize \c v -> if v < toNumber (32 + (37 * c.x + 61 * c.y) `mod` 192) then 0.0 else 255.0
+positionalThreshold = quantizeWith \c v -> if v < toNumber (32 + (37 * c.x + 61 * c.y) `mod` 192) then 0.0 else 255.0
 
 -- | Ordered dithering over three levels with the 4×4 Bayer map: the
 -- | position-dependent quantizer the library actually ships, run through
@@ -47,7 +47,7 @@ bayerHybrid = ordered (bayerMap 4) (evenRamp 3)
 -- | Ignores the value and returns the pixel's position as x + 1000·y, so
 -- | the dithered image shows exactly which position each pixel was given.
 revealPosition :: Quantize Number
-revealPosition = Quantize \c _ -> toNumber (c.x + 1000 * c.y)
+revealPosition = quantizeWith \c _ -> toNumber (c.x + 1000 * c.y)
 
 runWith
   :: forall f
