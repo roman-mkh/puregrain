@@ -17,6 +17,7 @@
     "dither:color:bayer": "npm run dither-cli -- samples/color-512.png samples/output-color-bayer4.png --bayer 4 --kernel none --levels 4",
     "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli",
     "check:cli": "bash scripts/check-cli.sh",
+    "release:check": "node scripts/release-check.mjs",
     "bench": "node scripts/benchmark.mjs",
     "clean:bench": "rm -f samples/bench/*.png",
     "generate-images": "node scripts/generate-images.mjs",

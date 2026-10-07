@@ -49,6 +49,8 @@ from the code alone.
 
 - `CONTRIBUTING.md` — the workflow rules (setup, branches, CI,
   versions, release checklist).
+- `CHANGELOG.md` — the library's changes per version; new entries go
+  under `## Unreleased` (rules in `CONTRIBUTING.md`).
 - `README.md` — lean entry point by decision: what it is, status,
   features (each linking to its doc), layout, getting started, doc
   index. No API usage examples until the API decisions are settled
@@ -372,6 +374,17 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
   build with `--pedantic-packages --strict`, both test suites,
   `check:cli`. Keep the two in step.
+- Releases (decided 2026-10-07): `spago publish` checks a clean tree,
+  the tag against `publish.version` and the version ranges, then
+  **pushes the tag itself** right before calling the registry (verified
+  in spago 1.0.4's code; it warns against pushing the tag earlier). So
+  CI on a `v*` tag can't stop a publish: the checks A–F run locally
+  first (`npm run release:check -- X.Y.Z`), and CI on the tag repeats
+  them (`--skip-check` for A, which the job has just run) and creates
+  the GitHub Release (`--notes`). Hence no separate `release.yml`. No
+  registry/Pursuit account is needed: publishing is unauthenticated;
+  SSH-key `owners` only matter for unpublish/transfer. Version ranges:
+  keep them, `release:check` fails if a dependency lacks one.
 - Go slow, one architectural change at a time; confirm before moving
   to the next step on anything non-trivial.
 - Don't add generality/abstraction ahead of a concrete, current need

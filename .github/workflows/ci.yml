@@ -1,11 +1,17 @@
 # Builds and tests the whole workspace (library and CLI) on every push to
 # master and on every pull request against it. The same three checks run
 # locally with `npm run check` (package.json); keep the two in step.
+#
+# On a version tag `vX.Y.Z` (pushed by `spago publish`, see CONTRIBUTING.md,
+# "Releases"), it also runs the release checks and then creates the GitHub
+# Release, with the version's CHANGELOG.md section as its notes. It doesn't
+# publish anything; `spago publish`, which pushed the tag, does.
 name: CI
 
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
 
@@ -22,7 +28,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
+      # The full history: the release checks test that a tag is on master.
+      # The repository is small, so every run fetches it.
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v7
         with:
@@ -51,3 +61,32 @@ jobs:
 
       - name: End-to-end CLI checks
         run: npm run check:cli
+
+      # The steps above are check A; this runs the others (B to F).
+      - name: Release checks (version tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: node scripts/release-check.mjs "${GITHUB_REF_NAME#v}" --skip-check
+
+  # The only job that can write to the repository: it creates the Release.
+  github-release:
+    needs: build-and-test
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Create the GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          node scripts/release-check.mjs "$version" --notes > notes.md
+          gh release create "$GITHUB_REF_NAME" --verify-tag \
+            --title "puregrain $version" --notes-file notes.md

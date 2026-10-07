@@ -6,8 +6,8 @@ the v0.1 release.
 
 ## Public interface (v0.1)
 
-- [ ] **Release v0.1:** version ranges for the dependencies (`spago build --ensure-ranges`); a
-      `release.yml` workflow; publish to the registry and Pursuit; drop the "Done" list from this file.
+- [ ] **Release v0.1:** follow CONTRIBUTING.md, "Releases" (the tools are ready: version ranges,
+      `npm run release:check`, CI on tags); drop the "Done" list from this file in the release commit.
 - [ ] **After the first publish:** a Pursuit badge in README.md
       (`https://pursuit.purescript.org/packages/purescript-puregrain/badge`), and the Pursuit link as the
       repo's "Website".
@@ -104,6 +104,11 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
   reusable (an undo): stepping from an old state redoes that row's work, the queue reversals included, and
   no more, so the earlier "use each state once" worry was unfounded at the row level.
 
+- 2026-10-07 — Release tooling: `CHANGELOG.md` (Keep a Changelog style, library only); version ranges for
+  the library's dependencies (`--ensure-ranges`, from package set 81.3.0 up to the next major);
+  `scripts/release-check.mjs` (`npm run release:check -- X.Y.Z`, checks A–F); CI on `v*` tags runs the checks
+  and creates the GitHub Release. No separate `release.yml`: `spago publish` pushes the tag itself, right
+  before calling the registry, so a tag workflow can't stop a publish; the checks run locally first.
 - 2026-10-07 — Publish location in `spago.yaml` (`package.publish.location`: GitHub `roman-mkh/puregrain`),
   which the registry needs to find the source and Pursuit links to.
 

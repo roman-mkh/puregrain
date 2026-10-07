@@ -78,6 +78,7 @@ workspace and are built together.
 | [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md) | Current performance, per mode and kernel |
 | [docs/benchmarks-fifo.md](docs/benchmarks-fifo.md) | History: how an O(N³) slowdown was found and fixed |
 | [CLAUDE.md](CLAUDE.md) | Design decisions and their reasons (kept up to date for the AI assistant used in development) |
+| [CHANGELOG.md](CHANGELOG.md) | Changes to the library, per version |
 | [CONTRIBUTING.md](CONTRIBUTING.md) | How work is done: setup, branches, CI, versions, releases |
 | [TODO.md](TODO.md) | Open work and ideas |
 
