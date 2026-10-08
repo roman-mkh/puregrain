@@ -28,7 +28,7 @@ extractMatured delayLines =
   in Tuple (map fst fronts) (map snd fronts)
   where
     takeFront dl = case Array.uncons dl of
-      Nothing -> unsafeCrashWith "Puregrain.Internal.Row.extractMatured: delayLine unexpectedly empty — padding invariant violated"
+      Nothing -> unsafeCrashWith "Puregrain.Internal.Row.extractMatured: delayLine unexpectedly empty - padding invariant violated"
       Just { head, tail } -> Tuple head tail
 
 initBuilding :: forall f a. Fifo f => Ring a => CompiledKernel -> Array (RowLayer f a)

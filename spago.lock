@@ -91,6 +91,24 @@
             "spec-node"
           ]
         }
+      },
+      "puregrain-examples": {
+        "path": "examples",
+        "core": {
+          "dependencies": [
+            "arrays",
+            "console",
+            "effect",
+            "integers",
+            "maybe",
+            "prelude",
+            "puregrain",
+            "strings"
+          ]
+        },
+        "test": {
+          "dependencies": []
+        }
       }
     },
     "package_set": {

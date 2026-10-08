@@ -179,7 +179,7 @@ rawOptions = ado
 parserInfo :: ParserInfo RawOptions
 parserInfo = info (rawOptions <**> helper)
   ( fullDesc
-      <> header "puregrain-cli — error-diffusion and ordered dithering of PNG images"
+      <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
         ( "Dithers INPUT.png into OUTPUT.png. Use at most one of --threshold, --levels, --palette; "
             <> "--bayer N adds ordered dithering to --levels, or to black and white on its own. "

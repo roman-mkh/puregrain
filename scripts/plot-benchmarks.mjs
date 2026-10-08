@@ -34,7 +34,7 @@ const series = SERIES.map((mode, i) => {
   return { mode, slot: i + 1, marker: MARKERS[i], label: points[0]?.label ?? mode, points };
 }).filter((s) => s.points.length > 0);
 if (series.length === 0) {
-  console.error(`${input} has no Floyd–Steinberg mode results to plot.`);
+  console.error(`${input} has no Floyd-Steinberg mode results to plot.`);
   process.exit(1);
 }
 
@@ -111,8 +111,8 @@ parts.push(`<line class="axis" x1="${plot.left}" x2="${plot.right}" y1="${plot.b
 parts.push(`<line class="axis" x1="${plot.left}" x2="${plot.left}" y1="${plot.top}" y2="${plot.bottom}"/>`);
 
 // Axis titles.
-parts.push(`<text class="axis-title" x="${f((plot.left + plot.right) / 2)}" y="${H - 22}" text-anchor="middle">Image side N (px) — log scale</text>`);
-parts.push(`<text class="axis-title" transform="translate(20 ${f((plot.top + plot.bottom) / 2)}) rotate(-90)" text-anchor="middle">Dithering time — log scale</text>`);
+parts.push(`<text class="axis-title" x="${f((plot.left + plot.right) / 2)}" y="${H - 22}" text-anchor="middle">Image side N (px) - log scale</text>`);
+parts.push(`<text class="axis-title" transform="translate(20 ${f((plot.top + plot.bottom) / 2)}) rotate(-90)" text-anchor="middle">Dithering time - log scale</text>`);
 
 // O(N²) reference: dashed on purpose — it is a projection, not data.
 const refPath = reference.map((r, i) => `${i === 0 ? 'M' : 'L'}${f(x(r.size))} ${f(y(r.ms))}`).join('');
@@ -135,7 +135,7 @@ for (const s of series) {
 // Title, subtitle and legend (text in ink; identity from the key beside it).
 const env = data.environment;
 parts.push(`<text class="title" x="28" y="36">Dithering time vs. image size, by quantizer mode</text>`);
-parts.push(`<text class="subtitle" x="28" y="58">Floyd–Steinberg · median of ${data.runs} runs · dithering only (no PNG I/O, no startup) · ${esc(env.date)}</text>`);
+parts.push(`<text class="subtitle" x="28" y="58">Floyd-Steinberg · median of ${data.runs} runs · dithering only (no PNG I/O, no startup) · ${esc(env.date)}</text>`);
 let lx = 28;
 const ly = 88;
 for (const s of series) {

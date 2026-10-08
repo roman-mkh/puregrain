@@ -60,7 +60,7 @@ spec = describe "Puregrain.Kernel" do
         `shouldSatisfy` mentions "offsets 0 and 2 both point to dx 1, dy 0"
 
   describe "the ready-made kernels" do
-    it "Floyd–Steinberg and Jarvis–Judice–Ninke pass on all the error, Atkinson 3/4" do
+    it "Floyd-Steinberg and Jarvis-Judice-Ninke pass on all the error, Atkinson 3/4" do
       weightSum floydSteinberg `shouldEqual` 1.0
       weightSum atkinson `shouldEqual` 0.75
       (abs (weightSum jarvisJudiceNinke - 1.0) < 1.0e-12) `shouldEqual` true

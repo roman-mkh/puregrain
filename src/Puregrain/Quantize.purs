@@ -100,7 +100,7 @@ threshold t = quantize \x -> if x < t then 0.0 else 255.0
 --
 -- TODO(benchmark): this is an O(N) linear scan per pixel. `Number` has a
 -- total order (unlike RGB), so sorting `levels` once and binary-searching
--- would be O(log N) — deliberately not done yet: at realistic N (2–16)
+-- would be O(log N) — deliberately not done yet: at realistic N (2-16)
 -- the difference should be negligible, and it would add a sortedness
 -- invariant to maintain. Measured 2026-10-04: `--levels 4` costs ×1.13
 -- of a plain threshold (docs/benchmarks-dithering.md). Benchmark again

@@ -6,13 +6,14 @@
 Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
 down to a few gray levels, a few levels per color channel, or a fixed
-palette such as CGA or the Commodore 64. It comes with a command-line tool
-for PNG images.
+palette such as CGA or the Commodore 64. It comes with a
+[command-line tool](cli/README.md) for PNG images.
 
-> **Status: pre-release.** The library works and is tested. Its public
-> interface is being settled: the modules have their final names
-> (`Puregrain.*`), but some functions may still change before the first
-> release. It isn't published on Pursuit or npm yet.
+> **Status: first release (0.x).** The library works and is tested.
+> Before 1.0, a breaking change raises the minor version (0.1 → 0.2);
+> [CHANGELOG.md](CHANGELOG.md) lists the changes. API reference:
+> [Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain).
+> Not on npm yet.
 
 ## What it does
 
@@ -37,22 +38,100 @@ for PNG images.
   pixel for gray Floyd–Steinberg. See
   [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).
 
+## When to use it, and when not
+
+**Use it when:**
+
+- **You need dithering inside a PureScript program.** Pure functions,
+  written entirely in PureScript, with no native dependencies: it runs
+  wherever JavaScript runs (Node, browsers).
+- **Images are large or streamed.** Rows are dithered one at a time: only
+  the rows in flight are in memory, and the source can be a file or a
+  network stream.
+
+**Look elsewhere when:**
+
+- **Speed matters.** It runs as plain JavaScript; timings per mode and
+  kernel are in [the benchmarks](docs/benchmarks-dithering.md). For batches
+  of large images or interactive use, a native tool such as ImageMagick
+  is the better choice.
+- **You need the best photo quality.** No gamma-correct (linear-light)
+  diffusion, no perceptual color distance and no serpentine scanning yet
+  (see [Limitations](cli/README.md#limitations)).
+
 ## Getting started
 
-Needs Node.js (developed with v22). From the repository root:
+### In your PureScript project
 
 ```bash
-npm install               # the PureScript compiler, spago, pngjs
-npm run build             # compiles the library and the command-line tool
-npm test                  # the library's and the tool's test suites
-npm run generate-images   # test images in samples/
+spago install puregrain
+```
 
-# dither a test image to 1-bit black and white
-npm run dither-cli -- samples/gray-512.png samples/out.png
+New packages join the PureScript package sets the day after their release.
+If spago doesn't find puregrain, your project uses an older set;
+`spago upgrade` moves it to the latest one.
+
+A first program: a small gray gradient, made in code, and the same gradient
+dithered to black and white with Floyd–Steinberg, both printed as text.
+
+```purescript
+import Puregrain as P
+
+-- | A small gray image: 8 rows of 32 pixels, from black (0.0) on the left
+-- | to white (255.0) on the right.
+gradient :: Array (Array Number)
+gradient = Array.replicate 8 (map (\x -> toNumber x * 255.0 / 31.0) (Array.range 0 31))
+
+main :: Effect Unit
+main = do
+  log "The original gradient (shown with 5 shades):"
+  log (render gradient)
+  log ""
+  log "Dithered to black and white with Floyd-Steinberg:"
+  log (render (P.ditherImage P.floydSteinberg (P.threshold 128.0) gradient))
+```
+
+`ditherImage` takes a kernel (where each pixel's rounding error goes), a
+quantizer (which values a pixel may take) and the image: an array of rows,
+each an array of pixels. Here a pixel is a gray `Number` from 0.0 (black)
+to 255.0 (white); for color, it's `P.RGB`. `render` turns an image into
+text; the whole program, ready to run, is
+[QuickStart.purs](examples/src/Puregrain/Examples/QuickStart.purs). Run it
+([examples/](examples/README.md) explains how) and your terminal shows the
+gradient twice: in 5 shades of gray, then dithered to just black and white,
+as dots whose density follows the gray. The examples also compare more ways
+to dither the same gradient, and show how to try your own variations in the
+REPL.
+
+The library works on arrays of pixels; reading and writing image files is
+up to your application (the command-line tool below does it in Node, with
+pngjs).
+
+### The command-line tool
+
+Dithers PNG images, without writing code. It isn't on npm yet; run it from
+a checkout of this repository (needs Node.js, developed with v22):
+
+```bash
+npm install     # the PureScript compiler, spago, pngjs
+npm run build   # compiles the library, the tool and the examples
+npm run dither-cli -- photo.png dithered.png --palette c64
 ```
 
 More examples, every option, and how gray and color output are chosen:
 [cli/README.md](cli/README.md).
+
+### Working on this repository
+
+After `npm install` and `npm run build`:
+
+```bash
+npm test                  # the library's and the tool's test suites
+npm run check             # what CI runs: strict build, tests, end-to-end checks
+npm run generate-images   # test images in samples/
+```
+
+How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Repository layout
 
@@ -60,17 +139,19 @@ More examples, every option, and how gray and color output are chosen:
 |---|---|
 | `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
+| `examples/` | Small example programs, among them the quick start above; a separate package |
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
 | `.github/workflows/` | CI: build, tests and end-to-end checks on every push |
 | `docs/` | Documentation (below) |
 
-Both packages live in one [spago](https://github.com/purescript/spago)
+The three packages live in one [spago](https://github.com/purescript/spago)
 workspace and are built together.
 
 ## Documentation
 
 | Document | Contents |
 |---|---|
+| [examples/README.md](examples/README.md) | The example programs: what each shows, how to run them, the REPL |
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |

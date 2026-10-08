@@ -23,7 +23,7 @@ const cli = path.join(root, 'cli', 'bin', 'puregrain-cli.mjs');
 const generator = path.join(root, 'scripts', 'generate-images.mjs');
 const benchDir = path.join(root, 'samples', 'bench');
 
-// Quantizer modes, all with Floyd–Steinberg. RGB levels use 6 rather than
+// Quantizer modes, all with Floyd-Steinberg. RGB levels use 6 rather than
 // 4 so they compare directly with websafe216: the two produce
 // byte-identical output (docs/test-images.md, "Exact checks").
 const MODES = [
@@ -39,7 +39,7 @@ const KERNELS = ['floyd-steinberg', 'atkinson', 'jjn'];
 
 // Ordered dithering: the 8x8 Bayer map over 2 levels on the gray
 // composite, without diffusion (kernel none) and combined with
-// Floyd–Steinberg. Floyd–Steinberg with the threshold is the reference.
+// Floyd-Steinberg. Floyd-Steinberg with the threshold is the reference.
 const BAYER = { id: 'bayer8', label: 'Bayer 8', image: 'gray', args: ['--bayer', '8'] };
 const ALL_MODES = [...MODES, BAYER];
 const SUITES = ['all', 'modes', 'kernels', 'ordered'];
@@ -92,7 +92,7 @@ function environment() {
   };
 }
 
-// The configurations to measure. Floyd–Steinberg with the threshold is in
+// The configurations to measure. Floyd-Steinberg with the threshold is in
 // every suite (the kernels' first row, the ordered suite's reference), and
 // is measured once.
 function configurations(suite, sizes) {
@@ -156,7 +156,7 @@ function report(env, configs, sizes, runs, suite) {
   out.push('');
 
   if (inSuite(suite, 'modes')) {
-    out.push('**Quantizer modes** (Floyd–Steinberg; median ms, ×growth vs. the previous size):', '');
+    out.push('**Quantizer modes** (Floyd-Steinberg; median ms, ×growth vs. the previous size):', '');
     const rows = sizes.map((size, i) => [
       `${size}`,
       (size * size).toLocaleString('en-US'),
@@ -224,7 +224,7 @@ function report(env, configs, sizes, runs, suite) {
     const slowest = Array(runs).fill(0);
     for (const c of large) slowest[c.times.indexOf(Math.max(...c.times))]++;
     const worst = slowest.indexOf(Math.max(...slowest));
-    const line = `**Slowest run by round** (${upperLabel}, rounds 1–${runs}): ${slowest.join(' / ')}`;
+    const line = `**Slowest run by round** (${upperLabel}, rounds 1-${runs}): ${slowest.join(' / ')}`;
     out.push('', slowest[worst] > large.length / 2
       ? `${line}. Round ${worst + 1} was slowest for ${slowest[worst]} of ${large.length} configurations: likely an outside ` +
         `disturbance during that round. The medians are unaffected; the spread figures include it.`

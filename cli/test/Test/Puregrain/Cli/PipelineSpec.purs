@@ -71,7 +71,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
   -- The table "How the output is chosen" in cli/README.md. The second
   -- argument is true for an all-neutral input, and after --gray.
   describe "pipelineFor (the README's routing table)" do
-    it "--threshold: gray, 1-bit — for gray and for color input" do
+    it "--threshold: gray, 1-bit - for gray and for color input" do
       for_ [ true, false ] \grayImage ->
         pipelineFor (Threshold 100.0) grayImage `shouldBeGray` threshold 100.0
 
@@ -88,7 +88,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
     it "--bayer on color input: each channel on its own (scalarED), RGB" do
       withBayer 4 \m -> pipelineFor (Bayer { side: 4, levels: 4 }) false `shouldBeColor` perChannel (ordered m (evenRamp 4))
 
-    it "--palette: whole pixel (vectorED), RGB — for gray and for color input" do
+    it "--palette: whole pixel (vectorED), RGB - for gray and for color input" do
       for_ [ true, false ] \grayImage -> do
         pipelineFor (Palette BlackWhite) grayImage `shouldBeColor` nearestColor blackWhite
         pipelineFor (Palette Websafe216) grayImage `shouldBeColor` nearestColor websafe216

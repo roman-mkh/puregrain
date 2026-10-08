@@ -257,7 +257,7 @@ export const TILES = [
   },
   {
     id: 'gray:shadows-highlights',
-    description: 'The extremes magnified: ramp 0→32 (top half) and 223→255 (bottom half) — dot onset, worms.',
+    description: 'The extremes magnified: ramp 0→32 (top half) and 223→255 (bottom half) - dot onset, worms.',
     draw: (img, rect) => {
       forEachPixel(subRect(rect, 0, 0, 1, 0.5), (x, y, u) => setRGB(img, x, y, gray(32 * u)));
       forEachPixel(subRect(rect, 0, 0.5, 1, 1), (x, y, u) => setRGB(img, x, y, gray(223 + 32 * u)));
@@ -265,7 +265,7 @@ export const TILES = [
   },
   {
     id: 'gray:lines',
-    description: 'Dark anti-aliased lines, 1/2/3 px wide (rows) at 0–90° (columns), on light gray: thin detail.',
+    description: 'Dark anti-aliased lines, 1/2/3 px wide (rows) at 0-90° (columns), on light gray: thin detail.',
     draw: (img, rect) => {
       fillRect(img, rect, gray(224));
       LINE_WIDTHS.forEach((width, row) =>
@@ -351,7 +351,7 @@ export const TILES = [
 export const COMPOSITES = {
   gray: {
     colorType: 0, // 8-bit grayscale PNG
-    description: 'grayscale composite — two full-width tone bands over a 3×2 grid of tiles',
+    description: 'grayscale composite - two full-width tone bands over a 3×2 grid of tiles',
     layout: [
       ['gray:ramp', 0, 0, 1, 1 / 8],
       ['gray:wedges', 0, 1 / 8, 1, 1 / 4],
@@ -365,7 +365,7 @@ export const COMPOSITES = {
   },
   color: {
     colorType: 2, // 8-bit RGB PNG (no alpha)
-    description: 'truecolor composite — four full-width bands over a row of 3 tiles',
+    description: 'truecolor composite - four full-width bands over a row of 3 tiles',
     // The sphere sits between the two patch grids on purpose: side by side
     // they'd read as one grid, hiding where exact colors (expected noise-
     // free) end and midpoints (expected ~50/50 mix) begin.

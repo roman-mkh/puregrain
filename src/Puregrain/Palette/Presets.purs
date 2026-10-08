@@ -135,7 +135,7 @@ c64 = NEA.cons' (rgb 0x00 0x00 0x00)
 zxSpectrum :: NonEmptyArray RGB
 zxSpectrum = normal <> bright
   where
-  -- The 7 non-black colors as on/off channels, in ZX color-code order 1–7.
+  -- The 7 non-black colors as on/off channels, in ZX color-code order 1-7.
   hues = NEA.cons' { r: 0, g: 0, b: 1 }
     [ { r: 1, g: 0, b: 0 }, { r: 1, g: 0, b: 1 }, { r: 0, g: 1, b: 0 }
     , { r: 0, g: 1, b: 1 }, { r: 1, g: 1, b: 0 }, { r: 1, g: 1, b: 1 }

@@ -38,6 +38,27 @@ from the code alone.
   alternatives commit to the first matching option, so the rule can't be
   an alternative without defining `--levels` twice. `spago test` runs
   both packages' suites (library, then CLI).
+- **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
+  modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
+  users, no tests: `QuickStart` (a gray gradient made in code, and the
+  same gradient dithered with Floyd–Steinberg, printed as text art) and
+  `Compare` (no diffusion, Floyd–Steinberg, Bayer). They import only the
+  `Puregrain` facade and print text, so they need no image files and no
+  JS. Run with `npx spago run -p puregrain-examples -m <module>`, or play
+  in `npx spago repl -p puregrain-examples` (`examples/README.md`). The
+  build compiles them, so an API change that breaks them fails CI. Text
+  art: `shades` in `QuickStart` (one editable list, █ = white for dark
+  terminals; reverse it for light backgrounds), 2 characters per pixel
+  for square pixels, every line within 80 columns.
+- **`.purs-repl`** (the REPL's startup file, at the workspace root) is
+  committed, through an exception in `.gitignore` (since 2026-10-08;
+  spago's own template ignores `.purs*` and treats it as personal, and
+  `spago repl` creates it with `import Prelude` when it's missing). It
+  imports `Prelude`, `Effect.Console (log)` and `Puregrain as P`. Keep it
+  to modules every package's REPL has: the library's REPL works too,
+  because spago always adds `psci-support`, which brings `console` and
+  `effect`. Never `Puregrain.Examples.*`: only the examples' REPL has
+  them, and every other REPL would start with an error.
 - Module names must be unique across all packages in the workspace
   (shared `output/`) — hence no `Main` modules; entry points get
   qualified names like `Puregrain.Cli.Main`.
@@ -52,10 +73,25 @@ from the code alone.
 - `CHANGELOG.md` — the library's changes per version; new entries go
   under `## Unreleased` (rules in `CONTRIBUTING.md`).
 - `README.md` — lean entry point by decision: what it is, status,
-  features (each linking to its doc), layout, getting started, doc
-  index. No API usage examples until the API decisions are settled
-  (kernel validation etc.); until then the one canonical example is in
-  the `Puregrain` facade's module doc.
+  features (each linking to its doc), "When to use it, and when not",
+  getting started, layout, doc index. "When to use it" (2026-10-08) is
+  2 + 2 situations, not a repeat of the features: use it for dithering
+  inside a PureScript program, and for large or streamed images; look
+  elsewhere when speed matters or for the best photo quality. No timings
+  there, only a link to the benchmarks: the numbers depend on the
+  machine, and the benchmarks doc describes ours. Its "Getting started"
+  (for PureScript developers) shows an
+  excerpt of `examples/src/Puregrain/Examples/QuickStart.purs` (the
+  import, `gradient`, `main`), copied by hand: **when `QuickStart.purs`
+  changes, refresh the excerpt**. A script checking the copy was
+  considered and dropped (2026-10-08): more machinery than a 15-line
+  excerpt needs. The program's printed output isn't shown (dropped
+  2026-10-08): text art made for a dark terminal looks inverted on light
+  pages (Pursuit, GitHub's default), and Pursuit's code font (Roboto
+  Mono) probably lacks the block characters, so a fallback font could
+  misalign them. The README says in words what the terminal shows.
+- `examples/README.md` — the example programs: what each shows, how to
+  run them, a REPL session with variations to try.
 - Reference docs live in `docs/` and are the single source of truth:
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
   `benchmarks-dithering.md` (current),
@@ -385,6 +421,23 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   registry/Pursuit account is needed: publishing is unauthenticated;
   SSH-key `owners` only matter for unpublish/transfer. Version ranges:
   keep them, `release:check` fails if a dependency lacks one.
+  Once a package is in the registry, **a pushed version tag publishes
+  itself**: the registry's daily importer (07:00 UTC, `DailyImporter.purs`
+  in registry-dev, verified 2026-10-08) publishes every unpublished
+  version tag of its GitHub packages that points to a commit from the
+  last 24 hours. The same daily jobs add new versions to the package
+  set if they compile with it, so `spago install puregrain` works in
+  package-set projects from the day after a release.
+- **Dashes (decided 2026-10-08):** code — string literals, test names,
+  messages, config values such as `spago.yaml`'s `description` — uses
+  only the ASCII hyphen `-`: in ranges (`0-255`), name pairs
+  (`Floyd-Steinberg`), and ` - ` where a sentence would take a dash.
+  Comments (doc comments included) and `.md` files may keep typographic
+  dashes: `–` for ranges and name pairs, `—` as punctuation. Why: an en
+  dash looks like a hyphen, so searches and copied names silently
+  mismatch, and code is what people type, search and copy. (Other
+  symbols such as `×`, `²`, `→` and the block characters of the
+  examples' text art are fine anywhere.)
 - Go slow, one architectural change at a time; confirm before moving
   to the next step on anything non-trivial.
 - Don't add generality/abstraction ahead of a concrete, current need

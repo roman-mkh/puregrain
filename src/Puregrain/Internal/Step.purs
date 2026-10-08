@@ -21,7 +21,7 @@ import Puregrain.Quantize (Quantize, runQuantize)
 
 dequeueOne :: forall f a. Fifo f => f a -> Tuple a (f a)
 dequeueOne fifo = case dequeue fifo of
-  Nothing -> unsafeCrashWith "Puregrain.Internal.Step.dequeueOne: FIFO exhausted — padding/kernel invariant violated"
+  Nothing -> unsafeCrashWith "Puregrain.Internal.Step.dequeueOne: FIFO exhausted - padding/kernel invariant violated"
   Just { head, tail } -> Tuple head tail
 
 dequeueAllLayer :: forall f a. Fifo f => RowLayer f a -> Tuple (Array a) (RowLayer f a)

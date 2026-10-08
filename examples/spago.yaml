@@ -1,0 +1,11 @@
+package:
+  name: puregrain-examples
+  dependencies:
+    - arrays
+    - console
+    - effect
+    - integers
+    - maybe
+    - prelude
+    - puregrain
+    - strings

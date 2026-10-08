@@ -154,7 +154,7 @@ spec = describe "Puregrain.Palette.Presets" do
     it "has 249 distinct colors: the cube repeats 7 of ansi16's" do
       distinctCount ansi256 `shouldEqual` 249
 
-    it "has the 6×6×6 cube at 16–231, levels 0, 95, 135, 175, 215, 255 (index 16 + 36r + 6g + b)" do
+    it "has the 6×6×6 cube at 16-231, levels 0, 95, 135, 175, 215, 255 (index 16 + 36r + 6g + b)" do
       let
         levels = [ 0, 95, 135, 175, 215, 255 ]
         cube = do
@@ -164,7 +164,7 @@ spec = describe "Puregrain.Palette.Presets" do
           pure (rgb r g b)
       Array.slice 16 232 colors `shouldEqual` cube
 
-    it "has 24 grays at 232–255, from 8 to 238 in steps of 10" do
+    it "has 24 grays at 232-255, from 8 to 238 in steps of 10" do
       let grays = Array.slice 232 256 colors
       Array.length grays `shouldEqual` 24
       Array.head grays `shouldEqual` Just (rgb 8 8 8)
@@ -193,7 +193,7 @@ spec = describe "Puregrain.Palette.Presets" do
 
     -- Independent of the code's list: ZX color codes are bit 1 blue,
     -- bit 2 red, bit 4 green; normal brightness 0xD8, BRIGHT 0xFF.
-    it "follows the ZX color codes: normal 0–7 at 0xD8, then bright 1–7 at 0xFF" do
+    it "follows the ZX color codes: normal 0-7 at 0xD8, then bright 1-7 at 0xFF" do
       let color v c = rgb (v * bit 2 c) (v * bit 4 c) (v * bit 1 c)
       NEA.toArray zxSpectrum `shouldEqual` (map (color 0xD8) (0 .. 7) <> map (color 0xFF) (1 .. 7))
 

@@ -47,7 +47,7 @@ spec :: Spec Unit
 spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.md)" do
 
   describe "defaults" do
-    it "INPUT and OUTPUT alone: Floyd–Steinberg, --threshold 128, no --gray" do
+    it "INPUT and OUTPUT alone: Floyd-Steinberg, --threshold 128, no --gray" do
       parse files `shouldEqual` Right defaults
 
   describe "every option" do

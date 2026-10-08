@@ -9,7 +9,7 @@ is in [TODO.md](TODO.md).
 
 ```bash
 npm install       # the PureScript toolchain (purs, spago) and pngjs
-npm run build     # the library and the CLI
+npm run build     # the library, the CLI and the examples
 npm run check     # everything CI checks (below)
 ```
 
@@ -52,6 +52,14 @@ and creates the GitHub Release (see [Releases](#releases)).
 - **Public API:** start closed, open later. Exporting more later is
   compatible; removing an export breaks users. Public doc comments are
   shown on Pursuit, so they must make sense on their own there.
+- **Examples:** the README's "Getting started" shows an excerpt of
+  [`QuickStart.purs`](examples/src/Puregrain/Examples/QuickStart.purs),
+  copied by hand. When that file changes, refresh the excerpt. The build
+  compiles the examples, so an API change that breaks them fails CI.
+- **Dashes:** code (string literals, test names, messages, config values)
+  uses only the hyphen `-`: in ranges (`0-255`), in name pairs
+  (`Floyd-Steinberg`), and ` - ` where a sentence would take a dash.
+  Comments and `.md` files may keep typographic dashes (`–`, `—`).
 
 ## Versions
 
@@ -111,6 +119,13 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
 The tag push starts CI: it runs the checks again and creates the GitHub
 Release from the changelog section. It can't stop the publish, which is
 why the checks run locally first (step 3).
+
+**After the first release, a pushed version tag publishes itself.** Once
+a day (07:00 UTC), the registry publishes every new version tag of its
+packages on GitHub, with or without `spago publish`, if the tag points to
+a commit from the last 24 hours. So push a version tag only when the
+release is meant to happen. A wrong tag pushed by mistake must be deleted
+before the next run.
 
 If something fails before the tag is pushed, delete it (`git tag -d
 vX.Y.Z`), fix the problem in a new commit, and tag again. If the registry

@@ -8,6 +8,8 @@ generated-docs/
 .psc-package/
 .psc*
 .purs*
+# excepttion for the REPL state file, which is useful to keep around to run examples.
+!.purs-repl
 .psa*
 .spago
 # Generated test images, dithering outputs, and any private test photos
