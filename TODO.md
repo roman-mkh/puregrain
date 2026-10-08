@@ -41,6 +41,11 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       The step uses fixed weights per kernel today, so this needs per-pixel weights in `Puregrain.Internal.Step`.
 - [ ] **Serpentine scanning:** alternate the scan direction row by row, mirroring the kernel on right-to-left
       rows, to reduce directional artifacts (cli/README.md, "Limitations").
+- [ ] **Riemersma dithering** (an idea): the error travels along a Hilbert curve, a path that fills the image
+      in nested U-shapes, and each pixel gets the last ~16 visited pixels' errors with exponentially falling
+      weights. Not a kernel, but a different traversal: the whole image in memory (no streaming or stepper),
+      so a separate function next to `ditherImage`. The quantizers carry over (`Context` has the position).
+      Avoids scan-line "worm" artifacts, but looks grainier; ImageMagick offers it.
 - [ ] **Dithering in linear light:** today error is diffused on the stored, gamma-encoded sRGB values, which
       skews mid-tones slightly; convert to linear light first (cli/README.md, "Limitations": "fixing this is
       planned").
@@ -92,6 +97,10 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)
       -> m Unit` (read rows with an action, pass results to a callback, in `Effect`, `Aff` or any monad that
       supports long loops). Start closed: only for a real use case.
+- [ ] MCP server (dithering as a tool for AI assistants): a learning project, not expected to find many
+      users. Agents with a shell can already run the CLI (`npx puregrain …` once it's on npm), so for them
+      a good CLI matters more (clear `--help`, precise errors, meaningful exit codes). It would serve chat
+      apps without a shell. Needs the npm package first: an MCP server is TypeScript/JS on top of its JS layer.
 
 ## Done (record; dropped at the v0.1 release)
 
