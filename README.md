@@ -34,9 +34,8 @@ palette such as CGA or the Commodore 64. It comes with a
   flight are in memory and the input can even be endless. Or go one row
   at a time from any source, a network stream for example, with your own
   loop.
-- **Time grows linearly with the pixel count,** currently about 2 µs per
-  pixel for gray Floyd–Steinberg. See
-  [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).
+- **Time grows linearly with the pixel count** (measured up to
+  1024×1024). See [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md).
 
 ## When to use it, and when not
 
@@ -45,9 +44,8 @@ palette such as CGA or the Commodore 64. It comes with a
 - **You need dithering inside a PureScript program.** Pure functions,
   written entirely in PureScript, with no native dependencies: it runs
   wherever JavaScript runs (Node, browsers).
-- **Images are large or streamed.** Rows are dithered one at a time: only
-  the rows in flight are in memory, and the source can be a file or a
-  network stream.
+- **Images are large or streamed.** Rows are dithered one at a time, so
+  memory stays small, and the source can be a file or a network stream.
 
 **Look elsewhere when:**
 
@@ -61,15 +59,25 @@ palette such as CGA or the Commodore 64. It comes with a
 
 ## Getting started
 
+### Setting up PureScript
+
+You need Node.js, the PureScript compiler and spago. The official
+[Getting Started](https://github.com/purescript/documentation/blob/master/guides/Getting-Started.md)
+guide installs them; [spago's documentation](https://github.com/purescript/spago)
+covers the current spago (the guide still shows the older `spago.dhall`
+files). Tools installed locally, with
+`npm install --save-dev purescript spago`, run through `npx`:
+`npx spago init`.
+
 ### In your PureScript project
 
 ```bash
+spago init                # only for a new project
 spago install puregrain
 ```
 
-New packages join the PureScript package sets the day after their release.
-If spago doesn't find puregrain, your project uses an older set;
-`spago upgrade` moves it to the latest one.
+If spago doesn't find puregrain, your project's package set is older than
+puregrain; `spago upgrade` moves the project to the latest set.
 
 A first program: a small gray gradient, made in code, and the same gradient
 dithered to black and white with Floyd–Steinberg, both printed as text.
@@ -96,8 +104,11 @@ quantizer (which values a pixel may take) and the image: an array of rows,
 each an array of pixels. Here a pixel is a gray `Number` from 0.0 (black)
 to 255.0 (white); for color, it's `P.RGB`. `render` turns an image into
 text; the whole program, ready to run, is
-[QuickStart.purs](examples/src/Puregrain/Examples/QuickStart.purs). Run it
-([examples/](examples/README.md) explains how) and your terminal shows the
+[QuickStart.purs](examples/src/Puregrain/Examples/QuickStart.purs). To
+compile it in your own project, also install the packages it imports:
+`spago install arrays integers maybe strings`. Run it with
+`spago run -m Puregrain.Examples.QuickStart` (in this repository, see
+[examples/](examples/README.md)) and your terminal shows the
 gradient twice: in 5 shades of gray, then dithered to just black and white,
 as dots whose density follows the gray. The examples also compare more ways
 to dither the same gradient, and show how to try your own variations in the
@@ -141,7 +152,7 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 | `cli/` | The command-line tool, a separate package that uses the library |
 | `examples/` | Small example programs, among them the quick start above; a separate package |
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
-| `.github/workflows/` | CI: build, tests and end-to-end checks on every push |
+| `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
 
 The three packages live in one [spago](https://github.com/purescript/spago)

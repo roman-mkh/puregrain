@@ -393,6 +393,12 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   kernel with no cross-row diffusion). Fixed via `Puregrain.Internal.Util.safeRange`
   — use it, not raw `(..)`, anywhere the upper bound can legitimately
   be less than the lower bound.
+- **spago rewrites `spago.yaml` in its own format** whenever it changes
+  the file (`--ensure-ranges`, `spago install`): e.g. it wraps a long
+  `description` over several lines (same YAML value). Commit its
+  formatting, or release check E (`--ensure-ranges` changes nothing)
+  fails although no range is missing. Hit 2026-10-09, after the
+  one-line `description` was added; spago's wrapped form is stable.
 - **No automatic memoization**: unlike GHC, PureScript never shares
   repeated pure computations for you. If something is computed inside
   a per-pixel hot path but doesn't depend on the pixel, hoist it out

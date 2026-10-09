@@ -50,9 +50,6 @@ On the command line:
 npm run dither-cli -- samples/color-512.png samples/c64.png --palette c64
 ```
 
-(The library's module names will change before the first release; see
-the [README](../README.md).)
-
 ## Equivalences worth knowing
 
 Some palettes are a complete grid of per-channel values. For those, the

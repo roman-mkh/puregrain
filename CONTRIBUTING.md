@@ -111,7 +111,7 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
 4. `git tag vX.Y.Z`, and **don't push the tag**: `spago publish` does
    that itself, right before it calls the registry. A tag pushed earlier
    points at an unpublished commit if the registry then rejects it.
-5. `spago publish -p puregrain` (`-p` picks the library in our
+5. `npx spago publish -p puregrain` (`-p` picks the library in our
    workspace). It checks a clean tree, C and E again, pushes the tag,
    builds with the versions its solver picks from the ranges, and sends
    the package to the registry.

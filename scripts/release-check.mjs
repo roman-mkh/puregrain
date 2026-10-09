@@ -142,7 +142,8 @@ pass('D: HEAD is on origin/master');
 // The tree was clean, so any change to spago.yaml comes from --ensure-ranges.
 if (run('npx', ['spago', 'build', '-p', 'puregrain', '--ensure-ranges']) === null) fail('E: the build failed');
 if (run('git', ['diff', '--quiet', '--', 'spago.yaml']) === null) {
-  fail('E: dependencies without a version range; spago has added the ranges to spago.yaml (review and commit them)');
+  fail('E: spago build --ensure-ranges changed spago.yaml (missing ranges, or spago\'s own formatting); ' +
+    'review git diff spago.yaml and commit it');
 }
 pass('E: every library dependency has a version range');
 
@@ -157,4 +158,4 @@ if (options['skip-check']) {
 }
 
 console.error(`\nThe release checks pass for ${version}.` +
-  (options['skip-check'] ? '' : ` Next: git tag v${version} (don't push it), then spago publish -p puregrain.`));
+  (options['skip-check'] ? '' : ` Next: git tag v${version} (don't push it), then npx spago publish -p puregrain.`));
