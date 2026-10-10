@@ -22,9 +22,17 @@ from the code alone.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
   `Puregrain.Cli.*`) — the command-line tool, a separate package that
   depends on the library. The only JS in it is the pngjs wrapper
-  (`Puregrain.Cli.Png`). Run through `npm run dither-cli -- ...`: the
-  launcher `cli/bin/puregrain-cli.mjs` runs the compiled output
+  (`Puregrain.Cli.Png`) and the clock (`Puregrain.Cli.Timing`): `timed f x`
+  reads `performance.now` around `f x` inside JS, on purpose. Timed in
+  PureScript (clock, `let result = f unit`, clock), purs-backend-es
+  inlined it and moved the pure dithering after the second clock read
+  (0.0 ms, 2026-10-10); code inside a foreign function can't be moved, and
+  `x` is evaluated before the call, so the gray conversion stays outside
+  the measurement in every build. Run through `npm run dither-cli -- ...`:
+  the launcher `cli/bin/puregrain-cli.mjs` runs the compiled output
   directly, with no rebuild per run (benchmark timings rely on this).
+  `PUREGRAIN_OUTPUT=output-es` makes it run the purs-backend-es build
+  (`npm run build:es`) instead of `output/`.
   `npm run check:cli` runs its end-to-end exact checks. User docs:
   `cli/README.md` (quick start, options, modes, examples). Keep
   `Puregrain.Cli.Main` I/O-only: decisions go in `Puregrain.Cli.Pipeline`
@@ -331,6 +339,16 @@ publishing) was replaced by `Data.CatQueue`: ~3.6× faster again
 only on registry packages. With the queue no longer dominant, the RGB
 arithmetic and the palette search are the next costs
 (`docs/benchmarks-dithering.md`).
+
+2026-10-10: purs-backend-es (an optimizing backend, `output-es/`) gave
+only ×0.92 in the median (websafe216 ×0.77, Floyd–Steinberg with a
+threshold ×0.99): the hot path is polymorphic over `Fifo f`/`Ring a`
+(dictionaries known only at runtime) and allocation-heavy, which no
+backend fixes. The CLI keeps the purs build; the tooling stays
+(`npm run build:es`, `--builds`). The ST test reference, compiled with
+plain purs, is 2.6× faster than `ditherImage` at 1024² and flat up to
+2048²: the design, not the backend, is the lever (TODO.md, "ST-based
+diffusion").
 
 ## Testing
 

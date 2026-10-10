@@ -67,6 +67,3 @@ export const writeRgbRows = (path) => (rows) => () =>
     data[i + 1] = toByte(p.g);
     data[i + 2] = toByte(p.b);
   });
-
-// High-resolution monotonic clock, in milliseconds.
-export const nowMs = () => performance.now();
