@@ -3,14 +3,6 @@
 Open work, roughly in order. The reasons behind past decisions are in
 `CLAUDE.md`.
 
-## Public interface (v0.1)
-
-- [ ] **Release v0.1:** follow CONTRIBUTING.md, "Releases" (the tools are ready: version ranges,
-      `npm run release:check`, CI on tags).
-- [ ] **After the first publish:** a Pursuit badge in README.md
-      (`https://pursuit.purescript.org/packages/purescript-puregrain/badge`), and the Pursuit link as the
-      repo's "Website".
-
 ## Performance
 
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per

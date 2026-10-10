@@ -116,6 +116,21 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
    builds with the versions its solver picks from the ranges, and sends
    the package to the registry.
 
+**spago 1.0.4 reports a success as an error.** After sending the package
+it may print "Registry did not like this and answered with status 201",
+with a `jobId`. Status 201 means the registry *accepted* the job; spago
+1.0.4 only counts 200 as success (fixed in spago's
+[PR #1417](https://github.com/purescript/spago/pull/1417), not in a
+release yet as of 2026-10-10). Don't publish again: check the job at
+`https://registry.purescript.org/api/v1/jobs/<jobId>`, whose log shows
+every step, and `"disposition": "published"` with `"success": true` once
+it worked. The job that published 0.1.0, for example (as long as the
+registry keeps it): <https://registry.purescript.org/api/v1/jobs/65ff05b2-b62c-477c-b1f6-282a92ff9c21>.
+
+The docs are on Pursuit as soon as the job log says "Successfully uploaded
+package docs to Pursuit", within a minute or two. Pursuit's search finds
+the package only later, after its search index is rebuilt.
+
 The tag push starts CI: it runs the checks again and creates the GitHub
 Release from the changelog section. It can't stop the publish, which is
 why the checks run locally first (step 3).

@@ -1,6 +1,7 @@
 # puregrain
 
 [![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
+[![Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain/badge)](https://pursuit.purescript.org/packages/purescript-puregrain)
 [![License: MIT](https://img.shields.io/github/license/roman-mkh/puregrain)](LICENSE)
 
 Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,

@@ -393,6 +393,14 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   kernel with no cross-row diffusion). Fixed via `Puregrain.Internal.Util.safeRange`
   — use it, not raw `(..)`, anywhere the upper bound can legitimately
   be less than the lower bound.
+- **spago 1.0.4 calls a successful publish an error:** "Registry did not
+  like this and answered with status 201" (it accepts only 200; the
+  registry now answers 201 Created with a `jobId`). Fixed in spago PR
+  #1417 (merged 2026-08-17), not released as of 2026-10-10. Never publish
+  again on that message: check `https://registry.purescript.org/api/v1/jobs/<jobId>`
+  (`"disposition": "published"`, `"success": true`). Hit at the 0.1.0
+  release. And `spago registry info <pkg>` reads a cached index: add
+  `--refresh` right after a publish.
 - **spago rewrites `spago.yaml` in its own format** whenever it changes
   the file (`--ensure-ranges`, `spago install`): e.g. it wraps a long
   `description` over several lines (same YAML value). Commit its
@@ -425,6 +433,11 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
   build with `--pedantic-packages --strict`, both test suites,
   `check:cli`. Keep the two in step.
+- **0.1.0 was published on 2026-10-10:** tag `v0.1.0`, registry job
+  `65ff05b2-b62c-477c-b1f6-282a92ff9c21` (log: https://registry.purescript.org/api/v1/jobs/65ff05b2-b62c-477c-b1f6-282a92ff9c21),
+  docs on Pursuit within a minute, GitHub Release created by CI. Pursuit
+  shows the `Puregrain.Internal.*` modules too (they're exported; their
+  docs say they're unstable).
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified
