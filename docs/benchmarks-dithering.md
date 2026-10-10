@@ -27,9 +27,17 @@ npm run clean:bench   # delete the generated images in samples/bench/ (keeps the
 ```
 
 Options: `--runs` (default 5), `--sizes` (default `64,128,256,512,1024`),
-`--suite modes|kernels|ordered|all` (default `all`). Plug the laptop in, close
-other programs, and leave the machine alone until the run ends; see
-[Noise](#noise-1) for why.
+`--suite modes|kernels|ordered|all` (default `all`), and `--builds` (default
+`output`). Plug the laptop in, close other programs, and leave the machine
+alone until the run ends; see [Noise](#noise-1) for why.
+
+To compare two builds of the same code (since 2026-10-10):
+`npm run build:es` builds `output/` with purs and `output-es/` with the
+optimizing backend purs-backend-es, and `--builds output,output-es` runs each
+configuration with both, back to back, the order alternating by round. The
+report then has the tables per build and a table of the ratios between
+them. The chart script takes the build to plot as a third argument (by
+default the first).
 
 To measure an older commit, for example as the baseline for a change,
 check it out in a separate git worktree, link `node_modules` from the
@@ -41,6 +49,11 @@ main checkout, build it there and run that worktree's
 - **What's timed:** the CLI's `Dithered in … ms` line. That covers the
   library's `ditherImage` only: not PNG decoding or encoding, not gray
   conversion, not Node startup (see [cli/README.md](../cli/README.md#output-and-timing)).
+  Since 2026-10-10 the two clock reads and the call happen inside a small
+  foreign function (`Puregrain.Cli.Timing`). Timed in PureScript, an
+  optimizing backend may move the pure dithering out of the measured
+  section: purs-backend-es did, and reported 0.0 ms. For the purs build
+  nothing changes (512², Floyd-Steinberg: 460 ms, as before).
 - **A fresh process for every run,** because that's how the CLI is used.
   V8 compiles the dithering code during the timed part, which adds a
   fixed cold-start cost: about 0.06 s with the `Seq` backend, 0.02 s

@@ -1,4 +1,4 @@
--- | PNG input/output and a clock, via a small JS foreign module (pngjs).
+-- | PNG input/output, via a small JS foreign module (pngjs).
 -- | Pixels cross the boundary as plain records, not as the library's
 -- | `RGB` newtype: the JS side shouldn't need to know how PureScript
 -- | represents a newtype at runtime. Callers convert with `coerce`.
@@ -7,7 +7,6 @@ module Puregrain.Cli.Png
   , readRgbRows
   , writeGrayRows
   , writeRgbRows
-  , nowMs
   ) where
 
 import Prelude
@@ -26,6 +25,3 @@ foreign import writeGrayRows :: String -> Array (Array Number) -> Effect Unit
 
 -- | Writes an 8-bit RGB PNG, no alpha. Values are rounded and clamped to [0,255].
 foreign import writeRgbRows :: String -> Array (Array Rgb) -> Effect Unit
-
--- | A high-resolution monotonic clock, in milliseconds (`performance.now`).
-foreign import nowMs :: Effect Number

@@ -4,7 +4,10 @@
 // reference line. Writes a standalone SVG that follows the reader's light
 // or dark color scheme.
 //
-//   node scripts/plot-benchmarks.mjs <results.json> <chart.svg>
+//   node scripts/plot-benchmarks.mjs <results.json> <chart.svg> [build]
+//
+// For a run of several builds (benchmark --builds), [build] picks the one to
+// plot; by default the first.
 //
 // Colors are the dataviz reference palette's first five categorical slots,
 // in fixed order, validated for both modes (adjacent CVD ΔE >= 8, normal-
@@ -16,12 +19,19 @@
 
 import fs from 'node:fs';
 
-const [input, output] = process.argv.slice(2);
+const [input, output, buildArg] = process.argv.slice(2);
 if (!input || !output) {
-  console.error('Usage: node scripts/plot-benchmarks.mjs <results.json> <chart.svg>');
+  console.error('Usage: node scripts/plot-benchmarks.mjs <results.json> <chart.svg> [build]');
   process.exit(1);
 }
 const data = JSON.parse(fs.readFileSync(input, 'utf8'));
+// Runs saved before --builds existed measured the purs build only.
+const builds = data.builds ?? ['output'];
+const build = buildArg ?? builds[0];
+if (!builds.includes(build)) {
+  console.error(`${input} has no build "${build}"; it has: ${builds.join(', ')}.`);
+  process.exit(1);
+}
 
 // Series in the benchmark's fixed mode order; slot n = categorical slot n.
 const SERIES = ['threshold', 'levels-gray', 'levels-rgb', 'websafe216', 'bw'];
@@ -29,7 +39,7 @@ const MARKERS = ['circle', 'square', 'diamond', 'triangle-up', 'triangle-down'];
 
 const series = SERIES.map((mode, i) => {
   const points = data.results
-    .filter((r) => r.kernel === 'floyd-steinberg' && r.mode === mode)
+    .filter((r) => (r.build ?? 'output') === build && r.kernel === 'floyd-steinberg' && r.mode === mode)
     .sort((a, b) => a.size - b.size);
   return { mode, slot: i + 1, marker: MARKERS[i], label: points[0]?.label ?? mode, points };
 }).filter((s) => s.points.length > 0);
@@ -135,7 +145,7 @@ for (const s of series) {
 // Title, subtitle and legend (text in ink; identity from the key beside it).
 const env = data.environment;
 parts.push(`<text class="title" x="28" y="36">Dithering time vs. image size, by quantizer mode</text>`);
-parts.push(`<text class="subtitle" x="28" y="58">Floyd-Steinberg · median of ${data.runs} runs · dithering only (no PNG I/O, no startup) · ${esc(env.date)}</text>`);
+parts.push(`<text class="subtitle" x="28" y="58">Floyd-Steinberg · median of ${data.runs} runs · dithering only (no PNG I/O, no startup) · ${builds.length > 1 ? `build ${esc(build)} · ` : ''}${esc(env.date)}</text>`);
 let lx = 28;
 const ly = 88;
 for (const s of series) {

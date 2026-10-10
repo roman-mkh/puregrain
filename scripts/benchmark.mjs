@@ -12,7 +12,7 @@
 // progress on stderr; all raw run times as JSON with --json (the input for
 // scripts/plot-benchmarks.mjs). Build first: npm run build.
 
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -50,6 +50,9 @@ const USAGE = `Usage: node scripts/benchmark.mjs [options]
   --runs <n>      runs per configuration; the median is reported (default: 5)
   --sizes <list>  square image sides, comma-separated (default: 64,128,256,512,1024)
   --suite <s>     modes, kernels, ordered or all (default: all)
+  --builds <list> build directories to compare, comma-separated (default: output). Each
+                  configuration runs with every build back to back, the order alternating
+                  by round; output-es is built by npm run build:es (purs-backend-es)
   --json <file>   also write every run's time, and the environment, as JSON
   --report <file> don't measure: print the tables for a JSON file written by --json`;
 
@@ -76,7 +79,7 @@ function powerSource() {
   return battery ? `battery${battery.status ? ` (${battery.status.toLowerCase()})` : ''}` : 'unknown';
 }
 
-function environment() {
+function environment(builds) {
   const cpus = os.cpus();
   const dirty = tryRun('git', ['-C', root, 'status', '--porcelain']) !== '';
   return {
@@ -88,6 +91,11 @@ function environment() {
     memory: `${Math.round(os.totalmem() / 2 ** 30)} GiB`,
     purs: tryRun(path.join(root, 'node_modules', '.bin', 'purs'), ['--version']),
     spago: tryRun(path.join(root, 'node_modules', '.bin', 'spago'), ['--version']),
+    // purs-backend-es prints its version to stderr, as "v1.4.3".
+    backend: builds.includes('output-es')
+      ? (({ stdout, stderr }) => (stdout || stderr || 'unknown').trim().replace(/^v/, ''))(
+        spawnSync(path.join(root, 'node_modules', '.bin', 'purs-backend-es'), ['--version'], { encoding: 'utf8' }))
+      : undefined,
     commit: tryRun('git', ['-C', root, 'rev-parse', '--short', 'HEAD']) + (dirty ? ' (+ uncommitted changes)' : ''),
   };
 }
@@ -115,8 +123,10 @@ function configurations(suite, sizes) {
 
 function ditherOnce(config) {
   const input = path.join(benchDir, `${config.mode.image}-${config.size}.png`);
-  const output = path.join(benchDir, `out-${config.key}.png`);
-  const stdout = run(process.execPath, [cli, input, output, '--kernel', config.kernel, ...config.mode.args]);
+  const output = path.join(benchDir, `out-${config.key.replace(':', '-')}.png`);
+  // The launcher runs the build that PUREGRAIN_OUTPUT names (cli/bin).
+  const stdout = execFileSync(process.execPath, [cli, input, output, '--kernel', config.kernel, ...config.mode.args],
+    { encoding: 'utf8', env: { ...process.env, PUREGRAIN_OUTPUT: config.build } }).trim();
   const match = /Dithered in ([0-9.]+) ms/.exec(stdout);
   if (!match) throw new Error(`No timing in the CLI output for ${config.key}:\n${stdout}`);
   return Number(match[1]);
@@ -136,7 +146,61 @@ function table(header, rows) {
   return [line(header), line(header.map((h, i) => (i === 0 ? '---:' : '---:'))), ...rows.map(line)].join('\n');
 }
 
-function report(env, configs, sizes, runs, suite) {
+function environmentLines(env, runs, builds) {
+  const out = ['**Environment:**', ''];
+  out.push(`- Date: ${env.date}; commit ${env.commit}`);
+  out.push(`- CPU: ${env.cpu}; memory: ${env.memory}`);
+  out.push(`- Power: ${env.power ?? 'not recorded'}`);
+  out.push(`- OS: ${env.os}`);
+  out.push(`- Node ${env.node}; purs ${env.purs}; spago ${env.spago}` + (env.backend ? `; purs-backend-es ${env.backend}` : ''));
+  if (builds.length > 1) {
+    out.push(`- Builds: ${builds.map((b) => `\`${b}\``).join(', ')}; each configuration runs with every build back to ` +
+      'back, the order alternating by round');
+  }
+  out.push(`- ${runs} runs per configuration, interleaved; median reported`);
+  out.push('');
+  return out.join('\n');
+}
+
+const KERNEL_LABELS = { 'floyd-steinberg': 'Floyd-Steinberg', atkinson: 'Atkinson', jjn: 'JJN', none: 'no diffusion' };
+
+// Each further build against the first: the ratio of their medians, per
+// configuration, at the three largest sizes.
+function comparison(configs, sizes, builds) {
+  const upper = sizes.slice(-3);
+  const big = upper[upper.length - 1];
+  const [base, ...others] = builds;
+  const combos = configs.filter((c) => c.build === base && c.size === upper[0]).map(({ kernel, mode }) => ({ kernel, mode }));
+  const out = [];
+  for (const other of others) {
+    const median1 = (build, size, kernel, modeId) =>
+      configs.find((c) => c.build === build && c.size === size && c.kernel === kernel && c.mode.id === modeId).median;
+    const ratio = (size, { kernel, mode }) => median1(other, size, kernel, mode.id) / median1(base, size, kernel, mode.id);
+    out.push(`**\`${other}\` against \`${base}\`** (median ÷ median; below ×1.00, \`${other}\` is faster):`, '');
+    const rows = combos.map((c) => [`${KERNEL_LABELS[c.kernel] ?? c.kernel}, ${c.mode.label}`, ...upper.map((s) => `×${ratio(s, c).toFixed(2)}`)]);
+    out.push(table(['Configuration', ...upper.map((s) => `${s}²`)], rows), '');
+    const all = combos.flatMap((c) => upper.map((s) => ratio(s, c)));
+    const atBig = combos.map((c) => ratio(big, c));
+    out.push(`Over ${upper[0]}² to ${big}²: median ×${median(all).toFixed(2)} (×${Math.min(...all).toFixed(2)} to ` +
+      `×${Math.max(...all).toFixed(2)}); at ${big}²: median ×${median(atBig).toFixed(2)}.`, '');
+  }
+  return out.join('\n');
+}
+
+function report(env, configs, sizes, runs, suite, builds) {
+  const out = [environmentLines(env, runs, builds)];
+  if (builds.length === 1) {
+    out.push(tables(configs, sizes, runs, suite));
+  } else {
+    for (const build of builds) {
+      out.push(`#### Build \`${build}\``, '', tables(configs.filter((c) => c.build === build), sizes, runs, suite), '');
+    }
+    out.push('#### Comparison', '', comparison(configs, sizes, builds));
+  }
+  return out.join('\n');
+}
+
+function tables(configs, sizes, runs, suite) {
   const find = (size, kernel, modeId) => configs.find((c) => c.size === size && c.kernel === kernel && c.mode.id === modeId);
   // Growth per doubling of the side over the three largest sizes (a
   // geometric mean over two steps): a single step can be off by one noisy
@@ -146,14 +210,6 @@ function report(env, configs, sizes, runs, suite) {
     (find(upper[upper.length - 1], kernel, modeId).median / find(upper[0], kernel, modeId).median) ** (1 / (upper.length - 1));
   const upperLabel = `${upper[0]}²→${upper[upper.length - 1]}²`;
   const out = [];
-  out.push('**Environment:**', '');
-  out.push(`- Date: ${env.date}; commit ${env.commit}`);
-  out.push(`- CPU: ${env.cpu}; memory: ${env.memory}`);
-  out.push(`- Power: ${env.power ?? 'not recorded'}`);
-  out.push(`- OS: ${env.os}`);
-  out.push(`- Node ${env.node}; purs ${env.purs}; spago ${env.spago}`);
-  out.push(`- ${runs} runs per configuration, interleaved; median reported`);
-  out.push('');
 
   if (inSuite(suite, 'modes')) {
     out.push('**Quantizer modes** (Floyd-Steinberg; median ms, ×growth vs. the previous size):', '');
@@ -241,6 +297,7 @@ function main() {
         runs: { type: 'string', default: '5' },
         sizes: { type: 'string', default: '64,128,256,512,1024' },
         suite: { type: 'string', default: 'all' },
+        builds: { type: 'string', default: 'output' },
         json: { type: 'string' },
         report: { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
@@ -255,8 +312,9 @@ function main() {
   }
   if (values.report) {
     const saved = JSON.parse(fs.readFileSync(values.report, 'utf8'));
-    const configs = saved.results.map((r) => ({ ...r, mode: ALL_MODES.find((m) => m.id === r.mode) }));
-    console.log(report(saved.environment, configs, saved.sizes, saved.runs, saved.suite));
+    // Runs saved before --builds existed measured the purs build only.
+    const configs = saved.results.map((r) => ({ ...r, build: r.build ?? 'output', mode: ALL_MODES.find((m) => m.id === r.mode) }));
+    console.log(report(saved.environment, configs, saved.sizes, saved.runs, saved.suite, saved.builds ?? ['output']));
     return;
   }
   const runs = Number(values.runs);
@@ -264,17 +322,37 @@ function main() {
   const sizes = values.sizes.split(',').map(Number);
   if (sizes.some((s) => !Number.isInteger(s) || s < 1)) fail(`Invalid --sizes "${values.sizes}": whole numbers >= 1.`);
   if (!SUITES.includes(values.suite)) fail(`Invalid --suite "${values.suite}".`);
+  const builds = values.builds.split(',').map((b) => b.trim()).filter((b) => b !== '');
+  if (builds.length === 0 || new Set(builds).size !== builds.length) fail(`Invalid --builds "${values.builds}".`);
+  for (const build of builds) {
+    if (!fs.existsSync(path.join(root, build, 'Puregrain.Cli.Main', 'index.js'))) {
+      fail(`No build in ${build}/: run ${build === 'output-es' ? 'npm run build:es' : 'npm run build'} first.`);
+    }
+  }
 
-  const env = environment();
+  const env = environment(builds);
   run(process.execPath, [generator, '--pattern', 'all', '--sizes', sizes.join(','), '--out', benchDir]);
 
-  const configs = configurations(values.suite, sizes);
+  // One entry per configuration and build, the builds of a configuration
+  // next to each other: they run back to back, so slow drift during the
+  // session affects both alike, and alternating which goes first spreads
+  // any effect of the order over both.
+  const base = configurations(values.suite, sizes);
+  const configs = base.flatMap((c) =>
+    builds.map((build) => ({ ...c, key: builds.length > 1 ? `${build}:${c.key}` : c.key, build, times: [] })));
   const started = Date.now();
   for (let r = 1; r <= runs; r++) {
-    for (const [i, config] of configs.entries()) {
-      const t = ditherOnce(config);
-      config.times.push(t);
-      console.error(`[round ${r}/${runs}, ${i + 1}/${configs.length}] ${config.size}² ${config.kernel}, ${config.mode.label}: ${ms(t)} ms`);
+    const order = r % 2 === 1 ? builds : [...builds].reverse();
+    let n = 0;
+    for (let i = 0; i < base.length; i++) {
+      for (const build of order) {
+        const config = configs[i * builds.length + builds.indexOf(build)];
+        const t = ditherOnce(config);
+        config.times.push(t);
+        n++;
+        console.error(`[round ${r}/${runs}, ${n}/${configs.length}] ${builds.length > 1 ? `${build}, ` : ''}` +
+          `${config.size}² ${config.kernel}, ${config.mode.label}: ${ms(t)} ms`);
+      }
     }
     if (r === 1 && runs > 1) {
       console.error(`-- one round took ${minutes(Date.now() - started)}; about ${minutes((Date.now() - started) * (runs - 1))} to go`);
@@ -282,12 +360,12 @@ function main() {
   }
   for (const c of configs) c.median = median(c.times);
 
-  console.log(report(env, configs, sizes, runs, values.suite));
+  console.log(report(env, configs, sizes, runs, values.suite, builds));
 
   if (values.json) {
-    const results = configs.map(({ key, size, kernel, mode, times, median: m }) =>
-      ({ key, size, kernel, mode: mode.id, label: mode.label, image: mode.image, args: mode.args, times, median: m }));
-    fs.writeFileSync(values.json, JSON.stringify({ environment: env, runs, sizes, suite: values.suite, results }, null, 2));
+    const results = configs.map(({ key, build, size, kernel, mode, times, median: m }) =>
+      ({ key, build, size, kernel, mode: mode.id, label: mode.label, image: mode.image, args: mode.args, times, median: m }));
+    fs.writeFileSync(values.json, JSON.stringify({ environment: env, runs, sizes, suite: values.suite, builds, results }, null, 2));
     console.error(`Wrote ${values.json}`);
   }
 }

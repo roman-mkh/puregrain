@@ -9,7 +9,6 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Maybe (maybe)
 import Data.Number.Format (fixed, toStringWith)
-import Data.Tuple (Tuple(..))
 import Puregrain (RGB(..), ditherImage)
 import Effect (Effect)
 import Effect.Console (error, log)
@@ -18,7 +17,8 @@ import Node.Process (argv, exit')
 import Options.Applicative (handleParseResult)
 import Puregrain.Cli.Options (Options, describeQuantizer, kernelName, parseOptions)
 import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, pipelineFor, toNeutral)
-import Puregrain.Cli.Png (nowMs, readRgbRows, writeGrayRows, writeRgbRows)
+import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
+import Puregrain.Cli.Timing (timed)
 import Safe.Coerce (coerce)
 
 main :: Effect Unit
@@ -31,17 +31,6 @@ main = do
       error (message err)
       exit' 1
     Right _ -> pure unit
-
--- | Evaluates `f unit` between two clock reads and returns the elapsed
--- | milliseconds with the result. PureScript is strict and `ditherImage`
--- | computes the whole image at once, so this measures exactly the dithering —
--- | not PNG decoding/encoding, gray conversion, or process startup.
-timed :: forall a. (Unit -> a) -> Effect (Tuple Number a)
-timed f = do
-  t0 <- nowMs
-  let result = f unit
-  t1 <- nowMs
-  pure (Tuple (t1 - t0) result)
 
 run :: Options -> Effect Unit
 run opts = do
@@ -56,13 +45,15 @@ run opts = do
     <> (if grayImage then ", gray" else ", color")
   case pipelineFor opts.quantizer grayImage of
     Gray q -> do
-      let grayRows = map (map luma) image
-      Tuple ms out <- timed \_ -> ditherImage kernel q grayRows
+      -- `timed` gets the input separately, so the gray conversion is done
+      -- before the clock starts: only the dithering is measured (see
+      -- Puregrain.Cli.Timing).
+      { ms, result: out } <- timed (ditherImage kernel q) (map (map luma) image)
       report ms "gray"
       writeGrayRows opts.output out
       log $ "Wrote " <> opts.output <> " (grayscale PNG)"
     Color q -> do
-      Tuple ms out <- timed \_ -> ditherImage kernel q image
+      { ms, result: out } <- timed (ditherImage kernel q) image
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"

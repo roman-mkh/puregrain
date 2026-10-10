@@ -3,6 +3,7 @@
   "scripts": {
     "spago": "spago",
     "build": "spago build",
+    "build:es": "spago build && purs-backend-es build",
     "repl": "spago repl",
     "test": "spago test",
     "dither-cli": "node cli/bin/puregrain-cli.mjs",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "purescript": "^0.15.16",
+    "purs-backend-es": "^1.4.3",
     "purs-tidy": "^0.11.1",
     "spago": "^1.0.4"
   },
