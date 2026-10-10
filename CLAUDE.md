@@ -340,6 +340,16 @@ only on registry packages. With the queue no longer dominant, the RGB
 arithmetic and the palette search are the next costs
 (`docs/benchmarks-dithering.md`).
 
+2026-10-10: purs-backend-es (an optimizing backend, `output-es/`) gave
+only ×0.92 in the median (websafe216 ×0.77, Floyd–Steinberg with a
+threshold ×0.99): the hot path is polymorphic over `Fifo f`/`Ring a`
+(dictionaries known only at runtime) and allocation-heavy, which no
+backend fixes. The CLI keeps the purs build; the tooling stays
+(`npm run build:es`, `--builds`). The ST test reference, compiled with
+plain purs, is 2.6× faster than `ditherImage` at 1024² and flat up to
+2048²: the design, not the backend, is the lever (TODO.md, "ST-based
+diffusion").
+
 ## Testing
 
 `Test.Puregrain.Reference` — an independent, deliberately naive

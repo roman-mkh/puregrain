@@ -8,17 +8,33 @@ Open work, roughly in order. The reasons behind past decisions are in
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per
 pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
-- [ ] **Evaluate purs-backend-es** (a PureScript-aware optimizing backend) for the CLI and the npm bundle:
-      an A/B benchmark in one session, byte-identical outputs. The first performance step after v0.1; its
-      result decides the items below. (It doesn't affect the library on Pursuit, which ships source.)
+- [ ] **purs-backend-es, again after a redesign:** measured 2026-10-10 (`docs/benchmarks-dithering.md`): ×0.92
+      in the median over all configurations (websafe216 ×0.77, Floyd-Steinberg with a threshold ×0.99). The
+      hot path is polymorphic and allocation-heavy, which leaves an optimizer little to do. The tooling stays
+      (`npm run build:es`, `--builds`); the CLI keeps the purs build. Measure again once the core is
+      monomorphic and ST-based; decide for the npm bundle at the npm step.
 - [ ] **RGB arithmetic:** `--levels 6` takes ×2.3 of a gray threshold, and even `--palette bw` ×1.9. Look at
       how `RGB` values are added and scaled per pixel (each operation allocates a new record).
 - [ ] **Palette search** (`nearestColorFast`): websafe216 takes ×2.1–2.3 of `--levels 6`, for the same output.
-- [ ] **ST-based diffusion:** a ring buffer in mutable arrays, compared with the `Fifo` queues. It needs one
+- [ ] **ST-based diffusion:** a ring buffer in mutable arrays instead of the `Fifo` queues. It needs one
       `runST` per row or per image, a different shape from the `Fifo` class (see CLAUDE.md, "`ST` doesn't fit
-      the `Fifo` abstraction").
-- [ ] **Scaling at 2048² and 4096²** (still open from `docs/benchmarks-fifo.md`): time per pixel rose 12–31%
-      from 512² to 1024² in the `CatQueue` run. One mode is enough. A real photo shows it keeps growing:
+      the `Fifo` abstraction"). First check, 2026-10-10 (single runs): the test reference
+      (`Test.Puregrain.Reference`, ST, the whole image in one mutable buffer, written for clarity) took
+      0.77 µs per pixel, flat from 512² to 2048², against 1.95 → 2.63 µs for `ditherImage` (×2.6 at 1024²,
+      ×3.4 at 2048²). The library's version must keep streaming and the stepper's reusable, immutable
+      states: an ST loop per row over the few rows of pending error, copied out at the end of the row. The
+      reference itself stays simple, since it's the test oracle; a fast version is a new implementation,
+      checked against it like the queue backends.
+- [ ] **Large images (step 2 of the 2026-10 measurements):** a "large" benchmark suite, documented in a new
+      `docs/benchmarks-large.md`:
+      - sizes 1024², 2048², 3072²; Floyd-Steinberg with a threshold (gray) and websafe216; 3 runs;
+      - three series: the `output` and `output-es` builds, and the test reference, through a small runner
+        script that prints the same "Dithered in … ms" line;
+      - one more run with `node --max-semi-space-size=128` (a larger young generation);
+      - the wide-against-tall check, 6000 × 700 against 700 × 6000.
+
+      Background: time per pixel rose 12–31% from 512² to 1024² in the `CatQueue` run (the scaling question
+      is still open from `docs/benchmarks-fifo.md`), and a real photo shows it keeps growing:
       6000 × 5807 (34.8 MP, gray Floyd-Steinberg, on mains, 2026-10-09) took 270 s, 7.75 µs per pixel, 4× the
       1024² rate (linear would be 68 s). Suspects, not measured yet:
       - the heap size: the CLI holds all rows twice as JS arrays (gray input and output, through
@@ -27,9 +43,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
         them; at 6000 pixels they may outlive V8's young generation and get promoted to the old one, where
         collecting is expensive (and cache misses grow with the width too).
 
-      Experiments: 2048² and 4096²; the same pixel count wide and tall (6000 × 700 against 700 × 6000);
-      one run with `node --max-semi-space-size=128` (a larger young generation). They decide between
-      streaming in the CLI (see "Command-line tool") and fewer allocations per pixel in the library.
+      The reference's flat time per pixel (see "ST-based diffusion") already points at the queue design
+      rather than at JavaScript. The results decide between streaming in the CLI (see "Command-line tool")
+      and fewer allocations per pixel in the library.
 - [ ] **`nearestLevel` binary search** instead of the linear scan (see its `TODO(benchmark)` note). Low
       priority: `--levels 4` costs ×1.13 of a threshold (2026-10-04).
 

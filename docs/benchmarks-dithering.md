@@ -671,3 +671,193 @@ seen between separate runs before. The code they run didn't change.
 - **The no-diffusion time is a floor** for judging diffusion
   optimizations: at 1024², Floyd–Steinberg can't get below about 0.63 µs
   per pixel without also making the rest faster.
+
+
+---
+
+## 2026-10-10 — purs-backend-es against purs
+
+The same code, compiled two ways: with purs as before (`output/`), and
+with purs-backend-es 1.4.3 (`output-es/`), an optimizing backend that
+reads purs's intermediate code (CoreFn) and generates its own JavaScript,
+with more inlining and a lighter representation of data. Both builds ran
+in one session (`--builds output,output-es`, new): each configuration with
+both, back to back, the order alternating by round. Both give
+byte-identical PNGs for the 17 saved CLI configurations, matching the
+checksums from the 2026-10-04 module reshape, and both pass the test
+suites (130 library and 28 CLI tests).
+
+**The timing had to move first.** The CLI read the clock, dithered, and
+read the clock again, all in PureScript. purs keeps that order, but
+purs-backend-es inlined the function and moved the pure dithering after
+the second clock read: "Dithered in 0.0 ms", with a correct image. The
+clock reads and the call now happen inside a small foreign function
+(`Puregrain.Cli.Timing`), which no optimizer can rearrange. The input is
+passed to it separately, so the gray conversion stays outside the
+measurement in both builds. For the purs build nothing changed:
+Floyd-Steinberg with a threshold takes 2,002 ms at 1024², against
+2,038 ms on 2026-10-04.
+
+**Environment:**
+
+- Commit `5a9e672` (branch `purs-backend-es`), 2026-10-10
+- CPU: Intel(R) Core(TM) Ultra 9 185H (11 logical cores); memory: 35 GiB
+- Power: mains (AC)
+- OS: Linux 6.8.0-1065-azure (x64)
+- Node v22.14.0; purs 0.15.16; spago 1.0.4; purs-backend-es 1.4.3
+- Builds: `output`, `output-es`; each configuration runs with every build back to back, the order alternating by round
+- 5 runs per configuration, interleaved; median reported
+
+### Results
+
+**purs-backend-es against purs** (median of `output-es` ÷ median of
+`output`; below ×1.00, purs-backend-es is faster):
+
+| Configuration | 256² | 512² | 1024² |
+| ---: | ---: | ---: | ---: |
+| Floyd-Steinberg, threshold 128 | ×0.89 | ×0.96 | ×1.02 |
+| Floyd-Steinberg, levels 4 (gray) | ×0.95 | ×0.88 | ×0.92 |
+| Floyd-Steinberg, levels 6 (RGB) | ×0.91 | ×0.88 | ×0.95 |
+| Floyd-Steinberg, websafe216 | ×0.97 | ×0.74 | ×0.72 |
+| Floyd-Steinberg, bw | ×1.03 | ×1.04 | ×1.09 |
+| Atkinson, threshold 128 | ×0.91 | ×0.88 | ×0.92 |
+| JJN, threshold 128 | ×0.79 | ×0.87 | ×0.95 |
+| no diffusion, Bayer 8 | ×0.94 | ×0.84 | ×0.94 |
+| Floyd-Steinberg, Bayer 8 | ×0.95 | ×0.85 | ×0.94 |
+
+Over 256² to 1024², the median ratio is ×0.92 (×0.72 to ×1.09); at 1024²,
+×0.94. The two builds of a configuration ran back to back, so each round
+also gives a pair. The median of these paired ratios agrees: ×0.92, and
+×0.94 at 1024².
+
+**Build `output` (purs):**
+
+**Quantizer modes** (Floyd-Steinberg; median ms, ×growth vs. the previous size):
+
+| Side N | Pixels | threshold 128 | levels 4 (gray) | levels 6 (RGB) | websafe216 | bw |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 4,096 | 29.6 | 28.2 | 40.8 | 53.2 | 40.0 |
+| 128 | 16,384 | 53.3 (×1.80) | 56.7 (×2.01) | 79.5 (×1.95) | 136 (×2.55) | 72.2 (×1.81) |
+| 256 | 65,536 | 119 (×2.23) | 129 (×2.27) | 264 (×3.32) | 436 (×3.22) | 198 (×2.74) |
+| 512 | 262,144 | 424 (×3.57) | 490 (×3.81) | 1,123 (×4.25) | 2,343 (×5.38) | 686 (×3.47) |
+| 1024 | 1,048,576 | 2,002 (×4.73) | 2,394 (×4.89) | 4,979 (×4.43) | 10,680 (×4.56) | 3,361 (×4.90) |
+| per doubling, 256²→1024² |  | ×4.11 | ×4.31 | ×4.34 | ×4.95 | ×4.12 |
+
+**Cost relative to threshold 128, at 1024²:** levels 4 (gray) ×1.20; levels 6 (RGB) ×2.49; websafe216 ×5.33; bw ×1.68. websafe216 ÷ levels 6 (RGB), identical output: ×2.15.
+
+**Kernels** (threshold 128, gray; median ms):
+
+| Side N | floyd-steinberg | atkinson | jjn | atkinson ÷ FS | jjn ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 29.6 | 28.6 | 32.7 | ×0.97 | ×1.10 |
+| 128 | 53.3 | 58.6 | 78.3 | ×1.10 | ×1.47 |
+| 256 | 119 | 166 | 274 | ×1.40 | ×2.31 |
+| 512 | 424 | 677 | 1,022 | ×1.60 | ×2.41 |
+| 1024 | 2,002 | 3,090 | 4,997 | ×1.54 | ×2.50 |
+| per doubling, 256²→1024² | ×4.11 | ×4.32 | ×4.27 |  |  |
+
+**Ordered dithering** (Bayer 8×8 over 2 levels, gray; median ms):
+
+| Side N | no diffusion | with FS | FS, threshold 128 | no diffusion ÷ FS | with FS ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 15.4 | 28.1 | 29.6 | ×0.52 | ×0.95 |
+| 128 | 28.1 | 47.3 | 53.3 | ×0.53 | ×0.89 |
+| 256 | 60.4 | 118 | 119 | ×0.51 | ×0.99 |
+| 512 | 188 | 483 | 424 | ×0.44 | ×1.14 |
+| 1024 | 729 | 2,231 | 2,002 | ×0.36 | ×1.11 |
+| per doubling, 256²→1024² | ×3.47 | ×4.35 | ×4.11 |  |  |
+
+**Run-to-run spread** ((max − min) ÷ median): 256²→1024²: median 17%, largest 35% (output:256-atkinson-threshold); all sizes: median 26%, largest 51% (output:64-none-bayer8).
+
+**Slowest run by round** (256²→1024², rounds 1-5): 9 / 3 / 6 / 5 / 4. No single round stands out.
+
+**Build `output-es` (purs-backend-es):**
+
+**Quantizer modes** (Floyd-Steinberg; median ms, ×growth vs. the previous size):
+
+| Side N | Pixels | threshold 128 | levels 4 (gray) | levels 6 (RGB) | websafe216 | bw |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 4,096 | 22.4 | 27.7 | 38.0 | 48.8 | 31.9 |
+| 128 | 16,384 | 39.8 (×1.78) | 48.4 (×1.75) | 91.2 (×2.40) | 125 (×2.56) | 75.6 (×2.37) |
+| 256 | 65,536 | 106 (×2.66) | 122 (×2.52) | 240 (×2.63) | 421 (×3.38) | 204 (×2.70) |
+| 512 | 262,144 | 409 (×3.85) | 430 (×3.51) | 988 (×4.12) | 1,737 (×4.12) | 717 (×3.51) |
+| 1024 | 1,048,576 | 2,049 (×5.02) | 2,200 (×5.12) | 4,738 (×4.80) | 7,736 (×4.45) | 3,674 (×5.13) |
+| per doubling, 256²→1024² |  | ×4.40 | ×4.24 | ×4.44 | ×4.29 | ×4.24 |
+
+**Cost relative to threshold 128, at 1024²:** levels 4 (gray) ×1.07; levels 6 (RGB) ×2.31; websafe216 ×3.78; bw ×1.79. websafe216 ÷ levels 6 (RGB), identical output: ×1.63.
+
+**Kernels** (threshold 128, gray; median ms):
+
+| Side N | floyd-steinberg | atkinson | jjn | atkinson ÷ FS | jjn ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 22.4 | 33.0 | 28.9 | ×1.47 | ×1.29 |
+| 128 | 39.8 | 49.9 | 75.5 | ×1.25 | ×1.90 |
+| 256 | 106 | 150 | 218 | ×1.42 | ×2.05 |
+| 512 | 409 | 595 | 892 | ×1.46 | ×2.18 |
+| 1024 | 2,049 | 2,836 | 4,753 | ×1.38 | ×2.32 |
+| per doubling, 256²→1024² | ×4.40 | ×4.34 | ×4.67 |  |  |
+
+**Ordered dithering** (Bayer 8×8 over 2 levels, gray; median ms):
+
+| Side N | no diffusion | with FS | FS, threshold 128 | no diffusion ÷ FS | with FS ÷ FS |
+| ---: | ---: | ---: | ---: | ---: | ---: |
+| 64 | 14.2 | 25.5 | 22.4 | ×0.63 | ×1.14 |
+| 128 | 26.4 | 41.6 | 39.8 | ×0.66 | ×1.05 |
+| 256 | 56.6 | 112 | 106 | ×0.53 | ×1.05 |
+| 512 | 158 | 409 | 409 | ×0.39 | ×1.00 |
+| 1024 | 685 | 2,104 | 2,049 | ×0.33 | ×1.03 |
+| per doubling, 256²→1024² | ×3.48 | ×4.34 | ×4.40 |  |  |
+
+**Run-to-run spread** ((max − min) ÷ median): 256²→1024²: median 19%, largest 40% (output-es:512-floyd-steinberg-bw); all sizes: median 24%, largest 83% (output-es:64-floyd-steinberg-levels-gray).
+
+**Slowest run by round** (256²→1024², rounds 1-5): 4 / 3 / 5 / 7 / 8. No single round stands out.
+
+![Median dithering time with the purs-backend-es build against image side for five quantizer modes, log-log: all five rise roughly in parallel with the dashed O(N²) reference from 256² up, and bend above it at the smallest sizes](images/benchmarks-dithering-2026-10-10-purs-backend-es.svg)
+
+### Analysis
+
+**purs-backend-es makes dithering about 8% faster, unevenly.** The palette
+search gains most: websafe216 takes ×0.72 to ×0.74 at 512² and 1024², and
+its cost over `--levels 6`, which gives the same output, drops from ×2.15
+to ×1.63. It builds a list of 216 pairs for every pixel, and the inlining
+makes that lighter. Atkinson, JJN, the gray levels and ordered dithering
+gain 5% to 20%. Floyd-Steinberg with a threshold barely moves at 1024²
+(×1.02, paired ×0.99), and `--palette bw` not at all (×1.03 to ×1.09).
+
+**That's far less than the 25–35% its README reports for typical code.**
+The generated code shows why. The backend does inline the quantizer call
+and `enqueueWeighted`, calls `zipWith` uncurried, and represents `Tuple`
+more cheaply. But the per-pixel step is polymorphic over the queue
+(`Fifo f`) and the pixel type (`Ring a`): their dictionaries are only
+known at runtime, so the arithmetic and the queue operations stay
+indirect calls. And most of the time goes into allocating queue cells,
+tuples and arrays for every pixel, which no backend removes.
+
+**The design matters more than the backend.** A first check outside this
+benchmark (single runs, the same day): the library's ST test reference,
+the same mathematics on one mutable buffer for the whole image, compiled
+with plain purs, takes 0.76 µs per pixel at 1024². That's 2.6 times
+faster than `ditherImage` in the same check, and its time per pixel stays
+flat up to 2048², while `ditherImage`'s rises by a third.
+
+### Noise
+
+The spread is as in the earlier runs: a median of 17% (purs) and 19%
+(purs-backend-es) from 256² up, with no round standing out in either
+build. Single configurations scatter a lot from round to round: for
+`--palette bw` at 512², the paired ratios ranged from ×0.71 to ×1.27. So a
+single configuration's ratio says little below about 10%. The median over
+all 27 configurations is the figure to go by.
+
+### Next steps
+
+- **The CLI keeps the purs build:** 8% doesn't justify a second build
+  step for everyone. The tooling stays (`npm run build:es`, `--builds`,
+  the foreign clock), to measure again after a redesign: a monomorphic,
+  ST-based core is the kind of code where inlining pays. For the npm
+  bundle, decide at the npm step.
+- **ST-based diffusion** ([TODO.md](../TODO.md)) is now the most promising
+  step: the test reference shows what the mutable design gains.
+- **Large images** get a suite of their own, up to 3072², with the test
+  reference as a third series; documented in a separate file,
+  `benchmarks-large.md`.
