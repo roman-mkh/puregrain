@@ -17,7 +17,7 @@ from the code alone.
   test-only packages under `test.dependencies`, and never add
   Node-only or app packages here. MIT-licensed (`LICENSE` at the root
   covers the library and the CLI); `package.publish` in `spago.yaml`
-  holds the license and the planned version (0.1.0), and
+  holds the license and the current version (0.1.0), and
   `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
   `Puregrain.Cli.*`) — the command-line tool, a separate package that
@@ -399,6 +399,15 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   formatting, or release check E (`--ensure-ranges` changes nothing)
   fails although no range is missing. Hit 2026-10-09, after the
   one-line `description` was added; spago's wrapped form is stable.
+- **npm install scripts (`allowScripts` in `package.json`, 2026-10-09):**
+  npm 11 warns about dependency install scripts not listed there, and its
+  docs say they're blocked by default (npm 11.21 still ran them, checked
+  2026-10-09). `purescript` must stay approved, by name without a version
+  pin: its postinstall downloads the compiler, and the published package
+  holds only a 348-byte placeholder `purs.bin` that prints "installation
+  failed". `ssh2` and `cpu-features` (spago's, for SSH keys in
+  `spago auth`) are denied: their scripts only build optional native code.
+  Change with `npm install-scripts approve/deny <pkg>`.
 - **No automatic memoization**: unlike GHC, PureScript never shares
   repeated pure computations for you. If something is computed inside
   a per-pixel hot path but doesn't depend on the pixel, hoist it out

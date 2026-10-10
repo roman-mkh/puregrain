@@ -1,13 +1,12 @@
 # TODO / Future Improvements
 
 Open work, roughly in order. The reasons behind past decisions are in
-`CLAUDE.md`; the "Done" list at the end is a short-lived record, dropped at
-the v0.1 release.
+`CLAUDE.md`.
 
 ## Public interface (v0.1)
 
 - [ ] **Release v0.1:** follow CONTRIBUTING.md, "Releases" (the tools are ready: version ranges,
-      `npm run release:check`, CI on tags); drop the "Done" list from this file in the release commit.
+      `npm run release:check`, CI on tags).
 - [ ] **After the first publish:** a Pursuit badge in README.md
       (`https://pursuit.purescript.org/packages/purescript-puregrain/badge`), and the Pursuit link as the
       repo's "Website".
@@ -27,9 +26,33 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       `runST` per row or per image, a different shape from the `Fifo` class (see CLAUDE.md, "`ST` doesn't fit
       the `Fifo` abstraction").
 - [ ] **Scaling at 2048² and 4096²** (still open from `docs/benchmarks-fifo.md`): time per pixel rose 12–31%
-      from 512² to 1024² in the `CatQueue` run. One mode is enough.
+      from 512² to 1024² in the `CatQueue` run. One mode is enough. A real photo shows it keeps growing:
+      6000 × 5807 (34.8 MP, gray Floyd-Steinberg, on mains, 2026-10-09) took 270 s, 7.75 µs per pixel, 4× the
+      1024² rate (linear would be 68 s). Suspects, not measured yet:
+      - the heap size: the CLI holds all rows twice as JS arrays (gray input and output, through
+        `ditherImage`), which the garbage collector has to manage;
+      - the row width: each row's error queues hold one boxed entry per pixel until the next row consumes
+        them; at 6000 pixels they may outlive V8's young generation and get promoted to the old one, where
+        collecting is expensive (and cache misses grow with the width too).
+
+      Experiments: 2048² and 4096²; the same pixel count wide and tall (6000 × 700 against 700 × 6000);
+      one run with `node --max-semi-space-size=128` (a larger young generation). They decide between
+      streaming in the CLI (see "Command-line tool") and fewer allocations per pixel in the library.
 - [ ] **`nearestLevel` binary search** instead of the linear scan (see its `TODO(benchmark)` note). Low
       priority: `--levels 4` costs ×1.13 of a threshold (2026-10-04).
+
+## Command-line tool
+
+- [ ] **Streaming rows, with a progress indicator:** use `ditherRows` or the stepper instead of
+      `ditherImage`, so the JS heap holds a few rows instead of the whole image (pngjs still decodes the file
+      into one buffer, but buffers live outside the JS heap), and print progress every few percent to stderr
+      (the benchmark only looks for the "Dithered in … ms" line). Whether this also fixes the slowdown on
+      large images depends on the scaling experiments (see "Performance").
+- [ ] **Compact PNG output:** 1-bit PNGs for black and white, and indexed PNGs (color type 3, 1–8 bits)
+      for palettes; today every output has 8 bits per channel. Measured 2026-10-09: the same black-and-white
+      image as a 1-bit PNG is half the size (2.66 → 1.33 MB for a 6000 × 5807 photo, 46% for the 512² gray
+      composite). pngjs can write neither (only 8- or 16-bit samples, no color type 3), so it needs a small
+      writer of our own on Node's `zlib`: about 40 lines for 1-bit, tried in a scratch script.
 
 ## Algorithms
 
@@ -101,69 +124,3 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       users. Agents with a shell can already run the CLI (`npx puregrain …` once it's on npm), so for them
       a good CLI matters more (clear `--help`, precise errors, meaningful exit codes). It would serve chat
       apps without a shell. Needs the npm package first: an MCP server is TypeScript/JS on top of its JS layer.
-
-## Done (record; dropped at the v0.1 release)
-
-- 2026-10-07 — Public row-by-row stepper: `initDithering kernel quantize` builds an opaque `Dithering a`
-  (compiled kernel, quantizer and state inside: the early `DitherAlgo` idea, settled without a public
-  configuration record), and `ditherRow` dithers one row, returning `Either String { row, next }`. A pure
-  state machine: the caller runs the loop, so rows produced by effects (a network stream, a file read piece
-  by piece) work, and nothing is cached. A row of a different length gives `Left` and leaves the state
-  usable; `ditherImage` and `ditherRows` turn the same message into a runtime error. States are freely
-  reusable (an undo): stepping from an old state redoes that row's work, the queue reversals included, and
-  no more, so the earlier "use each state once" worry was unfounded at the row level.
-
-- 2026-10-07 — Release tooling: `CHANGELOG.md` (Keep a Changelog style, library only); version ranges for
-  the library's dependencies (`--ensure-ranges`, from package set 81.3.0 up to the next major);
-  `scripts/release-check.mjs` (`npm run release:check -- X.Y.Z`, checks A–F); CI on `v*` tags runs the checks
-  and creates the GitHub Release. No separate `release.yml`: `spago publish` pushes the tag itself, right
-  before calling the registry, so a tag workflow can't stop a publish; the checks run locally first.
-- 2026-10-07 — Publish location in `spago.yaml` (`package.publish.location`: GitHub `roman-mkh/puregrain`),
-  which the registry needs to find the source and Pursuit links to.
-
-- 2026-10-06 — Public image type: `ditherImage` takes and returns `Array (Array a)` (in memory, strict),
-  `ditherRows` a lazy `List (Array a)` (streaming: each row read and dithered when asked for). Two thin
-  drivers over one row function (now `stepRow`), pinned equal by a property; the CLI and test helpers that converted between
-  the two are gone. No type aliases for rows or images: a `type` adds no safety, hides the laziness, and
-  `Row`/`Image` clash with PureScript's `Row` kind and users' names (`Scanline a` if ever wanted). Closed
-  with it, the old note "ditherImage: LL.List - maybe define custom impl here (diff to typeclass Fifo)": we
-  stick with `Data.List.Lazy` for pure streaming. A custom pure iterator would have the same power without
-  the library functions around it, and `Data.Lazy` is one deferred value, not a stream; effectful sources
-  belong to the stepper.
-
-- 2026-10-05 — API decisions: the `Fifo` class (with `ditherImageWith`) stays internal; `Quantize` is opaque,
-  built by `quantize` (position-blind) or the new `quantizeWith` (uses the position), run by `runQuantize`.
-- 2026-10-05 — Repository public, after rewriting the history so every commit carries the GitHub no-reply
-  address instead of a private one.
-
-- 2026-10-05 — CI: `.github/workflows/ci.yml` runs the build (`--pedantic-packages --strict`), both test
-  suites and `check:cli` on every push and pull request to `master`, as a clean build; badge in README.md;
-  `npm run check` runs the same locally. First run green in about a minute.
-
-- 2026-10-04 — License: MIT (`LICENSE`, covering the library and the CLI), declared in `spago.yaml`
-  (`package.publish`, with the planned version 0.1.0) and `package.json`.
-
-- 2026-10-03 — Publishing unblocked: `Seq` (a git fork of `sequences`) replaced by `Data.CatQueue` from the
-  registry package `catenable-lists`; also ~3.6× faster (`docs/benchmarks-dithering.md`).
-- `Data.Sequence`-based `Fifo` instead of the lazy list: the O(N³) fix (`docs/benchmarks-fifo.md`).
-- 2026-10-03 — Custom user data for quantizers: a quantizer is a closure; with `Context` it can also look up
-  per-pixel data, such as a mask, by position.
-- 2026-10-03 — Quantizers know the pixel's position (`Context { x, y }`; `x == 0` is the row start). State
-  carried over from earlier pixels deliberately isn't offered: quantizers stay pure.
-- Tests: moved from `Test.Assert` to purescript-spec (structured output, selective runs) and QuickCheck.
-  Every `Fifo` backend is checked against an independent ST-based reference (`DiffusionMechanicsSpec`);
-  `Test.Dither.Row`/`Step` migrated to specs; the legacy `Image`/`Playground` modules deleted (2026-10-04).
-- Test generators (`Test.Puregrain.Arbitrary`): images of various sizes; kernels of distinct forward
-  offsets, always accepted by `fromOffsets`, with weights random in [0, 1].
-- One generator for visual-check and benchmark images (`scripts/generate-images.mjs`), and benchmark
-  automation (`npm run bench`).
-- Closed without doing (2026-10-04):
-  - a version of `ditherRow`/`ditherImage` polymorphic over `Traversable f`: rows stay `Array a` (the
-    public image type, 2026-10-06), and no use needs another container;
-  - a typeclass + Reader monad to pass the algorithm configuration: decided against, plain values
-    (CLAUDE.md);
-  - a determinism property for constant input: every function involved is pure, so it holds trivially;
-    flat-image exact checks exist (`OrderedSpec`, `PixelSpec`);
-  - `normalizeKernel`/`fillGaps` (pad each row of offsets to one shape with zero weights): compilation
-    groups offsets by `dy`, and an empty layer costs nothing (`[]` contributes zero), proven on kernels with
-    gaps by `DiffusionMechanicsSpec`; zero-weight padding would only add queue work.
