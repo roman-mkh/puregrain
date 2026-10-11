@@ -225,6 +225,30 @@ from the code alone.
   `ordered (bayer 1)` ≡ `nearestLevel` on sorted levels. Against a
   palette (vectorED) it's not supported: TODO.md, and
   docs/ordered-dithering.md "Not supported".
+- `Puregrain.Cells` (2026-10-11, branch `zx-spectrum`) — dithering with
+  cells, like the attribute cells of 8-bit machines. `chooseCells size
+  toPalette candidates image` picks, per cell, the candidate (any type
+  `c`; `toPalette` maps it to an opaque `CellPalette` of 1 or 2 colors,
+  built by `singleColor`/`colorPair`) with the lowest score: the sum of
+  each pixel's squared RGB distance to the *segment* between the two
+  colors, since dithering can produce any mix of them. (Scoring by the
+  nearer color fails: a gray scores the same with black–white and
+  blue–white, as the user pointed out.) Candidates are tried in the
+  given order and the earlier wins a tie (`<`): the order is the
+  caller's policy (ZX: single colors first, nearest pairs first, so the
+  narrowest palette wins). Two early stops, at a score of 0 and when a
+  sum reaches the best so far, give the same result: `CellsSpec` pins
+  that against a plain full-score search, with exact ties (a duplicate
+  candidate, images made of the candidates' own colors). The tie
+  example alone doesn't catch a `<=`; the property does (mutation
+  checked). `cellQuantize` is the per-cell quantizer (`quantizeWith`;
+  the nearer color, the first on a tie); a pixel outside the cells it
+  was given stops with an error naming the pixel (a caller's bug, like
+  uneven rows). `CellPalette` is a plain container: its two colors are
+  symmetric, and what they mean (ink, paper, BRIGHT) belongs to
+  `Puregrain.Machine.<Name>`. Cell sizes below 1 count as 1; partial
+  cells at the right and bottom edges. Not in the facade (start
+  closed).
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -397,7 +421,7 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   effect is built, not when it runs** (`do let x = e; …` is just
   `let x = e in …`), so `try` can't catch an error it throws. Delay it
   behind a bind: `pure unit >>= \_ -> pure (f unit)` (`whenRun` in
-  `Test.Puregrain.DitherSpec`).
+  `Test.Puregrain.Util`, with `errorOf` and `mentions`).
 
 - **A `where` after guards belongs to the last guard only** — unlike
   Haskell, where it scopes over all of them. `f n | c = g n | otherwise
@@ -434,6 +458,12 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   failed". `ssh2` and `cpu-features` (spago's, for SSH keys in
   `spago auth`) are denied: their scripts only build optional native code.
   Change with `npm install-scripts approve/deny <pkg>`.
+- **`spago build --strict` only reports warnings for modules it compiles.**
+  A module compiled earlier by a non-strict command (e.g. `spago test`)
+  isn't recompiled, so its warning goes unreported: a strict build
+  failed, `spago test` passed, and the next strict build passed too, with
+  the same unused import still there (2026-10-11). Only a build from
+  scratch is reliable: `npm run check:clean`, like CI.
 - **No automatic memoization**: unlike GHC, PureScript never shares
   repeated pure computations for you. If something is computed inside
   a per-pixel hot path but doesn't depend on the pixel, hoist it out
