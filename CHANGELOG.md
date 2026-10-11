@@ -10,8 +10,9 @@ raises the minor version (0.1 → 0.2).
 
 - `Puregrain.Cells`: dithering with cells, as on 8-bit home computers. Each
   cell of `width × height` pixels may use only one or two colors, chosen
-  per cell from a list of candidates (`chooseCells`); the dithering then
-  keeps every pixel to its cell's colors (`cellQuantize`).
+  per cell from a list of candidates. `ditherCells` dithers an image in
+  memory; `ditherBands` a lazy stream of rows, one row of cells at a time.
+  Both return the chosen candidates with the dithered rows.
 
 ## 0.1.0 - 2026-10-10
 

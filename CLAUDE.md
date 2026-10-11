@@ -226,29 +226,44 @@ from the code alone.
   palette (vectorED) it's not supported: TODO.md, and
   docs/ordered-dithering.md "Not supported".
 - `Puregrain.Cells` (2026-10-11, branch `zx-spectrum`) — dithering with
-  cells, like the attribute cells of 8-bit machines. `chooseCells size
-  toPalette candidates image` picks, per cell, the candidate (any type
-  `c`; `toPalette` maps it to an opaque `CellPalette` of 1 or 2 colors,
-  built by `singleColor`/`colorPair`) with the lowest score: the sum of
-  each pixel's squared RGB distance to the *segment* between the two
-  colors, since dithering can produce any mix of them. (Scoring by the
-  nearer color fails: a gray scores the same with black–white and
-  blue–white, as the user pointed out.) Candidates are tried in the
-  given order and the earlier wins a tie (`<`): the order is the
-  caller's policy (ZX: single colors first, nearest pairs first, so the
-  narrowest palette wins). Two early stops, at a score of 0 and when a
-  sum reaches the best so far, give the same result: `CellsSpec` pins
-  that against a plain full-score search, with exact ties (a duplicate
-  candidate, images made of the candidates' own colors). The tie
-  example alone doesn't catch a `<=`; the property does (mutation
-  checked). `cellQuantize` is the per-cell quantizer (`quantizeWith`;
-  the nearer color, the first on a tie); a pixel outside the cells it
-  was given stops with an error naming the pixel (a caller's bug, like
-  uneven rows). `CellPalette` is a plain container: its two colors are
-  symmetric, and what they mean (ink, paper, BRIGHT) belongs to
-  `Puregrain.Machine.<Name>`. Cell sizes below 1 count as 1; partial
-  cells at the right and bottom edges. Not in the facade (start
-  closed).
+  cells, like the attribute cells of 8-bit machines. Processed in
+  *bands*, one row of cells at a time: per band, each cell gets the
+  candidate (any type `c`; `toPalette` maps it to an opaque
+  `CellPalette` of 1 or 2 colors, built by `singleColor`/`colorPair`)
+  with the lowest score, then the band's rows are dithered (internal
+  `stepRow`, with a quantizer built for that band: the nearer of the
+  cell's colors, read by index `x / cellWidth`). One engine
+  (`stepBand`), two drivers, like `ditherImage`/`ditherRows`:
+  `ditherCells` (in memory, returns `{ cells, image }`) and
+  `ditherBands` (lazy: a band's rows are read only when the band is
+  forced, so one band is in memory; returns `{ cells, rows }` per band,
+  which a `.scr` writer needs). Choosing and dithering were first two
+  public functions (`chooseCells`, `cellQuantize`; phase B); fused in
+  phase B2 (decided 2026-10-11): one implementation, and a cell grid
+  that doesn't match the image can no longer be passed. Exporting a
+  "choose only" function later is compatible (e.g. for hand-fixed
+  attributes). Cells are chosen from the *original* pixels, not a
+  pre-dithered image (no information lost, no dot noise in the choice,
+  independent of the kernel); in-memory and streaming results are
+  identical, pinned by a property. The score: the sum of each pixel's
+  squared RGB distance to the *segment* between the two colors, since
+  dithering can produce any mix of them. (Scoring by the nearer color
+  fails: a gray scores the same with black–white and blue–white, as the
+  user pointed out.) Candidates are tried in the given order and the
+  earlier wins a tie (`<`): the order is the caller's policy (ZX: single
+  colors first, nearest pairs first, so the narrowest palette wins). Two
+  early stops, at a score of 0 and when a sum reaches the best so far,
+  give the same result: `CellsSpec` pins that against a plain full-score
+  search, with exact ties (a duplicate candidate, images made of the
+  candidates' own colors). The tie example alone doesn't catch a `<=`;
+  the property does (mutation checked). `CellPalette` is a plain
+  container: its two colors are symmetric, and what they mean (ink,
+  paper, BRIGHT) belongs to `Puregrain.Machine.<Name>`. Cell sizes below
+  1 count as 1 (no positive-integer type: `naturals` includes 0 and
+  clamps too); partial cells at the edges. Not in the facade (start
+  closed). Laziness tests wrap *every* read in `errorOf`: a read that
+  happens too early otherwise crashes the whole test run instead of
+  failing that test (seen with a mutation, 2026-10-11).
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -278,8 +293,11 @@ from the code alone.
   (internal, formerly `ditherRow`) checks each row's length against
   `width` first: a different length is a caller's bug, a `Left` with a
   message naming the row. The public stepper `ditherRow` returns it;
-  `ditherImage`/`ditherRows` turn it into a runtime error
-  (`unsafeCrashWith`), since their result types have no error channel. `ditherRowsWith`
+  `ditherImage`/`ditherRows` (and `Puregrain.Cells`' `ditherCells`/
+  `ditherBands`) turn it into a runtime error with `orStop`, which lives
+  next to `stepRow` in `Internal.Row` as the other half of its contract
+  (moved from `Internal.Image` 2026-10-11), since their result types have
+  no error channel. `ditherRowsWith`
   does all its work inside `defer`, so each row is read and dithered
   only when its cell is forced (until 2026-10-04 a strict `let` outside
   the `defer` dithered each row one cell early); `DitherSpec` pins it
