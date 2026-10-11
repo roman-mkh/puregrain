@@ -203,8 +203,10 @@ from the code alone.
   `cga16`), `c64` (Pepto), `zxSpectrum`
   (normal = 0xD8). Historical/terminal palettes have no official RGB, so
   every preset cites its source in a comment — values were checked
-  against those sources, not recalled. Per-pixel only; block-constrained
-  looks (ZX 8×8 attribute cells, pseudo-graphics) are a TODO.md item.
+  against those sources, not recalled. Per-pixel; the ZX attribute cells
+  are `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`, and other
+  block-constrained looks (C64 multicolor, pseudo-graphics) are a TODO.md
+  item.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
   short table).
@@ -264,6 +266,26 @@ from the code alone.
   closed). Laziness tests wrap *every* read in `errorOf`: a read that
   happens too early otherwise crashes the whole test run instead of
   failing that test (seen with a mutation, 2026-10-11).
+- `Puregrain.Machine.ZxSpectrum` (2026-10-11) — the first module of the
+  `Puregrain.Machine.<Name>` namespace (decided 2026-10-11: one module per
+  machine, with its display rules; `C64`, `Msx` would sit next to it).
+  Imported `as Zx`, with ZX names: `Attribute` (opaque, so only the 71
+  valid values exist; read with `ink`, `paper` as color codes 0–7, and
+  `bright`), `attributes`, `attributePalette`, `cellSize` (8 × 8). The 71:
+  per brightness 8 single colors and 28 pairs, minus the duplicate
+  all-black cell (kept without BRIGHT). Convention as on the Spectrum
+  (black ink on white paper): ink = the darker color (lower code), paper
+  = the lighter; a single-color cell has ink = paper. Order (the tie
+  policy for `Puregrain.Cells`): the 15 single colors first, then the
+  pairs by the distance between their colors, nearest first (equal
+  distances: normal before bright, then ink, then paper). The order is
+  what makes "a picture made only of valid cells dithers to itself"
+  hold: normal white lies on the black–bright white segment, so a cell of
+  black and normal white scores 0 with both pairs, and the nearer must
+  win (mutation checked: farthest-first breaks the property). Colors
+  come from the `zxSpectrum` preset by index (it's in color-code order);
+  `ZxSpectrumSpec` checks them against the code's bits (1 blue, 2 red,
+  4 green), written independently. Not in the facade.
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The

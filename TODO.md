@@ -79,7 +79,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       General: `cellWidth × cellHeight` and a list of candidate palettes, so other machines fit (MSX: 8 × 1).
       Modules: `Puregrain.Cells`, general (a cell palette as a plain container of 1 or 2 colors, the score, and
       `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
-      `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean).
+      `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
+      2026-10-11). Next: the CLI's ZX output (phase D), then the `.scr` writer (phase E).
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the

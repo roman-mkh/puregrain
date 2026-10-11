@@ -13,6 +13,10 @@ raises the minor version (0.1 → 0.2).
   per cell from a list of candidates. `ditherCells` dithers an image in
   memory; `ditherBands` a lazy stream of rows, one row of cells at a time.
   Both return the chosen candidates with the dithered rows.
+- `Puregrain.Machine.ZxSpectrum`: the ZX Spectrum's screen for
+  `Puregrain.Cells`: 8 × 8 cells, each with an ink and a paper color and
+  one BRIGHT bit (`attributes`, the 71 cell palettes that look different;
+  `attributePalette`; `cellSize`).
 
 ## 0.1.0 - 2026-10-10
 
