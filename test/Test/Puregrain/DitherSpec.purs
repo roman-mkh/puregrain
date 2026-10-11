@@ -95,11 +95,15 @@ spec = describe "Puregrain.Dither" do
         -- An input whose third row stops with an error when it's read.
         input = LL.cons first (LL.cons second (List (defer \_ -> unsafeCrashWith "the third input row was read")))
         out = ditherRows floydSteinberg q input
-      -- Two result rows read the first two input rows, not the third…
+      -- Two result rows read the first two input rows, not the third. Every
+      -- read is inside `errorOf`, so reading too early fails this test
+      -- instead of stopping the whole test run.
+      firstTwo <- liftEffect (errorOf \_ -> Array.length (allRows (LL.take 2 out)))
+      firstTwo `shouldEqual` Nothing
       allRows (LL.take 2 out) `shouldEqual` ditherImage floydSteinberg q [ first, second ]
       -- …and the third result row is what reads the third input row.
-      result <- liftEffect (errorOf \_ -> LL.length (LL.take 3 out))
-      result `shouldSatisfy` mentions "the third input row was read"
+      third <- liftEffect (errorOf \_ -> LL.length (LL.take 3 out))
+      third `shouldSatisfy` mentions "the third input row was read"
 
   describe "rows of different lengths (a caller's bug)" do
     let
@@ -114,6 +118,9 @@ spec = describe "Puregrain.Dither" do
 
     it "ditherRows stops when it reaches that row; the rows before it come out" do
       let out = ditherRows floydSteinberg q (LL.fromFoldable tooLong)
+      -- Inside `errorOf` first, like the laziness test above.
+      firstTwo <- liftEffect (errorOf \_ -> Array.length (allRows (LL.take 2 out)))
+      firstTwo `shouldEqual` Nothing
       allRows (LL.take 2 out) `shouldEqual` ditherImage floydSteinberg q (Array.take 2 tooLong)
       result <- liftEffect (errorOf \_ -> Array.length (allRows out))
       result `shouldSatisfy` mentions "row 2 has 4 pixels, but the first row has 3"
