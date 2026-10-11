@@ -13,7 +13,7 @@ rendered on its own at full size.
 ## Generating
 
 ```bash
-npm run generate-images                         # samples/gray-512.png, samples/color-512.png
+npm run generate-images                         # samples/: gray and color at 512², color at 256×192
 node scripts/generate-images.mjs --list         # composites, their tiles, one line each
 node scripts/generate-images.mjs --pattern gray:zone-plate               # one tile, full frame
 node scripts/generate-images.mjs --pattern gray --sizes 64,256,1024x256 --out samples/bench
@@ -41,13 +41,17 @@ a tile changes.
 below), and 512 fits on screen at 100% while leaving each tile about 170 px
 of interior. Benchmarks pass their sizes explicitly. Non-square sizes are
 useful there: 1024×64 against 64×1024 separates cost per row from the number
-of rows.
+of rows. `npm run generate-images` also writes the color composite at
+256×192, the ZX Spectrum's screen size, for `--machine zx-spectrum`
+(`npm run dither:zx`).
 
 ## How to look at dithered output
 
 - **At 1:1 only.** At any zoom other than 100%, including desktop or HiDPI
   scaling, the viewer resamples the dot pattern. That averages dots into
-  grays and creates moiré that isn't in the file.
+  grays and creates moiré that isn't in the file. An exact multiple (200%,
+  300%) is fine too if the viewer scales without smoothing, which helps
+  with the small 256×192 ZX Spectrum screens.
 - **Judge interiors, not borders.** Error diffusion scans rows left to right
   and pushes each pixel's error to its right and into the rows below,
   including down-left. So a region receives error from its left, upper and
@@ -257,6 +261,30 @@ the left, a ~50/50 mix on the right.
   slightly more of the upper step. Clumping or visible structure is an
   artifact.
 
+### `color:zx-cells`
+- **What:** ZX Spectrum screen cells: each 8×8 cell shows only the ink and
+  paper of one attribute, cycling through all 71 attributes, with four
+  patterns of ink and paper (a checkerboard, stripes, a half, sparse dots).
+  Rendered alone only (`--pattern color:zx-cells`, at 256×192 for the
+  check): not placed in the composite, because its cells line up with the
+  Spectrum's 8×8 grid only when the tile starts at the image's corner.
+- **Why:** an exact check for `--machine zx-spectrum` (see below). Its
+  attributes are written out in the generator independently of the
+  library.
+- **Look for:** nothing to judge by eye; it's a test image.
+
+For the visual check of `--machine zx-spectrum`, use the color composite at
+256×192 (`npm run dither:zx`, with Atkinson, writing
+`samples/output-zx-atkinson.png`). Look for: every 8×8 cell in at most two
+colors, both normal or both bright; where colors change, a visible block
+grid, the edge stepping cell by cell ("attribute clash"; the sphere's
+outline shows it clearly); smooth shading turned into dot patterns of a
+cell's two colors; flat patches in exact Spectrum colors (pure red, green,
+blue, black) staying flat. With Floyd–Steinberg instead, thin streaks of
+extreme pixels can appear, mostly vertical: error a cell's two colors
+can't use builds up (see cli/README.md, "Machine screens"); that's a known
+limit, listed in TODO.md, not a regression.
+
 ## Exact checks
 
 `npm run check:cli` runs all of these through the real CLI (after
@@ -304,3 +332,15 @@ between pixels without a kernel, and keeps exact levels:
 
 Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.
+
+One check covers machine screens:
+
+- **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
+  equals input byte for byte, with Floyd–Steinberg and with
+  `--kernel none`. Every cell holds only one attribute's colors, so it fits that
+  attribute exactly, the error is zero everywhere, and nothing changes. It
+  also checks the order in which the cells' pairs are tried: normal white
+  lies on the segment from black to bright white, so a cell of black and
+  normal white fits both pairs perfectly, and only the nearer pair, tried
+  first, leaves it unchanged. Also a property in
+  `Test.Puregrain.ZxSpectrumSpec`, for arbitrary screens and kernels.

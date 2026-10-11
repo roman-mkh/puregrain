@@ -4,6 +4,8 @@
 module Puregrain.Cli.Pipeline
   ( Pipeline(..)
   , pipelineFor
+  , ditherScreen
+  , screenSizeNote
   , kernelOf
   , paletteOf
   , isNeutral
@@ -17,17 +19,22 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Maybe (Maybe(..))
 import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
-import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
+-- The cells and the machines aren't in the facade (a specialty, "start
+-- closed"), so the CLI imports them directly, as any application would.
+import Puregrain.Cells (ditherCells)
+import Puregrain.Cli.Options (KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
+import Puregrain.Machine.ZxSpectrum as Zx
 
--- | Dither in one gray channel, or in RGB.
-data Pipeline = Gray (Quantize Number) | Color (Quantize RGB)
+-- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
+-- | cell by cell).
+data Pipeline = Gray (Quantize Number) | Color (Quantize RGB) | Screen MachineName
 
 -- | A threshold always runs on gray. Levels, with or without `--bayer`,
 -- | run on gray when the image is gray, and per channel (scalarED)
 -- | otherwise. A palette always runs on RGB (vectorED) — its colors
--- | needn't be gray, even for a gray input. `grayImage` is true for an
--- | all-neutral input, or after `--gray`. This is the table in
--- | cli/README.md, "How the output is chosen".
+-- | needn't be gray, even for a gray input; so does a machine's screen.
+-- | `grayImage` is true for an all-neutral input, or after `--gray`. This
+-- | is the table in cli/README.md, "How the output is chosen".
 pipelineFor :: QuantizerChoice -> Boolean -> Pipeline
 pipelineFor choice grayImage = case choice of
   Threshold t -> Gray (threshold t)
@@ -38,6 +45,22 @@ pipelineFor choice grayImage = case choice of
   Bayer { side, levels }
     | grayImage -> Gray (ordered (bayerOf side) (evenRamp levels))
     | otherwise -> Color (perChannel (ordered (bayerOf side) (evenRamp levels)))
+  Machine m -> Screen m
+
+-- | Dithers an RGB image to the machine's screen, cell by cell, with the
+-- | kernel; the cells' choices aren't needed for a PNG.
+ditherScreen :: MachineName -> Kernel -> Array (Array RGB) -> Array (Array RGB)
+ditherScreen machine kernel image = case machine of
+  ZxSpectrumScreen -> (ditherCells kernel Zx.cellSize Zx.attributePalette Zx.attributes image).image
+
+-- | A note for an image that isn't the size of the machine's screen. Any
+-- | size works (a poster in the machine's style, say), so it's only
+-- | information, not an error.
+screenSizeNote :: MachineName -> Int -> Int -> Maybe String
+screenSizeNote machine width height = case machine of
+  ZxSpectrumScreen ->
+    if width == 256 && height == 192 then Nothing
+    else Just ("Note: a ZX Spectrum screen is 256x192, this image is " <> show width <> "x" <> show height <> " (any size works for a PNG)")
 
 -- | The `--bayer` option only accepts powers of 2, for which `bayer`
 -- | always has a map.

@@ -80,7 +80,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       Modules: `Puregrain.Cells`, general (a cell palette as a plain container of 1 or 2 colors, the score, and
       `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
       `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
-      2026-10-11). Next: the CLI's ZX output (phase D), then the `.scr` writer (phase E).
+      2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11). Next: the
+      `.scr` writer (phase E).
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the
@@ -88,6 +89,18 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       as on the Spectrum, black ink on white paper: ink = the darker color (lower color code), paper = the
       lighter; a single-color cell has ink = paper and all bitmap bits 0; an all-black cell has BRIGHT 0. Exact
       check: decode the `.scr` and compare it with the PNG output.
+- [ ] **Error clamping for cells:** with Floyd–Steinberg, `--machine zx-spectrum` shows thin streaks of extreme
+      pixels, mostly vertical (seen 2026-10-12). A cell can only mix along the line between its two colors, so
+      error pointing elsewhere (green error in a red-and-black cell) isn't used up there; Floyd–Steinberg passes
+      all of it on, it builds up right and down, and erupts where a cell can express it. Atkinson (3/4 of the
+      error) is clearly calmer, which is why `dither:zx` uses it; without diffusion there are none. To evaluate:
+      clamping the corrected value to 0–255 per channel, passing on only part of the error, or not diffusing
+      across cell borders. Measure on `output-zx-*`, and keep the `color:zx-cells` exact check passing.
+- [ ] **Ordered dithering within cells** (after the `.scr` writer): cells chosen as now; then per pixel t = its
+      position on the line from ink (darker, t = 0) to paper (lighter, t = 1), and paper where t exceeds the
+      Bayer threshold at its position. No error flows, so no streaks; the classic look of much ZX art. The
+      order of a cell's two colors then matters (it fixes the pattern's direction, not the tone), so
+      `CellPalette`'s doc must say so. CLI: allow `--bayer N` with `--machine`.
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a

@@ -3,12 +3,15 @@
 module Puregrain.Cli.Options
   ( KernelName(..)
   , PaletteName(..)
+  , MachineName(..)
   , QuantizerChoice(..)
   , Options
   , allKernels
   , allPalettes
+  , allMachines
   , kernelName
   , paletteName
+  , machineName
   , describeQuantizer
   , parseOptions
   ) where
@@ -42,17 +45,30 @@ derive instance Generic PaletteName _
 instance Show PaletteName where
   show = genericShow
 
+-- | A machine whose screen the image is dithered to, cell by cell. (The
+-- | constructor is named for the screen, since `ZxSpectrum` is the
+-- | palette's, whose command-line name is "zx15".)
+data MachineName = ZxSpectrumScreen
+
+derive instance Eq MachineName
+derive instance Generic MachineName _
+instance Show MachineName where
+  show = genericShow
+
 -- | Which quantizer to build — and so, which kind of error diffusion
 -- | runs: a threshold always works on gray; levels work per channel
 -- | (scalarED) on color input; a palette picks the nearest palette color
 -- | for the whole pixel (vectorED). See "scalarED / vectorED" in CLAUDE.md.
 -- | `Bayer` is levels with ordered dithering: the side of the Bayer map,
 -- | and the number of levels (2 unless `--levels` says otherwise).
+-- | `Machine` dithers to a machine's screen, whose cells each allow only
+-- | a few colors; the machine defines them all.
 data QuantizerChoice
   = Threshold Number
   | Levels Int
   | Palette PaletteName
   | Bayer { side :: Int, levels :: Int }
+  | Machine MachineName
 
 derive instance Eq QuantizerChoice
 derive instance Generic QuantizerChoice _
@@ -78,11 +94,17 @@ allKernels = [ FloydSteinberg, Atkinson, JarvisJudiceNinke, NoDiffusion ]
 allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
 
+allMachines :: Array MachineName
+allMachines = [ ZxSpectrumScreen ]
+
 kernels :: Array (Tuple String KernelName)
 kernels = map (\k -> Tuple (kernelName k) k) allKernels
 
 palettes :: Array (Tuple String PaletteName)
 palettes = map (\p -> Tuple (paletteName p) p) allPalettes
+
+machines :: Array (Tuple String MachineName)
+machines = map (\m -> Tuple (machineName m) m) allMachines
 
 -- | "a, b or c"
 orList :: Array String -> String
@@ -105,7 +127,13 @@ paletteName = case _ of
   Ansi16 -> "ansi16"
   Ansi256 -> "ansi256"
   C64 -> "c64"
-  ZxSpectrum -> "zx-spectrum"
+  -- Named by its color count, like cga16 and ansi16, so "zx-spectrum"
+  -- means only the machine's screen (`--machine zx-spectrum`).
+  ZxSpectrum -> "zx15"
+
+machineName :: MachineName -> String
+machineName = case _ of
+  ZxSpectrumScreen -> "zx-spectrum"
 
 describeQuantizer :: QuantizerChoice -> String
 describeQuantizer = case _ of
@@ -113,6 +141,7 @@ describeQuantizer = case _ of
   Levels n -> show n <> " levels"
   Palette p -> "palette " <> paletteName p
   Bayer { side, levels } -> "Bayer " <> show side <> "x" <> show side <> ", " <> show levels <> " levels"
+  Machine m -> machineName m
 
 -- | A reader for one of a fixed set of names, listing them on a mistake.
 oneOf :: forall a. String -> Array (Tuple String a) -> ReadM a
@@ -149,14 +178,16 @@ quantizer = optional $
           <> help ("nearest palette color, whole pixel (vectorED): " <> orList (map fst palettes))
       ))
 
--- | What optparse can check on its own. `--bayer` is a separate option,
--- | and `resolve` checks how it combines with the others.
+-- | What optparse can check on its own. `--bayer` and `--machine` are
+-- | separate options, and `resolve` checks how they combine with the
+-- | others.
 type RawOptions =
   { input :: String
   , output :: String
   , kernel :: KernelName
   , quantizer :: Maybe QuantizerChoice
   , bayer :: Maybe Int
+  , machine :: Maybe MachineName
   , gray :: Boolean
   }
 
@@ -173,8 +204,12 @@ rawOptions = ado
     ( long "bayer" <> metavar "N"
         <> help "ordered dithering with the N x N Bayer map (N = 2, 4, 8 or 16), over --levels (default 2)"
     )
+  machine <- optional $ option (oneOf "machine" machines)
+    ( long "machine" <> metavar "NAME"
+        <> help ("dither to a machine's screen, a few colors per cell: " <> orList (map fst machines))
+    )
   gray <- switch (long "gray" <> help "convert a color input to gray (luma) first")
-  in { input, output, kernel, quantizer: q, bayer, gray }
+  in { input, output, kernel, quantizer: q, bayer, machine, gray }
 
 parserInfo :: ParserInfo RawOptions
 parserInfo = info (rawOptions <**> helper)
@@ -184,15 +219,26 @@ parserInfo = info (rawOptions <**> helper)
         ( "Dithers INPUT.png into OUTPUT.png. Use at most one of --threshold, --levels, --palette; "
             <> "--bayer N adds ordered dithering to --levels, or to black and white on its own. "
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
-            <> "or --palette gives an RGB PNG."
+            <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
+            <> "screen, two colors per 8x8 cell, and always gives an RGB PNG."
         )
   )
 
 -- | The checks across options that optparse can't express: `--bayer`
--- | works over levels, so it combines with `--levels` and nothing else.
+-- | works over levels, so it combines with `--levels` and nothing else;
+-- | `--machine` defines all the colors, so it combines with none of the
+-- | quantizer options (`--kernel` and `--gray` work with everything).
 resolve :: RawOptions -> Either String Options
 resolve raw = { input: raw.input, output: raw.output, kernel: raw.kernel, quantizer: _, gray: raw.gray } <$>
-  case raw.quantizer, raw.bayer of
+  case raw.machine of
+    Just m -> machineChoice m
+    Nothing -> quantizerChoice
+  where
+  machineChoice m = case raw.quantizer, raw.bayer of
+    Nothing, Nothing -> Right (Machine m)
+    Just _, _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"
+    Nothing, Just _ -> Left "--machine can't be combined with --bayer: ordered dithering within a machine's cells isn't supported"
+  quantizerChoice = case raw.quantizer, raw.bayer of
     Nothing, Nothing -> Right (Threshold 128.0)
     Nothing, Just side -> Right (Bayer { side, levels: 2 })
     Just (Levels levels), Just side -> Right (Bayer { side, levels })

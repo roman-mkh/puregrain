@@ -12,7 +12,7 @@ import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
 import ExitCodes as ExitCode
 import Options.Applicative (ParserResult(..), renderFailure)
-import Puregrain.Cli.Options (KernelName(..), Options, QuantizerChoice(..), allKernels, allPalettes, kernelName, paletteName, parseOptions)
+import Puregrain.Cli.Options (KernelName(..), MachineName(..), Options, QuantizerChoice(..), allKernels, allMachines, allPalettes, kernelName, machineName, paletteName, parseOptions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -62,9 +62,18 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       for_ allPalettes \p ->
         parse (files <> [ "--palette", paletteName p ]) `shouldEqual` Right (defaults { quantizer = Palette p })
 
-    it "the documented kernel and palette names are exactly the ones in the README" do
+    it "--machine accepts every machine's name" do
+      for_ allMachines \m ->
+        parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine m })
+
+    it "the documented kernel, palette and machine names are exactly the ones in the README" do
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
-      map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx-spectrum" ]
+      map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
+      map machineName allMachines `shouldEqual` [ "zx-spectrum" ]
+
+    it "--machine works with any kernel and with --gray" do
+      parse (files <> [ "--machine", "zx-spectrum", "-k", "atkinson", "--gray" ])
+        `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = Machine ZxSpectrumScreen, gray = true })
 
     it "--threshold takes a number, --levels a whole number" do
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
@@ -102,7 +111,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "an unknown kernel or palette, listing the valid names" do
       parse (files <> [ "--kernel", "sierra" ]) `shouldSatisfy` failsWith "use one of: floyd-steinberg, atkinson, jjn"
       parse (files <> [ "--palette", "nes" ]) `shouldSatisfy`
-        failsWith "use one of: bw, websafe216, cga16, ansi16, ansi256, c64, zx-spectrum"
+        failsWith "use one of: bw, websafe216, cga16, ansi16, ansi256, c64, zx15"
 
     it "--bayer that isn't a power of 2 from 2 to 16, naming the rule" do
       for_ [ "1", "3", "6", "32", "0", "-4", "four" ] \n ->
@@ -112,6 +121,15 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse (files <> [ "--bayer", "4", "--threshold", "100" ]) `shouldSatisfy` failsWith "--bayer works over levels"
       parse (files <> [ "--palette", "bw", "--bayer", "4" ]) `shouldSatisfy`
         failsWith "ordered dithering against a palette isn't supported"
+
+    it "--machine with --threshold, --levels, --palette or --bayer, saying why" do
+      for_ [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ] ] \extra ->
+        parse (files <> [ "--machine", "zx-spectrum" ] <> extra) `shouldSatisfy` failsWith "the machine defines the colors"
+      parse (files <> [ "--bayer", "4", "--machine", "zx-spectrum" ]) `shouldSatisfy`
+        failsWith "ordered dithering within a machine's cells isn't supported"
+
+    it "an unknown machine, listing the valid names" do
+      parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"
 
     it "a threshold that isn't a number" do
       parse (files <> [ "--threshold", "half" ]) `shouldSatisfy` isLeft
@@ -129,7 +147,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         Left why -> fail why
 
     it "a rejected command line exits with 1" do
-      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ] ] \args ->
+      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ] ] \args ->
         case exitCodeOf args of
           Right code -> code `shouldEqual` ExitCode.Error
           Left why -> fail why

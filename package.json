@@ -16,13 +16,14 @@
     "dither:color:websafe": "npm run dither-cli -- samples/color-512.png samples/output-color-websafe.png --palette websafe216",
     "dither:color:bw": "npm run dither-cli -- samples/color-512.png samples/output-color-bw.png --palette bw",
     "dither:color:bayer": "npm run dither-cli -- samples/color-512.png samples/output-color-bayer4.png --bayer 4 --kernel none --levels 4",
+    "dither:zx": "npm run dither-cli -- samples/color-256x192.png samples/output-zx-atkinson.png --machine zx-spectrum --kernel atkinson",
     "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli",
     "check:cli": "bash scripts/check-cli.sh",
     "check:clean": "rm -rf output && npm run check",
     "release:check": "node scripts/release-check.mjs",
     "bench": "node scripts/benchmark.mjs",
     "clean:bench": "rm -f samples/bench/*.png",
-    "generate-images": "node scripts/generate-images.mjs",
+    "generate-images": "node scripts/generate-images.mjs && node scripts/generate-images.mjs --pattern color --size 256x192",
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
   },
   "dependencies": {

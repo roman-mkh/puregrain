@@ -14,6 +14,7 @@ mkdir -p $out
 node scripts/generate-images.mjs --pattern color --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:palette-exact --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:channel-ramps --out $out >/dev/null
+node scripts/generate-images.mjs --pattern color:zx-cells --size 256x192 --out $out >/dev/null
 
 pass() { echo "PASS  $1"; }
 fail() { echo "FAIL  $1"; exit 1; }
@@ -86,4 +87,16 @@ for kernel in none floyd-steinberg; do
   cmp -s $out/color-palette-exact-512.png $out/exact-bayer.png \
     && pass "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output == input" \
     || fail "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output differs from input"
+done
+
+# 6. An image made only of valid ZX Spectrum cells (each 8×8 cell only the
+#    ink and paper of one attribute) fits the machine's own cells exactly,
+#    so the error is zero everywhere and it must come back unchanged: with
+#    error diffusion and without. The CLI twin of the property in
+#    Test.Puregrain.ZxSpectrumSpec.
+for kernel in floyd-steinberg none; do
+  $cli $out/color-zx-cells-256x192.png $out/zx.png --machine zx-spectrum --kernel $kernel >/dev/null
+  cmp -s $out/color-zx-cells-256x192.png $out/zx.png \
+    && pass "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output == input" \
+    || fail "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output differs from input"
 done

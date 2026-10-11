@@ -9,8 +9,10 @@ import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
 import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
-import Puregrain.Cli.Options (KernelName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, paletteOf, pipelineFor, toNeutral)
+import Puregrain.Cells (ditherCells)
+import Puregrain.Cli.Options (KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenSizeNote, toNeutral)
+import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -50,11 +52,13 @@ shouldBeGray :: Pipeline -> Quantize Number -> Aff Unit
 shouldBeGray pipeline expected = case pipeline of
   Gray q -> probe q grayProbes `shouldEqual` probe expected grayProbes
   Color _ -> fail "expected gray processing, got RGB"
+  Screen _ -> fail "expected gray processing, got a machine's screen"
 
 shouldBeColor :: Pipeline -> Quantize RGB -> Aff Unit
 shouldBeColor pipeline expected = case pipeline of
   Color q -> probe q rgbProbes `shouldEqual` probe expected rgbProbes
   Gray _ -> fail "expected RGB processing, got gray"
+  Screen _ -> fail "expected RGB processing, got a machine's screen"
 
 -- | The library's Bayer map of a side the test knows is valid.
 withBayer :: Int -> (ThresholdMap -> Aff Unit) -> Aff Unit
@@ -92,6 +96,26 @@ spec = describe "Puregrain.Cli.Pipeline" do
       for_ [ true, false ] \grayImage -> do
         pipelineFor (Palette BlackWhite) grayImage `shouldBeColor` nearestColor blackWhite
         pipelineFor (Palette Websafe216) grayImage `shouldBeColor` nearestColor websafe216
+
+    it "--machine: the machine's screen, RGB - for gray and for color input" do
+      for_ [ true, false ] \grayImage -> case pipelineFor (Machine ZxSpectrumScreen) grayImage of
+        Screen m -> m `shouldEqual` ZxSpectrumScreen
+        _ -> fail "expected the machine's screen"
+
+  describe "screens" do
+    it "zx-spectrum dithers with the library's ZX Spectrum cells" do
+      let
+        -- 16 × 12 pixels, more than one 8 × 8 cell each way, in varied
+        -- colors: a wrong cell size would give a different result. (An
+        -- image smaller than one cell can't tell cell sizes apart.)
+        image = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y * 20), b: toNumber ((x + y) * 8) }) (0 .. 15)) (0 .. 11)
+      ditherScreen ZxSpectrumScreen atkinson image
+        `shouldEqual` (ditherCells atkinson Zx.cellSize Zx.attributePalette Zx.attributes image).image
+
+    it "notes an image that isn't the size of the ZX Spectrum's screen, and only then" do
+      screenSizeNote ZxSpectrumScreen 256 192 `shouldEqual` Nothing
+      screenSizeNote ZxSpectrumScreen 512 512
+        `shouldEqual` Just "Note: a ZX Spectrum screen is 256x192, this image is 512x512 (any size works for a PNG)"
 
   describe "names -> library values" do
     it "each kernel name maps to the library's kernel" do

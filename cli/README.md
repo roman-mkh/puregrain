@@ -17,7 +17,7 @@ From the repository root:
 ```bash
 npm install               # once: the PureScript toolchain and pngjs
 npm run build             # compiles the library and the CLI
-npm run generate-images   # test images: samples/gray-512.png, samples/color-512.png
+npm run generate-images   # test images in samples/: gray and color 512×512, color 256×192
 
 # 1-bit black and white, Floyd–Steinberg
 npm run dither-cli -- samples/gray-512.png samples/out-bw.png
@@ -30,6 +30,9 @@ npm run dither-cli -- samples/color-512.png samples/out-gray4.png --gray --level
 
 # ordered dithering with the 4×4 Bayer map, no error diffusion
 npm run dither-cli -- samples/gray-512.png samples/out-bayer4.png --bayer 4 --kernel none
+
+# a ZX Spectrum screen: two colors per 8×8 cell (Atkinson looks best here)
+npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --kernel atkinson
 ```
 
 View the results at **100% zoom**. Any other zoom level resamples the dot
@@ -44,7 +47,8 @@ keep them.
 
 ```
 puregrain-cli INPUT.png OUTPUT.png [-k|--kernel NAME]
-              [--threshold T | --levels N | --palette NAME] [--bayer N] [--gray]
+              [--threshold T | --levels N | --palette NAME] [--bayer N]
+              [--machine NAME] [--gray]
 ```
 
 ## Options
@@ -56,15 +60,18 @@ puregrain-cli INPUT.png OUTPUT.png [-k|--kernel NAME]
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
-| `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx-spectrum` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
+| `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it). Pure with `--kernel none`, combined with error diffusion otherwise. See [Ordered dithering](#ordered-dithering). |
+| `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
 `--threshold`, `--levels` and `--palette` are alternatives; give at most
 one. With none of them, the CLI behaves as `--threshold 128`. `--bayer`
 works over levels: give it alone or with `--levels`, not with `--threshold`
-or `--palette`.
+or `--palette`. `--machine` defines all the colors itself, so it combines
+with none of `--threshold`, `--levels`, `--palette` and `--bayer`;
+`--kernel` and `--gray` work with every mode.
 
 ## How the output is chosen
 
@@ -74,6 +81,7 @@ or `--palette`.
 | `--levels N` | gray, `N` levels | each channel on its own, `N` levels per channel |
 | `--bayer N`, with or without `--levels L` | gray, ordered over `L` levels (2 without `--levels`) | each channel on its own, ordered over `L` levels per channel |
 | `--palette NAME` | whole pixel → nearest palette color | whole pixel → nearest palette color |
+| `--machine NAME` | the machine's colors, cell by cell | the machine's colors, cell by cell |
 
 - **Gray or color?** An input counts as gray when every pixel has
   r = g = b, whatever color type the PNG file declares.
@@ -136,7 +144,7 @@ The math, the matrices, and what to look for in the results are in
 | `ansi16` | 16 | The 16 ANSI terminal colors, as xterm's defaults |
 | `ansi256` | 256 | xterm's 256 colors |
 | `c64` | 16 | Commodore 64 |
-| `zx-spectrum` | 15 | ZX Spectrum, normal and bright |
+| `zx15` | 15 | ZX Spectrum colors, normal and bright |
 
 Where each palette's values come from, and notes on each, are in
 [docs/palettes.md](../docs/palettes.md). Three things matter when using
@@ -148,9 +156,51 @@ the CLI:
 - **`--palette websafe216` and `--levels 6` produce byte-identical
   files,** and `--levels 6` is a little faster. The same holds for EGA's
   full 64 colors and `--levels 4`.
-- **`zx-spectrum` gives each pixel a Spectrum color, not the real
-  Spectrum look.** The machine allowed only 2 colors per 8×8 block, which
-  this tool doesn't imitate.
+- **`--palette zx15` gives each pixel a Spectrum color, not the real
+  Spectrum look.** The machine allowed only 2 colors per 8×8 cell:
+  for that, use `--machine zx-spectrum` (see [Machine screens](#machine-screens)).
+
+## Machine screens
+
+`--machine zx-spectrum` dithers to the ZX Spectrum's screen. The screen is
+divided into cells of 8×8 pixels, and each cell has two colors: an *ink*
+and a *paper*, from the Spectrum's 8 colors, with one BRIGHT bit for both.
+So a cell's two colors are both normal or both bright.
+
+- **How each cell gets its colors:** from the 71 pairs (and single colors)
+  that look different, the CLI picks the one whose mixes come closest to
+  the cell's pixels in the input. A gray cell, for example, gets black and
+  white, which can be mixed into gray. Then it dithers inside each cell
+  with just those two colors; the error flows on across cell borders as
+  usual. A cell that fits several pairs equally well gets the closest
+  pair, which gives the calmest result.
+- **What it looks like:** where colors change, the 8×8 grid shows, a
+  colored edge stepping block by block. On the Spectrum this was called
+  *attribute clash*. Inside a cell, smooth shading becomes a dot pattern
+  of its two colors.
+- **Size:** the Spectrum's screen is 256×192. Other sizes work too, for a
+  poster in the Spectrum's style, say; the CLI then prints a note. If the
+  size isn't a multiple of 8, the cells at the right and bottom edges are
+  smaller. To bring a picture to the screen's size, resize it with another
+  tool first, for example ImageMagick (the `!` ignores the aspect ratio):
+  `magick photo.png -resize '256x192!' screen.png`.
+- **Options:** any `--kernel` works; `--kernel none` gives flat cells,
+  with no dots. `--gray` converts the input to gray first. The output is
+  always an RGB PNG.
+- **Which kernel:** today `--kernel atkinson` looks best. With
+  Floyd–Steinberg (the default), thin streaks can appear: a cell can only
+  mix along the line between its two colors, so error that points
+  elsewhere (green error arriving in a red-and-black cell, say) can't be
+  used up there. Floyd–Steinberg passes all of it on, so it builds up to
+  the right and downwards, until a cell whose colors can express it turns
+  it into a line of extreme pixels. Atkinson passes on only 3/4 of each
+  error, so such error dies out.
+- **Speed:** like the other color modes, it's several times slower than
+  gray dithering; a large poster can take minutes.
+
+The library side is `Puregrain.Cells` (cells of any size, with any
+candidate colors) and `Puregrain.Machine.ZxSpectrum` (the Spectrum's
+cells and colors).
 
 ## Examples
 
@@ -198,14 +248,14 @@ npm run dither-cli -- samples/color-512.png samples/bw-gray.png
 ```bash
 npm run dither-cli -- samples/color-512.png samples/cga.png --palette cga16
 npm run dither-cli -- samples/color-512.png samples/c64.png --palette c64
-npm run dither-cli -- samples/color-512.png samples/zx.png  --palette zx-spectrum
+npm run dither-cli -- samples/color-512.png samples/zx15.png --palette zx15   # colors only, see Machine screens
 
 # xterm's 256 colors, e.g. as the basis for terminal art
 npm run dither-cli -- samples/color-512.png samples/xterm.png --palette ansi256
 ```
 
 A different kernel changes the character of the result as much as the
-palette does: try `--kernel atkinson` with `c64` or `zx-spectrum`.
+palette does: try `--kernel atkinson` with `c64` or `zx15`.
 
 ### Ordered (Bayer)
 
@@ -222,6 +272,20 @@ npm run dither-cli -- samples/color-512.png samples/bayer4-color.png --bayer 4 -
 npm run dither-cli -- samples/color-512.png samples/bayer4-websafe.png --bayer 4 --kernel none --levels 6
 ```
 
+### Machine screens
+
+```bash
+# a ZX Spectrum screen, with Floyd–Steinberg (the default) and with Atkinson
+npm run dither-cli -- samples/color-256x192.png samples/zx.png --machine zx-spectrum
+npm run dither-cli -- samples/color-256x192.png samples/zx-atk.png --machine zx-spectrum --kernel atkinson
+
+# flat cells: each pixel just the nearer of its cell's two colors
+npm run dither-cli -- samples/color-256x192.png samples/zx-flat.png --machine zx-spectrum --kernel none
+
+# a poster in the Spectrum's style, at 512×512 (the CLI notes the size)
+npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum
+```
+
 ### Shortcuts
 
 `package.json` has ready-made scripts, all writing to `samples/output-*.png`:
@@ -235,6 +299,7 @@ npm run dither-cli -- samples/color-512.png samples/bayer4-websafe.png --bayer 4
 | `npm run dither:bayer` | `gray-512.png` with `--bayer 4 --kernel none` |
 | `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4`, combined with Floyd–Steinberg |
 | `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
+| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum --kernel atkinson` |
 
 ## Output and timing
 

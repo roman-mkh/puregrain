@@ -1,6 +1,7 @@
 -- | The puregrain command-line tool: dithers a PNG with the library's
--- | top-level `ditherImage`. Run it through `npm run dither-cli -- ...`
--- | (the launcher in cli/bin runs the compiled output directly).
+-- | `ditherImage`, or with `ditherCells` for a machine's screen. Run it
+-- | through `npm run dither-cli -- ...` (the launcher in cli/bin runs the
+-- | compiled output directly).
 module Puregrain.Cli.Main (main) where
 
 import Prelude
@@ -16,7 +17,7 @@ import Effect.Exception (message, try)
 import Node.Process (argv, exit')
 import Options.Applicative (handleParseResult)
 import Puregrain.Cli.Options (Options, describeQuantizer, kernelName, parseOptions)
-import Puregrain.Cli.Pipeline (Pipeline(..), isNeutral, kernelOf, luma, pipelineFor, toNeutral)
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, pipelineFor, screenSizeNote, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
 import Safe.Coerce (coerce)
@@ -54,6 +55,12 @@ run opts = do
       log $ "Wrote " <> opts.output <> " (grayscale PNG)"
     Color q -> do
       { ms, result: out } <- timed (ditherImage kernel q) image
+      report ms "RGB"
+      writeRgbRows opts.output (coerce out)
+      log $ "Wrote " <> opts.output <> " (RGB PNG)"
+    Screen machine -> do
+      maybe (pure unit) log (screenSizeNote machine width (Array.length image))
+      { ms, result: out } <- timed (ditherScreen machine kernel) image
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"

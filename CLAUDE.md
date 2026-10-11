@@ -44,8 +44,20 @@ from the code alone.
   `Options.resolve`, whose rejections `parseOptions` turns into ordinary
   optparse failures (same usage text, exit code 1) — optparse's
   alternatives commit to the first matching option, so the rule can't be
-  an alternative without defining `--levels` twice. `spago test` runs
-  both packages' suites (library, then CLI).
+  an alternative without defining `--levels` twice. `--machine NAME`
+  (2026-10-11; names from `machineName`, now `zx-spectrum`; constructor
+  `ZxSpectrumScreen`, since `ZxSpectrum` is the palette's; that palette's
+  CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
+  its color count like `cga16`, so `zx-spectrum` means only the real
+  look; the CLI isn't published, so nobody outside broke) is a quantizer
+  choice of its own, `Machine m`: `resolve` rejects it with `--threshold`,
+  `--levels`, `--palette` (the machine defines the colors) and `--bayer`;
+  `--kernel` and `--gray` work. `Pipeline` routes it to a third pipeline,
+  `Screen m` (RGB); `ditherScreen` calls `ditherCells` with the machine's
+  cells, and `screenSizeNote` gives the one-line note `Main` prints when
+  the image isn't 256×192 (any size works for a PNG, e.g. a poster; a
+  `.scr` file will need exactly 256×192). `spago test` runs both
+  packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
   users, no tests: `QuickStart` (a gray gradient made in code, and the
@@ -121,8 +133,11 @@ from the code alone.
     customization (`compilePalette`, `distance2`, `nearestColorFast`,
     `paletteColors`, `compileThresholdMap`, `bayerMatrix`, `thresholdAt`)
     stay in their modules. Docs recommend `import Puregrain as P`. The
-    CLI imports only `Puregrain`, so its build checks the facade covers a
-    real application.
+    CLI imports the typical features only through `Puregrain`, so its
+    build checks the facade covers a real application; the specialty
+    modules, which stay out of the facade (`Puregrain.Cells`,
+    `Puregrain.Machine.*`), it imports directly, as an application would
+    (decided 2026-10-11).
   - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
     `Row`, `Image` (`ditherImageWith`, `ditherRowsWith`), `Util`) — exported
     (PureScript has no package-private modules; the tests need them) but
@@ -435,7 +450,7 @@ anchors plus the single name segment keep out the CLI's
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
 arbitrary kernels/palettes/images ("whole images" blocks in
-`PaletteSpec`/`PixelSpec`/`OrderedSpec`), and end to end through the real CLI on the
+`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`), and end to end through the real CLI on the
 generated images (`npm run check:cli`). Not redundant: Spec can't
 reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
 check:cli can't cover arbitrary inputs.
@@ -445,7 +460,18 @@ Visual checks and benchmarks share one set of generated images:
 `scripts/lib/test-patterns.mjs`), documented tile by tile in
 `docs/test-images.md`. Generated images go to gitignored `samples/`;
 the two doc previews in `docs/images/test-images/` are the only ones
-committed (refresh: `npm run docs:images`). pngjs gotcha: the output
+committed (refresh: `npm run docs:images`). `npm run generate-images`
+writes both composites at 512², and the color one at 256×192 (the ZX
+Spectrum's screen) for `npm run dither:zx`, which uses Atkinson: with
+Floyd–Steinberg the ZX output shows streaks (error a cell can't use
+builds up; error clamping is a TODO.md item). One script per machine,
+with its best kernel; the CLI's default kernel stays Floyd–Steinberg for
+every mode (no per-mode defaults, decided 2026-10-12). A tile may be left out of every composite and only
+rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
+8×8 grid only from the image's corner; its 71 attributes written out in
+JS independently of the library) is the exact-check input for
+`--machine zx-spectrum`; `--list` marks such tiles "(alone only)".
+pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 — the `new PNG({ colorType })` constructor option is ignored by the
 sync writer, which silently wrote every "grayscale" image as RGBA.
