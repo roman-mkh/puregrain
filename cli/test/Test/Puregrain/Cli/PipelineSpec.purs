@@ -3,6 +3,8 @@ module Test.Puregrain.Cli.PipelineSpec (spec) where
 import Prelude
 
 import Data.Array ((..))
+import Data.Array as Array
+import Data.Either (Either(..), isLeft)
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
@@ -10,8 +12,8 @@ import Data.Ord (abs)
 import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
 import Puregrain.Cells (ditherCells)
-import Puregrain.Cli.Options (KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenSizeNote, toNeutral)
+import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, toNeutral)
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
@@ -110,12 +112,25 @@ spec = describe "Puregrain.Cli.Pipeline" do
         -- image smaller than one cell can't tell cell sizes apart.)
         image = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y * 20), b: toNumber ((x + y) * 8) }) (0 .. 15)) (0 .. 11)
       ditherScreen ZxSpectrumScreen atkinson image
-        `shouldEqual` (ditherCells atkinson Zx.cellSize Zx.attributePalette Zx.attributes image).image
+        `shouldEqual` ditherCells atkinson Zx.cellSize Zx.attributePalette Zx.attributes image
 
-    it "notes an image that isn't the size of the ZX Spectrum's screen, and only then" do
-      screenSizeNote ZxSpectrumScreen 256 192 `shouldEqual` Nothing
-      screenSizeNote ZxSpectrumScreen 512 512
-        `shouldEqual` Just "Note: a ZX Spectrum screen is 256x192, this image is 512x512 (any size works for a PNG)"
+    it "zx-spectrum's screen file is the library's .scr, 6912 bytes" do
+      let
+        image = map (\y -> map (\x -> RGB { r: toNumber x, g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 255)) (0 .. 191)
+        out = ditherScreen ZxSpectrumScreen atkinson image
+      screenFile ZxSpectrumScreen out `shouldEqual` Zx.toScr out
+      map Array.length (screenFile ZxSpectrumScreen out) `shouldEqual` Right 6912
+
+    it "says nothing about a 256x192 image; notes another size for a PNG, and rejects it for a screen file" do
+      for_ [ Png, Scr ] \format -> screenSizeCheck format ZxSpectrumScreen 256 192 `shouldEqual` Right Nothing
+      screenSizeCheck Png ZxSpectrumScreen 512 512
+        `shouldEqual` Right (Just "Note: a ZX Spectrum screen is 256x192, this image is 512x512 (any size works for a PNG)")
+      screenSizeCheck Scr ZxSpectrumScreen 512 512 `shouldEqual` Left
+        ( "--format scr needs a 256x192 image, a ZX Spectrum screen; this one is 512x512. "
+            <> "Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
+        )
+      for_ [ { width: 256, height: 191 }, { width: 255, height: 192 } ] \{ width, height } ->
+        screenSizeCheck Scr ZxSpectrumScreen width height `shouldSatisfy` isLeft
 
   describe "names -> library values" do
     it "each kernel name maps to the library's kernel" do

@@ -1,23 +1,26 @@
 -- | The puregrain command-line tool: dithers a PNG with the library's
--- | `ditherImage`, or with `ditherCells` for a machine's screen. Run it
--- | through `npm run dither-cli -- ...` (the launcher in cli/bin runs the
--- | compiled output directly).
+-- | `ditherImage`, or with `ditherCells` for a machine's screen, written
+-- | as a PNG or as the machine's own screen file. Run it through
+-- | `npm run dither-cli -- ...` (the launcher in cli/bin runs the compiled
+-- | output directly).
 module Puregrain.Cli.Main (main) where
 
 import Prelude
 
 import Data.Array as Array
-import Data.Either (Either(..))
+import Data.Either (Either(..), either)
 import Data.Maybe (maybe)
 import Data.Number.Format (fixed, toStringWith)
 import Puregrain (RGB(..), ditherImage)
 import Effect (Effect)
 import Effect.Console (error, log)
-import Effect.Exception (message, try)
+import Effect.Exception (catchException, message, throw, try)
+import Node.Buffer as Buffer
+import Node.FS.Sync (writeFile)
 import Node.Process (argv, exit')
 import Options.Applicative (handleParseResult)
-import Puregrain.Cli.Options (Options, describeQuantizer, kernelName, parseOptions)
-import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, pipelineFor, screenSizeNote, toNeutral)
+import Puregrain.Cli.Options (FormatName(..), Options, describeQuantizer, kernelName, parseOptions)
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, pipelineFor, screenFile, screenSizeCheck, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
 import Safe.Coerce (coerce)
@@ -59,11 +62,25 @@ run opts = do
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"
     Screen machine -> do
-      maybe (pure unit) log (screenSizeNote machine width (Array.length image))
+      note <- either throw pure (screenSizeCheck opts.format machine width (Array.length image))
+      maybe (pure unit) log note
       { ms, result: out } <- timed (ditherScreen machine kernel) image
       report ms "RGB"
-      writeRgbRows opts.output (coerce out)
-      log $ "Wrote " <> opts.output <> " (RGB PNG)"
+      case opts.format of
+        Png -> do
+          writeRgbRows opts.output (coerce out.image)
+          log $ "Wrote " <> opts.output <> " (RGB PNG)"
+        Scr -> do
+          bytes <- either throw pure (screenFile machine out)
+          writeBytes opts.output bytes
+          log $ "Wrote " <> opts.output <> " (ZX Spectrum screen, " <> show (Array.length bytes) <> " bytes)"
   where
   report ms space = log $ "Dithered in " <> toStringWith (fixed 1) ms <> " ms ("
     <> kernelName opts.kernel <> ", " <> describeQuantizer opts.quantizer <> ", " <> space <> ")"
+
+-- | Writes bytes to a file. An error names the file, as the PNG writer's
+-- | do.
+writeBytes :: String -> Array Int -> Effect Unit
+writeBytes path bytes = catchException failed (Buffer.fromArray bytes >>= writeFile path)
+  where
+  failed err = throw ("Cannot write \"" <> path <> "\": " <> message err)

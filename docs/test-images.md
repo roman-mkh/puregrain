@@ -275,7 +275,8 @@ the left, a ~50/50 mix on the right.
 
 For the visual check of `--machine zx-spectrum`, use the color composite at
 256×192 (`npm run dither:zx`, with Atkinson, writing
-`samples/output-zx-atkinson.png`). Look for: every 8×8 cell in at most two
+`samples/output-zx-atkinson.png`, and the same screen as
+`samples/output-zx-atkinson.scr` for an emulator). Look for: every 8×8 cell in at most two
 colors, both normal or both bright; where colors change, a visible block
 grid, the edge stepping cell by cell ("attribute clash"; the sphere's
 outline shows it clearly); smooth shading turned into dot patterns of a
@@ -333,7 +334,7 @@ between pixels without a kernel, and keeps exact levels:
 Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.
 
-One check covers machine screens:
+Three checks cover machine screens:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
   equals input byte for byte, with Floyd–Steinberg and with
@@ -344,3 +345,13 @@ One check covers machine screens:
   normal white fits both pairs perfectly, and only the nearer pair, tried
   first, leaves it unchanged. Also a property in
   `Test.Puregrain.ZxSpectrumSpec`, for arbitrary screens and kernels.
+- **The color composite at 256×192, as a PNG and as a screen file
+  (`--format scr`), with Atkinson:** the `.scr` file is 6912 bytes long,
+  has FLASH off in every cell, and holds the PNG's picture pixel for pixel.
+  The check decodes it on its own: each pixel's byte by the Spectrum's
+  address formula, its bit (1 for the ink), its cell's attribute byte, and
+  the colors from the color codes' bits. `Test.Puregrain.ZxSpectrumSpec`
+  reads arbitrary screens back the same way.
+- **The color composite at 512×512, with `--format scr`:** rejected before
+  dithering, with exit code 1 and an error naming the required 256×192,
+  and no file written. A `.scr` file holds exactly one screen.

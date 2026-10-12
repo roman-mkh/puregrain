@@ -9,6 +9,8 @@ package:
     - exceptions
     - integers
     - maybe
+    - node-buffer
+    - node-fs
     - node-process
     - numbers
     - optparse

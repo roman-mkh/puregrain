@@ -54,10 +54,17 @@ from the code alone.
   `--levels`, `--palette` (the machine defines the colors) and `--bayer`;
   `--kernel` and `--gray` work. `Pipeline` routes it to a third pipeline,
   `Screen m` (RGB); `ditherScreen` calls `ditherCells` with the machine's
-  cells, and `screenSizeNote` gives the one-line note `Main` prints when
-  the image isn't 256×192 (any size works for a PNG, e.g. a poster; a
-  `.scr` file will need exactly 256×192). `spago test` runs both
-  packages' suites (library, then CLI).
+  cells and returns them with the picture. `--format NAME` (2026-10-12;
+  `png`, the default, or `scr`; names from `formatName`) picks the output
+  file, and only that file is written (decided: one option for the
+  format, no second file next to the PNG). `resolve` rejects `scr`
+  without `--machine zx-spectrum`, matching the machine without a
+  wildcard, so a new machine must decide its formats. `screenSizeCheck`
+  runs before dithering: for an image other than 256×192, a note with a
+  PNG (any size works, e.g. a poster), an error with `scr` (exit 1, no
+  file). `screenFile` maps the machine to its encoder (`Zx.toScr`), and
+  `Main` writes the bytes with `node-fs`/`node-buffer`, no JS of our own.
+  `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
   users, no tests: `QuickStart` (a gray gradient made in code, and the
@@ -300,7 +307,17 @@ from the code alone.
   win (mutation checked: farthest-first breaks the property). Colors
   come from the `zxSpectrum` preset by index (it's in color-code order);
   `ZxSpectrumSpec` checks them against the code's bits (1 blue, 2 red,
-  4 green), written independently. Not in the facade.
+  4 green), written independently. Not in the facade. `toScr`
+  (2026-10-12) turns `ditherCells`' result, the record of cells and
+  image, into a `.scr` file's 6912 bytes, `Either String (Array Int)`
+  (the record, because that's what `ditherCells` returns; decided
+  2026-10-12). `Left` for an image not 256×192, cells not 32×24, or a
+  pixel not one of its cell's colors. The bitmap is built offset by
+  offset, inverting the Spectrum's address formula; paper is tested
+  first, so a single-color cell gets only 0 bits (only an example test
+  catches ink-first: reading the file back can't see those bits). The
+  spec's reader `readScr` uses the forward formula, with arithmetic, on
+  random full screens (`quickCheck' 10`: each has 49,152 pixels).
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -462,7 +479,7 @@ Visual checks and benchmarks share one set of generated images:
 the two doc previews in `docs/images/test-images/` are the only ones
 committed (refresh: `npm run docs:images`). `npm run generate-images`
 writes both composites at 512², and the color one at 256×192 (the ZX
-Spectrum's screen) for `npm run dither:zx`, which uses Atkinson: with
+Spectrum's screen) for `npm run dither:zx` (a PNG and a `.scr`), which uses Atkinson: with
 Floyd–Steinberg the ZX output shows streaks (error a cell can't use
 builds up; error clamping is a TODO.md item). One script per machine,
 with its best kernel; the CLI's default kernel stays Floyd–Steinberg for

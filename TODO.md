@@ -51,6 +51,10 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Command-line tool
 
+- [ ] **Tape image output, `--format tap`** (after the ZX Spectrum release): the screen as a `.tap` file, to
+      load on a Spectrum, or in an emulator, with `LOAD "" SCREEN$`. It wraps the `.scr` bytes in two tape
+      blocks, each with a 2-byte length, a flag byte and an XOR checksum: a 17-byte header (type 3, code; a
+      10-character name; length 6912; start 16384) and the data. A `toTap` next to `toScr`.
 - [ ] **Streaming rows, with a progress indicator:** use `ditherRows` or the stepper instead of
       `ditherImage`, so the JS heap holds a few rows instead of the whole image (pngjs still decodes the file
       into one buffer, but buffers live outside the JS heap), and print progress every few percent to stderr
@@ -80,8 +84,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       Modules: `Puregrain.Cells`, general (a cell palette as a plain container of 1 or 2 colors, the score, and
       `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
       `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
-      2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11). Next: the
-      `.scr` writer (phase E).
+      2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11), and the
+      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Next: docs and the
+      release (phase F).
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the

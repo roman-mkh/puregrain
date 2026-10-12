@@ -16,7 +16,9 @@ raises the minor version (0.1 → 0.2).
 - `Puregrain.Machine.ZxSpectrum`: the ZX Spectrum's screen for
   `Puregrain.Cells`: 8 × 8 cells, each with an ink and a paper color and
   one BRIGHT bit (`attributes`, the 71 cell palettes that look different;
-  `attributePalette`; `cellSize`).
+  `attributePalette`; `cellSize`). `toScr` writes a dithered 256 × 192
+  screen as a `.scr` file, the Spectrum's own screen format, which
+  emulators open.
 
 ## 0.1.0 - 2026-10-10
 
