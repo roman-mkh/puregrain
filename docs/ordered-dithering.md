@@ -101,15 +101,16 @@ The error is measured against the value, not against the threshold. So
 error diffusion still keeps the average tone right, and the map only
 decides where the dots land. The result shows the Bayer texture, broken up
 wherever diffusion moves a dot; this is known as *threshold modulation*.
-With no kernel (`noDiffusion` in the library, `--kernel none` in the
-CLI), no error is passed on and it's pure ordered dithering.
+With no kernel (`noDiffusion` in the library; in the CLI, `--bayer`
+without `--kernel`), no error is passed on and it's pure ordered
+dithering.
 
 ## What to look for
 
 The [test images](test-images.md) show the differences. Look at 100%
 zoom, as always.
 
-| Tile | Pure ordered dithering (`--kernel none`) |
+| Tile | Pure ordered dithering (`--bayer N` alone) |
 |---|---|
 | [`gray:ramp`](test-images.md#grayramp) | The patterns in sequence: n² + 1 bands for n × n, where error diffusion gives smoothly changing density. |
 | [`gray:wedges`](test-images.md#graywedges) | Each flat patch shows its exact pattern from its first pixel, even the narrow ones in the composite: there's no onset delay and no error from the neighbouring patches. |

@@ -26,14 +26,15 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), optional)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, optional)
 import Data.Show.Generic (genericShow)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..), fst)
 import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, showDefaultWith, strArgument, switch, value, (<**>))
 
 -- | `NoDiffusion` is the empty kernel: each pixel is quantized on its
--- | own, so `--bayer` with it gives pure ordered dithering.
+-- | own, so `--bayer` with it gives pure ordered dithering (the default
+-- | with `--bayer`, see `resolve`).
 data KernelName = FloydSteinberg | Atkinson | JarvisJudiceNinke | NoDiffusion
 
 derive instance Eq KernelName
@@ -208,7 +209,7 @@ quantizer = optional $
 type RawOptions =
   { input :: String
   , output :: String
-  , kernel :: KernelName
+  , kernel :: Maybe KernelName
   , quantizer :: Maybe QuantizerChoice
   , bayer :: Maybe Int
   , machine :: Maybe MachineName
@@ -220,14 +221,18 @@ rawOptions :: Parser RawOptions
 rawOptions = ado
   input <- strArgument (metavar "INPUT.png" <> help "image to dither (any PNG; alpha is ignored)")
   output <- strArgument (metavar "OUTPUT" <> help "where to write the result (a PNG unless --format says otherwise)")
-  kernel <- option (oneOf "kernel" kernels)
-    ( long "kernel" <> short 'k' <> metavar "NAME" <> value FloydSteinberg <> showDefaultWith kernelName
-        <> help ("error-diffusion kernel (none: no diffusion): " <> orList (map fst kernels))
+  -- No `value` here: the default depends on --bayer (see `resolve`).
+  kernel <- optional $ option (oneOf "kernel" kernels)
+    ( long "kernel" <> short 'k' <> metavar "NAME"
+        <> help
+          ( "error-diffusion kernel (none: no diffusion): " <> orList (map fst kernels) <> " (default: "
+              <> kernelName FloydSteinberg <> "; " <> kernelName NoDiffusion <> " with --bayer)"
+          )
     )
   q <- quantizer
   bayer <- optional $ option bayerSide
     ( long "bayer" <> metavar "N"
-        <> help "ordered dithering with the N x N Bayer map (N = 2, 4, 8 or 16), over --levels (default 2)"
+        <> help "ordered dithering with the N x N Bayer map (N = 2, 4, 8 or 16), over --levels (default 2); no error diffusion unless --kernel is given"
     )
   machine <- optional $ option (oneOf "machine" machines)
     ( long "machine" <> metavar "NAME"
@@ -250,7 +255,7 @@ parserInfo = info (rawOptions <**> helper)
       <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
         ( "Dithers INPUT.png into OUTPUT. Use at most one of --threshold, --levels, --palette; "
-            <> "--bayer N adds ordered dithering to --levels, or to black and white on its own. "
+            <> "--bayer N gives ordered dithering, over --levels or black and white; without --kernel it passes no error on. "
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
             <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
             <> "screen, two colors per 8x8 cell, and gives an RGB PNG, or with --format scr the "
@@ -263,15 +268,20 @@ parserInfo = info (rawOptions <**> helper)
 -- | `--machine` defines all the colors, so it combines with none of the
 -- | quantizer options (`--kernel` and `--gray` work with everything); a
 -- | screen file holds a machine's screen, so `--format scr` needs
--- | `--machine zx-spectrum`.
+-- | `--machine zx-spectrum`. Without `--kernel`, the kernel is
+-- | Floyd–Steinberg, except with `--bayer`: there it's none, so `--bayer`
+-- | alone is pure ordered dithering. With `--bayer` the kernel decides
+-- | which method runs, pure or the hybrid, so that's the one mode with a
+-- | default of its own.
 resolve :: RawOptions -> Either String Options
 resolve raw = ado
   quantizer <- case raw.machine of
     Just m -> machineChoice m
     Nothing -> quantizerChoice
   format <- formatChoice
-  in { input: raw.input, output: raw.output, kernel: raw.kernel, quantizer, format, gray: raw.gray }
+  in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray }
   where
+  defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
   machineChoice m = case raw.quantizer, raw.bayer of
     Nothing, Nothing -> Right (Machine m)
     Just _, _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"

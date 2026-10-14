@@ -44,7 +44,16 @@ from the code alone.
   `Options.resolve`, whose rejections `parseOptions` turns into ordinary
   optparse failures (same usage text, exit code 1) — optparse's
   alternatives commit to the first matching option, so the rule can't be
-  an alternative without defining `--levels` twice. `--machine NAME`
+  an alternative without defining `--levels` twice. Without `--kernel`,
+  `--bayer` means no diffusion, pure ordered dithering, and every other
+  mode Floyd–Steinberg (decided 2026-10-14): the kernel option has no
+  optparse default, `resolve` fills it in. It's the one per-mode default,
+  because with `--bayer` the kernel decides the method (pure or the
+  hybrid), not just the texture; a global default of none was rejected,
+  since every other mode would then stop dithering by default. Floyd–
+  Steinberg stays the general default: it passes on all the error (true
+  tones), with the fewest neighbours of the kernels that do, and it's the
+  classic. `--machine NAME`
   (2026-10-11; names from `machineName`, now `zx-spectrum`; constructor
   `ZxSpectrumScreen`, since `ZxSpectrum` is the palette's; that palette's
   CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
@@ -249,7 +258,7 @@ from the code alone.
   `ordered (bayer 1)` ≡ `nearestLevel` on sorted levels. Against a
   palette (vectorED) it's not supported: TODO.md, and
   docs/ordered-dithering.md "Not supported".
-- `Puregrain.Cells` (2026-10-11, branch `zx-spectrum`) — dithering with
+- `Puregrain.Cells` (2026-10-11) — dithering with
   cells, like the attribute cells of 8-bit machines. Processed in
   *bands*, one row of cells at a time: per band, each cell gets the
   candidate (any type `c`; `toPalette` maps it to an opaque
@@ -483,7 +492,8 @@ Spectrum's screen) for `npm run dither:zx` (a PNG and a `.scr`), which uses Atki
 Floyd–Steinberg the ZX output shows streaks (error a cell can't use
 builds up; error clamping is a TODO.md item). One script per machine,
 with its best kernel; the CLI's default kernel stays Floyd–Steinberg for
-every mode (no per-mode defaults, decided 2026-10-12). A tile may be left out of every composite and only
+every mode (no per-mode defaults, decided 2026-10-12), except `--bayer`,
+where the kernel picks the method (none, since 2026-10-14). A tile may be left out of every composite and only
 rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
 8×8 grid only from the image's corner; its 71 attributes written out in
 JS independently of the library) is the exact-check input for

@@ -51,7 +51,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Command-line tool
 
-- [ ] **Tape image output, `--format tap`** (after the ZX Spectrum release): the screen as a `.tap` file, to
+- [ ] **Tape image output, `--format tap`** (after ordered dithering inside cells, before the release; decided
+      2026-10-14): the screen as a `.tap` file, to
       load on a Spectrum, or in an emulator, with `LOAD "" SCREEN$`. It wraps the `.scr` bytes in two tape
       blocks, each with a 2-byte length, a flag byte and an XOR checksum: a 17-byte header (type 3, code; a
       10-character name; length 6912; start 16384) and the data. A `toTap` next to `toScr`.
@@ -68,7 +69,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Algorithms
 
-- [ ] **ZX Spectrum screens (attribute cells), next (decided 2026-10-11, branch `zx-spectrum`):** 2 colors per
+- [ ] **ZX Spectrum screens (attribute cells) (decided 2026-10-11; merged 2026-10-14, not released yet):** 2 colors per
       8×8 cell: ink and paper from the 8 base colors, with one BRIGHT bit for both. That makes 71 distinct cell
       palettes: per brightness 28 pairs and 8 single colors, minus the all-black cell, the same in both.
       1. **Choose each cell's palette** from the original pixels. A candidate's score is the sum, over the
@@ -85,8 +86,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
       `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
       2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11), and the
-      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Next: docs and the
-      release (phase F).
+      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Next (decided
+      2026-10-14): ordered dithering inside cells, then the tape format, then the reference doc and the
+      release.
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the
@@ -94,18 +96,16 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       as on the Spectrum, black ink on white paper: ink = the darker color (lower color code), paper = the
       lighter; a single-color cell has ink = paper and all bitmap bits 0; an all-black cell has BRIGHT 0. Exact
       check: decode the `.scr` and compare it with the PNG output.
-- [ ] **Error clamping for cells:** with Floyd–Steinberg, `--machine zx-spectrum` shows thin streaks of extreme
-      pixels, mostly vertical (seen 2026-10-12). A cell can only mix along the line between its two colors, so
-      error pointing elsewhere (green error in a red-and-black cell) isn't used up there; Floyd–Steinberg passes
-      all of it on, it builds up right and down, and erupts where a cell can express it. Atkinson (3/4 of the
-      error) is clearly calmer, which is why `dither:zx` uses it; without diffusion there are none. To evaluate:
-      clamping the corrected value to 0–255 per channel, passing on only part of the error, or not diffusing
-      across cell borders. Measure on `output-zx-*`, and keep the `color:zx-cells` exact check passing.
-- [ ] **Ordered dithering within cells** (after the `.scr` writer): cells chosen as now; then per pixel t = its
-      position on the line from ink (darker, t = 0) to paper (lighter, t = 1), and paper where t exceeds the
-      Bayer threshold at its position. No error flows, so no streaks; the classic look of much ZX art. The
-      order of a cell's two colors then matters (it fixes the pattern's direction, not the tone), so
-      `CellPalette`'s doc must say so. CLI: allow `--bayer N` with `--machine`.
+- [ ] **Ordered dithering within cells** (next; decided 2026-10-14 as the main mode for machine screens,
+      recommended but not forced): cells chosen as now; then per pixel t = its position on the line from ink
+      (darker, t = 0) to paper (lighter, t = 1), and paper where t exceeds the Bayer threshold at its position.
+      No error flows, so no streaks; the classic look of much ZX art. The order of a cell's two colors then
+      matters (it fixes the pattern's direction, not the tone), so `CellPalette`'s doc must say so. Thresholds
+      from the pixel's position in the image, not in the cell: then any map works (2, 4 and 8 tile each cell
+      exactly; 16 spreads 257 tone steps over 2 × 2 cells), so no restriction to sizes that divide 8. CLI:
+      allow `--bayer N` with `--machine`; without `--kernel` that's pure ordered dithering, the `--bayer`
+      default. `dither:zx` and the visual check then show Atkinson and Bayer side by side, both kept for later
+      comparisons; the exact checks get a Bayer case (valid cells unchanged).
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a
@@ -136,6 +136,17 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 
 ## Future directions (not in scope now)
+
+- [ ] Calmer error diffusion in cells (an idea, set aside 2026-10-14: ordered dithering inside cells, which
+      passes no error on, becomes the main mode for machine screens). With Floyd–Steinberg, `--machine
+      zx-spectrum` shows thin streaks of extreme pixels, mostly vertical (seen 2026-10-12). A cell can only mix
+      along the line between its two colors, so error pointing elsewhere (green error in a red-and-black cell)
+      isn't used up there; Floyd–Steinberg passes all of it on, it builds up right and down, and erupts where a
+      cell can express it. Atkinson (3/4 of the error) is clearly calmer. Variants: clamp the corrected value
+      to 0–255 per channel; pass on only part of the error; or stop error at cell borders, which is simple:
+      dither each cell as its own small image, with the existing engine unchanged. The open question is the
+      look, not the code: each cell then restarts its pattern, so a flat area repeats one 8 × 8 tile. Measure
+      on `output-zx-*`, and keep the `color:zx-cells` exact check passing.
 
 - [ ] CMY/CMYK pixel types + GCR/UCR (gray component replacement / under
       color removal). Algebraically CMY(K) is identical to RGB(A) — same

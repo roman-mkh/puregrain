@@ -89,13 +89,23 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
       parse (files <> [ "--levels", "4" ]) `shouldEqual` Right (defaults { quantizer = Levels 4 })
 
-    it "--bayer N alone: ordered dithering over 2 levels; with --levels L, over L levels" do
-      parse (files <> [ "--bayer", "4" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 4, levels: 2 } })
-      parse (files <> [ "--bayer", "8", "--levels", "6" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 8, levels: 6 } })
-      parse (files <> [ "--levels", "6", "--bayer", "8" ]) `shouldEqual` Right (defaults { quantizer = Bayer { side: 8, levels: 6 } })
+    it "--bayer N alone: pure ordered dithering (no kernel) over 2 levels; with --levels L, over L levels" do
+      let pure' quantizer = Right (defaults { kernel = NoDiffusion, quantizer = quantizer })
+      parse (files <> [ "--bayer", "8", "--levels", "6" ]) `shouldEqual` pure' (Bayer { side: 8, levels: 6 })
+      parse (files <> [ "--levels", "6", "--bayer", "8" ]) `shouldEqual` pure' (Bayer { side: 8, levels: 6 })
       for_ [ 2, 4, 8, 16 ] \n ->
-        parse (files <> [ "--bayer", show n, "-k", "none" ])
-          `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = Bayer { side: n, levels: 2 } })
+        parse (files <> [ "--bayer", show n ]) `shouldEqual` pure' (Bayer { side: n, levels: 2 })
+
+    it "--bayer N with --kernel: combined with that kernel (the hybrid)" do
+      for_ [ FloydSteinberg, Atkinson, JarvisJudiceNinke ] \k ->
+        parse (files <> [ "--bayer", "4", "-k", kernelName k ])
+          `shouldEqual` Right (defaults { kernel = k, quantizer = Bayer { side: 4, levels: 2 } })
+      parse (files <> [ "--kernel", "floyd-steinberg", "--levels", "6", "--bayer", "8" ])
+        `shouldEqual` Right (defaults { kernel = FloydSteinberg, quantizer = Bayer { side: 8, levels: 6 } })
+
+    it "without --bayer, every mode defaults to Floyd-Steinberg" do
+      for_ [ [], [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ], [ "--machine", "zx-spectrum" ] ] \extra ->
+        map _.kernel (parse (files <> extra)) `shouldEqual` Right FloydSteinberg
 
     it "--gray turns gray conversion on" do
       parse (files <> [ "--gray" ]) `shouldEqual` Right (defaults { gray = true })
