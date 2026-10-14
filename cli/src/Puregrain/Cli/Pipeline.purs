@@ -23,7 +23,7 @@ import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atki
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
-import Puregrain.Cells (ditherCells)
+import Puregrain.Cells (ditherCells, nearestInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..), formatName)
 import Puregrain.Machine.ZxSpectrum as Zx
 
@@ -54,7 +54,7 @@ pipelineFor choice grayImage = case choice of
 -- | screen file needs.
 ditherScreen :: MachineName -> Kernel -> Array (Array RGB) -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) }
 ditherScreen machine kernel image = case machine of
-  ZxSpectrumScreen -> ditherCells kernel Zx.cellSize Zx.attributePalette Zx.attributes image
+  ZxSpectrumScreen -> ditherCells kernel nearestInCell Zx.screen image
 
 -- | The machine's own screen file for a dithered screen, as bytes: a
 -- | .scr file for the ZX Spectrum. `Left` for a screen of the wrong size,

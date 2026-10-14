@@ -11,7 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
 import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
-import Puregrain.Cells (ditherCells)
+import Puregrain.Cells (ditherCells, nearestInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
 import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, toNeutral)
 import Puregrain.Machine.ZxSpectrum as Zx
@@ -112,7 +112,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
         -- image smaller than one cell can't tell cell sizes apart.)
         image = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y * 20), b: toNumber ((x + y) * 8) }) (0 .. 15)) (0 .. 11)
       ditherScreen ZxSpectrumScreen atkinson image
-        `shouldEqual` ditherCells atkinson Zx.cellSize Zx.attributePalette Zx.attributes image
+        `shouldEqual` ditherCells atkinson nearestInCell Zx.screen image
 
     it "zx-spectrum's screen file is the library's .scr, 6912 bytes" do
       let

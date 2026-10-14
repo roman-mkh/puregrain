@@ -3,6 +3,14 @@
 Open work, roughly in order. The reasons behind past decisions are in
 `CLAUDE.md`.
 
+## Documentation
+
+- [ ] **Public function docs, before the next release** (agreed 2026-10-15): apply the convention in CLAUDE.md
+      ("Public doc comments") to every public module: a summary line, the arguments in signature order, the
+      result and how it fails; shorter and more technical, implementation notes moved to plain comments.
+      `Puregrain.Cells` is the pilot (done with ordered dithering inside cells). Then write the convention
+      into CONTRIBUTING.md.
+
 ## Performance
 
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per
@@ -97,7 +105,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       lighter; a single-color cell has ink = paper and all bitmap bits 0; an all-black cell has BRIGHT 0. Exact
       check: decode the `.scr` and compare it with the PNG output.
 - [ ] **Ordered dithering within cells** (next; decided 2026-10-14 as the main mode for machine screens,
-      recommended but not forced): cells chosen as now; then per pixel t = its position on the line from ink
+      recommended but not forced; library done 2026-10-15, `orderedInCell`; next the CLI): cells chosen as now; then per pixel t = its position on the line from ink
       (darker, t = 0) to paper (lighter, t = 1), and paper where t exceeds the Bayer threshold at its position.
       No error flows, so no streaks; the classic look of much ZX art. The order of a cell's two colors then
       matters (it fixes the pattern's direction, not the tone), so `CellPalette`'s doc must say so. Thresholds

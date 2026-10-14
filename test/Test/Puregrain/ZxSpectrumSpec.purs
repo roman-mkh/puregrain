@@ -18,10 +18,10 @@ import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
 import Puregrain.Cells (cellColors, ditherCells)
-import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, cellSize, ink, paper, toScr)
+import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, ink, paper, screen, toScr)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
-import Test.Puregrain.Arbitrary (TestKernel(..))
+import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
 import Test.Puregrain.Util (mentions)
 
 -- | A color code's color, from the code's bits (1 blue, 2 red, 4 green),
@@ -62,13 +62,13 @@ grid width height f = map (\y -> map (\x -> f x y) (Array.range 0 (width - 1))) 
 
 -- | A whole screen, 32 × 24 cells of 8 × 8 pixels, from each cell's
 -- | attribute and each pixel's color by position.
-screen :: (Int -> Int -> Attribute) -> (Int -> Int -> RGB) -> Screen
-screen cellAt pixelAt = { cells: grid 32 24 cellAt, image: grid 256 192 pixelAt }
+screenOf :: (Int -> Int -> Attribute) -> (Int -> Int -> RGB) -> Screen
+screenOf cellAt pixelAt = { cells: grid 32 24 cellAt, image: grid 256 192 pixelAt }
 
 -- | Black ink on white paper everywhere; white pixels, except black ones
 -- | at the given points.
 inkAt :: Array { x :: Int, y :: Int } -> Screen
-inkAt points = screen (\_ _ -> blackOnWhite) \x y ->
+inkAt points = screenOf (\_ _ -> blackOnWhite) \x y ->
   if Array.elem { x, y } points then expectedColor false 0 else expectedColor false 7
 
 -- | The bytes other than `usual`, with their offsets: a short answer to
@@ -158,14 +158,24 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
           else NEA.cons' (expectedColor (bright a) (ink a)) [ expectedColor (bright a) (paper a) ]
       Array.filter (\a -> colorsOf a /= expected a) all71 `shouldEqual` []
 
+  describe "screen" do
+    -- The size needs its own check: a valid picture stays unchanged with
+    -- smaller cells too, since a piece of a valid cell is valid.
+    it "is 8x8 cells, with the attributes in their order and their colors" do
+      screen.size `shouldEqual` { width: 8, height: 8 }
+      NEA.toArray screen.candidates `shouldEqual` all71
+      map (cellColors <<< screen.palette) all71 `shouldEqual` map colorsOf all71
+
   describe "dithering with the attributes" do
     -- Holds only because of the order: normal white, for example, lies on
     -- the segment from black to bright white, so a cell of black and
     -- normal white scores 0 with both pairs; the nearer pair must come
     -- first, or the white pixels would turn bright.
-    it "leaves a picture made only of valid cells unchanged, with any kernel" do
-      quickCheck \(TestKernel kernel) (TestScreen picture) ->
-        (ditherCells kernel cellSize attributePalette attributes picture).image === picture
+    -- With `orderedInCell` it holds because every threshold lies strictly
+    -- between 0 and 1: ink is at 0, paper at 1.
+    it "leaves a picture made only of valid cells unchanged, with any kernel and rule" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestScreen picture) ->
+        (ditherCells kernel rule screen picture).image === picture
 
   describe "toScr" do
     it "puts each pixel at the Spectrum's address: the leftmost pixel in the highest bit, the rows interleaved" do
@@ -185,7 +195,7 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
         -- Cell column 2 of cell row 1: bright blue ink on bright yellow
         -- paper, all paper.
         special x y = x == 2 && y == 1
-        bytes = toScr $ screen (\x y -> if special x y then attribute 1 6 true else blackOnWhite) \x y ->
+        bytes = toScr $ screenOf (\x y -> if special x y then attribute 1 6 true else blackOnWhite) \x y ->
           if special (x / 8) (y / 8) then expectedColor true 6 else expectedColor false 7
       map Array.length bytes `shouldEqual` Right 6912
       map (unusual 0 <<< Array.take 6144) bytes `shouldEqual` Right []
@@ -195,7 +205,7 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
       let
         -- The first cell is white alone, with white pixels; all the
         -- others are black on white, with black (ink) pixels.
-        bytes = toScr $ screen (\x y -> if x == 0 && y == 0 then attribute 7 7 false else blackOnWhite) \x y ->
+        bytes = toScr $ screenOf (\x y -> if x == 0 && y == 0 then attribute 7 7 false else blackOnWhite) \x y ->
           if x < 8 && y < 8 then expectedColor false 7 else expectedColor false 0
       map (unusual 255 <<< Array.take 6144) bytes `shouldEqual` Right (map (\row -> { offset: row * 256, value: 0 }) (Array.range 0 7))
 
@@ -223,5 +233,5 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
         `shouldSatisfy` mentions "it's 192 rows of different lengths"
       failure (valid { cells = map (Array.drop 1) valid.cells }) `shouldSatisfy` mentions "the cells must form a 32x24 grid, one per 8x8 cell of the image; they're 31x24"
       -- Bright white in a cell of normal black and white.
-      failure (screen (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor true 7 else expectedColor false 7)
+      failure (screenOf (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor true 7 else expectedColor false 7)
         `shouldSatisfy` mentions "pixel (3, 5) isn't one of its cell's colors"
