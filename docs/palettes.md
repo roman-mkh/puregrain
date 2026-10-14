@@ -19,7 +19,7 @@ In the library they're plain `NonEmptyArray RGB` values in
 | `ansi16` | `ansi16` | 16 | The ANSI terminal colors, as xterm's defaults | xterm's [XTerm-col.ad](https://raw.githubusercontent.com/ThomasDickey/xterm-snapshots/master/XTerm-col.ad); matches [Wikipedia: ANSI escape code](https://en.wikipedia.org/wiki/ANSI_escape_code) |
 | `ansi256` | `ansi256` | 256 (249 distinct) | xterm's 256 colors | xterm's [256colres.pl](https://raw.githubusercontent.com/ThomasDickey/xterm-snapshots/master/256colres.pl) |
 | `c64` | `c64` | 16 | Commodore 64 | [Pepto's 2001 palette](https://www.pepto.de/projects/colorvic/2001/) |
-| `zxSpectrum` | `zx-spectrum` | 15 | ZX Spectrum, normal and bright | [lospec](https://lospec.com/palette-list/zx-spectrum), from the 85% rule in [Wikipedia: ZX Spectrum graphic modes](https://en.wikipedia.org/wiki/ZX_Spectrum_graphic_modes) |
+| `zxSpectrum` | `zx15` | 15 | ZX Spectrum, normal and bright | [lospec](https://lospec.com/palette-list/zx-spectrum), from the 85% rule in [Wikipedia: ZX Spectrum graphic modes](https://en.wikipedia.org/wiki/ZX_Spectrum_graphic_modes) |
 
 Old computers had analog video, and terminals let users change their
 colors, so most of these palettes have **no single official set of RGB
@@ -141,7 +141,7 @@ grey, light green, light blue, light grey. There's no official RGB
 definition. These are Pepto's calculated PAL values (2001, gamma
 corrected), the usual reference.
 
-### `zxSpectrum` (`zx-spectrum`)
+### `zxSpectrum` (`zx15`)
 
 The ZX Spectrum's 8 colors (black, blue, red, magenta, green, cyan,
 yellow, white) at normal brightness, then the 7 non-black ones at
@@ -150,20 +150,22 @@ were never measured. This preset uses the common model of normal = 85%
 of bright: `0xD8` against `0xFF`. Many emulators use `0xD7` or `0xCD`
 instead.
 
-It gives each pixel a Spectrum color, but **not the real Spectrum
-look**. The machine allowed only 2 colors in each 8×8 block, which
-per-pixel dithering doesn't imitate (see below).
+As a palette, it gives each pixel a Spectrum color, but **not the real
+Spectrum look**: the machine allowed only 2 colors in each 8×8 cell, an
+ink and a paper, both normal or both bright. For that look, use the CLI's
+`--machine zx-spectrum` ([cli/README.md](../cli/README.md#machine-screens)),
+or in the library `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`.
 
 ## Not included (yet)
 
 - **Other terminal themes** (Windows' Campbell, Solarized, …): user
   choices rather than standards. Pass your own palette instead:
   `nearestColor` takes any non-empty array of colors.
-- **Block-restricted looks:** the real ZX Spectrum (2 colors per 8×8
-  block), C64 multicolor modes, and pseudo-graphics from block characters
-  (ANSI/Unicode blocks, PETSCII, teletext). These choose colors per
-  block, not per pixel, which is a different kind of algorithm. It's
-  listed as a future extension in [TODO.md](../TODO.md).
+- **More block-restricted looks:** C64 multicolor modes, and
+  pseudo-graphics from block characters (ANSI/Unicode blocks, PETSCII,
+  teletext). Like the ZX Spectrum's screen (see above), they choose
+  colors per block rather than per pixel, but with other rules. Listed
+  as a future extension in [TODO.md](../TODO.md).
 - **A perceptual distance measure** (CIELAB): planned as `distance2Lab`
   ([TODO.md](../TODO.md)). Until then, all palettes are matched by plain
   RGB distance.

@@ -13,7 +13,6 @@ module Puregrain.Internal.Image
 
 import Prelude
 
-import Data.Either (Either(..))
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..), Step(..))
@@ -21,8 +20,7 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Kernel (compileKernel)
-import Partial.Unsafe (unsafeCrashWith)
-import Puregrain.Internal.Row (stepRow)
+import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Kernel (Kernel)
 import Puregrain.Pixel (class Scalable)
@@ -75,9 +73,3 @@ ditherRowsWith _ kernel quantize rows =
         Cons row rest ->
           let Tuple state' quantizedRow = orStop (stepRow compiled quantize state row)
           in Cons quantizedRow (go state' rest)
-
--- | A rejected row (a caller's bug) stops with `stepRow`'s message.
-orStop :: forall a. Either String a -> a
-orStop = case _ of
-  Left problem -> unsafeCrashWith problem
-  Right a -> a

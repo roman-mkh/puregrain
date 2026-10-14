@@ -130,8 +130,9 @@ c64 = NEA.cons' (rgb 0x00 0x00 0x00)
 -- | of bright, 0xD8 = 216 ≈ 0.85 × 255 (en.wikipedia.org/wiki/
 -- | ZX_Spectrum_graphic_modes; values as lospec.com/palette-list/zx-spectrum).
 -- | Many emulators use 0xD7 or 0xCD instead.
--- | This is the per-pixel palette only: the real machine allowed just 2 of
--- | these colors per 8×8 cell, which this library doesn't model (yet).
+-- | This is the per-pixel palette. The real machine allowed just 2 of these
+-- | colors per 8×8 cell, with one BRIGHT bit for both;
+-- | `Puregrain.Machine.ZxSpectrum`, with `Puregrain.Cells`, dithers to that.
 zxSpectrum :: NonEmptyArray RGB
 zxSpectrum = normal <> bright
   where

@@ -6,6 +6,20 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Added
+
+- `Puregrain.Cells`: dithering with cells, as on 8-bit home computers. Each
+  cell of `width × height` pixels may use only one or two colors, chosen
+  per cell from a list of candidates. `ditherCells` dithers an image in
+  memory; `ditherBands` a lazy stream of rows, one row of cells at a time.
+  Both return the chosen candidates with the dithered rows.
+- `Puregrain.Machine.ZxSpectrum`: the ZX Spectrum's screen for
+  `Puregrain.Cells`: 8 × 8 cells, each with an ink and a paper color and
+  one BRIGHT bit (`attributes`, the 71 cell palettes that look different;
+  `attributePalette`; `cellSize`). `toScr` writes a dithered 256 × 192
+  screen as a `.scr` file, the Spectrum's own screen format, which
+  emulators open.
+
 ## 0.1.0 - 2026-10-10
 
 The first release.

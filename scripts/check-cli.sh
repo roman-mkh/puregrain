@@ -14,6 +14,8 @@ mkdir -p $out
 node scripts/generate-images.mjs --pattern color --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:palette-exact --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:channel-ramps --out $out >/dev/null
+node scripts/generate-images.mjs --pattern color:zx-cells --size 256x192 --out $out >/dev/null
+node scripts/generate-images.mjs --pattern color --size 256x192 --out $out >/dev/null
 
 pass() { echo "PASS  $1"; }
 fail() { echo "FAIL  $1"; exit 1; }
@@ -87,3 +89,55 @@ for kernel in none floyd-steinberg; do
     && pass "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output == input" \
     || fail "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output differs from input"
 done
+
+# 6. An image made only of valid ZX Spectrum cells (each 8×8 cell only the
+#    ink and paper of one attribute) fits the machine's own cells exactly,
+#    so the error is zero everywhere and it must come back unchanged: with
+#    error diffusion and without. The CLI twin of the property in
+#    Test.Puregrain.ZxSpectrumSpec.
+for kernel in floyd-steinberg none; do
+  $cli $out/color-zx-cells-256x192.png $out/zx.png --machine zx-spectrum --kernel $kernel >/dev/null
+  cmp -s $out/color-zx-cells-256x192.png $out/zx.png \
+    && pass "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output == input" \
+    || fail "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output differs from input"
+done
+
+# 7. A .scr file (--format scr) holds the same picture as the PNG of the
+#    same run. It's decoded here independently: each pixel's byte by the
+#    Spectrum's address formula, its bit (1 = ink), its cell's attribute,
+#    and the colors from the code bits (0xD8 normal, 0xFF bright). It must
+#    match the PNG pixel for pixel, be 6912 bytes long, and leave FLASH off.
+$cli $out/color-256x192.png $out/zx-color.png --machine zx-spectrum --kernel atkinson >/dev/null
+$cli $out/color-256x192.png $out/zx-color.scr --machine zx-spectrum --kernel atkinson --format scr >/dev/null
+result=$(node -e '
+  const fs = require("fs"); const { PNG } = require("pngjs");
+  const scr = fs.readFileSync(process.argv[1]);
+  const png = PNG.sync.read(fs.readFileSync(process.argv[2]));
+  if (scr.length !== 6912) { console.log(scr.length + " bytes, not 6912"); process.exit(); }
+  let wrong = 0, flash = 0;
+  for (let i = 6144; i < 6912; i++) if (scr[i] & 128) flash++;
+  for (let y = 0; y < 192; y++) for (let x = 0; x < 256; x++) {
+    const address = ((y & 0xC0) << 5) | ((y & 7) << 8) | ((y & 0x38) << 2) | (x >> 3);
+    const isInk = (scr[address] >> (7 - (x & 7))) & 1;
+    const attribute = scr[6144 + (y >> 3) * 32 + (x >> 3)];
+    const code = isInk ? attribute & 7 : (attribute >> 3) & 7;
+    const level = attribute & 64 ? 255 : 216;
+    const i = (y * 256 + x) * 4;
+    if (png.data[i] !== (code & 2 ? level : 0) || png.data[i + 1] !== (code & 4 ? level : 0)
+      || png.data[i + 2] !== (code & 1 ? level : 0)) wrong++;
+  }
+  console.log(wrong === 0 && flash === 0 ? "ok" : wrong + " pixels differ, " + flash + " cells with FLASH");' \
+  $out/zx-color.scr $out/zx-color.png)
+[ "$result" = ok ] \
+  && pass "color composite at 256x192, --machine zx-spectrum --format scr: the .scr decodes to the PNG" \
+  || fail "color composite at 256x192, --machine zx-spectrum --format scr: $result"
+
+# 8. A .scr file holds exactly one 256×192 screen, so another size is
+#    rejected before dithering: exit code 1, an error naming the size, and
+#    no file written.
+rm -f $out/wrong-size.scr
+code=0
+$cli $out/color-512.png $out/wrong-size.scr --machine zx-spectrum --format scr >/dev/null 2>$out/wrong-size.err || code=$?
+[ "$code" -eq 1 ] && [ ! -e $out/wrong-size.scr ] && grep -q "needs a 256x192 image" $out/wrong-size.err \
+  && pass "color composite at 512x512, --machine zx-spectrum --format scr: rejected (exit 1), no file written" \
+  || fail "color composite at 512x512, --machine zx-spectrum --format scr: exit code $code (expected 1), file written: $([ -e $out/wrong-size.scr ] && echo yes || echo no), error: $(cat $out/wrong-size.err)"

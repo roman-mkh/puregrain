@@ -209,6 +209,36 @@ const SKIN_TONES = [
 // error in every channel, so scalarED must keep it exactly neutral.
 const CHANNEL_STRIPES = [(t) => [t, t, t], (t) => [t, 0, 0], (t) => [0, t, 0], (t) => [0, 0, t]];
 
+// The ZX Spectrum's attribute cells, written out here independently of the
+// library: per brightness, every ink and paper from its 8 colors (color
+// code bits: 1 blue, 2 red, 4 green; 0xD8 at normal brightness, 0xFF with
+// BRIGHT), all black only once, since it looks the same either way. 71 in
+// all, each an [ink, paper] pair of colors.
+const ZX_ATTRIBUTES = (() => {
+  const color = (code, bright) => {
+    const v = bright ? 0xff : 0xd8;
+    return [code & 2 ? v : 0, code & 4 ? v : 0, code & 1 ? v : 0];
+  };
+  const list = [];
+  for (const bright of [false, true]) {
+    for (let ink = 0; ink < 8; ink++) {
+      for (let paper = ink; paper < 8; paper++) {
+        if (!(bright && ink === 0 && paper === 0)) list.push([color(ink, bright), color(paper, bright)]);
+      }
+    }
+  }
+  return list;
+})();
+
+// Where a cell shows its ink (true) rather than its paper, by the pixel's
+// position in the cell: a checkerboard, stripes, a half, sparse dots.
+const ZX_CELL_PATTERNS = [
+  (x, y) => (x + y) % 2 === 0,
+  (x, y) => y % 2 === 0,
+  (x) => x < 4,
+  (x, y) => (x + 2 * y) % 5 === 0,
+];
+
 // ---------------------------------------------------------------------------
 // Tile registry. Ids are "<pattern>:<name>"; the pattern decides the PNG
 // type a tile is written as when rendered alone (see COMPOSITES).
@@ -340,6 +370,21 @@ export const TILES = [
     id: 'color:sphere',
     description: 'Colored sphere with a white specular highlight on a dark bluish-gray: smooth color shading.',
     draw: (img, rect) => drawSphere(img, rect, [220, 70, 50], [60, 64, 72]),
+  },
+  // Not placed in the color composite: its cells are only aligned to the
+  // Spectrum's 8×8 grid when the tile starts at the image's corner.
+  {
+    id: 'color:zx-cells',
+    description: 'ZX Spectrum cells, rendered alone: each 8×8 cell only the ink and paper of one attribute, all 71 in turn. Must come out unchanged with --machine zx-spectrum.',
+    draw: (img, rect) => {
+      const columns = Math.ceil(rect.w / 8);
+      forEachPixel(rect, (x, y) => {
+        const cell = Math.floor((y - rect.y0) / 8) * columns + Math.floor((x - rect.x0) / 8);
+        const [ink, paper] = ZX_ATTRIBUTES[cell % ZX_ATTRIBUTES.length];
+        const inkHere = ZX_CELL_PATTERNS[cell % ZX_CELL_PATTERNS.length]((x - rect.x0) % 8, (y - rect.y0) % 8);
+        setRGB(img, x, y, inkHere ? ink : paper);
+      });
+    },
   },
 ];
 

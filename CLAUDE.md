@@ -44,8 +44,27 @@ from the code alone.
   `Options.resolve`, whose rejections `parseOptions` turns into ordinary
   optparse failures (same usage text, exit code 1) — optparse's
   alternatives commit to the first matching option, so the rule can't be
-  an alternative without defining `--levels` twice. `spago test` runs
-  both packages' suites (library, then CLI).
+  an alternative without defining `--levels` twice. `--machine NAME`
+  (2026-10-11; names from `machineName`, now `zx-spectrum`; constructor
+  `ZxSpectrumScreen`, since `ZxSpectrum` is the palette's; that palette's
+  CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
+  its color count like `cga16`, so `zx-spectrum` means only the real
+  look; the CLI isn't published, so nobody outside broke) is a quantizer
+  choice of its own, `Machine m`: `resolve` rejects it with `--threshold`,
+  `--levels`, `--palette` (the machine defines the colors) and `--bayer`;
+  `--kernel` and `--gray` work. `Pipeline` routes it to a third pipeline,
+  `Screen m` (RGB); `ditherScreen` calls `ditherCells` with the machine's
+  cells and returns them with the picture. `--format NAME` (2026-10-12;
+  `png`, the default, or `scr`; names from `formatName`) picks the output
+  file, and only that file is written (decided: one option for the
+  format, no second file next to the PNG). `resolve` rejects `scr`
+  without `--machine zx-spectrum`, matching the machine without a
+  wildcard, so a new machine must decide its formats. `screenSizeCheck`
+  runs before dithering: for an image other than 256×192, a note with a
+  PNG (any size works, e.g. a poster), an error with `scr` (exit 1, no
+  file). `screenFile` maps the machine to its encoder (`Zx.toScr`), and
+  `Main` writes the bytes with `node-fs`/`node-buffer`, no JS of our own.
+  `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
   users, no tests: `QuickStart` (a gray gradient made in code, and the
@@ -121,8 +140,11 @@ from the code alone.
     customization (`compilePalette`, `distance2`, `nearestColorFast`,
     `paletteColors`, `compileThresholdMap`, `bayerMatrix`, `thresholdAt`)
     stay in their modules. Docs recommend `import Puregrain as P`. The
-    CLI imports only `Puregrain`, so its build checks the facade covers a
-    real application.
+    CLI imports the typical features only through `Puregrain`, so its
+    build checks the facade covers a real application; the specialty
+    modules, which stay out of the facade (`Puregrain.Cells`,
+    `Puregrain.Machine.*`), it imports directly, as an application would
+    (decided 2026-10-11).
   - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
     `Row`, `Image` (`ditherImageWith`, `ditherRowsWith`), `Util`) — exported
     (PureScript has no package-private modules; the tests need them) but
@@ -203,8 +225,10 @@ from the code alone.
   `cga16`), `c64` (Pepto), `zxSpectrum`
   (normal = 0xD8). Historical/terminal palettes have no official RGB, so
   every preset cites its source in a comment — values were checked
-  against those sources, not recalled. Per-pixel only; block-constrained
-  looks (ZX 8×8 attribute cells, pseudo-graphics) are a TODO.md item.
+  against those sources, not recalled. Per-pixel; the ZX attribute cells
+  are `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`, and other
+  block-constrained looks (C64 multicolor, pseudo-graphics) are a TODO.md
+  item.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
   short table).
@@ -225,6 +249,75 @@ from the code alone.
   `ordered (bayer 1)` ≡ `nearestLevel` on sorted levels. Against a
   palette (vectorED) it's not supported: TODO.md, and
   docs/ordered-dithering.md "Not supported".
+- `Puregrain.Cells` (2026-10-11, branch `zx-spectrum`) — dithering with
+  cells, like the attribute cells of 8-bit machines. Processed in
+  *bands*, one row of cells at a time: per band, each cell gets the
+  candidate (any type `c`; `toPalette` maps it to an opaque
+  `CellPalette` of 1 or 2 colors, built by `singleColor`/`colorPair`)
+  with the lowest score, then the band's rows are dithered (internal
+  `stepRow`, with a quantizer built for that band: the nearer of the
+  cell's colors, read by index `x / cellWidth`). One engine
+  (`stepBand`), two drivers, like `ditherImage`/`ditherRows`:
+  `ditherCells` (in memory, returns `{ cells, image }`) and
+  `ditherBands` (lazy: a band's rows are read only when the band is
+  forced, so one band is in memory; returns `{ cells, rows }` per band,
+  which a `.scr` writer needs). Choosing and dithering were first two
+  public functions (`chooseCells`, `cellQuantize`; phase B); fused in
+  phase B2 (decided 2026-10-11): one implementation, and a cell grid
+  that doesn't match the image can no longer be passed. Exporting a
+  "choose only" function later is compatible (e.g. for hand-fixed
+  attributes). Cells are chosen from the *original* pixels, not a
+  pre-dithered image (no information lost, no dot noise in the choice,
+  independent of the kernel); in-memory and streaming results are
+  identical, pinned by a property. The score: the sum of each pixel's
+  squared RGB distance to the *segment* between the two colors, since
+  dithering can produce any mix of them. (Scoring by the nearer color
+  fails: a gray scores the same with black–white and blue–white, as the
+  user pointed out.) Candidates are tried in the given order and the
+  earlier wins a tie (`<`): the order is the caller's policy (ZX: single
+  colors first, nearest pairs first, so the narrowest palette wins). Two
+  early stops, at a score of 0 and when a sum reaches the best so far,
+  give the same result: `CellsSpec` pins that against a plain full-score
+  search, with exact ties (a duplicate candidate, images made of the
+  candidates' own colors). The tie example alone doesn't catch a `<=`;
+  the property does (mutation checked). `CellPalette` is a plain
+  container: its two colors are symmetric, and what they mean (ink,
+  paper, BRIGHT) belongs to `Puregrain.Machine.<Name>`. Cell sizes below
+  1 count as 1 (no positive-integer type: `naturals` includes 0 and
+  clamps too); partial cells at the edges. Not in the facade (start
+  closed). Laziness tests wrap *every* read in `errorOf`: a read that
+  happens too early otherwise crashes the whole test run instead of
+  failing that test (seen with a mutation, 2026-10-11).
+- `Puregrain.Machine.ZxSpectrum` (2026-10-11) — the first module of the
+  `Puregrain.Machine.<Name>` namespace (decided 2026-10-11: one module per
+  machine, with its display rules; `C64`, `Msx` would sit next to it).
+  Imported `as Zx`, with ZX names: `Attribute` (opaque, so only the 71
+  valid values exist; read with `ink`, `paper` as color codes 0–7, and
+  `bright`), `attributes`, `attributePalette`, `cellSize` (8 × 8). The 71:
+  per brightness 8 single colors and 28 pairs, minus the duplicate
+  all-black cell (kept without BRIGHT). Convention as on the Spectrum
+  (black ink on white paper): ink = the darker color (lower code), paper
+  = the lighter; a single-color cell has ink = paper. Order (the tie
+  policy for `Puregrain.Cells`): the 15 single colors first, then the
+  pairs by the distance between their colors, nearest first (equal
+  distances: normal before bright, then ink, then paper). The order is
+  what makes "a picture made only of valid cells dithers to itself"
+  hold: normal white lies on the black–bright white segment, so a cell of
+  black and normal white scores 0 with both pairs, and the nearer must
+  win (mutation checked: farthest-first breaks the property). Colors
+  come from the `zxSpectrum` preset by index (it's in color-code order);
+  `ZxSpectrumSpec` checks them against the code's bits (1 blue, 2 red,
+  4 green), written independently. Not in the facade. `toScr`
+  (2026-10-12) turns `ditherCells`' result, the record of cells and
+  image, into a `.scr` file's 6912 bytes, `Either String (Array Int)`
+  (the record, because that's what `ditherCells` returns; decided
+  2026-10-12). `Left` for an image not 256×192, cells not 32×24, or a
+  pixel not one of its cell's colors. The bitmap is built offset by
+  offset, inverting the Spectrum's address formula; paper is tested
+  first, so a single-color cell gets only 0 bits (only an example test
+  catches ink-first: reading the file back can't see those bits). The
+  spec's reader `readScr` uses the forward formula, with arithmetic, on
+  random full screens (`quickCheck' 10`: each has 49,152 pixels).
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -254,8 +347,11 @@ from the code alone.
   (internal, formerly `ditherRow`) checks each row's length against
   `width` first: a different length is a caller's bug, a `Left` with a
   message naming the row. The public stepper `ditherRow` returns it;
-  `ditherImage`/`ditherRows` turn it into a runtime error
-  (`unsafeCrashWith`), since their result types have no error channel. `ditherRowsWith`
+  `ditherImage`/`ditherRows` (and `Puregrain.Cells`' `ditherCells`/
+  `ditherBands`) turn it into a runtime error with `orStop`, which lives
+  next to `stepRow` in `Internal.Row` as the other half of its contract
+  (moved from `Internal.Image` 2026-10-11), since their result types have
+  no error channel. `ditherRowsWith`
   does all its work inside `defer`, so each row is read and dithered
   only when its cell is forced (until 2026-10-04 a strict `let` outside
   the `defer` dithered each row one cell early); `DitherSpec` pins it
@@ -371,7 +467,7 @@ anchors plus the single name segment keep out the CLI's
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
 arbitrary kernels/palettes/images ("whole images" blocks in
-`PaletteSpec`/`PixelSpec`/`OrderedSpec`), and end to end through the real CLI on the
+`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`), and end to end through the real CLI on the
 generated images (`npm run check:cli`). Not redundant: Spec can't
 reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
 check:cli can't cover arbitrary inputs.
@@ -381,7 +477,18 @@ Visual checks and benchmarks share one set of generated images:
 `scripts/lib/test-patterns.mjs`), documented tile by tile in
 `docs/test-images.md`. Generated images go to gitignored `samples/`;
 the two doc previews in `docs/images/test-images/` are the only ones
-committed (refresh: `npm run docs:images`). pngjs gotcha: the output
+committed (refresh: `npm run docs:images`). `npm run generate-images`
+writes both composites at 512², and the color one at 256×192 (the ZX
+Spectrum's screen) for `npm run dither:zx` (a PNG and a `.scr`), which uses Atkinson: with
+Floyd–Steinberg the ZX output shows streaks (error a cell can't use
+builds up; error clamping is a TODO.md item). One script per machine,
+with its best kernel; the CLI's default kernel stays Floyd–Steinberg for
+every mode (no per-mode defaults, decided 2026-10-12). A tile may be left out of every composite and only
+rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
+8×8 grid only from the image's corner; its 71 attributes written out in
+JS independently of the library) is the exact-check input for
+`--machine zx-spectrum`; `--list` marks such tiles "(alone only)".
+pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 — the `new PNG({ colorType })` constructor option is ignored by the
 sync writer, which silently wrote every "grayscale" image as RGBA.
@@ -397,7 +504,7 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   effect is built, not when it runs** (`do let x = e; …` is just
   `let x = e in …`), so `try` can't catch an error it throws. Delay it
   behind a bind: `pure unit >>= \_ -> pure (f unit)` (`whenRun` in
-  `Test.Puregrain.DitherSpec`).
+  `Test.Puregrain.Util`, with `errorOf` and `mentions`).
 
 - **A `where` after guards belongs to the last guard only** — unlike
   Haskell, where it scopes over all of them. `f n | c = g n | otherwise
@@ -434,6 +541,12 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   failed". `ssh2` and `cpu-features` (spago's, for SSH keys in
   `spago auth`) are denied: their scripts only build optional native code.
   Change with `npm install-scripts approve/deny <pkg>`.
+- **`spago build --strict` only reports warnings for modules it compiles.**
+  A module compiled earlier by a non-strict command (e.g. `spago test`)
+  isn't recompiled, so its warning goes unreported: a strict build
+  failed, `spago test` passed, and the next strict build passed too, with
+  the same unused import still there (2026-10-11). Only a build from
+  scratch is reliable: `npm run check:clean`, like CI.
 - **No automatic memoization**: unlike GHC, PureScript never shares
   repeated pure computations for you. If something is computed inside
   a per-pixel hot path but doesn't depend on the pixel, hoist it out

@@ -8,11 +8,8 @@ import Data.Foldable (foldM)
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..))
-import Data.Maybe (Maybe(..), maybe)
-import Data.String (Pattern(..), contains)
-import Effect (Effect)
+import Data.Maybe (Maybe(..))
 import Effect.Class (liftEffect)
-import Effect.Exception (message, try)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck ((===))
 import Test.Spec (Spec, describe, it)
@@ -25,28 +22,10 @@ import Puregrain.Ordered (ordered)
 import Puregrain.Pixel (class Scalable)
 import Puregrain.Quantize (Quantize, evenRamp, threshold)
 import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..))
-import Test.Puregrain.Util (bayerMap)
+import Test.Puregrain.Util (bayerMap, errorOf, mentions)
 
 q :: Quantize Number
 q = threshold 128.0
-
--- | Runs `f` when the effect runs, not when it's built. (A leading `let`
--- | in a `do` block would be evaluated while building the effect, and an
--- | error thrown there would escape `try`.)
-whenRun :: forall a. (Unit -> a) -> Effect a
-whenRun f = pure unit >>= \_ -> pure (f unit)
-
--- | The error the computation `f` stops with, if any. `f` runs inside
--- | `try`, which is where the error surfaces; `f` must force the result.
-errorOf :: forall a. (Unit -> a) -> Effect (Maybe String)
-errorOf f = do
-  result <- try (whenRun f)
-  pure case result of
-    Left err -> Just (message err)
-    Right _ -> Nothing
-
-mentions :: String -> Maybe String -> Boolean
-mentions text = maybe false (contains (Pattern text))
 
 -- | The rows dithered one at a time with `ditherRow`, from `initDithering`.
 ditherEach :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Either String (Array (Array a))
@@ -116,11 +95,15 @@ spec = describe "Puregrain.Dither" do
         -- An input whose third row stops with an error when it's read.
         input = LL.cons first (LL.cons second (List (defer \_ -> unsafeCrashWith "the third input row was read")))
         out = ditherRows floydSteinberg q input
-      -- Two result rows read the first two input rows, not the third…
+      -- Two result rows read the first two input rows, not the third. Every
+      -- read is inside `errorOf`, so reading too early fails this test
+      -- instead of stopping the whole test run.
+      firstTwo <- liftEffect (errorOf \_ -> Array.length (allRows (LL.take 2 out)))
+      firstTwo `shouldEqual` Nothing
       allRows (LL.take 2 out) `shouldEqual` ditherImage floydSteinberg q [ first, second ]
       -- …and the third result row is what reads the third input row.
-      result <- liftEffect (errorOf \_ -> LL.length (LL.take 3 out))
-      result `shouldSatisfy` mentions "the third input row was read"
+      third <- liftEffect (errorOf \_ -> LL.length (LL.take 3 out))
+      third `shouldSatisfy` mentions "the third input row was read"
 
   describe "rows of different lengths (a caller's bug)" do
     let
@@ -135,6 +118,9 @@ spec = describe "Puregrain.Dither" do
 
     it "ditherRows stops when it reaches that row; the rows before it come out" do
       let out = ditherRows floydSteinberg q (LL.fromFoldable tooLong)
+      -- Inside `errorOf` first, like the laziness test above.
+      firstTwo <- liftEffect (errorOf \_ -> Array.length (allRows (LL.take 2 out)))
+      firstTwo `shouldEqual` Nothing
       allRows (LL.take 2 out) `shouldEqual` ditherImage floydSteinberg q (Array.take 2 tooLong)
       result <- liftEffect (errorOf \_ -> Array.length (allRows out))
       result `shouldSatisfy` mentions "row 2 has 4 pixels, but the first row has 3"

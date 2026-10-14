@@ -63,6 +63,12 @@ function printList() {
     for (const [id] of composite.layout) {
       console.log(`  ${id.padEnd(idWidth)}  ${findTile(id).description}`);
     }
+    // Tiles of this pattern that the composite doesn't place: rendered alone only.
+    for (const tile of TILES) {
+      if (tile.id.startsWith(`${name}:`) && !composite.layout.some(([id]) => id === tile.id)) {
+        console.log(`  ${tile.id.padEnd(idWidth)}  (alone only) ${tile.description}`);
+      }
+    }
     console.log();
   }
   console.log('Details and what to look for: docs/test-images.md');

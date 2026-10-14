@@ -3,6 +3,7 @@
 -- | notice.
 module Puregrain.Internal.Row
   ( stepRow
+  , orStop
   , initBuilding
   , commitBuilding
   ) where
@@ -103,3 +104,13 @@ stepRow compiled quantize state pixels =
     stepAdapter rowState px =
       let Tuple rowState' q = step compiled quantize rowState px
       in { accum: rowState', value: q }
+
+-- | The other half of `stepRow`'s contract: its `Left` (a row of a
+-- | different length, a caller's bug) becomes a stop with the same
+-- | message. For the drivers whose result type can't carry an error:
+-- | `ditherImage` and `ditherRows` (`Puregrain.Internal.Image`), and
+-- | `ditherCells` and `ditherBands` (`Puregrain.Cells`).
+orStop :: forall a. Either String a -> a
+orStop = case _ of
+  Left problem -> unsafeCrashWith problem
+  Right a -> a
