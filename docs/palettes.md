@@ -153,8 +153,9 @@ instead.
 As a palette, it gives each pixel a Spectrum color, but **not the real
 Spectrum look**: the machine allowed only 2 colors in each 8×8 cell, an
 ink and a paper, both normal or both bright. For that look, use the CLI's
-`--machine zx-spectrum` ([cli/README.md](../cli/README.md#machine-screens)),
-or in the library `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`.
+`--machine zx-spectrum`, or in the library `Puregrain.Machine.ZxSpectrum`
+with `Puregrain.Cells` (see
+[machine-screens/zx-spectrum.md](machine-screens/zx-spectrum.md)).
 
 ## Not included (yet)
 

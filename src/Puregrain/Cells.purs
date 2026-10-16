@@ -4,7 +4,8 @@
 -- | 8-bit home computers work, such as the ZX Spectrum's 8 × 8 cells with
 -- | an ink and a paper color (`Puregrain.Machine.ZxSpectrum`). A
 -- | `CellMode` holds the cell size and the candidates; a machine module
--- | exports one per screen mode.
+-- | exports one per screen mode. How it works and which rule suits which
+-- | picture: [docs/machine-screens/](https://github.com/roman-mkh/puregrain/blob/master/docs/machine-screens/README.md).
 -- |
 -- | The image is processed in bands, one row of cells at a time. In each
 -- | band:

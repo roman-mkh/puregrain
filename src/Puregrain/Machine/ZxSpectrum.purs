@@ -19,7 +19,9 @@
 -- |
 -- | `cells` holds each cell's `Attribute`: its ink, paper and BRIGHT, as a
 -- | screen file needs them; `toScr` turns the whole result into one. The
--- | colors are those of `Puregrain.Palette.Presets.zxSpectrum`.
+-- | colors are those of `Puregrain.Palette.Presets.zxSpectrum`. The
+-- | colors, the attributes and the file layouts in full:
+-- | [docs/machine-screens/zx-spectrum.md](https://github.com/roman-mkh/puregrain/blob/master/docs/machine-screens/zx-spectrum.md).
 module Puregrain.Machine.ZxSpectrum
   ( Attribute
   , ink

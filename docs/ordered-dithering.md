@@ -10,7 +10,7 @@ puregrain has it in the library (`Puregrain.Ordered`) and in the CLI
 works on its own, or combined with any error-diffusion kernel. Inside the
 cells of a machine's screen, `Puregrain.Cells.orderedInCell` applies the
 same thresholds between each cell's two colors (`--machine zx-spectrum
---bayer N` in the CLI).
+--bayer N` in the CLI; see [machine-screens/](machine-screens/README.md)).
 
 ## The idea
 

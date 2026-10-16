@@ -146,9 +146,17 @@ from the code alone.
   run them, a REPL session with variations to try.
 - Reference docs live in `docs/` and are the single source of truth:
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
+  `machine-screens/` (decided 2026-10-16, the user's idea: one folder,
+  its `README.md` for what all cell screens share, which mode for which
+  picture included, and one page per machine, `zx-spectrum.md` first,
+  with the colors, attributes, file layouts and sources; mirrors
+  `Puregrain.Cells` and `Puregrain.Machine.<Name>`),
   `benchmarks-dithering.md` (current),
   `benchmarks-fifo.md` (finished record). READMEs summarize and link
-  rather than copy, so tables don't drift apart.
+  rather than copy, so tables don't drift apart. The CLI README's
+  "Machine screens" keeps only the CLI's part: options, the size rule
+  (the CLI's size error points there for the resize hint), the files in
+  a sentence each, and links.
 - `cli/README.md` — the CLI's user docs.
 
 ## Core architecture

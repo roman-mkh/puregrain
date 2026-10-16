@@ -289,9 +289,9 @@ and light gray patches stay gray patterns. In the Atkinson version, the
 dots are irregular, and dark and light tones are pushed to black and
 white: the sphere's shadow side turns solid black. With Floyd–Steinberg,
 thin streaks of extreme pixels can appear, mostly vertical: error a
-cell's two colors can't use builds up (see cli/README.md, "Machine
-screens"); that's a known limit of error diffusion in cells, not a
-regression.
+cell's two colors can't use builds up (see [which mode for which
+picture](machine-screens/README.md#which-mode-for-which-picture)); that's
+a known limit of error diffusion in cells, not a regression.
 
 ## Exact checks
 

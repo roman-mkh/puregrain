@@ -85,7 +85,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       inside cells is done too (2026-10-15: `orderedInCell`, `--machine zx-spectrum --bayer N`), the main
       mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. The docs pass over the public
       modules is done too (2026-10-16), and the tape format (2026-10-16: `Zx.toTap`, `--format tap`, with a
-      BASIC loader). Next: the reference doc, then the release.
+      BASIC loader), and the reference docs, `docs/machine-screens/` (2026-10-16). Next: the release.
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the

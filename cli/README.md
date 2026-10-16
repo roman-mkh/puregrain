@@ -174,70 +174,46 @@ the CLI:
 
 ## Machine screens
 
-`--machine zx-spectrum` dithers to the ZX Spectrum's screen. The screen is
-divided into cells of 8×8 pixels, and each cell has two colors: an *ink*
-and a *paper*, from the Spectrum's 8 colors, with one BRIGHT bit for both.
-So a cell's two colors are both normal or both bright.
+`--machine zx-spectrum` dithers to the ZX Spectrum's screen: 8×8 cells,
+each with two colors, an ink and a paper, both normal or both bright.
+Each cell gets the pair that fits its pixels best, and its pixels are
+dithered with just those two colors. How that works, what it looks like,
+and the Spectrum's colors and files are described in
+[docs/machine-screens/](../docs/machine-screens/README.md).
 
-- **How each cell gets its colors:** from the 71 pairs (and single colors)
-  that look different, the CLI picks the one whose mixes come closest to
-  the cell's pixels in the input. A gray cell, for example, gets black and
-  white, which can be mixed into gray. Then it dithers inside each cell
-  with just those two colors; the error flows on across cell borders as
-  usual. A cell that fits several pairs equally well gets the closest
-  pair, which gives the calmest result.
-- **What it looks like:** where colors change, the 8×8 grid shows, a
-  colored edge stepping block by block. On the Spectrum this was called
-  *attribute clash*. Inside a cell, smooth shading becomes a dot pattern
-  of its two colors.
-- **Size:** the Spectrum's screen is 256×192. Other sizes work too for a
-  PNG, a poster in the Spectrum's style, say; the CLI then prints a note.
-  If the size isn't a multiple of 8, the cells at the right and bottom
-  edges are smaller. A screen file or tape (`.scr` or `.tap`) needs
-  exactly 256×192:
-  for any other size the CLI stops with an error before dithering. To
-  bring a picture to the screen's size, resize it with another tool first,
-  for example ImageMagick (the `!` ignores the aspect ratio):
+- **Which mode:** it depends on the picture. `--bayer 8`, ordered
+  dithering inside the cells, suits drawn graphics and smooth shading, and
+  gives the classic Spectrum look. `--kernel atkinson`, error diffusion,
+  suits photos with fine detail. Floyd–Steinberg, the default without
+  `--bayer`, can leave streaks. Details: [which mode for which
+  picture](../docs/machine-screens/README.md#which-mode-for-which-picture).
+- **Options:** any `--kernel` works; `--kernel none` gives flat cells.
+  `--bayer N` gives ordered dithering inside the cells, with no error
+  passed on unless `--kernel` names a kernel. `--gray` converts the input
+  to gray first.
+- **Size:** the Spectrum's screen is 256×192. Other sizes work for a PNG,
+  a poster in the Spectrum's style, say; the CLI then prints a note. A
+  screen file or tape (`.scr` or `.tap`) needs exactly 256×192: for any
+  other size the CLI stops with an error before dithering. To bring a
+  picture to the screen's size, resize it with another tool first, for
+  example ImageMagick (the `!` ignores the aspect ratio):
   `magick photo.png -resize '256x192!' screen.png`.
-- **Options:** any `--kernel` works; `--kernel none` gives flat cells,
-  with no dots. `--bayer N` gives ordered dithering inside the cells:
-  each cell's two colors in a regular pattern, with no error passed on
-  unless `--kernel` names a kernel. `--gray` converts the input to gray
-  first. The output is an RGB PNG, or as `.scr` or `.tap` the Spectrum's
-  screen file or a tape image.
-- **Screen file (`.scr`):** the Spectrum's own format, a copy of
-  its screen memory, 6912 bytes: the bitmap, one bit per pixel (1 for the
-  ink, 0 for the paper), then one attribute byte per cell. A single-color
-  cell has only 0 bits. Emulators open it, for example Fuse, with File →
-  Open SCR Screenshot. The CLI writes only the format you choose; for
-  several, run it once per format, as `npm run dither:zx` does.
-- **Tape image (`.tap`):** a tape that loads and shows the
-  screen: a one-line BASIC program, `10 LOAD "" SCREEN$: PAUSE 0`, which
-  starts by itself, then the screen as a CODE file of 6912 bytes. Open it
-  in an emulator, which loads it by itself (Fuse: File → Open), or type
-  `LOAD ""` on a Spectrum: the picture appears and stays until a key is
-  pressed. The name on the tape is the output file's name, without its
-  directory and extension, cut to 10 printable characters.
-- **Which mode:** `--bayer 8` looks best, and most like the Spectrum's
-  own art: each cell's two colors in a regular pattern, every tone kept,
-  and no streaks, since no error flows. `--bayer 4` gives a coarser
-  pattern with fewer tone steps. Of the error-diffusion kernels, Atkinson
-  looks best, but it pushes dark and light tones to black and white: the
-  shadow side of the test images' sphere turns solid black. With
-  Floyd–Steinberg, the default without `--bayer`, thin streaks can appear:
-  a cell can only mix along the line between its two colors, so error
-  that points elsewhere (green error arriving in a red-and-black cell,
-  say) can't be used up there. Floyd–Steinberg passes all of it on, so it
-  builds up to the right and downwards, until a cell whose colors can
-  express it turns it into a line of extreme pixels. Atkinson passes on
-  only 3/4 of each error, so such error dies out.
+- **Output:** an RGB PNG, or the Spectrum's own files, by the output's
+  extension. A `.scr` is the screen memory, 6912 bytes, which emulators
+  open (Fuse: File → Open SCR Screenshot). A `.tap` is a tape that loads
+  and shows the picture by itself: open it in an emulator, or type
+  `LOAD ""` on a Spectrum. The name on the tape is the output file's name,
+  without its directory and extension, cut to 10 characters. The CLI
+  writes only the format you choose; for several, run it once per format,
+  as `npm run dither:zx` does. The files' layouts:
+  [zx-spectrum.md](../docs/machine-screens/zx-spectrum.md).
 - **Speed:** like the other color modes, it's several times slower than
   gray dithering; a large poster can take minutes. Pure ordered dithering
   is faster than error diffusion, since no error is passed on.
 
 The library side is `Puregrain.Cells` (cells of any size, with any
 candidate colors) and `Puregrain.Machine.ZxSpectrum` (the Spectrum's
-cells and colors, and `toScr` for the screen file).
+screen mode, and `toScr` and `toTap` for its files).
 
 ## Examples
 
