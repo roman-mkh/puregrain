@@ -82,6 +82,18 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       map machineName allMachines `shouldEqual` [ "zx-spectrum" ]
       map formatName allFormats `shouldEqual` [ "png", "scr", "tap" ]
 
+    it "without --format, the output's extension picks the format, in any case" do
+      parse [ "in.png", "out.PNG" ] `shouldEqual` Right (defaults { output = "out.PNG" })
+      for_ [ Tuple "pic.scr" Scr, Tuple "pic.tap" Tap, Tuple "v1.2/PIC.TAP" Tap, Tuple "C:\\pics\\pic.Scr" Scr ] \(Tuple output format) ->
+        parse [ "in.png", output, "--machine", "zx-spectrum" ]
+          `shouldEqual` Right (defaults { output = output, quantizer = zx Nothing, format = format })
+
+    it "--format wins over the extension: --format png writes a PNG under any name" do
+      parse [ "in.png", "out.jpg", "--format", "png" ] `shouldEqual` Right (defaults { output = "out.jpg" })
+      parse [ "in.png", "screen.bin", "--machine", "zx-spectrum", "--format", "scr" ]
+        `shouldEqual` Right (defaults { output = "screen.bin", quantizer = zx Nothing, format = Scr })
+      parse [ "in.png", "pic.tap", "--format", "png" ] `shouldEqual` Right (defaults { output = "pic.tap" })
+
     it "--format png works with every mode" do
       parse (files <> [ "--format", "png" ]) `shouldEqual` Right defaults
       parse (files <> [ "--levels", "4", "--format", "png" ]) `shouldEqual` Right (defaults { quantizer = Levels 4 })
@@ -160,10 +172,17 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "an unknown machine, listing the valid names" do
       parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"
 
-    it "--format scr or tap without --machine zx-spectrum, saying why" do
-      for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra ->
+    it "scr or tap output without --machine zx-spectrum, from --format or the extension, saying why" do
+      for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra -> do
         parse (files <> [ "--format", format ] <> extra) `shouldSatisfy`
-          failsWith ("--format " <> format <> " needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
+          failsWith (format <> " output needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
+        parse ([ "in.png", "out." <> format ] <> extra) `shouldSatisfy`
+          failsWith (format <> " output needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
+
+    it "an output whose extension names no format, without --format, with advice" do
+      for_ [ "out.jpg", "out.pgn", "out", "out.", ".png", "v1.2/out" ] \output ->
+        parse [ "in.png", output ] `shouldSatisfy`
+          failsWith ("can't tell the output format from \"" <> output <> "\": name it .png, .scr or .tap, or give --format png, scr or tap")
 
     it "an unknown format, listing the valid names" do
       parse (files <> [ "--format", "gif" ]) `shouldSatisfy` failsWith "use one of: png, scr, tap"
@@ -184,7 +203,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         Left why -> fail why
 
     it "a rejected command line exits with 1" do
-      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ] ] \args ->
+      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ], [ "in.png", "out.jpg" ] ] \args ->
         case exitCodeOf args of
           Right code -> code `shouldEqual` ExitCode.Error
           Left why -> fail why

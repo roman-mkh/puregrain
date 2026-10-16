@@ -146,14 +146,16 @@ for format in scr tap; do
     || fail "color composite at 512x512, --machine zx-spectrum --format $format: exit code $code (expected 1), file written: $([ -e $out/wrong-size.$format ] && echo yes || echo no), error: $(cat $out/wrong-size.err)"
 done
 
-# 9. A tape (--format tap) holds a BASIC loader, then the screen: read here
+# 9. A tape (.tap; the format comes from the extension here, without
+#    --format, so the CLI's inference is checked too) holds a BASIC loader,
+#    then the screen: read here
 #    independently, block by block (two-byte length, low byte first; flag;
 #    bytes; checksum, so that all of a block's bytes XOR to 0). Program
 #    header (type 0, autostart line 10, its length), the loader's bytes
 #    (10 LOAD "" SCREEN$: PAUSE 0, as the Spectrum stores it), screen
 #    header (type 3, 6912 bytes at 16384), both named after the output
 #    file, and the screen's bytes equal to the .scr of the same run (7).
-$cli $out/color-256x192.png $out/zx-color.tap --machine zx-spectrum --kernel atkinson --format tap >/dev/null
+$cli $out/color-256x192.png $out/zx-color.tap --machine zx-spectrum --kernel atkinson >/dev/null
 result=$(node -e '
   const fs = require("fs");
   const tap = fs.readFileSync(process.argv[1]);
@@ -183,5 +185,5 @@ result=$(node -e '
   }
   console.log(problem || "ok");' $out/zx-color.tap $out/zx-color.scr)
 [ "$result" = ok ] \
-  && pass "color composite at 256x192, --machine zx-spectrum --format tap: loader, then the .scr's screen" \
-  || fail "color composite at 256x192, --machine zx-spectrum --format tap: $result"
+  && pass "color composite at 256x192, --machine zx-spectrum to a .tap: loader, then the .scr's screen" \
+  || fail "color composite at 256x192, --machine zx-spectrum to a .tap: $result"

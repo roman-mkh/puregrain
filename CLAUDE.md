@@ -68,12 +68,20 @@ from the code alone.
   or `orderedInCell` with the Bayer map; the PipelineSpec compares rules
   by dithering a 16 × 12 probe without diffusion, as it compares
   quantizers by probes. `ditherScreen` calls `ditherCells` with the
-  machine's mode and returns the cells with the picture. `--format NAME` (2026-10-12;
-  `png`, the default, or `scr`; names from `formatName`) picks the output
-  file, and only that file is written (decided: one option for the
-  format, no second file next to the PNG). `resolve` rejects `scr`
-  without `--machine zx-spectrum`, matching the machine without a
-  wildcard, so a new machine must decide its formats. `screenSizeCheck`
+  machine's mode and returns the cells with the picture. The output
+  format, `png`, `scr` or `tap` (names from `formatName`), comes from the
+  output file's extension, in any case (since 2026-10-16; the user's
+  suggestion), or from `--format NAME`, which always wins: `--format png`
+  writes a PNG under any name, on purpose. An extension that names no
+  format, without `--format`, is rejected with advice (`out.jpg` used to
+  get PNG bytes silently; a typo like `out.pgn` is now caught). Only the
+  format is inferred, never the machine: `.scr` is the Amstrad CPC's
+  screen extension too. `splitFileName` (in `Options`) splits the name,
+  for the format and for the tape name alike. Only the chosen file is
+  written (decided 2026-10-12: one option for the format, no second file
+  next to the PNG). `resolve` rejects `scr` and `tap` output without
+  `--machine zx-spectrum`, matching the machine without a wildcard, so a
+  new machine must decide its formats. `screenSizeCheck`
   runs before dithering: for an image other than 256×192, a note with a
   PNG (any size works, e.g. a poster), an error with `scr` or `tap` (exit
   1, no file). `screenFile` maps the machine to its encoder (`Zx.toScr`),

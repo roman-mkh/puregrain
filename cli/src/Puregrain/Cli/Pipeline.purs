@@ -22,15 +22,14 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array as Array
 import Data.Char (toCharCode)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.String (Pattern(..), Replacement(..), replaceAll, split)
+import Data.Maybe (Maybe(..), maybe)
 import Data.String.CodeUnits as CodeUnits
 import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..), formatName)
+import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
 import Puregrain.Machine.ZxSpectrum as Zx
 
 -- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
@@ -82,12 +81,8 @@ tapeFile machine name screen = case machine of
 -- | its directory and extension, printable ASCII characters only, the
 -- | first 10 (a Spectrum tape name's length).
 tapeName :: String -> String
-tapeName path = CodeUnits.take 10 (CodeUnits.fromCharArray (Array.filter printable (CodeUnits.toCharArray stem)))
+tapeName path = CodeUnits.take 10 (CodeUnits.fromCharArray (Array.filter printable (CodeUnits.toCharArray (splitFileName path).stem)))
   where
-  file = fromMaybe path (Array.last (split (Pattern "/") (replaceAll (Pattern "\\") (Replacement "/") path)))
-  stem = case CodeUnits.lastIndexOf (Pattern ".") file of
-    Just i | i > 0 -> CodeUnits.take i file
-    _ -> file
   printable c = toCharCode c >= 32 && toCharCode c <= 126
 
 -- | What to say about an image that isn't the size of the machine's

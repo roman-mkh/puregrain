@@ -15,6 +15,7 @@ module Puregrain.Cli.Options
   , paletteName
   , machineName
   , formatName
+  , splitFileName
   , describeQuantizer
   , parseOptions
   ) where
@@ -28,9 +29,10 @@ import Data.Generic.Rep (class Generic)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe, optional)
 import Data.Show.Generic (genericShow)
-import Data.String (joinWith)
+import Data.String (Pattern(..), Replacement(..), joinWith, replaceAll, split, toLower)
+import Data.String.CodeUnits as CodeUnits
 import Data.Tuple (Tuple(..), fst)
-import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, showDefaultWith, strArgument, switch, value, (<**>))
+import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, strArgument, switch, (<**>))
 
 -- | `NoDiffusion` is the empty kernel: each pixel is quantized on its
 -- | own, so `--bayer` with it gives pure ordered dithering (the default
@@ -215,14 +217,17 @@ type RawOptions =
   , quantizer :: Maybe QuantizerChoice
   , bayer :: Maybe Int
   , machine :: Maybe MachineName
-  , format :: FormatName
+  , format :: Maybe FormatName
   , gray :: Boolean
   }
 
 rawOptions :: Parser RawOptions
 rawOptions = ado
   input <- strArgument (metavar "INPUT.png" <> help "image to dither (any PNG; alpha is ignored)")
-  output <- strArgument (metavar "OUTPUT" <> help "where to write the result (a PNG unless --format says otherwise)")
+  output <- strArgument
+    ( metavar "OUTPUT"
+        <> help ("where to write the result; its extension, " <> orList (map ("." <> _) (map fst formats)) <> ", picks the format unless --format is given")
+    )
   -- No `value` here: the default depends on --bayer (see `resolve`).
   kernel <- optional $ option (oneOf "kernel" kernels)
     ( long "kernel" <> short 'k' <> metavar "NAME"
@@ -240,10 +245,11 @@ rawOptions = ado
     ( long "machine" <> metavar "NAME"
         <> help ("dither to a machine's screen, a few colors per cell: " <> orList (map fst machines))
     )
-  format <- option (oneOf "format" formats)
-    ( long "format" <> metavar "NAME" <> value Png <> showDefaultWith formatName
+  -- No `value` here: without --format, the output's extension decides (see `resolve`).
+  format <- optional $ option (oneOf "format" formats)
+    ( long "format" <> metavar "NAME"
         <> help
-          ( "output file format: " <> orList (map fst formats) <> "; " <> formatName Scr
+          ( "output file format: " <> orList (map fst formats) <> " (default: from OUTPUT's extension); " <> formatName Scr
               <> " is the ZX Spectrum's screen file, " <> formatName Tap
               <> " a tape image that loads and shows it, for --machine " <> machineName ZxSpectrumScreen
               <> " on a 256x192 image"
@@ -257,12 +263,13 @@ parserInfo = info (rawOptions <**> helper)
   ( fullDesc
       <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
-        ( "Dithers INPUT.png into OUTPUT. Use at most one of --threshold, --levels, --palette; "
+        ( "Dithers INPUT.png into OUTPUT, whose extension picks the format unless --format is given. "
+            <> "Use at most one of --threshold, --levels, --palette; "
             <> "--bayer N gives ordered dithering, over --levels, black and white, or inside --machine's cells; without --kernel it passes no error on. "
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
             <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
-            <> "screen, two colors per 8x8 cell, and gives an RGB PNG, or with --format scr or tap "
-            <> "the Spectrum's own screen file or a tape image."
+            <> "screen, two colors per 8x8 cell; as .scr or .tap it writes the Spectrum's own screen file "
+            <> "or a tape image."
         )
   )
 
@@ -271,8 +278,11 @@ parserInfo = info (rawOptions <**> helper)
 -- | `--levels` or `--machine` and nothing else; `--machine` defines all
 -- | the colors, so it combines with none of the quantizer options
 -- | (`--kernel` and `--gray` work with everything); a
--- | screen file or tape holds a machine's screen, so `--format scr` and
--- | `--format tap` need `--machine zx-spectrum`. Without `--kernel`, the kernel is
+-- | screen file or tape holds a machine's screen, so `scr` and `tap`
+-- | output need `--machine zx-spectrum`. Without `--format`, the output's
+-- | extension picks the format, and an extension that names none is
+-- | rejected with advice; an explicit `--format` always wins, so
+-- | `--format png` writes a PNG under any name. Without `--kernel`, the kernel is
 -- | Floyd–Steinberg, except with `--bayer`: there it's none, so `--bayer`
 -- | alone is pure ordered dithering. With `--bayer` the kernel decides
 -- | which method runs, pure or the hybrid, so that's the one mode with a
@@ -282,7 +292,7 @@ resolve raw = ado
   quantizer <- case raw.machine of
     Just m -> machineChoice m
     Nothing -> quantizerChoice
-  format <- formatChoice
+  format <- formatOf raw.format raw.output >>= formatChoice
   in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray }
   where
   defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
@@ -300,12 +310,37 @@ resolve raw = ado
       Left "--bayer works over levels: use it alone (2 levels) or with --levels N, not with --threshold"
     Just q, Nothing -> Right q
   -- No wildcard for the machine: a new machine must decide its formats.
-  formatChoice = case raw.format, raw.machine of
+  formatChoice format = case format, raw.machine of
     Png, _ -> Right Png
     Scr, Just ZxSpectrumScreen -> Right Scr
     Tap, Just ZxSpectrumScreen -> Right Tap
-    format, Nothing ->
-      Left ("--format " <> formatName format <> " needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen")
+    f, Nothing ->
+      Left (formatName f <> " output needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen")
+
+-- | The output format: `--format` if given, else the one the output
+-- | file's extension names, in any case. `Left` with advice when the
+-- | extension names none.
+formatOf :: Maybe FormatName -> String -> Either String FormatName
+formatOf given output = case given of
+  Just f -> Right f
+  Nothing -> case Array.find (\f -> formatName f == toLower (splitFileName output).extension) allFormats of
+    Just f -> Right f
+    Nothing -> Left
+      ( "can't tell the output format from \"" <> output <> "\": name it "
+          <> orList (map (\f -> "." <> formatName f) allFormats) <> ", or give --format "
+          <> orList (map formatName allFormats)
+      )
+
+-- | A path's file name, without its directory, split into the stem and
+-- | the extension: what follows the last dot, without it, or "" for none.
+-- | A leading dot starts a hidden file's name, not an extension. Both `/`
+-- | and `\` separate directories.
+splitFileName :: String -> { stem :: String, extension :: String }
+splitFileName path = case CodeUnits.lastIndexOf (Pattern ".") file of
+  Just i | i > 0 -> { stem: CodeUnits.take i file, extension: CodeUnits.drop (i + 1) file }
+  _ -> { stem: file, extension: "" }
+  where
+  file = fromMaybe path (Array.last (split (Pattern "/") (replaceAll (Pattern "\\") (Replacement "/") path)))
 
 -- | Parses a command line (without the program name): optparse's own
 -- | checks, then `resolve`. A rejection by `resolve` becomes an ordinary

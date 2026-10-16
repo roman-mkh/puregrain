@@ -365,7 +365,8 @@ Five checks cover machine screens:
   `--format tap`:** rejected before dithering, with exit code 1 and an
   error naming the required 256×192, and no file written. Both files hold
   exactly one screen.
-- **The color composite at 256×192, as a tape (`--format tap`), with
+- **The color composite at 256×192, as a tape (`.tap`, the format from
+  the extension, without `--format`), with
   Atkinson:** read on its own, block by block, every block's length and
   checksum are right. The tape holds the BASIC loader, byte for byte as
   the Spectrum stores `10 LOAD "" SCREEN$: PAUSE 0`, with its header

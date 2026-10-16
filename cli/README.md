@@ -57,14 +57,14 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | Option | Argument | Default | What it does |
 |---|---|---|---|
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
-| `OUTPUT` | path | required | Where to write the result: a PNG, or the file `--format` names. An existing file is overwritten; the directory must already exist. |
+| `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr` or `.tap`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
 | `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
-| `--format` | `png`, `scr`, `tap` | `png` | The output file's format. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
+| `--format` | `png`, `scr`, `tap` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
@@ -76,8 +76,10 @@ dithering. Every other mode uses Floyd–Steinberg unless `--kernel` says
 otherwise. `--machine` defines all the colors itself, so it combines
 with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
 it uses ordered dithering inside the cells. `--kernel` and `--gray` work
-with every mode. `--format scr` and `--format tap` write the ZX
-Spectrum's screen, so they need `--machine zx-spectrum`.
+with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
+holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`. An
+output whose extension names no format, `out.jpg` say, is rejected
+unless `--format` says what to write.
 
 ## How the output is chosen
 
@@ -92,9 +94,9 @@ Spectrum's screen, so they need `--machine zx-spectrum`.
 - **Gray or color?** An input counts as gray when every pixel has
   r = g = b, whatever color type the PNG file declares.
 - **Output file type:** gray results are written as 8-bit grayscale PNGs,
-  everything else as 8-bit RGB PNGs. Alpha is never written. With
-  `--format scr` or `tap`, the output is the ZX Spectrum's screen file or
-  a tape image instead.
+  everything else as 8-bit RGB PNGs. Alpha is never written. As `.scr`
+  or `.tap`, the output is the ZX Spectrum's screen file or a tape image
+  instead.
 - **Per channel versus whole pixel.** There are two ways to dither color:
   - `--levels` treats red, green and blue as three independent gray
     images (the project calls this *scalarED*).
@@ -191,8 +193,8 @@ So a cell's two colors are both normal or both bright.
 - **Size:** the Spectrum's screen is 256×192. Other sizes work too for a
   PNG, a poster in the Spectrum's style, say; the CLI then prints a note.
   If the size isn't a multiple of 8, the cells at the right and bottom
-  edges are smaller. A screen file or tape (`--format scr` or `tap`)
-  needs exactly 256×192:
+  edges are smaller. A screen file or tape (`.scr` or `.tap`) needs
+  exactly 256×192:
   for any other size the CLI stops with an error before dithering. To
   bring a picture to the screen's size, resize it with another tool first,
   for example ImageMagick (the `!` ignores the aspect ratio):
@@ -201,15 +203,15 @@ So a cell's two colors are both normal or both bright.
   with no dots. `--bayer N` gives ordered dithering inside the cells:
   each cell's two colors in a regular pattern, with no error passed on
   unless `--kernel` names a kernel. `--gray` converts the input to gray
-  first. The output is an RGB PNG, or with `--format scr` or `tap` the
-  Spectrum's screen file or a tape image.
-- **Screen file (`--format scr`):** the Spectrum's own format, a copy of
+  first. The output is an RGB PNG, or as `.scr` or `.tap` the Spectrum's
+  screen file or a tape image.
+- **Screen file (`.scr`):** the Spectrum's own format, a copy of
   its screen memory, 6912 bytes: the bitmap, one bit per pixel (1 for the
   ink, 0 for the paper), then one attribute byte per cell. A single-color
   cell has only 0 bits. Emulators open it, for example Fuse, with File →
   Open SCR Screenshot. The CLI writes only the format you choose; for
   several, run it once per format, as `npm run dither:zx` does.
-- **Tape image (`--format tap`):** a tape that loads and shows the
+- **Tape image (`.tap`):** a tape that loads and shows the
   screen: a one-line BASIC program, `10 LOAD "" SCREEN$: PAUSE 0`, which
   starts by itself, then the screen as a CODE file of 6912 bytes. Open it
   in an emulator, which loads it by itself (Fuse: File → Open), or type
@@ -325,8 +327,8 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-flat.png --machine zx
 npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum --bayer 8
 
 # the Spectrum's own screen file, and a tape that loads it (256×192 only)
-npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.scr --machine zx-spectrum --bayer 8 --format scr
-npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine zx-spectrum --bayer 8 --format tap
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.scr --machine zx-spectrum --bayer 8
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine zx-spectrum --bayer 8
 ```
 
 ### Shortcuts
@@ -342,7 +344,7 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine 
 | `npm run dither:bayer` | `gray-512.png` with `--bayer 4 --kernel none` |
 | `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4 --kernel floyd-steinberg` |
 | `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
-| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 8` as a PNG, a screen file and a tape (`--format scr`, `--format tap`), and `--kernel atkinson` as a PNG, to compare |
+| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 8` as a PNG, a screen file and a tape (`.scr`, `.tap`), and `--kernel atkinson` as a PNG, to compare |
 
 ## Output and timing
 
@@ -365,7 +367,7 @@ error.
 | Code | When |
 |---|---|
 | `0` | Success, or `--help`. |
-| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for `--format scr` or `tap`, an output that can't be written, or the CLI not built yet. |
+| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output, an output that can't be written, or the CLI not built yet. |
 
 ## Limitations
 
@@ -400,10 +402,11 @@ error.
     port of Haskell's optparse-applicative. Each kernel and palette name is
     defined once there; the parser and the help text are derived from it.
     Checks across options that optparse can't express (`--bayer` only with
-    `--levels` or `--machine`, `--format scr` and `tap` only with
-    `--machine zx-spectrum`) are in
-    `resolve`, and reported like optparse's own errors. `resolve` also
-    picks the default kernel, which depends on `--bayer`.
+    `--levels` or `--machine`, `scr` and `tap` output only with
+    `--machine zx-spectrum`) are in `resolve`, and reported like
+    optparse's own errors. `resolve` also picks the default kernel, which
+    depends on `--bayer`, and the format, from `--format` or else the
+    output's extension.
   - `Png.purs` and `Png.js` read and write PNGs through pngjs, and
     `Timing.purs` and `Timing.js` time the dithering. That's all the
     JavaScript in the package: the screen file is written from PureScript,
