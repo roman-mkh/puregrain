@@ -112,7 +112,7 @@ ZX Spectrum's screen, so it needs `--machine zx-spectrum`.
 |---|---|---|
 | `floyd-steinberg` | 4 neighbours: 1 to the right, 3 in the row below | The classic. Fine texture; at tones very near black or white, dots tend to line up into curved diagonal strings ("worms"). |
 | `atkinson` | 6 neighbours over the next 2 rows, but only **3/4** of the error | Throws a quarter of the error away on purpose: crisper, higher contrast, but dark and light tones get pushed toward solid black and white, losing detail there. About 1.5× Floyd–Steinberg's time. |
-| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 3× Floyd–Steinberg's time. |
+| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 2.5× Floyd–Steinberg's time. |
 | `none` | nowhere | No error diffusion: each pixel is decided on its own. With `--bayer`, that's pure ordered dithering, and the default there. With `--threshold` or `--levels`, each pixel is just rounded to a level (posterization). |
 
 The exact weights are in `src/Puregrain/Kernel.purs`. Time grows with the

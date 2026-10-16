@@ -52,18 +52,17 @@ websafe216 = do
   where
   steps = NEA.cons' 0.0 [ 51.0, 102.0, 153.0, 204.0, 255.0 ]
 
--- | The 16-color IBM PC palette, in index order 0–15: CGA's "RGBI" colors
--- | (each channel 0x00 or 0xAA, plus an intensity bit adding 0x55), with
--- | the IBM 5153 monitor's brown — color 6 is #AA5500, not dark yellow.
--- | The same 16 are EGA's and VGA's defaults (VGA stores 6 bits per
--- | channel, so some tables write A8 for AA) and the DOS text colors; the
--- | Linux console uses the same values, in ANSI order (its vt.c).
+-- | The 16-color IBM PC palette, CGA's "RGBI" colors in index order 0–15:
+-- | each channel 0x00 or 0xAA, plus an intensity bit adding 0x55, with the
+-- | IBM 5153 monitor's brown (color 6 is #AA5500, not dark yellow). Also
+-- | EGA's and VGA's defaults and the DOS text colors; the Linux console
+-- | uses the same values, in ANSI order. EGA's full 64 colors need no
+-- | preset: `perChannel (nearestLevel (evenRamp 4))`.
 -- | Source: en.wikipedia.org/wiki/Color_Graphics_Adapter (RGBI palette).
--- | Wikipedia's terminal-comparison table ("ANSI escape code") has a
--- | "CGA/EGA/VGA" column with display-adjusted numbers (e.g. red 196);
--- | this preset uses the digital values.
--- | (EGA's full 64-color palette is every combination of 0, 85, 170, 255 —
--- | no preset needed: that's `perChannel (nearestLevel (evenRamp 4))`.)
+-- VGA stores 6 bits per channel, so some tables write A8 for AA. The Linux
+-- console's values are in its vt.c. Wikipedia's terminal-comparison table
+-- ("ANSI escape code") has a "CGA/EGA/VGA" column with display-adjusted
+-- numbers (e.g. red 196); this preset uses the digital values.
 cga16 :: NonEmptyArray RGB
 cga16 = NEA.cons' (rgb 0x00 0x00 0x00)
   [ rgb 0x00 0x00 0xAA, rgb 0x00 0xAA 0x00, rgb 0x00 0xAA 0xAA
@@ -74,13 +73,13 @@ cga16 = NEA.cons' (rgb 0x00 0x00 0x00)
 
 -- | The 16 ANSI terminal colors as xterm's defaults, in index order: black,
 -- | red, green, yellow, blue, magenta, cyan, white, then the 8 bright ones.
--- | The ANSI standard names these colors but defines no RGB values, and
--- | every terminal differs; for the Linux console's values use `cga16`
--- | (the same colors, in CGA rather than ANSI order).
--- | Source: xterm's XTerm-col.ad — X11 colors black, red3, green3,
--- | yellow3, blue2, magenta3, cyan3, gray90, gray50, red, green, yellow,
--- | rgb:5c/5c/ff, magenta, cyan, white — matching the xterm column of
+-- | ANSI names the colors but defines no RGB, and terminals differ; the
+-- | Linux console's values are `cga16`, in CGA order.
+-- | Source: xterm's XTerm-col.ad, matching the xterm column of
 -- | en.wikipedia.org/wiki/ANSI_escape_code.
+-- The X11 colors there: black, red3, green3, yellow3, blue2, magenta3,
+-- cyan3, gray90, gray50, red, green, yellow, rgb:5c/5c/ff, magenta, cyan,
+-- white.
 ansi16 :: NonEmptyArray RGB
 ansi16 = NEA.cons' (rgb 0 0 0)
   [ rgb 205 0 0, rgb 0 205 0, rgb 205 205 0
@@ -89,15 +88,15 @@ ansi16 = NEA.cons' (rgb 0 0 0)
   , rgb 92 92 255, rgb 255 0 255, rgb 0 255 255, rgb 255 255 255
   ]
 
--- | xterm's 256-color palette: `ansi16` (indices 0–15), then a 6×6×6 cube
--- | (16–231; index 16 + 36r + 6g + b, each level 0 or 55 + 40n: 0, 95,
--- | 135, 175, 215, 255), then 24 grays (232–255: 8 + 10i, i.e. 8 … 238).
--- | Source: xterm's 256colres.pl. In a real terminal the first 16 come from
--- | its theme and only the other 240 are fixed. 7 colors appear twice —
--- | the cube repeats ansi16's black, white, and bright red, green, yellow,
--- | magenta and cyan (xterm's bright blue, 92/92/255, isn't in the cube) —
--- | so there are 249 distinct colors; `nearestColor` picks the earlier
--- | index of a pair.
+-- | xterm's 256 colors: `ansi16` (indices 0–15), a 6×6×6 cube (16–231,
+-- | index 16 + 36r + 6g + b, levels 0, 95, 135, 175, 215, 255), and 24
+-- | grays (232–255, 8 + 10i). 7 cube colors repeat `ansi16` ones, so 249
+-- | are distinct; `nearestColor` picks the earlier index of a pair. In a
+-- | real terminal the first 16 come from its theme.
+-- | Source: xterm's 256colres.pl.
+-- The repeats: black, white, and bright red, green, yellow, magenta and
+-- cyan; xterm's bright blue, 92/92/255, isn't in the cube. The cube's
+-- levels are 0 or 55 + 40n.
 ansi256 :: NonEmptyArray RGB
 ansi256 = ansi16 <> cube <> grays
   where
@@ -123,16 +122,15 @@ c64 = NEA.cons' (rgb 0x00 0x00 0x00)
   , rgb 0x6C 0x6C 0x6C, rgb 0x9A 0xD2 0x84, rgb 0x6C 0x5E 0xB5, rgb 0x95 0x95 0x95
   ]
 
--- | The ZX Spectrum's 15 distinct colors: its 8 colors (black, blue, red,
--- | magenta, green, cyan, yellow, white) at normal brightness, then the 7
--- | non-black ones with BRIGHT set (bright black is just black). The real
--- | colors were never measured; this uses the common model of normal = 85%
--- | of bright, 0xD8 = 216 ≈ 0.85 × 255 (en.wikipedia.org/wiki/
--- | ZX_Spectrum_graphic_modes; values as lospec.com/palette-list/zx-spectrum).
--- | Many emulators use 0xD7 or 0xCD instead.
--- | This is the per-pixel palette. The real machine allowed just 2 of these
--- | colors per 8×8 cell, with one BRIGHT bit for both;
--- | `Puregrain.Machine.ZxSpectrum`, with `Puregrain.Cells`, dithers to that.
+-- | The ZX Spectrum's 15 distinct colors: its 8 (black, blue, red, magenta,
+-- | green, cyan, yellow, white) at normal brightness, then the 7 non-black
+-- | ones with BRIGHT (bright black is black). Normal is 0xD8 = 216, about
+-- | 85% of bright, the common model: the real colors were never measured,
+-- | and many emulators use 0xD7 or 0xCD instead. This is the per-pixel
+-- | palette; for the real machine's 2 colors per 8×8 cell, see
+-- | `Puregrain.Machine.ZxSpectrum`.
+-- | Source: en.wikipedia.org/wiki/ZX_Spectrum_graphic_modes; values as
+-- | lospec.com/palette-list/zx-spectrum.
 zxSpectrum :: NonEmptyArray RGB
 zxSpectrum = normal <> bright
   where

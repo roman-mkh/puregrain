@@ -23,9 +23,11 @@ import Data.Maybe (Maybe(..))
 import Data.Number (isFinite)
 import Data.Tuple (Tuple(..))
 
--- | One neighbour that receives a share of a pixel's error: `dx` columns
--- | to the right (negative: to the left) and `dy` rows down, with the
--- | share `weight`.
+-- | One neighbour that gets a share of a pixel's error.
+-- |
+-- | - `dx`: columns to the right; negative to the left.
+-- | - `dy`: rows down.
+-- | - `weight`: the share of the error.
 type Offset =
   { dx     :: Int
   , dy     :: Int
@@ -39,18 +41,25 @@ newtype Kernel = Kernel (Array Offset)
 derive newtype instance Eq Kernel
 derive newtype instance Show Kernel
 
--- | Checks a list of offsets and makes it a kernel:
+-- | Checks a list of offsets and makes it a kernel.
 -- |
--- | - every offset points to a pixel not yet processed, in row-by-row
+-- | - `Array Offset`: the neighbours and their shares.
+-- |
+-- | `Left` says which offset breaks which rule (offsets counted from 0):
+-- |
+-- | - every offset must point to a pixel not yet processed, in row-by-row
 -- |   scan order: a later row (`dy > 0`), or the same row further right
 -- |   (`dy == 0`, `dx > 0`);
--- | - every weight is a finite number (not NaN or infinite);
--- | - no two offsets point to the same neighbour.
+-- | - every weight must be a finite number (not NaN or infinite);
+-- | - no two offsets may point to the same neighbour.
 -- |
 -- | The weights usually add up to 1, but needn't: Atkinson's add up to
 -- | 3/4 on purpose. An empty list is valid: it's `noDiffusion`.
 -- |
--- | `Left` says which offset breaks which rule (offsets counted from 0).
+-- | ```purescript
+-- | -- half of the error to the right, half down
+-- | fromOffsets [ { dx: 1, dy: 0, weight: 0.5 }, { dx: 0, dy: 1, weight: 0.5 } ]
+-- | ```
 fromOffsets :: Array Offset -> Either String Kernel
 fromOffsets list =
   case Array.findMap identity (Array.mapWithIndex offsetProblem list) of
@@ -110,7 +119,7 @@ atkinson = Kernel
   ]
 
 -- | Jarvis–Judice–Ninke (1976): 12 neighbours over the next 2 rows, for
--- | the smoothest texture, at about three times Floyd–Steinberg's cost.
+-- | the smoothest texture, at about 2.5 times Floyd–Steinberg's cost.
 jarvisJudiceNinke :: Kernel
 jarvisJudiceNinke = Kernel
   [ { dx: 1, dy: 0, weight: 7.0 / 48.0 }

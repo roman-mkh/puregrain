@@ -52,6 +52,20 @@ and creates the GitHub Release (see [Releases](#releases)).
 - **Public API:** start closed, open later. Exporting more later is
   compatible; removing an export breaks users. Public doc comments are
   shown on Pursuit, so they must make sense on their own there.
+- **Doc comments:** Pursuit shows them with the types, but without
+  parameter names. So for each public function:
+  1. a summary line;
+  2. the arguments in signature order, one line each, named by their
+     type, type variables included; a one-argument function whose
+     summary already names the argument needs no list;
+  3. the result, and how it fails (`Left`, `Nothing`, or a stop with an
+     error);
+  4. code examples: keep the existing ones, and add one where it helps.
+
+  A type, record or class says what it stands for and lists its fields
+  or methods. Rationale and implementation notes go in plain `--`
+  comments or in `docs/`. [`Puregrain.Cells`](src/Puregrain/Cells.purs)
+  shows the style.
 - **Examples:** the README's "Getting started" shows an excerpt of
   [`QuickStart.purs`](examples/src/Puregrain/Examples/QuickStart.purs),
   copied by hand. When that file changes, refresh the excerpt. The build

@@ -30,20 +30,23 @@ import Data.Maybe (Maybe(..), maybe)
 import Puregrain.Quantize (Quantize, quantizeWith)
 import Partial.Unsafe (unsafePartial)
 
--- | A threshold map, checked and precomputed: a `width` × `height` grid
--- | of thresholds, each strictly between 0 and 1, repeated across the
--- | image. Built only by `bayer` or `compileThresholdMap` (the constructor
--- | isn't exported), so every one is rectangular and non-empty, and
--- | `thresholdAt` can look one up in O(1).
+-- | A threshold map: a grid of thresholds, each strictly between 0 and 1,
+-- | repeated across the image. Build one with `bayer` or
+-- | `compileThresholdMap`; opaque, so every map is checked: rectangular
+-- | and non-empty.
+-- Precomputed, so `thresholdAt` looks a threshold up in O(1).
 newtype ThresholdMap = ThresholdMap
   { width :: Int
   , height :: Int
   , thresholds :: Array Number -- row-major, width × height entries
   }
 
--- | The ranks of the `n` × `n` Bayer matrix, for `n` a power of 2 (1, 2,
--- | 4, 8, …); `Nothing` for any other `n`. Built by the standard
--- | recursion from the 1 × 1 matrix `[[0]]`:
+-- | The ranks of a Bayer matrix: the order in which its cells turn on.
+-- |
+-- | - `Int`: the side, a power of 2 (1, 2, 4, 8, …).
+-- |
+-- | `Nothing` for any other side. Built by the standard recursion from the
+-- | 1 × 1 matrix `[[0]]`:
 -- |
 -- | ```
 -- | M₂ₙ = | 4·Mₙ + 0   4·Mₙ + 2 |
@@ -72,22 +75,32 @@ isPowerOf2 n
   | n < 1 || n `mod` 2 /= 0 = false
   | otherwise = isPowerOf2 (n / 2)
 
--- | The `n` × `n` Bayer threshold map, for `n` a power of 2 (1, 2, 4, 8,
--- | …); `Nothing` for any other `n`. Its thresholds are
--- | `(rank + 0.5) / n²` (see `compileThresholdMap`). `bayer 1` is the
--- | trivial map, 0.5 everywhere: `ordered (bayer 1)` then picks the
--- | nearer level, like `nearestLevel`.
+-- | The Bayer threshold map.
+-- |
+-- | - `Int`: the side, a power of 2 (1, 2, 4, 8, …).
+-- |
+-- | `Nothing` for any other side. The thresholds are `(rank + 0.5) / n²`
+-- | for side `n` (see `compileThresholdMap`). `bayer 1` is 0.5 everywhere:
+-- | `ordered` with it picks the nearer level, like `nearestLevel`.
+-- |
+-- | ```purescript
+-- | -- pure 1-bit ordered dithering with the 8 × 8 map
+-- | map (\m -> ditherImage noDiffusion (ordered m (evenRamp 2)) image) (bayer 8)
+-- | ```
 bayer :: Int -> Maybe ThresholdMap
 bayer n = fromRanks <$> bayerMatrix n
 
--- | Checks a custom map of ranks and turns it into thresholds. The ranks
--- | say in which order the cells turn on as the input rises; the map
--- | needn't be square, and ranks may repeat or skip values (clustered-dot
--- | screens, blue-noise masks). Each cell's threshold is
--- | `(rank + 0.5) / (maxRank + 1)`, strictly between 0 and 1.
+-- | A threshold map from your own ranks: a clustered-dot screen or a
+-- | blue-noise mask, say.
 -- |
--- | `Left` says what's wrong: no rows, an empty row, rows of different
--- | lengths, or a negative rank (rows and columns counted from 0).
+-- | - `Array (Array Int)`: the ranks, row by row: the order in which the
+-- |   cells turn on as the input rises. The grid needn't be square, and
+-- |   ranks may repeat or skip values.
+-- |
+-- | Each cell's threshold is `(rank + 0.5) / (maxRank + 1)`, strictly
+-- | between 0 and 1. `Left` says what's wrong: no rows, an empty row, rows
+-- | of different lengths, or a negative rank (rows and columns counted
+-- | from 0).
 compileThresholdMap :: Array (Array Int) -> Either String ThresholdMap
 compileThresholdMap rows = case Array.head rows of
   Nothing -> Left "a threshold map needs at least one row"
@@ -135,26 +148,32 @@ fromRanks rows = ThresholdMap
     flat = Array.concat rows
     count = toNumber (foldl max 0 flat + 1)
 
--- | The threshold at a pixel's position: the map repeats across the
--- | image, so column `x` uses the map's column `x mod width`, and row `y`
--- | its row `y mod height`. Takes any record with `x` and `y`, such as a
--- | quantizer's `Context`.
+-- | The threshold at a pixel's position; the map repeats across the image.
+-- |
+-- | - `ThresholdMap`: the map.
+-- | - `{ x :: Int, y :: Int | r }`: the position, any record with `x` and
+-- |   `y`, such as a quantizer's `Context`.
+-- |
+-- | Column `x` uses the map's column `x mod width`, row `y` its row
+-- | `y mod height`.
 thresholdAt :: forall r. ThresholdMap -> { x :: Int, y :: Int | r } -> Number
 thresholdAt (ThresholdMap m) { x, y } =
   unsafePartial (Array.unsafeIndex m.thresholds ((y `mod` m.height) * m.width + x `mod` m.width))
 
--- | Ordered dithering over the given levels. For a value `v` between two
--- | neighbouring levels `lo` < `hi`, it picks `hi` exactly when the
--- | fraction of the way from `lo` to `hi`, `(v − lo) / (hi − lo)`, is
--- | above the pixel's threshold; otherwise `lo`. With levels 0 and 255
--- | this is classic 1-bit Bayer dithering. Color: lift it with
--- | `perChannel`, which hands every channel the same position.
+-- | Ordered dithering over levels. For a value `v` between two
+-- | neighbouring levels `lo` < `hi`, it picks `hi` exactly when
+-- | `(v − lo) / (hi − lo)` is above the pixel's threshold, else `lo`.
 -- |
--- | The levels are sorted once, here, not per pixel, and needn't be
--- | given in order. Total for any input: a value at a level stays that
--- | level, and values beyond the lowest or highest level snap to it, as
--- | with `nearestLevel`. That matters in the hybrid with error diffusion,
--- | where accumulated error pushes values past the ends.
+-- | - `ThresholdMap`: the thresholds, from `bayer` or
+-- |   `compileThresholdMap`.
+-- | - `NonEmptyArray Number`: the levels, in any order; with 0 and 255,
+-- |   classic 1-bit ordered dithering.
+-- |
+-- | A value at a level stays that level; values beyond the lowest or
+-- | highest level snap to it, as accumulated error can push them there in
+-- | the hybrid with error diffusion. For color, lift it with `perChannel`,
+-- | which gives every channel the same position.
+-- The levels are sorted once, here, not per pixel.
 ordered :: ThresholdMap -> NonEmptyArray Number -> Quantize Number
 ordered thresholdMap levels = quantizeWith \ctx v -> between (thresholdAt thresholdMap ctx) v
   where

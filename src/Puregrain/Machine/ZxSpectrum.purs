@@ -6,12 +6,16 @@
 -- | import Puregrain.Cells (ditherCells, nearestInCell, orderedInCell)
 -- | import Puregrain.Machine.ZxSpectrum as Zx
 -- |
--- | -- error diffusion inside the cells
--- | { cells, image } = ditherCells atkinson nearestInCell Zx.screen picture
--- |
 -- | -- ordered dithering inside the cells, with a threshold map m
 -- | { cells, image } = ditherCells noDiffusion (orderedInCell m) Zx.screen picture
+-- |
+-- | -- error diffusion inside the cells
+-- | { cells, image } = ditherCells atkinson nearestInCell Zx.screen picture
 -- | ```
+-- |
+-- | Ordered dithering, with the 8 × 8 Bayer map, looks most like the
+-- | Spectrum's own art and keeps every tone; with error diffusion,
+-- | Atkinson looks best.
 -- |
 -- | `cells` holds each cell's `Attribute`: its ink, paper and BRIGHT, as a
 -- | screen file needs them; `toScr` turns the whole result into one. The
@@ -108,11 +112,13 @@ screen = { size: { width: 8, height: 8 }, palette: attributePalette, candidates:
 
 -- | A dithered screen as a `.scr` file: the 6912 bytes of the Spectrum's
 -- | screen memory, as `SAVE "name" SCREEN$` saves them, and as many
--- | emulators and tools open them. Give it what `Puregrain.Cells.ditherCells`
--- | returns with this module's `screen`, for a 256 × 192 picture:
+-- | emulators and tools open them.
+-- |
+-- | - `{ cells, image }`: what `Puregrain.Cells.ditherCells` returns with
+-- |   this module's `screen`, for a 256 × 192 picture.
 -- |
 -- | ```purescript
--- | bytes = toScr (ditherCells atkinson nearestInCell screen picture)
+-- | bytes = toScr (ditherCells noDiffusion (orderedInCell m) screen picture)
 -- | ```
 -- |
 -- | The first 6144 bytes are the bitmap, one bit per pixel (1 for the ink,

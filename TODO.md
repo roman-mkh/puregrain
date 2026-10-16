@@ -3,14 +3,6 @@
 Open work, roughly in order. The reasons behind past decisions are in
 `CLAUDE.md`.
 
-## Documentation
-
-- [ ] **Public function docs, before the next release** (agreed 2026-10-15): apply the convention in CLAUDE.md
-      ("Public doc comments") to every public module: a summary line, the arguments in signature order, the
-      result and how it fails; shorter and more technical, implementation notes moved to plain comments.
-      `Puregrain.Cells` is the pilot (done with ordered dithering inside cells). Then write the convention
-      into CONTRIBUTING.md.
-
 ## Performance
 
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per
@@ -59,8 +51,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Command-line tool
 
-- [ ] **Tape image output, `--format tap`** (after the docs pass, before the release; decided
-      2026-10-15): the screen as a `.tap` file, to
+- [ ] **Tape image output, `--format tap`** (next, before the release; decided 2026-10-15): the screen as a `.tap` file, to
       load on a Spectrum, or in an emulator, with `LOAD "" SCREEN$`. It wraps the `.scr` bytes in two tape
       blocks, each with a 2-byte length, a flag byte and an XOR checksum: a 17-byte header (type 3, code; a
       10-character name; length 6912; start 16384) and the data. A `toTap` next to `toScr`.
@@ -96,8 +87,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11), and the
       `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Ordered dithering
       inside cells is done too (2026-10-15: `orderedInCell`, `--machine zx-spectrum --bayer N`), the main
-      mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. Next (decided 2026-10-15): the
-      docs pass (see "Documentation"), then the tape format, then the reference doc and the release.
+      mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. The docs pass over the public
+      modules is done too (2026-10-16). Next: the tape format, then the reference doc and the release.
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the

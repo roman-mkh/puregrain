@@ -24,9 +24,9 @@ import Data.Tuple (Tuple(..), fst)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (Quantize, quantize)
 
--- | Squared Euclidean distance in RGB space — no need for the actual
--- | (more expensive) square root, since we only ever compare distances
--- | to find the minimum, and squaring is monotonic.
+-- | The squared distance between two colors in RGB, the usual metric for
+-- | palettes: (r₁ − r₂)² + (g₁ − g₂)² + (b₁ − b₂)². Squared, since finding
+-- | the nearest color only compares distances.
 distance2 :: RGB -> RGB -> Number
 distance2 (RGB a) (RGB b) =
   let dr = a.r - b.r
@@ -34,30 +34,37 @@ distance2 (RGB a) (RGB b) =
       db = a.b - b.b
   in dr * dr + dg * dg + db * db
 
--- | A palette together with the distance metric to search it by, built
--- | once per image rather than for every pixel. The metric travels with
--- | the colors, so another metric (such as a future distance in CIELAB
--- | space) can be swapped in without changing any signature.
--- |
--- | Opaque: build one with `compilePalette` or `compilePaletteFromArray`,
--- | read its colors with `paletteColors`. Its representation may change,
--- | for instance to make the search faster. The colors are never empty:
--- | an empty palette has no nearest color.
+-- | A palette ready to search: its colors, never empty, and the distance
+-- | to search them by. Build it once per image with `compilePalette` or
+-- | `compilePaletteFromArray`; read its colors with `paletteColors`.
+-- | Opaque, so its representation may change, to make the search faster,
+-- | say.
+-- The metric travels with the colors, so another one, such as a distance
+-- in CIELAB, can be swapped in without changing any signature.
 newtype CompiledPalette = CompiledPalette
   { colors   :: NonEmptyArray RGB
   , distance :: RGB -> RGB -> Number
   }
 
--- | Primary constructor. Total: a `NonEmptyArray` already proves the
--- | palette is non-empty at the type level, so there is nothing here
--- | that can fail at runtime.
+-- | Makes a palette ready to search.
+-- |
+-- | - `RGB -> RGB -> Number`: the distance between a pixel and a color,
+-- |   usually `distance2`.
+-- | - `NonEmptyArray RGB`: the colors.
+-- |
+-- | ```purescript
+-- | palette = compilePalette distance2 websafe216
+-- | ```
 compilePalette :: (RGB -> RGB -> Number) -> NonEmptyArray RGB -> CompiledPalette
 compilePalette distance colors = CompiledPalette { colors, distance }
 
--- | Convenience constructor for a palette arriving as a plain `Array`
--- | — the common shape at an FFI/CLI/JSON boundary, where non-
--- | emptiness isn't yet proven at the type level. `Nothing` only for
--- | an empty `colors`; delegates to `compilePalette` otherwise.
+-- | As `compilePalette`, for colors in a plain `Array`, as they come from
+-- | JSON or JavaScript, say.
+-- |
+-- | - `RGB -> RGB -> Number`: the distance, usually `distance2`.
+-- | - `Array RGB`: the colors.
+-- |
+-- | `Nothing` for an empty array.
 compilePaletteFromArray :: (RGB -> RGB -> Number) -> Array RGB -> Maybe CompiledPalette
 compilePaletteFromArray distance colors = compilePalette distance <$> NEA.fromArray colors
 
@@ -65,18 +72,28 @@ compilePaletteFromArray distance colors = compilePalette distance <$> NEA.fromAr
 paletteColors :: CompiledPalette -> NonEmptyArray RGB
 paletteColors (CompiledPalette p) = p.colors
 
--- | Snaps `pixel` to the nearest color in a `CompiledPalette`, by the
--- | distance metric it was compiled with. Each color's distance to
--- | `pixel` is computed exactly once (paired up before folding), not
--- | recomputed on every comparison the fold makes along the way.
+-- | The palette's color nearest to a pixel, by the palette's distance; on
+-- | a tie, the earlier color. For many pixels, compile the palette once;
+-- | `nearestColor` does that for you.
+-- |
+-- | - `CompiledPalette`: the palette.
+-- | - `RGB`: the pixel.
+-- Each color's distance is computed once, paired up before the fold.
 nearestColorFast :: CompiledPalette -> RGB -> RGB
 nearestColorFast (CompiledPalette p) pixel =
   fst (NEA.foldl1 closer (map (\c -> Tuple c (p.distance pixel c)) p.colors))
   where
   closer t1@(Tuple _ d1) t2@(Tuple _ d2) = if d1 <= d2 then t1 else t2
 
--- | Builds a Quantize that snaps every pixel to the nearest color in
--- | the given (non-empty) palette, by squared Euclidean distance.
+-- | A quantizer that turns each pixel into the nearest palette color, all
+-- | three channels together, by `distance2`; on a tie, the earlier color.
+-- |
+-- | - `NonEmptyArray RGB`: the palette, e.g. from
+-- |   `Puregrain.Palette.Presets`.
+-- |
+-- | ```purescript
+-- | ditherImage floydSteinberg (nearestColor websafe216) image
+-- | ```
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
 nearestColor palette = quantize (nearestColorFast (compilePalette distance2 palette))
 

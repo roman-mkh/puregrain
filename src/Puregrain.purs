@@ -22,7 +22,9 @@
 -- | The building blocks for your own variants (distance metrics, threshold
 -- | maps, custom quantizers) are in the modules they come from:
 -- | `Puregrain.Palette`, `Puregrain.Ordered`, `Puregrain.Quantize`,
--- | `Puregrain.Pixel` and `Puregrain.Kernel`.
+-- | `Puregrain.Pixel` and `Puregrain.Kernel`. Dithering with cells, as on
+-- | the screens of 8-bit machines, is in `Puregrain.Cells` and
+-- | `Puregrain.Machine.ZxSpectrum`, outside this module.
 module Puregrain
   ( module Puregrain.Dither
   , module Puregrain.Kernel

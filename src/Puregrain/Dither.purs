@@ -45,15 +45,17 @@ import Puregrain.Pixel (class Scalable)
 import Puregrain.Quantize (Quantize)
 import Type.Proxy (Proxy(..))
 
--- | Dithers an image in memory: an array of rows, top to bottom, each an
--- | array of pixels from left to right. Returns the dithered image the
--- | same way, all at once.
+-- | Dithers an image in memory.
 -- |
--- | All rows must have the same length. A row of a different length is a
--- | bug in the caller: `ditherImage` stops with an error naming it.
+-- | - `a`: the pixel type, `Number` for gray, `RGB` or `RGBA`; any type
+-- |   with `Ring` and `Scalable` works.
+-- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- | - `Quantize a`: picks each pixel's output value.
+-- | - `Array (Array a)`: the image, rows top to bottom, each left to right,
+-- |   all of the same length.
 -- |
--- | `kernel` says where each pixel's quantization error goes;
--- | `noDiffusion` passes none on. `quantize` picks each output value.
+-- | Returns the dithered image, all at once. Stops with an error naming a
+-- | row whose length differs from the first row's.
 ditherImage
   :: forall a
    . Ring a
@@ -64,14 +66,17 @@ ditherImage
   -> Array (Array a)
 ditherImage = ditherImageWith (Proxy :: Proxy CatQueue)
 
--- | Dithers a stream of rows: a lazy list of rows in, a lazy list of
--- | dithered rows out. Each row is read and dithered only when its result
--- | is first needed, so only the rows in flight are in memory, and the
--- | input may even be endless. Gives the same rows as `ditherImage`.
+-- | Dithers a lazy stream of rows.
 -- |
--- | All rows must have the same length. A row of a different length is a
--- | bug in the caller: when that row is reached, `ditherRows` stops with an
--- | error naming it (the rows before it have come out already).
+-- | - `a`, `Kernel` and `Quantize a`: as for `ditherImage`.
+-- | - `LL.List (Array a)`: the rows, top to bottom, all of the same length;
+-- |   the list may be endless.
+-- |
+-- | Returns the dithered rows as a lazy list, the same rows as
+-- | `ditherImage`. Each row is read and dithered only when its result is
+-- | first needed, so only the rows in flight are in memory. At a row whose
+-- | length differs from the first row's, it stops with an error naming
+-- | the row; the rows before it have come out.
 ditherRows
   :: forall a
    . Ring a
@@ -82,30 +87,38 @@ ditherRows
   -> LL.List (Array a)
 ditherRows = ditherRowsWith (Proxy :: Proxy CatQueue)
 
--- | An image being dithered, one row at a time: the kernel, the quantizer,
--- | and the error waiting for the rows still to come. Opaque.
+-- | An image being dithered one row at a time, for `ditherRow`: the
+-- | kernel, the quantizer, and the error waiting for the rows still to
+-- | come; `a` is the pixel type. Opaque.
 -- |
--- | A plain immutable value: you can keep and reuse one, for an undo, say.
--- | Dithering a row from it again redoes that row's work, and no more.
+-- | An immutable value: keep and reuse one, for an undo, say. Dithering a
+-- | row from it again redoes that row's work, and no more.
 newtype Dithering a = Dithering
   { compiled :: CompiledKernel
   , quantize :: Quantize a
   , state :: DitherState CatQueue a
   }
 
--- | The state before the first row, for `ditherRow`. Nothing is computed
--- | yet; the first row also fixes the image's width.
+-- | The state before the first row, for `ditherRow`.
+-- |
+-- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- | - `Quantize a`: picks each pixel's output value.
+-- |
+-- | Computes nothing yet; the first row fixes the image's width.
 initDithering :: forall a. Kernel -> Quantize a -> Dithering a
 initDithering kernel quantize = Dithering { compiled, quantize, state: initState compiled }
   where
     compiled = compileKernel kernel
 
--- | Dithers the next row: returns it, dithered, with the state for the row
--- | after it. Gives the same rows as `ditherImage`.
+-- | Dithers the next row.
 -- |
--- | Every row must be as long as the first one. A row of a different
--- | length gives `Left`, with a message naming the row. The state you
--- | passed in is untouched, so you can carry on with a corrected row.
+-- | - `Dithering a`: the state, from `initDithering` or the previous row.
+-- | - `Array a`: the row, as long as the first one.
+-- |
+-- | Returns the dithered row and the state for the next one: the same rows
+-- | as `ditherImage`. `Left`, with a message naming the row, for a row of a
+-- | different length; the state passed in is untouched, so you can carry
+-- | on with a corrected row.
 ditherRow
   :: forall a
    . Ring a

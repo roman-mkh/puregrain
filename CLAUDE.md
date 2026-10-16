@@ -170,11 +170,12 @@ from the code alone.
     repo docs. Convention for public functions (agreed 2026-10-15; pilot:
     `Puregrain.Cells`): a summary line; the arguments in signature order,
     one line each, type variables included (Pursuit shows types without
-    parameter names, so prose names like `kernel` match nothing); the
+    parameter names, so prose names like `kernel` match nothing), except
+    for a one-argument function whose summary names its argument; the
     result and how it fails; keep the code examples (users want them),
-    and add one where it helps; rationale
-    and background in `docs/` or plain comments. A pass over all public
-    modules is due before the next release (TODO.md).
+    and add one where it helps; rationale and background in `docs/` or
+    plain comments. Applied to every public module on 2026-10-16; written
+    down in CONTRIBUTING.md ("Doc comments").
   - The reshape was verified byte-identical: 17 CLI configurations
     produced the same PNGs before and after.
 - `Puregrain.Kernel` — `Kernel` is an opaque, checked `Array Offset`

@@ -91,9 +91,11 @@ newtype CellPalette = CellPalette
 singleColor :: RGB -> CellPalette
 singleColor c = CellPalette { first: c, second: c, direction: { r: 0.0, g: 0.0, b: 0.0 }, length2: 0.0 }
 
--- | A cell palette of two colors, the first and the second (the order
--- | matters only for `orderedInCell`). The same color twice is a single
--- | color.
+-- | A cell palette of two colors. The same color twice is a single color.
+-- |
+-- | - `RGB`: the first color.
+-- | - `RGB`: the second color; the order matters only for
+-- |   `orderedInCell`.
 colorPair :: RGB -> RGB -> CellPalette
 colorPair a@(RGB p) b@(RGB q) =
   if a == b then singleColor a
