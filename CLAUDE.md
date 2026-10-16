@@ -75,9 +75,12 @@ from the code alone.
   without `--machine zx-spectrum`, matching the machine without a
   wildcard, so a new machine must decide its formats. `screenSizeCheck`
   runs before dithering: for an image other than 256×192, a note with a
-  PNG (any size works, e.g. a poster), an error with `scr` (exit 1, no
-  file). `screenFile` maps the machine to its encoder (`Zx.toScr`), and
-  `Main` writes the bytes with `node-fs`/`node-buffer`, no JS of our own.
+  PNG (any size works, e.g. a poster), an error with `scr` or `tap` (exit
+  1, no file). `screenFile` maps the machine to its encoder (`Zx.toScr`),
+  `tapeFile` to its tape writer (`Zx.toTap`, 2026-10-16, `--format tap`),
+  with the name from `tapeName`: the output file's name without directory
+  and extension, printable ASCII only, cut to 10. `Main` writes the bytes
+  with `node-fs`/`node-buffer`, no JS of our own.
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
@@ -365,6 +368,19 @@ from the code alone.
   catches ink-first: reading the file back can't see those bits). The
   spec's reader `readScr` uses the forward formula, with arithmetic, on
   random full screens (`quickCheck' 10`: each has 49,152 pixels).
+  `toTap name` (2026-10-16) writes a `.tap`: a BASIC loader that starts by
+  itself, `10 LOAD "" SCREEN$: PAUSE 0` (decided: emulators opening a
+  tape type only `LOAD ""`, which skips a CODE file, and typing `SCREEN$`
+  on a 48K is awkward), then the screen as a CODE file, 6980 bytes in
+  all. Each file a header block and a data block: two-byte length, flag,
+  bytes, XOR checksum. The BASIC line and its tokens follow the ZX
+  Spectrum manual's chapter 24 and its character set (line number high
+  byte first, the number 0 as its digit, 0x0E and five zero bytes); the
+  sources are cited in the code. The name: up to 10 printable ASCII
+  characters, else `Left`; it needs `Data.Char`/`Data.String`, so the
+  library depends on `strings` since then. The spec's `readTape` walks
+  the blocks independently, and check-cli's JavaScript reader compares
+  the tape's screen with the same run's `.scr`.
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The

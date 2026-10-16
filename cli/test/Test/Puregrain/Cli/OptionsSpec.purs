@@ -80,7 +80,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
       map machineName allMachines `shouldEqual` [ "zx-spectrum" ]
-      map formatName allFormats `shouldEqual` [ "png", "scr" ]
+      map formatName allFormats `shouldEqual` [ "png", "scr", "tap" ]
 
     it "--format png works with every mode" do
       parse (files <> [ "--format", "png" ]) `shouldEqual` Right defaults
@@ -160,13 +160,13 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "an unknown machine, listing the valid names" do
       parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"
 
-    it "--format scr without --machine zx-spectrum, saying why" do
-      for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra ->
-        parse (files <> [ "--format", "scr" ] <> extra) `shouldSatisfy`
-          failsWith "--format scr needs --machine zx-spectrum: the file holds a ZX Spectrum screen"
+    it "--format scr or tap without --machine zx-spectrum, saying why" do
+      for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra ->
+        parse (files <> [ "--format", format ] <> extra) `shouldSatisfy`
+          failsWith ("--format " <> format <> " needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
 
     it "an unknown format, listing the valid names" do
-      parse (files <> [ "--format", "gif" ]) `shouldSatisfy` failsWith "use one of: png, scr"
+      parse (files <> [ "--format", "gif" ]) `shouldSatisfy` failsWith "use one of: png, scr, tap"
 
     it "a threshold that isn't a number" do
       parse (files <> [ "--threshold", "half" ]) `shouldSatisfy` isLeft

@@ -6,6 +6,8 @@ module Puregrain.Cli.Pipeline
   , pipelineFor
   , ditherScreen
   , screenFile
+  , tapeFile
+  , tapeName
   , screenSizeCheck
   , kernelOf
   , paletteOf
@@ -17,8 +19,12 @@ module Puregrain.Cli.Pipeline
 import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
+import Data.Array as Array
+import Data.Char (toCharCode)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..), maybe)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.String (Pattern(..), Replacement(..), replaceAll, split)
+import Data.String.CodeUnits as CodeUnits
 import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
@@ -65,6 +71,25 @@ screenFile :: MachineName -> { cells :: Array (Array Zx.Attribute), image :: Arr
 screenFile machine screen = case machine of
   ZxSpectrumScreen -> Zx.toScr screen
 
+-- | The machine's screen as a tape image that loads and shows it, as
+-- | bytes: a .tap file for the ZX Spectrum, with the name on the tape.
+-- | `Left` as for `screenFile`.
+tapeFile :: MachineName -> String -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) } -> Either String (Array Int)
+tapeFile machine name screen = case machine of
+  ZxSpectrumScreen -> Zx.toTap name screen
+
+-- | The name on the tape, from the output path: the file's name without
+-- | its directory and extension, printable ASCII characters only, the
+-- | first 10 (a Spectrum tape name's length).
+tapeName :: String -> String
+tapeName path = CodeUnits.take 10 (CodeUnits.fromCharArray (Array.filter printable (CodeUnits.toCharArray stem)))
+  where
+  file = fromMaybe path (Array.last (split (Pattern "/") (replaceAll (Pattern "\\") (Replacement "/") path)))
+  stem = case CodeUnits.lastIndexOf (Pattern ".") file of
+    Just i | i > 0 -> CodeUnits.take i file
+    _ -> file
+  printable c = toCharCode c >= 32 && toCharCode c <= 126
+
 -- | What to say about an image that isn't the size of the machine's
 -- | screen, before dithering it. A PNG can have any size (a poster in the
 -- | machine's style, say), so for one it's only a note: `Right (Just
@@ -77,12 +102,13 @@ screenSizeCheck format machine width height = case machine of
     if width == 256 && height == 192 then Right Nothing
     else case format of
       Png -> Right (Just ("Note: a ZX Spectrum screen is 256x192, this image is " <> size <> " (any size works for a PNG)"))
-      Scr -> Left
-        ( "--format " <> formatName Scr <> " needs a 256x192 image, a ZX Spectrum screen; this one is " <> size
-            <> ". Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
-        )
+      Scr -> Left (machineFileOnly Scr)
+      Tap -> Left (machineFileOnly Tap)
   where
   size = show width <> "x" <> show height
+  machineFileOnly f =
+    "--format " <> formatName f <> " needs a 256x192 image, a ZX Spectrum screen; this one is " <> size
+      <> ". Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
 
 -- | The `--bayer` option only accepts powers of 2, for which `bayer`
 -- | always has a map.

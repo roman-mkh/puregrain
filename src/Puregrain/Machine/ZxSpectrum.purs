@@ -29,6 +29,7 @@ module Puregrain.Machine.ZxSpectrum
   , attributePalette
   , screen
   , toScr
+  , toTap
   ) where
 
 import Prelude
@@ -36,10 +37,12 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
+import Data.Char (toCharCode)
 import Data.Either (Either(..))
-import Data.Foldable (foldM)
-import Data.Int.Bits (shr, (.&.))
+import Data.Foldable (all, foldM, foldl)
+import Data.Int.Bits (shr, xor, (.&.))
 import Data.Maybe (maybe)
+import Data.String.CodeUnits (toCharArray)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafePartial)
 import Puregrain.Cells (CellMode, CellPalette, colorPair, singleColor)
@@ -177,6 +180,78 @@ pixelBit (Attribute a) x y pixel =
 -- | BRIGHT × 64 + paper × 8 + ink; FLASH (128) stays off.
 attributeByte :: Attribute -> Int
 attributeByte (Attribute a) = (if a.bright then 64 else 0) + a.paper * 8 + a.ink
+
+-- | A dithered screen as a `.tap` tape image: a short BASIC program that
+-- | starts by itself and loads the screen, then the screen as a CODE file.
+-- | Open it in an emulator, or type `LOAD ""` on a Spectrum: the picture
+-- | appears and stays until a key is pressed.
+-- |
+-- | - `String`: the name on the tape, up to 10 printable ASCII characters.
+-- | - `{ cells, image }`: as for `toScr`.
+-- |
+-- | ```purescript
+-- | bytes = toTap "sphere" (ditherCells noDiffusion (orderedInCell m) screen picture)
+-- | ```
+-- |
+-- | `Left`, with a message, for a name that's too long or holds other
+-- | characters, and as `toScr` for the screen. The tape format:
+-- | https://worldofspectrum.net/zx-modules/fileformats/tapformat.html
+toTap :: String -> { cells :: Array (Array Attribute), image :: Array (Array RGB) } -> Either String (Array Int)
+toTap name dithered = do
+  nameBytes <- tapeName name
+  bytes <- toScr dithered
+  pure
+    ( tapeFile { kind: 0, name: nameBytes, param1: 10, param2: Array.length loader } loader
+        <> tapeFile { kind: 3, name: nameBytes, param1: 16384, param2: 32768 } bytes
+    )
+
+-- The tape format (worldofspectrum.net/zx-modules/fileformats/tapformat.html,
+-- formats.kaitai.io/zx_spectrum_tap/): a sequence of blocks, each a
+-- two-byte length, then that many bytes: a flag (0 for a header, 255 for
+-- data), the bytes, and a checksum, the XOR of the flag and the bytes. A
+-- file is a header block, then a data block. The header's bytes: the type
+-- (0 a BASIC program, 3 bytes), the name in 10 bytes padded with spaces,
+-- the data's length, and two parameters: for a program, the line it
+-- starts at and its length; for bytes, the start address (16384 for the
+-- screen) and 32768.
+
+-- | One file on tape: its header block, then its data block.
+tapeFile :: { kind :: Int, name :: Array Int, param1 :: Int, param2 :: Int } -> Array Int -> Array Int
+tapeFile h bytes =
+  tapeBlock 0 ([ h.kind ] <> h.name <> word (Array.length bytes) <> word h.param1 <> word h.param2)
+    <> tapeBlock 255 bytes
+
+-- | One tape block: its length, the flag, the bytes, the checksum.
+tapeBlock :: Int -> Array Int -> Array Int
+tapeBlock flag bytes = word (Array.length bytes + 2) <> [ flag ] <> bytes <> [ foldl xor flag bytes ]
+
+-- | A two-byte number as the Z80 stores it, less significant byte first.
+word :: Int -> Array Int
+word n = [ n .&. 255, shr n 8 .&. 255 ]
+
+-- | The name's character codes, padded with spaces to 10.
+tapeName :: String -> Either String (Array Int)
+tapeName name =
+  if Array.length codes > 10 then
+    Left ("toTap: a tape name has at most 10 characters; \"" <> name <> "\" has " <> show (Array.length codes))
+  else if not (all (\c -> c >= 32 && c <= 126) codes) then
+    Left ("toTap: a tape name may hold only printable ASCII characters, codes 32 to 126; \"" <> name <> "\" has others")
+  else
+    Right (codes <> Array.replicate (10 - Array.length codes) 32)
+  where
+  codes = map toCharCode (toCharArray name)
+
+-- | The BASIC loader, `10 LOAD "" SCREEN$: PAUSE 0`, as the Spectrum
+-- | stores a program line (the ZX Spectrum manual, chapter 24): the line
+-- | number, more significant byte first; the length of the rest, less
+-- | significant first; the text, with each keyword one character (LOAD
+-- | 0xEF, SCREEN$ 0xAA, PAUSE 0xF2; en.wikipedia.org/wiki/
+-- | ZX_Spectrum_character_set), and the number 0 as its digit, then 0x0E
+-- | and its five-byte form, all zeros; ENTER, 0x0D.
+loader :: Array Int
+loader = [ 0, 10 ] <> word (Array.length text) <> text
+  where
+  text = [ 0xEF, 0x22, 0x22, 0xAA, 0x3A, 0xF2, 0x30, 0x0E, 0, 0, 0, 0, 0, 0x0D ]
 
 -- | A color code's color at a brightness, from the `zxSpectrum` preset:
 -- | its first 8 colors are codes 0 to 7 at normal brightness, the next 7

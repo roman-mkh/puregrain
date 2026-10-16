@@ -16,7 +16,7 @@
     "dither:color:websafe": "npm run dither-cli -- samples/color-512.png samples/output-color-websafe.png --palette websafe216",
     "dither:color:bw": "npm run dither-cli -- samples/color-512.png samples/output-color-bw.png --palette bw",
     "dither:color:bayer": "npm run dither-cli -- samples/color-512.png samples/output-color-bayer4.png --bayer 4 --kernel none --levels 4",
-    "dither:zx": "npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.png --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.scr --machine zx-spectrum --bayer 8 --format scr && npm run dither-cli -- samples/color-256x192.png samples/output-zx-atkinson.png --machine zx-spectrum --kernel atkinson",
+    "dither:zx": "npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.png --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.scr --machine zx-spectrum --bayer 8 --format scr && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.tap --machine zx-spectrum --bayer 8 --format tap && npm run dither-cli -- samples/color-256x192.png samples/output-zx-atkinson.png --machine zx-spectrum --kernel atkinson",
     "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli",
     "check:cli": "bash scripts/check-cli.sh",
     "check:clean": "rm -rf output && npm run check",

@@ -51,10 +51,6 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Command-line tool
 
-- [ ] **Tape image output, `--format tap`** (next, before the release; decided 2026-10-15): the screen as a `.tap` file, to
-      load on a Spectrum, or in an emulator, with `LOAD "" SCREEN$`. It wraps the `.scr` bytes in two tape
-      blocks, each with a 2-byte length, a flag byte and an XOR checksum: a 17-byte header (type 3, code; a
-      10-character name; length 6912; start 16384) and the data. A `toTap` next to `toScr`.
 - [ ] **Streaming rows, with a progress indicator:** use `ditherRows` or the stepper instead of
       `ditherImage`, so the JS heap holds a few rows instead of the whole image (pngjs still decodes the file
       into one buffer, but buffers live outside the JS heap), and print progress every few percent to stderr
@@ -88,7 +84,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Ordered dithering
       inside cells is done too (2026-10-15: `orderedInCell`, `--machine zx-spectrum --bayer N`), the main
       mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. The docs pass over the public
-      modules is done too (2026-10-16). Next: the tape format, then the reference doc and the release.
+      modules is done too (2026-10-16), and the tape format (2026-10-16: `Zx.toTap`, `--format tap`, with a
+      BASIC loader). Next: the reference doc, then the release.
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the

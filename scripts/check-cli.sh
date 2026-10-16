@@ -134,12 +134,54 @@ result=$(node -e '
   && pass "color composite at 256x192, --machine zx-spectrum --format scr: the .scr decodes to the PNG" \
   || fail "color composite at 256x192, --machine zx-spectrum --format scr: $result"
 
-# 8. A .scr file holds exactly one 256×192 screen, so another size is
-#    rejected before dithering: exit code 1, an error naming the size, and
-#    no file written.
-rm -f $out/wrong-size.scr
-code=0
-$cli $out/color-512.png $out/wrong-size.scr --machine zx-spectrum --format scr >/dev/null 2>$out/wrong-size.err || code=$?
-[ "$code" -eq 1 ] && [ ! -e $out/wrong-size.scr ] && grep -q "needs a 256x192 image" $out/wrong-size.err \
-  && pass "color composite at 512x512, --machine zx-spectrum --format scr: rejected (exit 1), no file written" \
-  || fail "color composite at 512x512, --machine zx-spectrum --format scr: exit code $code (expected 1), file written: $([ -e $out/wrong-size.scr ] && echo yes || echo no), error: $(cat $out/wrong-size.err)"
+# 8. A .scr file or a tape holds exactly one 256×192 screen, so another
+#    size is rejected before dithering: exit code 1, an error naming the
+#    size, and no file written.
+for format in scr tap; do
+  rm -f $out/wrong-size.$format
+  code=0
+  $cli $out/color-512.png $out/wrong-size.$format --machine zx-spectrum --format $format >/dev/null 2>$out/wrong-size.err || code=$?
+  [ "$code" -eq 1 ] && [ ! -e $out/wrong-size.$format ] && grep -q "needs a 256x192 image" $out/wrong-size.err \
+    && pass "color composite at 512x512, --machine zx-spectrum --format $format: rejected (exit 1), no file written" \
+    || fail "color composite at 512x512, --machine zx-spectrum --format $format: exit code $code (expected 1), file written: $([ -e $out/wrong-size.$format ] && echo yes || echo no), error: $(cat $out/wrong-size.err)"
+done
+
+# 9. A tape (--format tap) holds a BASIC loader, then the screen: read here
+#    independently, block by block (two-byte length, low byte first; flag;
+#    bytes; checksum, so that all of a block's bytes XOR to 0). Program
+#    header (type 0, autostart line 10, its length), the loader's bytes
+#    (10 LOAD "" SCREEN$: PAUSE 0, as the Spectrum stores it), screen
+#    header (type 3, 6912 bytes at 16384), both named after the output
+#    file, and the screen's bytes equal to the .scr of the same run (7).
+$cli $out/color-256x192.png $out/zx-color.tap --machine zx-spectrum --kernel atkinson --format tap >/dev/null
+result=$(node -e '
+  const fs = require("fs");
+  const tap = fs.readFileSync(process.argv[1]);
+  const scr = fs.readFileSync(process.argv[2]);
+  const blocks = [];
+  let at = 0, problem = "";
+  while (at < tap.length && !problem) {
+    const n = tap[at] | (tap[at + 1] << 8);
+    const body = tap.subarray(at + 2, at + 2 + n);
+    if (n < 2 || body.length !== n) problem = "the block at " + at + " is cut short";
+    else if (body.reduce((x, b) => x ^ b, 0) !== 0) problem = "the block at " + at + " has a wrong checksum";
+    else blocks.push({ flag: body[0], bytes: body.subarray(1, n - 1) });
+    at += 2 + n;
+  }
+  const word = (b, i) => b[i] | (b[i + 1] << 8);
+  const name = (b) => String.fromCharCode(...b.subarray(1, 11));
+  const loader = [0, 10, 14, 0, 0xef, 0x22, 0x22, 0xaa, 0x3a, 0xf2, 0x30, 0x0e, 0, 0, 0, 0, 0, 0x0d];
+  if (!problem) {
+    const [ph, pd, sh, sd] = blocks;
+    if (blocks.map((b) => b.flag).join() !== "0,255,0,255") problem = "flags " + blocks.map((b) => b.flag).join();
+    else if (ph.bytes[0] !== 0 || word(ph.bytes, 13) !== 10 || word(ph.bytes, 11) !== pd.bytes.length
+      || word(ph.bytes, 15) !== pd.bytes.length) problem = "the program header";
+    else if (Buffer.compare(Buffer.from(loader), pd.bytes) !== 0) problem = "the loader: " + [...pd.bytes].join();
+    else if (sh.bytes[0] !== 3 || word(sh.bytes, 11) !== 6912 || word(sh.bytes, 13) !== 16384) problem = "the screen header";
+    else if (name(ph.bytes) !== "zx-color  " || name(sh.bytes) !== "zx-color  ") problem = "the names";
+    else if (Buffer.compare(sd.bytes, scr) !== 0) problem = "the screen differs from the .scr";
+  }
+  console.log(problem || "ok");' $out/zx-color.tap $out/zx-color.scr)
+[ "$result" = ok ] \
+  && pass "color composite at 256x192, --machine zx-spectrum --format tap: loader, then the .scr's screen" \
+  || fail "color composite at 256x192, --machine zx-spectrum --format tap: $result"

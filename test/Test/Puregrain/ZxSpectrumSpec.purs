@@ -5,10 +5,13 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Either (Either(..), either)
-import Data.Foldable (all, and)
+import Data.Char (toCharCode)
+import Data.Either (Either(..), either, hush)
+import Data.Foldable (all, and, foldl)
 import Data.Int (pow)
+import Data.Int.Bits (xor)
 import Data.Maybe (Maybe(..), fromMaybe)
+import Data.String.CodeUnits (toCharArray)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck (class Arbitrary, Result(..), (===))
@@ -18,7 +21,7 @@ import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
 import Puregrain.Cells (cellColors, ditherCells)
-import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, ink, paper, screen, toScr)
+import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, ink, paper, screen, toScr, toTap)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
@@ -102,6 +105,35 @@ readScr bytes = { cells: grid 32 24 codesAt, image: grid 256 192 pixelAt }
       codes = codesAt (x / 8) (y / 8)
     in
       expectedColor codes.bright (if isInk then codes.ink else codes.paper)
+
+-- | One block of a tape: its flag and its bytes, without the length and
+-- | the checksum.
+type TapeBlock = { flag :: Int, bytes :: Array Int }
+
+-- | Reads a .tap file's blocks, written independently of `toTap`: each
+-- | block's two-byte length, low byte first, and its checksum, which makes
+-- | the XOR of all its bytes, flag and checksum included, zero.
+readTape :: Array Int -> Either String (Array TapeBlock)
+readTape tape = go 0 []
+  where
+  go at blocks =
+    if at == Array.length tape then Right blocks
+    else case Array.index tape at, Array.index tape (at + 1) of
+      Just low, Just high ->
+        let
+          n = low + 256 * high
+          body = Array.slice (at + 2) (at + 2 + n) tape
+        in
+          if n < 2 || Array.length body /= n then Left ("the block at " <> show at <> " is cut short")
+          else if foldl xor 0 body /= 0 then Left ("the block at " <> show at <> " has a wrong checksum")
+          else go (at + 2 + n) (Array.snoc blocks { flag: fromMaybe (-1) (Array.head body), bytes: Array.slice 1 (n - 1) body })
+      _, _ -> Left ("the length at " <> show at <> " is cut short")
+
+-- | A tape name's codes, padded with spaces to 10.
+nameCodes :: String -> Array Int
+nameCodes name = codes <> Array.replicate (10 - Array.length codes) 32
+  where
+  codes = map toCharCode (toCharArray name)
 
 -- | Valid cells, `columns` × `rows` of them: each cell a random
 -- | attribute, each pixel one of that attribute's colors.
@@ -235,3 +267,46 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
       -- Bright white in a cell of normal black and white.
       failure (screenOf (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor true 7 else expectedColor false 7)
         `shouldSatisfy` mentions "pixel (3, 5) isn't one of its cell's colors"
+
+  describe "toTap" do
+    it "puts a BASIC loader that starts by itself on the tape, then the screen as a CODE file" do
+      let
+        white = inkAt []
+        -- Two-byte numbers, low byte first.
+        le n = [ n `mod` 256, n / 256 ]
+        header kind length start param2 = [ kind ] <> nameCodes "sphere" <> le length <> le start <> le param2
+        -- 10 LOAD "" SCREEN$: PAUSE 0: the line number, high byte first;
+        -- the length of the rest; LOAD, the quotes, SCREEN$, the colon,
+        -- PAUSE, the digit 0, the number marker and 0's five bytes, ENTER.
+        program = [ 0, 10, 14, 0, 0xEF, 0x22, 0x22, 0xAA, 0x3A, 0xF2, 0x30, 0x0E, 0, 0, 0, 0, 0, 0x0D ]
+        tape = toTap "sphere" white
+      map Array.length tape `shouldEqual` Right 6980
+      map (Array.take 3) (tape >>= readTape) `shouldEqual` Right
+        [ { flag: 0, bytes: header 0 18 10 18 }
+        , { flag: 255, bytes: program }
+        , { flag: 0, bytes: header 3 6912 16384 32768 }
+        ]
+      -- The screen's bytes, compared as a whole: a failure would print
+      -- 6912 numbers otherwise.
+      map (\blocks -> map _.bytes (Array.index blocks 3) == hush (toScr white)) (tape >>= readTape) `shouldEqual` Right true
+
+    it "can be read back: its blocks hold the loader's and the screen's, for any valid screen" do
+      -- 5 screens instead of 100: each has 49,152 pixels.
+      quickCheck' 5 \(FullScreen s) ->
+        case toTap "zx" s >>= readTape of
+          Left problem -> Failed problem
+          Right blocks ->
+            if map _.flag blocks /= [ 0, 255, 0, 255 ] then Failed ("flags " <> show (map _.flag blocks))
+            else if map _.bytes (Array.index blocks 3) /= hush (toScr s) then Failed "the screen's bytes differ"
+            else Success
+
+    it "pads the name with spaces, and rejects a name that's too long or holds other characters" do
+      let
+        valid = inkAt []
+        failure name = either Just (const Nothing) (toTap name valid)
+      map (map (Array.slice 1 11 <<< _.bytes) <<< Array.head) (toTap "zx" valid >>= readTape) `shouldEqual` Right (Just (nameCodes "zx"))
+      failure "0123456789" `shouldEqual` Nothing
+      failure "0123456789A" `shouldSatisfy` mentions "a tape name has at most 10 characters; \"0123456789A\" has 11"
+      failure "schön" `shouldSatisfy` mentions "only printable ASCII characters"
+      failure "a\tb" `shouldSatisfy` mentions "only printable ASCII characters"
+      either Just (const Nothing) (toTap "zx" (valid { image = [] })) `shouldSatisfy` mentions "the image must be 256x192"

@@ -22,7 +22,8 @@ raises the minor version (0.1 → 0.2).
   one BRIGHT bit (`attributes`, the 71 cell palettes that look different;
   `attributePalette`; `screen`, the screen mode). `toScr` writes a dithered 256 × 192
   screen as a `.scr` file, the Spectrum's own screen format, which
-  emulators open.
+  emulators open; `toTap` as a `.tap` tape image with a BASIC loader, so
+  that it loads and shows itself in an emulator or on a Spectrum.
 
 ## 0.1.0 - 2026-10-10
 

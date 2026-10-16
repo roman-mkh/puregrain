@@ -59,9 +59,9 @@ derive instance Generic MachineName _
 instance Show MachineName where
   show = genericShow
 
--- | The output file's format: a PNG, or a machine's own screen file (the
--- | ZX Spectrum's, for `--machine zx-spectrum`).
-data FormatName = Png | Scr
+-- | The output file's format: a PNG, or for `--machine zx-spectrum` the
+-- | Spectrum's own screen file or a tape image that loads and shows it.
+data FormatName = Png | Scr | Tap
 
 derive instance Eq FormatName
 derive instance Generic FormatName _
@@ -113,7 +113,7 @@ allMachines :: Array MachineName
 allMachines = [ ZxSpectrumScreen ]
 
 allFormats :: Array FormatName
-allFormats = [ Png, Scr ]
+allFormats = [ Png, Scr, Tap ]
 
 kernels :: Array (Tuple String KernelName)
 kernels = map (\k -> Tuple (kernelName k) k) allKernels
@@ -160,6 +160,7 @@ formatName :: FormatName -> String
 formatName = case _ of
   Png -> "png"
   Scr -> "scr"
+  Tap -> "tap"
 
 describeQuantizer :: QuantizerChoice -> String
 describeQuantizer = case _ of
@@ -243,7 +244,8 @@ rawOptions = ado
     ( long "format" <> metavar "NAME" <> value Png <> showDefaultWith formatName
         <> help
           ( "output file format: " <> orList (map fst formats) <> "; " <> formatName Scr
-              <> " is the ZX Spectrum's screen file, for --machine " <> machineName ZxSpectrumScreen
+              <> " is the ZX Spectrum's screen file, " <> formatName Tap
+              <> " a tape image that loads and shows it, for --machine " <> machineName ZxSpectrumScreen
               <> " on a 256x192 image"
           )
     )
@@ -259,8 +261,8 @@ parserInfo = info (rawOptions <**> helper)
             <> "--bayer N gives ordered dithering, over --levels, black and white, or inside --machine's cells; without --kernel it passes no error on. "
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
             <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
-            <> "screen, two colors per 8x8 cell, and gives an RGB PNG, or with --format scr the "
-            <> "Spectrum's own screen file."
+            <> "screen, two colors per 8x8 cell, and gives an RGB PNG, or with --format scr or tap "
+            <> "the Spectrum's own screen file or a tape image."
         )
   )
 
@@ -269,8 +271,8 @@ parserInfo = info (rawOptions <**> helper)
 -- | `--levels` or `--machine` and nothing else; `--machine` defines all
 -- | the colors, so it combines with none of the quantizer options
 -- | (`--kernel` and `--gray` work with everything); a
--- | screen file holds a machine's screen, so `--format scr` needs
--- | `--machine zx-spectrum`. Without `--kernel`, the kernel is
+-- | screen file or tape holds a machine's screen, so `--format scr` and
+-- | `--format tap` need `--machine zx-spectrum`. Without `--kernel`, the kernel is
 -- | Floyd–Steinberg, except with `--bayer`: there it's none, so `--bayer`
 -- | alone is pure ordered dithering. With `--bayer` the kernel decides
 -- | which method runs, pure or the hybrid, so that's the one mode with a
@@ -301,8 +303,9 @@ resolve raw = ado
   formatChoice = case raw.format, raw.machine of
     Png, _ -> Right Png
     Scr, Just ZxSpectrumScreen -> Right Scr
-    Scr, Nothing ->
-      Left ("--format " <> formatName Scr <> " needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen")
+    Tap, Just ZxSpectrumScreen -> Right Tap
+    format, Nothing ->
+      Left ("--format " <> formatName format <> " needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen")
 
 -- | Parses a command line (without the program name): optparse's own
 -- | checks, then `resolve`. A rejection by `resolve` becomes an ordinary

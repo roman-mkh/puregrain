@@ -341,7 +341,7 @@ between pixels without a kernel, and keeps exact levels:
 Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.
 
-Three checks cover machine screens:
+Five checks cover machine screens:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
   equals input byte for byte, with Floyd–Steinberg, with `--kernel none`,
@@ -361,6 +361,15 @@ Three checks cover machine screens:
   address formula, its bit (1 for the ink), its cell's attribute byte, and
   the colors from the color codes' bits. `Test.Puregrain.ZxSpectrumSpec`
   reads arbitrary screens back the same way.
-- **The color composite at 512×512, with `--format scr`:** rejected before
-  dithering, with exit code 1 and an error naming the required 256×192,
-  and no file written. A `.scr` file holds exactly one screen.
+- **The color composite at 512×512, with `--format scr` and with
+  `--format tap`:** rejected before dithering, with exit code 1 and an
+  error naming the required 256×192, and no file written. Both files hold
+  exactly one screen.
+- **The color composite at 256×192, as a tape (`--format tap`), with
+  Atkinson:** read on its own, block by block, every block's length and
+  checksum are right. The tape holds the BASIC loader, byte for byte as
+  the Spectrum stores `10 LOAD "" SCREEN$: PAUSE 0`, with its header
+  (autostart at line 10), then the screen's header (6912 bytes at 16384),
+  both named after the output file, and the screen's bytes, equal to the
+  `.scr` of the same run. `Test.Puregrain.ZxSpectrumSpec` reads arbitrary
+  screens' tapes back the same way.

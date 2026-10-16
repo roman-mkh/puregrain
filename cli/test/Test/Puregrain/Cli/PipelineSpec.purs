@@ -13,7 +13,7 @@ import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atk
 import Effect.Aff (Aff)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, toNeutral)
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
@@ -136,15 +136,26 @@ spec = describe "Puregrain.Cli.Pipeline" do
         ditherScreen ZxSpectrumScreen atkinson (orderedInCell m) screenProbe
           `shouldEqual` ditherCells atkinson (orderedInCell m) Zx.screen screenProbe
 
-    it "zx-spectrum's screen file is the library's .scr, 6912 bytes" do
+    it "zx-spectrum's screen file is the library's .scr, 6912 bytes, and its tape the library's .tap" do
       let
         image = map (\y -> map (\x -> RGB { r: toNumber x, g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 255)) (0 .. 191)
         out = ditherScreen ZxSpectrumScreen atkinson nearestInCell image
       screenFile ZxSpectrumScreen out `shouldEqual` Zx.toScr out
       map Array.length (screenFile ZxSpectrumScreen out) `shouldEqual` Right 6912
+      tapeFile ZxSpectrumScreen "picture" out `shouldEqual` Zx.toTap "picture" out
+      map Array.length (tapeFile ZxSpectrumScreen "picture" out) `shouldEqual` Right 6980
+
+    it "names the tape after the output file: no directory or extension, printable ASCII only, at most 10" do
+      tapeName "samples/zx-bayer8.tap" `shouldEqual` "zx-bayer8"
+      tapeName "samples/output-zx-bayer8.tap" `shouldEqual` "output-zx-"
+      tapeName "C:\\pictures\\sphere.tap" `shouldEqual` "sphere"
+      tapeName "a.b.tap" `shouldEqual` "a.b"
+      tapeName ".hidden" `shouldEqual` ".hidden"
+      tapeName "pics/schön bild.tap" `shouldEqual` "schn bild"
+      tapeName "noextension" `shouldEqual` "noextensio"
 
     it "says nothing about a 256x192 image; notes another size for a PNG, and rejects it for a screen file" do
-      for_ [ Png, Scr ] \format -> screenSizeCheck format ZxSpectrumScreen 256 192 `shouldEqual` Right Nothing
+      for_ [ Png, Scr, Tap ] \format -> screenSizeCheck format ZxSpectrumScreen 256 192 `shouldEqual` Right Nothing
       screenSizeCheck Png ZxSpectrumScreen 512 512
         `shouldEqual` Right (Just "Note: a ZX Spectrum screen is 256x192, this image is 512x512 (any size works for a PNG)")
       screenSizeCheck Scr ZxSpectrumScreen 512 512 `shouldEqual` Left
@@ -152,7 +163,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
             <> "Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
         )
       for_ [ { width: 256, height: 191 }, { width: 255, height: 192 } ] \{ width, height } ->
-        screenSizeCheck Scr ZxSpectrumScreen width height `shouldSatisfy` isLeft
+        for_ [ Scr, Tap ] \format -> screenSizeCheck format ZxSpectrumScreen width height `shouldSatisfy` isLeft
 
   describe "names -> library values" do
     it "each kernel name maps to the library's kernel" do
