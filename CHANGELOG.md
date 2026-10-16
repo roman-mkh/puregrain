@@ -6,6 +6,8 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+## 0.1.1 - 2026-10-16
+
 ### Added
 
 - `Puregrain.Cells`: dithering with cells, as on 8-bit home computers. Each
@@ -20,10 +22,18 @@ raises the minor version (0.1 → 0.2).
 - `Puregrain.Machine.ZxSpectrum`: the ZX Spectrum's screen for
   `Puregrain.Cells`: 8 × 8 cells, each with an ink and a paper color and
   one BRIGHT bit (`attributes`, the 71 cell palettes that look different;
-  `attributePalette`; `screen`, the screen mode). `toScr` writes a dithered 256 × 192
-  screen as a `.scr` file, the Spectrum's own screen format, which
-  emulators open; `toTap` as a `.tap` tape image with a BASIC loader, so
-  that it loads and shows itself in an emulator or on a Spectrum.
+  `attributePalette`; `screen`, the screen mode). `toScr` writes a
+  dithered 256 × 192 screen as a `.scr` file, the Spectrum's own screen
+  format, which emulators open; `toTap` as a `.tap` tape image with a
+  BASIC loader, so that it loads and shows itself in an emulator or on a
+  Spectrum.
+
+### Changed
+
+- The public API's documentation: every function now lists its
+  arguments in order and says what it returns and how it fails, with
+  examples; reference docs for machine screens are new.
+- The library now depends on `strings` too, for the tape names.
 
 ## 0.1.0 - 2026-10-10
 

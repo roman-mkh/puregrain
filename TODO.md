@@ -64,35 +64,6 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Algorithms
 
-- [ ] **ZX Spectrum screens (attribute cells) (decided 2026-10-11; merged 2026-10-14, not released yet):** 2 colors per
-      8×8 cell: ink and paper from the 8 base colors, with one BRIGHT bit for both. That makes 71 distinct cell
-      palettes: per brightness 28 pairs and 8 single colors, minus the all-black cell, the same in both.
-      1. **Choose each cell's palette** from the original pixels. A candidate's score is the sum, over the
-         cell's pixels, of the squared distance (r, g, b) to the *segment* between its two colors, i.e. to the
-         nearest color dithering can mix from them (a single color: the distance to it). The lowest score wins.
-         Candidates in a fixed order: single colors first, then pairs by the distance between their colors,
-         nearest first; on a tie the earlier wins, so a cell that fits several palettes gets the narrowest,
-         the calmest. Stop at a score of 0, and stop a candidate's sum once it can't win (same result).
-      2. **Dither** with any kernel; the quantizer picks the nearest color of the pixel's cell palette
-         (`quantizeWith`: `Context` gives the position).
-
-      General: `cellWidth × cellHeight` and a list of candidate palettes, so other machines fit (MSX: 8 × 1).
-      Modules: `Puregrain.Cells`, general (a cell palette as a plain container of 1 or 2 colors, the score, and
-      `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
-      `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
-      2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11), and the
-      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Ordered dithering
-      inside cells is done too (2026-10-15: `orderedInCell`, `--machine zx-spectrum --bayer N`), the main
-      mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. The docs pass over the public
-      modules is done too (2026-10-16), and the tape format (2026-10-16: `Zx.toTap`, `--format tap`, with a
-      BASIC loader), and the reference docs, `docs/machine-screens/` (2026-10-16). Next: the release.
-      Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
-
-      Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the
-      Spectrum's interleaved row order, then 768 attribute bytes; the image must be 256 × 192). Ink and paper
-      as on the Spectrum, black ink on white paper: ink = the darker color (lower color code), paper = the
-      lighter; a single-color cell has ink = paper and all bitmap bits 0; an all-black cell has BRIGHT 0. Exact
-      check: decode the `.scr` and compare it with the PNG output.
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a
@@ -146,7 +117,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       representable in this architecture today but isn't real print-
       quality CMYK output on its own (no per-channel screen angles, no
       moiré avoidance). Needs a concrete print/halftone target to justify.
-- [ ] More block-constrained output, after the ZX Spectrum screens (see "Algorithms"), which are the first case:
+- [ ] More block-constrained output, after the ZX Spectrum screens (docs/machine-screens/), which are the first case:
       C64 multicolor modes and pseudo-graphics (ANSI/Unicode block characters, PETSCII, teletext mosaics) also
       restrict each *cell* rather than each pixel, with other rules (C64 multicolor: 4 colors per 4×8 cell, one
       shared by the whole screen; pseudo-graphics: a character plus foreground/background per cell).

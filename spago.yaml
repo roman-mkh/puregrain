@@ -4,7 +4,7 @@ package:
     Floyd-Steinberg, Atkinson, JJN and custom kernels, retro palettes; in
     memory, streaming or row by row."
   publish:
-    version: 0.1.0
+    version: 0.1.1
     license: MIT
     location:
       githubOwner: roman-mkh
