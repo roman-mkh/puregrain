@@ -59,11 +59,16 @@ from the code alone.
   CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
   its color count like `cga16`, so `zx-spectrum` means only the real
   look; the CLI isn't published, so nobody outside broke) is a quantizer
-  choice of its own, `Machine m`: `resolve` rejects it with `--threshold`,
-  `--levels`, `--palette` (the machine defines the colors) and `--bayer`;
-  `--kernel` and `--gray` work. `Pipeline` routes it to a third pipeline,
-  `Screen m` (RGB); `ditherScreen` calls `ditherCells` with the machine's
-  cells and returns them with the picture. `--format NAME` (2026-10-12;
+  choice of its own, `Machine { name, bayer }`: `resolve` rejects it with
+  `--threshold`, `--levels`, `--palette` (the machine defines the colors);
+  `--bayer N` is allowed since 2026-10-15, ordered dithering inside the
+  cells (pure by the `--bayer` kernel default, the hybrid with
+  `--kernel`); `--kernel` and `--gray` work. `Pipeline` routes it to a
+  third pipeline, `Screen m rule` (RGB), the rule being `nearestInCell`
+  or `orderedInCell` with the Bayer map; the PipelineSpec compares rules
+  by dithering a 16 × 12 probe without diffusion, as it compares
+  quantizers by probes. `ditherScreen` calls `ditherCells` with the
+  machine's mode and returns the cells with the picture. `--format NAME` (2026-10-12;
   `png`, the default, or `scr`; names from `formatName`) picks the output
   file, and only that file is written (decided: one option for the
   format, no second file next to the PNG). `resolve` rejects `scr`
@@ -162,7 +167,14 @@ from the code alone.
   - Public doc comments are self-contained (Pursuit shows them): no
     `CLAUDE.md`/test references, absolute GitHub links to `docs/`;
     dev notes go in plain `--` comments. Internal modules may point at
-    repo docs.
+    repo docs. Convention for public functions (agreed 2026-10-15; pilot:
+    `Puregrain.Cells`): a summary line; the arguments in signature order,
+    one line each, type variables included (Pursuit shows types without
+    parameter names, so prose names like `kernel` match nothing); the
+    result and how it fails; keep the code examples (users want them),
+    and add one where it helps; rationale
+    and background in `docs/` or plain comments. A pass over all public
+    modules is due before the next release (TODO.md).
   - The reshape was verified byte-identical: 17 CLI configurations
     produced the same PNGs before and after.
 - `Puregrain.Kernel` — `Kernel` is an opaque, checked `Array Offset`
@@ -261,11 +273,31 @@ from the code alone.
 - `Puregrain.Cells` (2026-10-11) — dithering with
   cells, like the attribute cells of 8-bit machines. Processed in
   *bands*, one row of cells at a time: per band, each cell gets the
-  candidate (any type `c`; `toPalette` maps it to an opaque
+  candidate (any type `c`; the mode's `palette` maps it to an opaque
   `CellPalette` of 1 or 2 colors, built by `singleColor`/`colorPair`)
-  with the lowest score, then the band's rows are dithered (internal
-  `stepRow`, with a quantizer built for that band: the nearer of the
-  cell's colors, read by index `x / cellWidth`). One engine
+  with the lowest score. A `CellMode c` record bundles what defines a
+  screen mode: `size`, `palette`, `candidates` (decided 2026-10-15, in
+  place of three separate arguments). A machine module exports one value
+  per screen mode (`Zx.screen`); a variant is a record update
+  (`Zx.screen { candidates = fewer }`). A marker typeclass for `c` was
+  considered and rejected (2026-10-15): without methods it checks
+  nothing, and a class with the palette method would allow only one
+  mapping per type, where a function allows any (as `compilePalette`
+  takes its distance as a function). After the choice, the band's rows are dithered (internal
+  `stepRow`, with a quantizer built for that band, which reads the
+  pixel's cell palette by index `x / cellWidth`). Inside the cells, an
+  opaque `CellQuantizer` decides (2026-10-15): `nearestInCell`, the nearer
+  color (with a kernel, error diffusion), or `orderedInCell map`, the
+  second color where the pixel's fraction of the way from the first,
+  along the line between them, is above the map's threshold at its
+  position; division-free like `Puregrain.Ordered`, `>` (at a threshold
+  stays the first, pinned). With `noDiffusion` that's pure ordered
+  dithering, else the hybrid. The position counts from the image's
+  corner, not the cell's, so any map size works (8 repeats in every 8 × 8
+  cell, 16 spreads 257 tone steps over 2 × 2 cells); no restriction to
+  sizes that divide the cell. An argument of `ditherCells`/`ditherBands`
+  rather than a second pair of functions (decided 2026-10-15; changing
+  the signature was free, `Puregrain.Cells` being unreleased). One engine
   (`stepBand`), two drivers, like `ditherImage`/`ditherRows`:
   `ditherCells` (in memory, returns `{ cells, image }`) and
   `ditherBands` (lazy: a band's rows are read only when the band is
@@ -290,8 +322,11 @@ from the code alone.
   search, with exact ties (a duplicate candidate, images made of the
   candidates' own colors). The tie example alone doesn't catch a `<=`;
   the property does (mutation checked). `CellPalette` is a plain
-  container: its two colors are symmetric, and what they mean (ink,
-  paper, BRIGHT) belongs to `Puregrain.Machine.<Name>`. Cell sizes below
+  container: its two colors are symmetric for the choice and for
+  `nearestInCell`; only `orderedInCell` uses their order (the pattern's
+  direction: the first is the base, the second's dots come in as a pixel
+  nears it). What they mean (ink, paper, BRIGHT) belongs to
+  `Puregrain.Machine.<Name>`. Cell sizes below
   1 count as 1 (no positive-integer type: `naturals` includes 0 and
   clamps too); partial cells at the edges. Not in the facade (start
   closed). Laziness tests wrap *every* read in `errorOf`: a read that
@@ -302,7 +337,9 @@ from the code alone.
   machine, with its display rules; `C64`, `Msx` would sit next to it).
   Imported `as Zx`, with ZX names: `Attribute` (opaque, so only the 71
   valid values exist; read with `ink`, `paper` as color codes 0–7, and
-  `bright`), `attributes`, `attributePalette`, `cellSize` (8 × 8). The 71:
+  `bright`), `attributes`, `attributePalette`, and `screen`, the
+  `CellMode` with 8 × 8 cells (it replaced a separate `cellSize`,
+  2026-10-15). The 71:
   per brightness 8 single colors and 28 pairs, minus the duplicate
   all-black cell (kept without BRIGHT). Convention as on the Spectrum
   (black ink on white paper): ink = the darker color (lower code), paper
@@ -488,10 +525,13 @@ Visual checks and benchmarks share one set of generated images:
 the two doc previews in `docs/images/test-images/` are the only ones
 committed (refresh: `npm run docs:images`). `npm run generate-images`
 writes both composites at 512², and the color one at 256×192 (the ZX
-Spectrum's screen) for `npm run dither:zx` (a PNG and a `.scr`), which uses Atkinson: with
-Floyd–Steinberg the ZX output shows streaks (error a cell can't use
-builds up; error clamping is a TODO.md item). One script per machine,
-with its best kernel; the CLI's default kernel stays Floyd–Steinberg for
+Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
+a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
+Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
+comparison. Atkinson crushes dark and light tones (the sphere's shadow
+turns black); with Floyd–Steinberg the ZX output shows streaks (error a
+cell can't use builds up; calmer diffusion in cells is a Future
+directions idea in TODO.md). One script per machine, with its best mode; the CLI's default kernel stays Floyd–Steinberg for
 every mode (no per-mode defaults, decided 2026-10-12), except `--bayer`,
 where the kernel picks the method (none, since 2026-10-14). A tile may be left out of every composite and only
 rendered alone: `color:zx-cells` (valid ZX cells, which line up with the

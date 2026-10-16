@@ -274,17 +274,24 @@ the left, a ~50/50 mix on the right.
 - **Look for:** nothing to judge by eye; it's a test image.
 
 For the visual check of `--machine zx-spectrum`, use the color composite at
-256×192 (`npm run dither:zx`, with Atkinson, writing
-`samples/output-zx-atkinson.png`, and the same screen as
-`samples/output-zx-atkinson.scr` for an emulator). Look for: every 8×8 cell in at most two
-colors, both normal or both bright; where colors change, a visible block
-grid, the edge stepping cell by cell ("attribute clash"; the sphere's
-outline shows it clearly); smooth shading turned into dot patterns of a
-cell's two colors; flat patches in exact Spectrum colors (pure red, green,
-blue, black) staying flat. With Floyd–Steinberg instead, thin streaks of
-extreme pixels can appear, mostly vertical: error a cell's two colors
-can't use builds up (see cli/README.md, "Machine screens"); that's a known
-limit, listed in TODO.md, not a regression.
+256×192. `npm run dither:zx` writes it twice, to compare the two ways of
+dithering inside the cells: with ordered dithering, `--bayer 8`, as
+`samples/output-zx-bayer8.png` (and as `samples/output-zx-bayer8.scr` for
+an emulator), and with error diffusion, Atkinson, as
+`samples/output-zx-atkinson.png`. Look for, in both: every 8×8 cell in at
+most two colors, both normal or both bright; where colors change, a
+visible block grid, the edge stepping cell by cell ("attribute clash"; the
+sphere's outline shows it clearly); flat patches in exact Spectrum colors
+(pure red, green, blue, black) staying flat. In the Bayer version, smooth
+shading becomes a regular pattern of a cell's two colors, and every tone
+is kept: the sphere's shadow side shades from red to black, and the dark
+and light gray patches stay gray patterns. In the Atkinson version, the
+dots are irregular, and dark and light tones are pushed to black and
+white: the sphere's shadow side turns solid black. With Floyd–Steinberg,
+thin streaks of extreme pixels can appear, mostly vertical: error a
+cell's two colors can't use builds up (see cli/README.md, "Machine
+screens"); that's a known limit of error diffusion in cells, not a
+regression.
 
 ## Exact checks
 
@@ -337,9 +344,11 @@ images, maps and levels.
 Three checks cover machine screens:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
-  equals input byte for byte, with Floyd–Steinberg and with
-  `--kernel none`. Every cell holds only one attribute's colors, so it fits that
-  attribute exactly, the error is zero everywhere, and nothing changes. It
+  equals input byte for byte, with Floyd–Steinberg, with `--kernel none`,
+  and with `--bayer 8`, pure and combined with Floyd–Steinberg. Every cell
+  holds only one attribute's colors, so it fits that attribute exactly,
+  the error is zero everywhere, and nothing changes; with `--bayer`, every
+  threshold lies strictly between a cell's two colors, so each stays. It
   also checks the order in which the cells' pairs are tried: normal white
   lies on the segment from black to bright white, so a cell of black and
   normal white fits both pairs perfectly, and only the nearer pair, tried

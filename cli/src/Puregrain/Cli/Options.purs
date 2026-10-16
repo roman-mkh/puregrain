@@ -26,7 +26,7 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Generic.Rep (class Generic)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), fromMaybe, isJust, optional)
+import Data.Maybe (Maybe(..), fromMaybe, isJust, maybe, optional)
 import Data.Show.Generic (genericShow)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..), fst)
@@ -75,13 +75,14 @@ instance Show FormatName where
 -- | `Bayer` is levels with ordered dithering: the side of the Bayer map,
 -- | and the number of levels (2 unless `--levels` says otherwise).
 -- | `Machine` dithers to a machine's screen, whose cells each allow only
--- | a few colors; the machine defines them all.
+-- | a few colors; the machine defines them all. With `bayer`, the side of
+-- | a Bayer map, it's ordered dithering inside the cells.
 data QuantizerChoice
   = Threshold Number
   | Levels Int
   | Palette PaletteName
   | Bayer { side :: Int, levels :: Int }
-  | Machine MachineName
+  | Machine { name :: MachineName, bayer :: Maybe Int }
 
 derive instance Eq QuantizerChoice
 derive instance Generic QuantizerChoice _
@@ -166,7 +167,7 @@ describeQuantizer = case _ of
   Levels n -> show n <> " levels"
   Palette p -> "palette " <> paletteName p
   Bayer { side, levels } -> "Bayer " <> show side <> "x" <> show side <> ", " <> show levels <> " levels"
-  Machine m -> machineName m
+  Machine { name, bayer } -> machineName name <> maybe "" (\side -> ", Bayer " <> show side <> "x" <> show side) bayer
 
 -- | A reader for one of a fixed set of names, listing them on a mistake.
 oneOf :: forall a. String -> Array (Tuple String a) -> ReadM a
@@ -232,7 +233,7 @@ rawOptions = ado
   q <- quantizer
   bayer <- optional $ option bayerSide
     ( long "bayer" <> metavar "N"
-        <> help "ordered dithering with the N x N Bayer map (N = 2, 4, 8 or 16), over --levels (default 2); no error diffusion unless --kernel is given"
+        <> help "ordered dithering with the N x N Bayer map (N = 2, 4, 8 or 16), over --levels (default 2) or inside --machine's cells; no error diffusion unless --kernel is given"
     )
   machine <- optional $ option (oneOf "machine" machines)
     ( long "machine" <> metavar "NAME"
@@ -255,7 +256,7 @@ parserInfo = info (rawOptions <**> helper)
       <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
         ( "Dithers INPUT.png into OUTPUT. Use at most one of --threshold, --levels, --palette; "
-            <> "--bayer N gives ordered dithering, over --levels or black and white; without --kernel it passes no error on. "
+            <> "--bayer N gives ordered dithering, over --levels, black and white, or inside --machine's cells; without --kernel it passes no error on. "
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
             <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
             <> "screen, two colors per 8x8 cell, and gives an RGB PNG, or with --format scr the "
@@ -264,9 +265,10 @@ parserInfo = info (rawOptions <**> helper)
   )
 
 -- | The checks across options that optparse can't express: `--bayer`
--- | works over levels, so it combines with `--levels` and nothing else;
--- | `--machine` defines all the colors, so it combines with none of the
--- | quantizer options (`--kernel` and `--gray` work with everything); a
+-- | works over levels or inside a machine's cells, so it combines with
+-- | `--levels` or `--machine` and nothing else; `--machine` defines all
+-- | the colors, so it combines with none of the quantizer options
+-- | (`--kernel` and `--gray` work with everything); a
 -- | screen file holds a machine's screen, so `--format scr` needs
 -- | `--machine zx-spectrum`. Without `--kernel`, the kernel is
 -- | Floyd–Steinberg, except with `--bayer`: there it's none, so `--bayer`
@@ -282,10 +284,9 @@ resolve raw = ado
   in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray }
   where
   defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
-  machineChoice m = case raw.quantizer, raw.bayer of
-    Nothing, Nothing -> Right (Machine m)
-    Just _, _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"
-    Nothing, Just _ -> Left "--machine can't be combined with --bayer: ordered dithering within a machine's cells isn't supported"
+  machineChoice m = case raw.quantizer of
+    Nothing -> Right (Machine { name: m, bayer: raw.bayer })
+    Just _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"
   quantizerChoice = case raw.quantizer, raw.bayer of
     Nothing, Nothing -> Right (Threshold 128.0)
     Nothing, Just side -> Right (Bayer { side, levels: 2 })

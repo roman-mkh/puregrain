@@ -3,10 +3,14 @@
 -- | With `Puregrain.Cells`, that gives images the Spectrum could show:
 -- |
 -- | ```purescript
--- | import Puregrain.Cells (ditherCells)
+-- | import Puregrain.Cells (ditherCells, nearestInCell, orderedInCell)
 -- | import Puregrain.Machine.ZxSpectrum as Zx
 -- |
--- | { cells, image } = ditherCells floydSteinberg Zx.cellSize Zx.attributePalette Zx.attributes picture
+-- | -- error diffusion inside the cells
+-- | { cells, image } = ditherCells atkinson nearestInCell Zx.screen picture
+-- |
+-- | -- ordered dithering inside the cells, with a threshold map m
+-- | { cells, image } = ditherCells noDiffusion (orderedInCell m) Zx.screen picture
 -- | ```
 -- |
 -- | `cells` holds each cell's `Attribute`: its ink, paper and BRIGHT, as a
@@ -19,7 +23,7 @@ module Puregrain.Machine.ZxSpectrum
   , bright
   , attributes
   , attributePalette
-  , cellSize
+  , screen
   , toScr
   ) where
 
@@ -34,7 +38,7 @@ import Data.Int.Bits (shr, (.&.))
 import Data.Maybe (maybe)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafePartial)
-import Puregrain.Cells (CellPalette, CellSize, colorPair, singleColor)
+import Puregrain.Cells (CellMode, CellPalette, colorPair, singleColor)
 import Puregrain.Palette (distance2)
 import Puregrain.Palette.Presets (zxSpectrum)
 import Puregrain.Pixel (RGB)
@@ -87,25 +91,28 @@ attributes = NEA.appendArray normalSingles (brightSingles <> pairs)
       <> compare (paper x) (paper y)
   spread (Attribute a) = distance2 (color a.bright a.ink) (color a.bright a.paper)
 
--- | The attribute's colors, for `Puregrain.Cells`: the ink and paper, or
--- | the one color of a single-color cell.
+-- | The attribute's colors, for `Puregrain.Cells`: the ink, then the
+-- | paper, or the one color of a single-color cell. With `orderedInCell`,
+-- | the order means that a cell is ink with paper dots added as a pixel
+-- | nears the paper.
 attributePalette :: Attribute -> CellPalette
 attributePalette (Attribute a) =
   if a.ink == a.paper then singleColor (color a.bright a.ink)
   else colorPair (color a.bright a.ink) (color a.bright a.paper)
 
--- | The Spectrum's cells: 8 × 8 pixels.
-cellSize :: CellSize
-cellSize = { width: 8, height: 8 }
+-- | The Spectrum's screen mode, for `Puregrain.Cells`: cells of 8 × 8
+-- | pixels, each using one of the `attributes`, tried in their order, with
+-- | `attributePalette`'s colors.
+screen :: CellMode Attribute
+screen = { size: { width: 8, height: 8 }, palette: attributePalette, candidates: attributes }
 
 -- | A dithered screen as a `.scr` file: the 6912 bytes of the Spectrum's
 -- | screen memory, as `SAVE "name" SCREEN$` saves them, and as many
 -- | emulators and tools open them. Give it what `Puregrain.Cells.ditherCells`
--- | returns with this module's `cellSize`, `attributePalette` and
--- | `attributes`, for a 256 × 192 picture:
+-- | returns with this module's `screen`, for a 256 × 192 picture:
 -- |
 -- | ```purescript
--- | bytes = toScr (ditherCells atkinson cellSize attributePalette attributes picture)
+-- | bytes = toScr (ditherCells atkinson nearestInCell screen picture)
 -- | ```
 -- |
 -- | The first 6144 bytes are the bitmap, one bit per pixel (1 for the ink,

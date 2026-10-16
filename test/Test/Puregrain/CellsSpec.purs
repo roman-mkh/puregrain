@@ -19,12 +19,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Cells (CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherCells, singleColor)
+import Puregrain.Cells (CellMode, CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherCells, nearestInCell, orderedInCell, singleColor)
 import Puregrain.Internal.Util (safeRange)
-import Puregrain.Kernel (floydSteinberg)
+import Puregrain.Kernel (floydSteinberg, noDiffusion)
+import Puregrain.Ordered (thresholdAt)
 import Puregrain.Pixel (RGB(..))
-import Test.Puregrain.Arbitrary (TestKernel(..), genRGB)
-import Test.Puregrain.Util (errorOf, mentions)
+import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..), TestRanks(..), genRGB)
+import Test.Puregrain.Util (bayerMap, compiledMap, errorOf, mentions)
 
 black :: RGB
 black = RGB { r: 0.0, g: 0.0, b: 0.0 }
@@ -42,8 +43,12 @@ uniform :: Int -> Int -> RGB -> Array (Array RGB)
 uniform width height c = Array.replicate height (Array.replicate width c)
 
 -- | The cells `ditherCells` chooses. They don't depend on the kernel.
-cellsOf :: forall c. CellSize -> (c -> CellPalette) -> NonEmptyArray c -> Array (Array RGB) -> Array (Array c)
-cellsOf size toPalette candidates image = (ditherCells floydSteinberg size toPalette candidates image).cells
+cellsOf :: forall c. CellMode c -> Array (Array RGB) -> Array (Array c)
+cellsOf mode image = (ditherCells floydSteinberg nearestInCell mode image).cells
+
+-- | A mode whose candidates are the palettes themselves.
+paletteMode :: CellSize -> NonEmptyArray CellPalette -> CellMode CellPalette
+paletteMode size candidates = { size, palette: identity, candidates }
 
 -- | Collects the lazy bands into what `ditherCells` returns.
 collect :: forall c. LL.List { cells :: Array c, rows :: Array (Array RGB) } -> { cells :: Array (Array c), image :: Array (Array RGB) }
@@ -89,6 +94,10 @@ instance Arbitrary TestCells where
 indices :: Cells -> NonEmptyArray Int
 indices t = NEA.range 0 (Array.length t.candidates - 1)
 
+-- | The random cells as a mode: candidates by index.
+modeOf :: Cells -> CellMode Int
+modeOf t = { size: t.size, palette: paletteOf t, candidates: indices t }
+
 paletteOf :: Cells -> Int -> CellPalette
 paletteOf t i = case Array.index t.candidates i of
   Just (Tuple a b) -> colorPair a b
@@ -120,6 +129,20 @@ naiveCells t = map row (safeRange 0 (rows - 1))
         Just { head, tail } -> fst (Array.foldl lower head tail)
         Nothing -> 0
 
+-- | An independent, plain version of the ordered rule: the second color
+-- | where the pixel's projection onto the line from the first color,
+-- | (v − a) · d, is above the threshold times d · d; else the first. Same
+-- | sums in the same order as the library, so ties come out the same.
+naiveOrdered :: Number -> Tuple RGB RGB -> RGB -> RGB
+naiveOrdered threshold (Tuple first@(RGB a) second@(RGB b)) (RGB p) =
+  if first == second then first
+  else if dot v d > threshold * dot d d then second
+  else first
+  where
+  d = [ b.r - a.r, b.g - a.g, b.b - a.b ]
+  v = [ p.r - a.r, p.g - a.g, p.b - a.b ]
+  dot xs ys = sum (Array.zipWith (*) xs ys)
+
 naiveError :: Tuple RGB RGB -> RGB -> Number
 naiveError (Tuple (RGB a) (RGB b)) (RGB p) =
   let
@@ -145,30 +168,30 @@ spec = describe "Puregrain.Cells" do
       let
         candidates = NEA.cons' { name: "blue-white", palette: colorPair blue white }
           [ { name: "black-white", palette: colorPair black white } ]
-      map (map _.name) (cellsOf { width: 8, height: 8 } _.palette candidates (uniform 8 8 gray))
+      map (map _.name) (cellsOf { size: { width: 8, height: 8 }, palette: _.palette, candidates } (uniform 8 8 gray))
         `shouldEqual` [ [ "black-white" ] ]
 
     it "lets the earlier candidate win a tie: a white cell fits white alone and black-white" do
       let
         alone = { name: "white", palette: singleColor white }
         pair = { name: "black-white", palette: colorPair black white }
-        choose candidates = map (map _.name) (cellsOf { width: 8, height: 8 } _.palette candidates (uniform 8 8 white))
+        choose candidates = map (map _.name) (cellsOf { size: { width: 8, height: 8 }, palette: _.palette, candidates } (uniform 8 8 white))
       choose (NEA.cons' alone [ pair ]) `shouldEqual` [ [ "white" ] ]
       choose (NEA.cons' pair [ alone ]) `shouldEqual` [ [ "black-white" ] ]
 
     it "agrees with a plain search over full scores, for any cells (the early stops change nothing)" do
       quickCheck \(TestCells t) ->
-        cellsOf t.size (paletteOf t) (indices t) t.image === naiveCells t
+        cellsOf (modeOf t) t.image === naiveCells t
 
     it "covers the whole image, with partial cells at the right and bottom edges" do
-      let cells = cellsOf { width: 4, height: 4 } identity (NEA.singleton (singleColor gray)) (uniform 10 5 gray)
+      let cells = cellsOf (paletteMode { width: 4, height: 4 } (NEA.singleton (singleColor gray))) (uniform 10 5 gray)
       map Array.length cells `shouldEqual` [ 3, 3 ]
 
   describe "ditherCells" do
-    it "gives every pixel one of its own cell's colors, with any kernel" do
-      quickCheck \(TestKernel kernel) (TestCells t) ->
+    it "gives every pixel one of its own cell's colors, with any kernel and rule" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
         let
-          result = ditherCells kernel t.size (paletteOf t) (indices t) t.image
+          result = ditherCells kernel rule (modeOf t) t.image
           ownColor y x pixel =
             case Array.index result.cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) of
               Just c -> NEA.elem pixel (cellColors (paletteOf t c))
@@ -178,27 +201,52 @@ spec = describe "Puregrain.Cells" do
           Array.length wrong === 0
 
     it "has no cells and no rows for an empty image" do
-      let result = ditherCells floydSteinberg { width: 8, height: 8 } identity (NEA.singleton (singleColor gray)) []
+      let result = ditherCells floydSteinberg nearestInCell (paletteMode { width: 8, height: 8 } (NEA.singleton (singleColor gray))) []
       { cells: Array.length result.cells, rows: Array.length result.image } `shouldEqual` { cells: 0, rows: 0 }
 
     it "stops with an error naming a row of a different length" do
       let image = [ [ gray, gray, gray ], [ gray, gray ] ]
-      result <- liftEffect (errorOf \_ -> Array.length (ditherCells floydSteinberg { width: 2, height: 2 } identity (NEA.singleton (singleColor gray)) image).image)
+      result <- liftEffect (errorOf \_ -> Array.length (ditherCells floydSteinberg nearestInCell (paletteMode { width: 2, height: 2 } (NEA.singleton (singleColor gray))) image).image)
       result `shouldSatisfy` mentions "row 1 has 2 pixels, but the first row has 3"
 
+  describe "orderedInCell" do
+    it "puts the second color in where the pixel's share of it is above the threshold, in the colors' order" do
+      let
+        gray' v = RGB { r: v, g: v, b: v }
+        dither palette v = (ditherCells noDiffusion (orderedInCell (bayerMap 2)) (paletteMode { width: 2, height: 2 } (NEA.singleton palette)) (uniform 2 2 (gray' v))).image
+      -- Halfway between black and white (216): above the 2 × 2 Bayer map's
+      -- thresholds 1/8 and 3/8, at (0, 0) and (1, 1), not 5/8 and 7/8.
+      dither (colorPair black white) 108.0 `shouldEqual` [ [ white, black ], [ black, white ] ]
+      dither (colorPair white black) 108.0 `shouldEqual` [ [ black, white ], [ white, black ] ]
+      -- Exactly at a threshold isn't above it: 27 is 1/8 of the way.
+      dither (colorPair black white) 27.0 `shouldEqual` uniform 2 2 black
+
+    it "without diffusion, follows a plain per-pixel rule, with the threshold at the pixel's position in the image" do
+      quickCheck \(TestCells t) (TestRanks ranks) ->
+        let
+          m = compiledMap ranks
+          cells = naiveCells t
+          expected y x pixel =
+            case Array.index cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) >>= Array.index t.candidates of
+              Just candidate -> naiveOrdered (thresholdAt m { x, y }) candidate pixel
+              Nothing -> black
+        in
+          (ditherCells noDiffusion (orderedInCell m) (modeOf t) t.image).image
+            === Array.mapWithIndex (\y row -> Array.mapWithIndex (\x pixel -> expected y x pixel) row) t.image
+
   describe "ditherBands" do
-    it "gives the same cells and rows as ditherCells, for any kernel and cells" do
-      quickCheck \(TestKernel kernel) (TestCells t) ->
-        collect (ditherBands kernel t.size (paletteOf t) (indices t) (LL.fromFoldable t.image))
-          === ditherCells kernel t.size (paletteOf t) (indices t) t.image
+    it "gives the same cells and rows as ditherCells, for any kernel, rule and cells" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        collect (ditherBands kernel rule (modeOf t) (LL.fromFoldable t.image))
+          === ditherCells kernel rule (modeOf t) t.image
 
     it "works on an endless stream of rows" do
       let
         row = [ black, gray, white, blue, gray ]
         candidates = NEA.cons' (colorPair black white) [ colorPair blue white ]
-        bands = ditherBands floydSteinberg { width: 2, height: 2 } identity candidates (LL.repeat row)
+        bands = ditherBands floydSteinberg nearestInCell (paletteMode { width: 2, height: 2 } candidates) (LL.repeat row)
       (collect (LL.take 3 bands)).image `shouldEqual`
-        (ditherCells floydSteinberg { width: 2, height: 2 } identity candidates (Array.replicate 6 row)).image
+        (ditherCells floydSteinberg nearestInCell (paletteMode { width: 2, height: 2 } candidates) (Array.replicate 6 row)).image
 
     it "reads a band's rows only when that band is asked for" do
       let
@@ -206,7 +254,7 @@ spec = describe "Puregrain.Cells" do
         -- Two rows per band; the third row, the second band's first, stops
         -- with an error when it's read.
         input = LL.cons row (LL.cons row (List (defer \_ -> unsafeCrashWith "the third input row was read")))
-        bands = ditherBands floydSteinberg { width: 2, height: 2 } identity (NEA.singleton (singleColor gray)) input
+        bands = ditherBands floydSteinberg nearestInCell (paletteMode { width: 2, height: 2 } (NEA.singleton (singleColor gray))) input
       -- Both inside `errorOf`, so reading too early fails this test
       -- instead of stopping the whole test run.
       firstBand <- liftEffect (errorOf \_ -> Array.length (collect (LL.take 1 bands)).image)
@@ -217,7 +265,7 @@ spec = describe "Puregrain.Cells" do
     it "stops with an error naming a row of a different length, when its band is reached" do
       let
         rows = [ [ gray, gray ], [ gray, gray ], [ gray, gray, gray ] ]
-        bands = ditherBands floydSteinberg { width: 2, height: 2 } identity (NEA.singleton (singleColor gray)) (LL.fromFoldable rows)
+        bands = ditherBands floydSteinberg nearestInCell (paletteMode { width: 2, height: 2 } (NEA.singleton (singleColor gray))) (LL.fromFoldable rows)
       firstBand <- liftEffect (errorOf \_ -> Array.length (collect (LL.take 1 bands)).image)
       firstBand `shouldEqual` Nothing
       secondBand <- liftEffect (errorOf \_ -> LL.length (LL.take 2 bands))

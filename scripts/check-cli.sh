@@ -93,13 +93,15 @@ done
 # 6. An image made only of valid ZX Spectrum cells (each 8×8 cell only the
 #    ink and paper of one attribute) fits the machine's own cells exactly,
 #    so the error is zero everywhere and it must come back unchanged: with
-#    error diffusion and without. The CLI twin of the property in
+#    error diffusion and without, and with ordered dithering inside the
+#    cells, pure and combined with a kernel (every threshold lies strictly
+#    between a cell's two colors). The CLI twin of the property in
 #    Test.Puregrain.ZxSpectrumSpec.
-for kernel in floyd-steinberg none; do
-  $cli $out/color-zx-cells-256x192.png $out/zx.png --machine zx-spectrum --kernel $kernel >/dev/null
+for mode in "--kernel floyd-steinberg" "--kernel none" "--bayer 8" "--bayer 8 --kernel floyd-steinberg"; do
+  $cli $out/color-zx-cells-256x192.png $out/zx.png --machine zx-spectrum $mode >/dev/null
   cmp -s $out/color-zx-cells-256x192.png $out/zx.png \
-    && pass "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output == input" \
-    || fail "color:zx-cells alone, --machine zx-spectrum --kernel $kernel: output differs from input"
+    && pass "color:zx-cells alone, --machine zx-spectrum $mode: output == input" \
+    || fail "color:zx-cells alone, --machine zx-spectrum $mode: output differs from input"
 done
 
 # 7. A .scr file (--format scr) holds the same picture as the PNG of the

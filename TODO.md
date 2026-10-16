@@ -3,6 +3,14 @@
 Open work, roughly in order. The reasons behind past decisions are in
 `CLAUDE.md`.
 
+## Documentation
+
+- [ ] **Public function docs, before the next release** (agreed 2026-10-15): apply the convention in CLAUDE.md
+      ("Public doc comments") to every public module: a summary line, the arguments in signature order, the
+      result and how it fails; shorter and more technical, implementation notes moved to plain comments.
+      `Puregrain.Cells` is the pilot (done with ordered dithering inside cells). Then write the convention
+      into CONTRIBUTING.md.
+
 ## Performance
 
 Measured 2026-10-04 (`docs/benchmarks-dithering.md`): Floyd–Steinberg with a threshold takes 1.9 µs per
@@ -51,8 +59,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Command-line tool
 
-- [ ] **Tape image output, `--format tap`** (after ordered dithering inside cells, before the release; decided
-      2026-10-14): the screen as a `.tap` file, to
+- [ ] **Tape image output, `--format tap`** (after the docs pass, before the release; decided
+      2026-10-15): the screen as a `.tap` file, to
       load on a Spectrum, or in an emulator, with `LOAD "" SCREEN$`. It wraps the `.scr` bytes in two tape
       blocks, each with a 2-byte length, a flag byte and an XOR checksum: a 17-byte header (type 3, code; a
       10-character name; length 6912; start 16384) and the data. A `toTap` next to `toScr`.
@@ -86,9 +94,10 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       `ditherCells`/`ditherBands`, in memory or streaming band by band; done 2026-10-11), and
       `Puregrain.Machine.ZxSpectrum` (the 71 candidates, their order, and what the two colors mean; done
       2026-10-11). The CLI's ZX output, `--machine zx-spectrum`, is done too (phase D, 2026-10-11), and the
-      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Next (decided
-      2026-10-14): ordered dithering inside cells, then the tape format, then the reference doc and the
-      release.
+      `.scr` writer, `Zx.toScr` with the CLI's `--format scr` (phase E, 2026-10-12). Ordered dithering
+      inside cells is done too (2026-10-15: `orderedInCell`, `--machine zx-spectrum --bayer N`), the main
+      mode for machine screens; `dither:zx` shows Bayer 8 next to Atkinson. Next (decided 2026-10-15): the
+      docs pass (see "Documentation"), then the tape format, then the reference doc and the release.
       Measured in the stored sRGB values, where the diffusion mixes too (see "Dithering in linear light").
 
       Then the CLI: an option for ZX output, and a `.scr` writer (6912 bytes: the 6144-byte bitmap in the
@@ -96,16 +105,6 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       as on the Spectrum, black ink on white paper: ink = the darker color (lower color code), paper = the
       lighter; a single-color cell has ink = paper and all bitmap bits 0; an all-black cell has BRIGHT 0. Exact
       check: decode the `.scr` and compare it with the PNG output.
-- [ ] **Ordered dithering within cells** (next; decided 2026-10-14 as the main mode for machine screens,
-      recommended but not forced): cells chosen as now; then per pixel t = its position on the line from ink
-      (darker, t = 0) to paper (lighter, t = 1), and paper where t exceeds the Bayer threshold at its position.
-      No error flows, so no streaks; the classic look of much ZX art. The order of a cell's two colors then
-      matters (it fixes the pattern's direction, not the tone), so `CellPalette`'s doc must say so. Thresholds
-      from the pixel's position in the image, not in the cell: then any map works (2, 4 and 8 tile each cell
-      exactly; 16 spreads 257 tone steps over 2 × 2 cells), so no restriction to sizes that divide 8. CLI:
-      allow `--bayer N` with `--machine`; without `--kernel` that's pure ordered dithering, the `--bayer`
-      default. `dither:zx` and the visual check then show Atkinson and Bayer side by side, both kept for later
-      comparisons; the exact checks get a Bayer case (valid cells unchanged).
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a

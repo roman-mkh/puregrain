@@ -32,8 +32,8 @@ npm run dither-cli -- samples/color-512.png samples/out-gray4.png --gray --level
 # ordered dithering with the 4×4 Bayer map, no error diffusion
 npm run dither-cli -- samples/gray-512.png samples/out-bayer4.png --bayer 4
 
-# a ZX Spectrum screen: two colors per 8×8 cell (Atkinson looks best here)
-npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --kernel atkinson
+# a ZX Spectrum screen: two colors per 8×8 cell, in the 8×8 Bayer pattern
+npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --bayer 8
 ```
 
 View the results at **100% zoom**. Any other zoom level resamples the dot
@@ -62,7 +62,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
-| `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it). Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
+| `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
 | `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
 | `--format` | `png`, `scr` | `png` | The output file's format. `scr` is the ZX Spectrum's own screen file, for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
@@ -74,8 +74,9 @@ works over levels: give it alone or with `--levels`, not with `--threshold`
 or `--palette`. Without `--kernel`, it passes no error on: pure ordered
 dithering. Every other mode uses Floyd–Steinberg unless `--kernel` says
 otherwise. `--machine` defines all the colors itself, so it combines
-with none of `--threshold`, `--levels`, `--palette` and `--bayer`;
-`--kernel` and `--gray` work with every mode. `--format scr` writes the
+with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
+it uses ordered dithering inside the cells. `--kernel` and `--gray` work
+with every mode. `--format scr` writes the
 ZX Spectrum's screen, so it needs `--machine zx-spectrum`.
 
 ## How the output is chosen
@@ -127,10 +128,13 @@ position, taken from the `N`×`N` Bayer matrix repeated across the image.
   the same gray everywhere, and no "worms". An `N`×`N` map gives `N`² + 1
   patterns between two levels: 17 for `--bayer 4`, 65 for `--bayer 8`.
 - **Combined with a kernel,** named with `--kernel`: the Bayer pattern
-  decides where the dots land, and error diffusion keeps the tones right. The texture is the Bayer one, broken up where diffusion moves a
-  dot.
+  decides where the dots land, and error diffusion keeps the tones right.
+  The texture is the Bayer one, broken up where diffusion moves a dot.
 - **Levels and color** work as for `--levels`: `--bayer 4 --levels 4` gives
   4 grays, or 4 levels per channel on color input.
+- **Inside a machine's cells:** `--machine zx-spectrum --bayer N` puts
+  each cell's two colors in the Bayer pattern. See
+  [Machine screens](#machine-screens).
 - **Not with palettes.** `--bayer` with `--palette` is rejected: ordered
   dithering against a palette needs a different method. For palettes that
   are a grid of per-channel levels, use `--levels` instead: `--bayer 4
@@ -192,8 +196,11 @@ So a cell's two colors are both normal or both bright.
   for example ImageMagick (the `!` ignores the aspect ratio):
   `magick photo.png -resize '256x192!' screen.png`.
 - **Options:** any `--kernel` works; `--kernel none` gives flat cells,
-  with no dots. `--gray` converts the input to gray first. The output is
-  an RGB PNG, or with `--format scr` the Spectrum's screen file.
+  with no dots. `--bayer N` gives ordered dithering inside the cells:
+  each cell's two colors in a regular pattern, with no error passed on
+  unless `--kernel` names a kernel. `--gray` converts the input to gray
+  first. The output is an RGB PNG, or with `--format scr` the Spectrum's
+  screen file.
 - **Screen file (`--format scr`):** the Spectrum's own format, a copy of
   its screen memory, 6912 bytes: the bitmap, one bit per pixel (1 for the
   ink, 0 for the paper), then one attribute byte per cell. A single-color
@@ -202,16 +209,22 @@ So a cell's two colors are both normal or both bright.
   PNG and a screen file, run it twice, as `npm run dither:zx` does. A tape
   image (`.tap`), to load the screen on a Spectrum with `LOAD "" SCREEN$`,
   is planned.
-- **Which kernel:** today `--kernel atkinson` looks best. With
-  Floyd–Steinberg (the default), thin streaks can appear: a cell can only
-  mix along the line between its two colors, so error that points
-  elsewhere (green error arriving in a red-and-black cell, say) can't be
-  used up there. Floyd–Steinberg passes all of it on, so it builds up to
-  the right and downwards, until a cell whose colors can express it turns
-  it into a line of extreme pixels. Atkinson passes on only 3/4 of each
-  error, so such error dies out.
+- **Which mode:** `--bayer 8` looks best, and most like the Spectrum's
+  own art: each cell's two colors in a regular pattern, every tone kept,
+  and no streaks, since no error flows. `--bayer 4` gives a coarser
+  pattern with fewer tone steps. Of the error-diffusion kernels, Atkinson
+  looks best, but it pushes dark and light tones to black and white: the
+  shadow side of the test images' sphere turns solid black. With
+  Floyd–Steinberg, the default without `--bayer`, thin streaks can appear:
+  a cell can only mix along the line between its two colors, so error
+  that points elsewhere (green error arriving in a red-and-black cell,
+  say) can't be used up there. Floyd–Steinberg passes all of it on, so it
+  builds up to the right and downwards, until a cell whose colors can
+  express it turns it into a line of extreme pixels. Atkinson passes on
+  only 3/4 of each error, so such error dies out.
 - **Speed:** like the other color modes, it's several times slower than
-  gray dithering; a large poster can take minutes.
+  gray dithering; a large poster can take minutes. Pure ordered dithering
+  is faster than error diffusion, since no error is passed on.
 
 The library side is `Puregrain.Cells` (cells of any size, with any
 candidate colors) and `Puregrain.Machine.ZxSpectrum` (the Spectrum's
@@ -290,7 +303,11 @@ npm run dither-cli -- samples/color-512.png samples/bayer4-websafe.png --bayer 4
 ### Machine screens
 
 ```bash
-# a ZX Spectrum screen, with Floyd–Steinberg (the default) and with Atkinson
+# a ZX Spectrum screen, ordered dithering inside the cells with the 8×8 and the 4×4 Bayer map
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.png --machine zx-spectrum --bayer 8
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer4.png --machine zx-spectrum --bayer 4
+
+# error diffusion inside the cells, with Floyd–Steinberg (the default without --bayer) and with Atkinson
 npm run dither-cli -- samples/color-256x192.png samples/zx.png --machine zx-spectrum
 npm run dither-cli -- samples/color-256x192.png samples/zx-atk.png --machine zx-spectrum --kernel atkinson
 
@@ -298,10 +315,10 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-atk.png --machine zx-
 npm run dither-cli -- samples/color-256x192.png samples/zx-flat.png --machine zx-spectrum --kernel none
 
 # a poster in the Spectrum's style, at 512×512 (the CLI notes the size)
-npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum
+npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum --bayer 8
 
 # the Spectrum's own screen file, for an emulator (256×192 only)
-npm run dither-cli -- samples/color-256x192.png samples/zx-atk.scr --machine zx-spectrum --kernel atkinson --format scr
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.scr --machine zx-spectrum --bayer 8 --format scr
 ```
 
 ### Shortcuts
@@ -317,7 +334,7 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-atk.scr --machine zx-
 | `npm run dither:bayer` | `gray-512.png` with `--bayer 4 --kernel none` |
 | `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4 --kernel floyd-steinberg` |
 | `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
-| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum --kernel atkinson`, written as a PNG and as a screen file (`--format scr`) |
+| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 8` as a PNG and as a screen file (`--format scr`), and `--kernel atkinson` as a PNG, to compare |
 
 ## Output and timing
 
@@ -350,8 +367,9 @@ error.
   linear light, which skews mid-tones slightly; fixing this is planned.
 - Palette matching uses plain RGB distance, which isn't perceptual (see
   `bw` above).
-- Ordered dithering works over levels only, not against a palette, and
-  only with the Bayer maps (the library also takes custom maps).
+- Ordered dithering works over levels or inside a machine's cells, not
+  against a palette, and only with the Bayer maps (the library also takes
+  custom maps).
 - Rows are always scanned left to right. Alternating the direction
   ("serpentine" scanning) would reduce some directional artifacts.
 - It's pure PureScript on Node: about 2 µs per pixel with Floyd–Steinberg
@@ -374,7 +392,8 @@ error.
     port of Haskell's optparse-applicative. Each kernel and palette name is
     defined once there; the parser and the help text are derived from it.
     Checks across options that optparse can't express (`--bayer` only with
-    `--levels`, `--format scr` only with `--machine zx-spectrum`) are in
+    `--levels` or `--machine`, `--format scr` only with `--machine
+    zx-spectrum`) are in
     `resolve`, and reported like optparse's own errors. `resolve` also
     picks the default kernel, which depends on `--bayer`.
   - `Png.purs` and `Png.js` read and write PNGs through pngjs, and

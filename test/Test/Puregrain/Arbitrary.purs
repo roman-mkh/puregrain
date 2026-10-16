@@ -7,11 +7,12 @@ import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Traversable (traverse)
+import Puregrain.Cells (CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Kernel (Kernel, Offset)
-import Test.Puregrain.Util (validKernel)
+import Test.Puregrain.Util (compiledMap, validKernel)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Internal.Util (safeRange)
-import Test.QuickCheck (class Arbitrary)
+import Test.QuickCheck (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, shuffle, vectorOf)
 
 -- | Generates the offsets of a structurally arbitrary kernel: 0-3
@@ -179,3 +180,14 @@ instance Arbitrary TestRanks where
     width <- chooseInt 1 5
     height <- chooseInt 1 5
     TestRanks <$> vectorOf height (vectorOf width (chooseInt 0 24))
+
+-- | A random rule inside the cells: the nearer color, or ordered
+-- | dithering with a random custom map (see `TestRanks`), whose size often
+-- | doesn't divide the cell size.
+newtype TestCellQuantizer = TestCellQuantizer CellQuantizer
+
+instance Arbitrary TestCellQuantizer where
+  arbitrary = do
+    isOrdered <- arbitrary
+    if isOrdered then (\(TestRanks ranks) -> TestCellQuantizer (orderedInCell (compiledMap ranks))) <$> arbitrary
+    else pure (TestCellQuantizer nearestInCell)
