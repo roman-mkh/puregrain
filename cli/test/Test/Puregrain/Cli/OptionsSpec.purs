@@ -7,6 +7,7 @@ import Prelude
 
 import Data.Either (Either(..), isLeft)
 import Data.Foldable (for_)
+import Data.Maybe (Maybe(..))
 import Data.String (Pattern(..), contains)
 import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
@@ -43,6 +44,10 @@ defaults = { input: "in.png", output: "out.png", kernel: FloydSteinberg, quantiz
 files :: Array String
 files = [ "in.png", "out.png" ]
 
+-- | The ZX Spectrum's screen, with or without a Bayer map's side.
+zx :: Maybe Int -> QuantizerChoice
+zx bayer = Machine { name: ZxSpectrumScreen, bayer }
+
 spec :: Spec Unit
 spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.md)" do
 
@@ -64,12 +69,12 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
 
     it "--machine accepts every machine's name" do
       for_ allMachines \m ->
-        parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine m })
+        parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine { name: m, bayer: Nothing } })
 
     it "--format accepts every format's name (with --machine zx-spectrum, which scr needs)" do
       for_ allFormats \f ->
         parse (files <> [ "--machine", "zx-spectrum", "--format", formatName f ])
-          `shouldEqual` Right (defaults { quantizer = Machine ZxSpectrumScreen, format = f })
+          `shouldEqual` Right (defaults { quantizer = zx Nothing, format = f })
 
     it "the documented kernel, palette, machine and format names are exactly the ones in the README" do
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
@@ -83,7 +88,13 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
 
     it "--machine works with any kernel and with --gray" do
       parse (files <> [ "--machine", "zx-spectrum", "-k", "atkinson", "--gray" ])
-        `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = Machine ZxSpectrumScreen, gray = true })
+        `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = zx Nothing, gray = true })
+
+    it "--machine with --bayer N: ordered dithering inside the cells, pure unless --kernel is given" do
+      parse (files <> [ "--machine", "zx-spectrum", "--bayer", "8" ])
+        `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = zx (Just 8) })
+      parse (files <> [ "--bayer", "4", "--machine", "zx-spectrum", "-k", "atkinson", "--format", "scr" ])
+        `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = zx (Just 4), format = Scr })
 
     it "--threshold takes a number, --levels a whole number" do
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
@@ -142,11 +153,9 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse (files <> [ "--palette", "bw", "--bayer", "4" ]) `shouldSatisfy`
         failsWith "ordered dithering against a palette isn't supported"
 
-    it "--machine with --threshold, --levels, --palette or --bayer, saying why" do
+    it "--machine with --threshold, --levels or --palette, saying why" do
       for_ [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ] ] \extra ->
         parse (files <> [ "--machine", "zx-spectrum" ] <> extra) `shouldSatisfy` failsWith "the machine defines the colors"
-      parse (files <> [ "--bayer", "4", "--machine", "zx-spectrum" ]) `shouldSatisfy`
-        failsWith "ordered dithering within a machine's cells isn't supported"
 
     it "an unknown machine, listing the valid names" do
       parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"

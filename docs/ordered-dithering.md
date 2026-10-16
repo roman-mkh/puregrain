@@ -7,7 +7,10 @@ is the Bayer matrix, after Bryce E. Bayer (Kodak, 1973).
 
 puregrain has it in the library (`Puregrain.Ordered`) and in the CLI
 (`--bayer N`, see [cli/README.md](../cli/README.md#ordered-dithering)). It
-works on its own, or combined with any error-diffusion kernel.
+works on its own, or combined with any error-diffusion kernel. Inside the
+cells of a machine's screen, `Puregrain.Cells.orderedInCell` applies the
+same thresholds between each cell's two colors (`--machine zx-spectrum
+--bayer N` in the CLI).
 
 ## The idea
 

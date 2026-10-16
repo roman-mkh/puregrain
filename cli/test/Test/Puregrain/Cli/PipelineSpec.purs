@@ -11,7 +11,7 @@ import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
 import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
-import Puregrain.Cells (ditherCells, nearestInCell)
+import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
 import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, toNeutral)
 import Puregrain.Machine.ZxSpectrum as Zx
@@ -54,13 +54,34 @@ shouldBeGray :: Pipeline -> Quantize Number -> Aff Unit
 shouldBeGray pipeline expected = case pipeline of
   Gray q -> probe q grayProbes `shouldEqual` probe expected grayProbes
   Color _ -> fail "expected gray processing, got RGB"
-  Screen _ -> fail "expected gray processing, got a machine's screen"
+  Screen _ _ -> fail "expected gray processing, got a machine's screen"
 
 shouldBeColor :: Pipeline -> Quantize RGB -> Aff Unit
 shouldBeColor pipeline expected = case pipeline of
   Color q -> probe q rgbProbes `shouldEqual` probe expected rgbProbes
   Gray _ -> fail "expected RGB processing, got gray"
-  Screen _ -> fail "expected RGB processing, got a machine's screen"
+  Screen _ _ -> fail "expected RGB processing, got a machine's screen"
+
+-- | 16 × 12 pixels, more than one 8 × 8 cell each way, in varied colors:
+-- | a wrong cell size or rule would give a different result. (An image
+-- | smaller than one cell can't tell cell sizes apart.)
+screenProbe :: Array (Array RGB)
+screenProbe = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y * 20), b: toNumber ((x + y) * 8) }) (0 .. 15)) (0 .. 11)
+
+-- | The rule inside the cells can't be compared directly either: both
+-- | rules dither the probe, without diffusion, so the rule alone decides
+-- | each pixel.
+shouldBeScreen :: Pipeline -> MachineName -> CellQuantizer -> Aff Unit
+shouldBeScreen pipeline machine expected = case pipeline of
+  Screen m rule -> do
+    m `shouldEqual` machine
+    (ditherScreen m noDiffusion rule screenProbe).image `shouldEqual` (ditherScreen m noDiffusion expected screenProbe).image
+  Gray _ -> fail "expected a machine's screen, got gray processing"
+  Color _ -> fail "expected a machine's screen, got RGB processing"
+
+-- | `shouldBeScreen` for the ZX Spectrum, written infix.
+shouldBeScreen' :: Pipeline -> CellQuantizer -> Aff Unit
+shouldBeScreen' pipeline = shouldBeScreen pipeline ZxSpectrumScreen
 
 -- | The library's Bayer map of a side the test knows is valid.
 withBayer :: Int -> (ThresholdMap -> Aff Unit) -> Aff Unit
@@ -99,25 +120,26 @@ spec = describe "Puregrain.Cli.Pipeline" do
         pipelineFor (Palette BlackWhite) grayImage `shouldBeColor` nearestColor blackWhite
         pipelineFor (Palette Websafe216) grayImage `shouldBeColor` nearestColor websafe216
 
-    it "--machine: the machine's screen, RGB - for gray and for color input" do
-      for_ [ true, false ] \grayImage -> case pipelineFor (Machine ZxSpectrumScreen) grayImage of
-        Screen m -> m `shouldEqual` ZxSpectrumScreen
-        _ -> fail "expected the machine's screen"
+    it "--machine: the machine's screen, each pixel the nearer of its cell's colors, RGB - for gray and for color input" do
+      for_ [ true, false ] \grayImage ->
+        pipelineFor (Machine { name: ZxSpectrumScreen, bayer: Nothing }) grayImage `shouldBeScreen'` nearestInCell
+
+    it "--machine with --bayer: ordered dithering inside the cells, with that map" do
+      for_ [ 4, 8 ] \side -> withBayer side \m ->
+        pipelineFor (Machine { name: ZxSpectrumScreen, bayer: Just side }) false `shouldBeScreen'` orderedInCell m
 
   describe "screens" do
-    it "zx-spectrum dithers with the library's ZX Spectrum cells" do
-      let
-        -- 16 × 12 pixels, more than one 8 × 8 cell each way, in varied
-        -- colors: a wrong cell size would give a different result. (An
-        -- image smaller than one cell can't tell cell sizes apart.)
-        image = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y * 20), b: toNumber ((x + y) * 8) }) (0 .. 15)) (0 .. 11)
-      ditherScreen ZxSpectrumScreen atkinson image
-        `shouldEqual` ditherCells atkinson nearestInCell Zx.screen image
+    it "zx-spectrum dithers with the library's ZX Spectrum screen mode, with the given kernel and rule" do
+      ditherScreen ZxSpectrumScreen atkinson nearestInCell screenProbe
+        `shouldEqual` ditherCells atkinson nearestInCell Zx.screen screenProbe
+      withBayer 8 \m ->
+        ditherScreen ZxSpectrumScreen atkinson (orderedInCell m) screenProbe
+          `shouldEqual` ditherCells atkinson (orderedInCell m) Zx.screen screenProbe
 
     it "zx-spectrum's screen file is the library's .scr, 6912 bytes" do
       let
         image = map (\y -> map (\x -> RGB { r: toNumber x, g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 255)) (0 .. 191)
-        out = ditherScreen ZxSpectrumScreen atkinson image
+        out = ditherScreen ZxSpectrumScreen atkinson nearestInCell image
       screenFile ZxSpectrumScreen out `shouldEqual` Zx.toScr out
       map Array.length (screenFile ZxSpectrumScreen out) `shouldEqual` Right 6912
 

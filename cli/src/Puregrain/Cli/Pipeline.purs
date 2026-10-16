@@ -18,23 +18,25 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Either (Either(..))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
-import Puregrain.Cells (ditherCells, nearestInCell)
+import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..), formatName)
 import Puregrain.Machine.ZxSpectrum as Zx
 
 -- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
--- | cell by cell).
-data Pipeline = Gray (Quantize Number) | Color (Quantize RGB) | Screen MachineName
+-- | cell by cell, with a rule inside the cells).
+data Pipeline = Gray (Quantize Number) | Color (Quantize RGB) | Screen MachineName CellQuantizer
 
 -- | A threshold always runs on gray. Levels, with or without `--bayer`,
 -- | run on gray when the image is gray, and per channel (scalarED)
 -- | otherwise. A palette always runs on RGB (vectorED) — its colors
--- | needn't be gray, even for a gray input; so does a machine's screen.
+-- | needn't be gray, even for a gray input; so does a machine's screen,
+-- | with the nearer of each cell's colors, or with `--bayer` ordered
+-- | dithering inside the cells.
 -- | `grayImage` is true for an all-neutral input, or after `--gray`. This
 -- | is the table in cli/README.md, "How the output is chosen".
 pipelineFor :: QuantizerChoice -> Boolean -> Pipeline
@@ -47,14 +49,14 @@ pipelineFor choice grayImage = case choice of
   Bayer { side, levels }
     | grayImage -> Gray (ordered (bayerOf side) (evenRamp levels))
     | otherwise -> Color (perChannel (ordered (bayerOf side) (evenRamp levels)))
-  Machine m -> Screen m
+  Machine { name, bayer: side } -> Screen name (maybe nearestInCell (orderedInCell <<< bayerOf) side)
 
 -- | Dithers an RGB image to the machine's screen, cell by cell, with the
--- | kernel: the picture, and each cell's choice, which the machine's
--- | screen file needs.
-ditherScreen :: MachineName -> Kernel -> Array (Array RGB) -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) }
-ditherScreen machine kernel image = case machine of
-  ZxSpectrumScreen -> ditherCells kernel nearestInCell Zx.screen image
+-- | kernel and the rule inside the cells: the picture, and each cell's
+-- | choice, which the machine's screen file needs.
+ditherScreen :: MachineName -> Kernel -> CellQuantizer -> Array (Array RGB) -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) }
+ditherScreen machine kernel rule image = case machine of
+  ZxSpectrumScreen -> ditherCells kernel rule Zx.screen image
 
 -- | The machine's own screen file for a dithered screen, as bytes: a
 -- | .scr file for the ZX Spectrum. `Left` for a screen of the wrong size,

@@ -59,11 +59,16 @@ from the code alone.
   CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
   its color count like `cga16`, so `zx-spectrum` means only the real
   look; the CLI isn't published, so nobody outside broke) is a quantizer
-  choice of its own, `Machine m`: `resolve` rejects it with `--threshold`,
-  `--levels`, `--palette` (the machine defines the colors) and `--bayer`;
-  `--kernel` and `--gray` work. `Pipeline` routes it to a third pipeline,
-  `Screen m` (RGB); `ditherScreen` calls `ditherCells` with the machine's
-  cells and returns them with the picture. `--format NAME` (2026-10-12;
+  choice of its own, `Machine { name, bayer }`: `resolve` rejects it with
+  `--threshold`, `--levels`, `--palette` (the machine defines the colors);
+  `--bayer N` is allowed since 2026-10-15, ordered dithering inside the
+  cells (pure by the `--bayer` kernel default, the hybrid with
+  `--kernel`); `--kernel` and `--gray` work. `Pipeline` routes it to a
+  third pipeline, `Screen m rule` (RGB), the rule being `nearestInCell`
+  or `orderedInCell` with the Bayer map; the PipelineSpec compares rules
+  by dithering a 16 × 12 probe without diffusion, as it compares
+  quantizers by probes. `ditherScreen` calls `ditherCells` with the
+  machine's mode and returns the cells with the picture. `--format NAME` (2026-10-12;
   `png`, the default, or `scr`; names from `formatName`) picks the output
   file, and only that file is written (decided: one option for the
   format, no second file next to the PNG). `resolve` rejects `scr`
@@ -520,10 +525,13 @@ Visual checks and benchmarks share one set of generated images:
 the two doc previews in `docs/images/test-images/` are the only ones
 committed (refresh: `npm run docs:images`). `npm run generate-images`
 writes both composites at 512², and the color one at 256×192 (the ZX
-Spectrum's screen) for `npm run dither:zx` (a PNG and a `.scr`), which uses Atkinson: with
-Floyd–Steinberg the ZX output shows streaks (error a cell can't use
-builds up; error clamping is a TODO.md item). One script per machine,
-with its best kernel; the CLI's default kernel stays Floyd–Steinberg for
+Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
+a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
+Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
+comparison. Atkinson crushes dark and light tones (the sphere's shadow
+turns black); with Floyd–Steinberg the ZX output shows streaks (error a
+cell can't use builds up; calmer diffusion in cells is a Future
+directions idea in TODO.md). One script per machine, with its best mode; the CLI's default kernel stays Floyd–Steinberg for
 every mode (no per-mode defaults, decided 2026-10-12), except `--bayer`,
 where the kernel picks the method (none, since 2026-10-14). A tile may be left out of every composite and only
 rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
