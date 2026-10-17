@@ -552,7 +552,8 @@ hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 
 Library specs are flat `Test.Puregrain.<Name>Spec` modules, one per
 module tested (e.g. `PixelSpec`, `QuantizeSpec`, `RowSpec`). `Test.Main`
-discovers them with `^Test\.Puregrain\.[A-Za-z]+Spec$`: spec-discovery
+discovers them with `^Test\.Puregrain\.[A-Za-z0-9]+Spec$` (digits since
+2026-10-17: with letters only, a `C64Spec` would silently never run): spec-discovery
 runs an unanchored `RegExp.test` over the shared `output/`, and the
 anchors plus the single name segment keep out the CLI's
 `Test.Puregrain.Cli.*` specs, which the CLI lists explicitly.
