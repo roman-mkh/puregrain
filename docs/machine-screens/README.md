@@ -69,6 +69,11 @@ at 100% zoom.
 | Drawn graphics, smooth shading, gradients; the classic look of much Spectrum art | Ordered: `--bayer 8` | Every tone is kept, as a pattern of the cell's two colors, shadows included. There are no streaks, since no error flows. `--bayer 4` gives a coarser pattern with fewer tone steps. |
 | Photos with fine detail, especially on a light background | Error diffusion: `--kernel atkinson` | The dots go where the detail is, and Atkinson's extra contrast keeps edges crisp. A Bayer map lays the same pattern over everything, and on 8×8 cells it's as large as a cell, so small details turn into texture. |
 
+On the Spectrum, an alternative worth trying for photos is two steps:
+`--palette zx15 --kernel atkinson` first, then `--machine zx-spectrum
+--kernel none` on the result. It gives a grain-like look, but keeps the
+tones less faithfully.
+
 Two things to know about error diffusion inside cells:
 
 - **Atkinson loses dark and light tones.** It passes on only 3/4 of each

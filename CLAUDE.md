@@ -561,7 +561,11 @@ writes both composites at 512², and the color one at 256×192 (the ZX
 Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
 a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
 Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
-comparison. Atkinson crushes dark and light tones (the sphere's shadow
+comparison. Two steps, `--palette zx15 --kernel atkinson` and then
+`--machine zx-spectrum --kernel none`, are mentioned briefly as an
+alternative worth trying for photos (2026-10-17, the user's find), not
+as a recommendation: measured after blurring, they keep the tones least
+faithfully of the valid variants. Atkinson crushes dark and light tones (the sphere's shadow
 turns black); with Floyd–Steinberg the ZX output shows streaks (error a
 cell can't use builds up; calmer diffusion in cells is a Future
 directions idea in TODO.md). One script per machine, with its best mode; the CLI's default kernel stays Floyd–Steinberg for
@@ -652,6 +656,14 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   docs on Pursuit within a minute, GitHub Release created by CI. Pursuit
   shows the `Puregrain.Internal.*` modules too (they're exported; their
   docs say they're unstable).
+- **0.1.1 was published on 2026-10-16** (22:00 UTC): tag `v0.1.1`,
+  registry job `4b94254f-18a1-42d9-b095-55aab76afdaf` (log:
+  https://registry.purescript.org/api/v1/jobs/4b94254f-18a1-42d9-b095-55aab76afdaf),
+  docs on Pursuit within a minute, GitHub Release created by CI. Contents:
+  `Puregrain.Cells` and `Puregrain.Machine.ZxSpectrum` (see CHANGELOG.md).
+  The job finished about a minute after the upload: the docs and the
+  compiler matrix come after "Successfully uploaded package to the
+  registry", so check `finishedAt` and `success` before calling it done.
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified

@@ -184,7 +184,8 @@ and the Spectrum's colors and files are described in
 - **Which mode:** it depends on the picture. `--bayer 8`, ordered
   dithering inside the cells, suits drawn graphics and smooth shading, and
   gives the classic Spectrum look. `--kernel atkinson`, error diffusion,
-  suits photos with fine detail. Floyd–Steinberg, the default without
+  suits photos with fine detail; for photos, two steps are an alternative
+  worth trying. Floyd–Steinberg, the default without
   `--bayer`, can leave streaks. Details: [which mode for which
   picture](../docs/machine-screens/README.md#which-mode-for-which-picture).
 - **Options:** any `--kernel` works; `--kernel none` gives flat cells.
