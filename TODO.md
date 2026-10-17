@@ -117,10 +117,16 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       representable in this architecture today but isn't real print-
       quality CMYK output on its own (no per-channel screen angles, no
       moiré avoidance). Needs a concrete print/halftone target to justify.
-- [ ] More block-constrained output, after the ZX Spectrum screens (docs/machine-screens/), which are the first case:
-      C64 multicolor modes and pseudo-graphics (ANSI/Unicode block characters, PETSCII, teletext mosaics) also
-      restrict each *cell* rather than each pixel, with other rules (C64 multicolor: 4 colors per 4×8 cell, one
-      shared by the whole screen; pseudo-graphics: a character plus foreground/background per cell).
+- [ ] More block-constrained output, after the ZX Spectrum's and the C64's hires screens (docs/machine-screens/):
+      - the C64's multicolor mode, `--machine c64-multicolor`: up to 4 colors per cell of 4×8 double-wide pixels,
+        one of them shared by the whole screen (names planned: `multicolorScreen`, `toMulticolorPrg`, `toKoala`).
+        It needs changes to the cells API that hires didn't: up to 4 colors per cell, a color shared by all
+        cells, and double-wide pixels;
+      - pseudo-graphics (ANSI/Unicode block characters, PETSCII, teletext mosaics): a character plus
+        foreground/background per cell.
+- [ ] The C64 `.prg` viewer's border in the most frequent color along the picture's edge (count the 16 colors over
+      its 1,436 edge pixels), so a picture with light edges blends into the border instead of being framed in
+      black. The border is black now (decided 2026-10-17: simple, the usual frame).
 - [ ] Ordered dithering against a palette (vectorED) — not supported: `Puregrain.Ordered` decides between two
       neighbouring levels per channel, and a palette's colors have no such order. Needs a different method,
       e.g. Joel Yliluoma's positional dithering algorithms. Until then, palettes that are a grid of per-channel

@@ -109,7 +109,7 @@ from the code alone.
   are `Left` (the options never ask for them). `programFile`
   (2026-10-17, `--format prg`) maps a C64 hires screen to
   `C64.toHiresPrg`, a `.prg` with a BASIC viewer (its layout and viewer:
-  `c64-hires-roadmap.md` until phase 5 moves them to the docs), and
+  `docs/machine-screens/c64.md`), and
   `artStudioFile` (2026-10-18, `--format art`) to `C64.toArtStudio`, an
   Art Studio picture; for a ZX screen both are `Left`. `Main` writes the bytes
   with `node-fs`/`node-buffer`, no JS of our own.
@@ -174,7 +174,8 @@ from the code alone.
   its `README.md` for what all cell screens share, which mode for which
   picture included, and one page per machine, `zx-spectrum.md` first,
   with the colors, attributes, file layouts and sources; mirrors
-  `Puregrain.Cells` and `Puregrain.Machine.<Name>`),
+  `Puregrain.Cells` and `Puregrain.Machine.<Name>`; `c64.md` since
+  2026-10-18),
   `benchmarks-dithering.md` (current),
   `benchmarks-fifo.md` (finished record). READMEs summarize and link
   rather than copy, so tables don't drift apart. The CLI README's
@@ -291,7 +292,8 @@ from the code alone.
   (normal = 0xD8). Historical/terminal palettes have no official RGB, so
   every preset cites its source in a comment — values were checked
   against those sources, not recalled. Per-pixel; the ZX attribute cells
-  are `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`, and other
+  and the C64's hires cells are `Puregrain.Machine.ZxSpectrum` and
+  `Puregrain.Machine.C64` with `Puregrain.Cells`, and other
   block-constrained looks (C64 multicolor, pseudo-graphics) are a TODO.md
   item.
   User-facing reference: `docs/palettes.md` — keep it in step with the
@@ -436,6 +438,53 @@ from the code alone.
   library depends on `strings` since then. The spec's `readTape` walks
   the blocks independently, and check-cli's JavaScript reader compares
   the tape's screen with the same run's `.scr`.
+- `Puregrain.Machine.C64` (2026-10-17/18, branch `c64-hires`) — the C64's
+  hires bitmap mode, the second machine module, imported `as C64`. One
+  module per machine, so the multicolor mode (a TODO.md item) would join
+  it; the names leave room for it (no type called just `Cell`).
+  `HiresCell` is opaque, so only the 136 valid values exist (read with
+  `foreground` and `background`, color codes 0–15); `hiresCells`,
+  `hiresPalette`, `hiresScreen` (the `CellMode`, 8 × 8). The 136: 16
+  single colors and 120 pairs. The foreground (the 1 bits) is the darker
+  color by luma, 0.299 R + 0.587 G + 0.114 B of the preset's values,
+  since the C64's codes aren't in order of brightness; on an exact tie,
+  the lower code. Seven pairs are nearly equal by the C64's design (green
+  and light red); there the tiny difference decides, which only sets an
+  ordered pattern's direction. Order as on the Spectrum: single colors
+  first, by code, then pairs nearest first (spread, then foreground, then
+  background). It keeps a picture of valid cells unchanged (grey lies on
+  the black–white line); single colors first can't be guarded by that
+  property (a single color is always an endpoint of a narrower pair), only
+  by the ordering test (mutation checked). Colors come from the `c64`
+  preset by index; `C64Spec` writes them out independently. Its name
+  needed digits in test discovery. `toHiresPrg` (phase 3) writes a
+  14,145-byte `.prg`: load address 2049; a five-line BASIC viewer there;
+  the colors at 3072 ($0C00), foreground × 16 + background; the bitmap at
+  8192 ($2000), cell by cell (byte (y/8)·320 + (x/8)·8 + y mod 8, bit 7 −
+  x mod 8; the background is tested first, so a single-color cell gets 0
+  bits); zeros between. The video chip reads the colors in place (53272 =
+  3 × 16 + 8 = 56), decided 2026-10-17 over phase 0's plan, colors after
+  the bitmap copied to 1024 by a BASIC loop (a few seconds of black
+  screen, and the text screen overwritten). The viewer is BASIC, not 6502
+  code, so it's readable and checkable: it notes 53280/53265/53272,
+  blanks the screen, sets a black border (decided 2026-10-17: simple, the
+  usual frame; matching the picture's edge is a TODO.md idea), turns
+  bitmap mode on, empties the keyboard buffer (198), waits for a key, and
+  puts everything back; the text screen is never touched. `C64Spec`'s
+  `listing` walks the BASIC lines through their links with its own token
+  table and rejects a keyword stored as plain letters (the C64 wouldn't
+  run it); check-cli's check 11 does the same in JavaScript.
+  `toArtStudio` (phase 4) writes Art Studio's 9009 bytes: load address
+  8192, the bitmap, the colors, 7 zeros. Its layout was verified against
+  RECOIL 6.4.5's own decoder (`DecodeIph` calls `DecodeC64Hires(content,
+  2, 0x1f42)`), not just the docs.rs crate's "community knowledge";
+  `readArt` and check 12 read it as RECOIL does. Both writers share
+  `screenMemory` (the size checks, the bitmap, the colors; a `Left` names
+  the caller), and `isGrid`/`sizeOf` moved to `Puregrain.Internal.Util`,
+  shared with the ZX module. Checked by the user: the `.prg` in VICE's
+  online version and in ty64 (ty64 defaults to Colodore, VICE to Pepto
+  2001), the `.art` in RECOIL's web viewer (RECOIL's own C64 palette is
+  Pepto 2001). User docs: `docs/machine-screens/c64.md`.
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -586,7 +635,7 @@ anchors plus the single name segment keep out the CLI's
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
 arbitrary kernels/palettes/images ("whole images" blocks in
-`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`), and end to end through the real CLI on the
+`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`/`C64Spec`), and end to end through the real CLI on the
 generated images (`npm run check:cli`). Not redundant: Spec can't
 reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
 check:cli can't cover arbitrary inputs.
@@ -601,7 +650,12 @@ writes both composites at 512², and the color one at 256×192 (the ZX
 Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
 a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
 Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
-comparison. Two steps, `--palette zx15 --kernel atkinson` and then
+comparison. Likewise at 320×200 (the C64's hires screen) for
+`npm run dither:c64`: Bayer 8 as a PNG, a `.prg` and an `.art`, and
+Atkinson as a PNG (chosen by eye 2026-10-18, as for the ZX; after
+blurring, Bayer 8, Bayer 4 and Atkinson kept the tones equally well,
+25.7/25.7/26.0, while Floyd–Steinberg and the Bayer 8 hybrid streaked,
+about 35). Two steps, `--palette zx15 --kernel atkinson` and then
 `--machine zx-spectrum --kernel none`, are mentioned briefly as an
 alternative worth trying for photos (2026-10-17, the user's find), not
 as a recommendation: measured after blurring, they keep the tones least
@@ -616,7 +670,10 @@ rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
 JS independently of the library) is the exact-check input for
 `--machine zx-spectrum`, and `color:c64-cells` (all 136 hires cells,
 Colodore's colors written out in JS; 2026-10-17) for `--machine c64-hires`,
-at 320×200; `--list` marks such tiles "(alone only)".
+at 320×200; `--list` marks such tiles "(alone only)". The two share their
+drawing; since 136 is a multiple of the 4 cell patterns, each hires cell
+always gets the same pattern (the ZX's 71 cycle through all four), which
+the exact check doesn't depend on.
 pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 — the `new PNG({ colorType })` constructor option is ignored by the

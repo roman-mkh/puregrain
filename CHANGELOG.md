@@ -11,6 +11,13 @@ raises the minor version (0.1 → 0.2).
 - `Puregrain.Machine.ZxSpectrum`: `normalScreen` and `brightScreen`, the
   screen mode with normal brightness only, or with BRIGHT only (and
   black). `screen` stays the full palette.
+- `Puregrain.Machine.C64`: the Commodore 64's hires screen for
+  `Puregrain.Cells`: 8 × 8 cells, each with any two of the 16 colors, a
+  foreground and a background (`HiresCell`, read with `foreground` and
+  `background`; `hiresCells`, the 136 that look different; `hiresPalette`;
+  `hiresScreen`, the screen mode). `toHiresPrg` writes a `.prg`, a C64
+  program that shows the picture by itself; `toArtStudio` an Art Studio
+  picture file, `.art`.
 
 ### Changed
 
