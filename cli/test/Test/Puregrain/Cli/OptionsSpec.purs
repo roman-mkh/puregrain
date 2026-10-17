@@ -71,16 +71,17 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       for_ allMachines \m ->
         parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine { name: m, palette: FullPalette, bayer: Nothing } })
 
-    it "--format accepts every format's name (with --machine zx-spectrum, which scr needs)" do
-      for_ allFormats \f ->
-        parse (files <> [ "--machine", "zx-spectrum", "--format", formatName f ])
-          `shouldEqual` Right (defaults { quantizer = zx Nothing, format = f })
+    it "--format accepts every format's name (with the machine its file needs)" do
+      for_ allFormats \f -> do
+        let machine = if f == Prg then C64HiresScreen else ZxSpectrumScreen
+        parse (files <> [ "--machine", machineName machine, "--format", formatName f ])
+          `shouldEqual` Right (defaults { quantizer = Machine { name: machine, palette: FullPalette, bayer: Nothing }, format = f })
 
     it "the documented kernel, palette, machine and format names are exactly the ones in the README" do
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
       map machineName allMachines `shouldEqual` [ "zx-spectrum", "c64-hires" ]
-      map formatName allFormats `shouldEqual` [ "png", "scr", "tap" ]
+      map formatName allFormats `shouldEqual` [ "png", "scr", "tap", "prg" ]
       map machinePaletteName allMachinePalettes `shouldEqual` [ "full", "normal", "bright" ]
 
     it "without --format, the output's extension picks the format, in any case" do
@@ -88,6 +89,8 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       for_ [ Tuple "pic.scr" Scr, Tuple "pic.tap" Tap, Tuple "v1.2/PIC.TAP" Tap, Tuple "C:\\pics\\pic.Scr" Scr ] \(Tuple output format) ->
         parse [ "in.png", output, "--machine", "zx-spectrum" ]
           `shouldEqual` Right (defaults { output = output, quantizer = zx Nothing, format = format })
+      parse [ "in.png", "pic.Prg", "--machine", "c64-hires" ]
+        `shouldEqual` Right (defaults { output = "pic.Prg", quantizer = Machine { name: C64HiresScreen, palette: FullPalette, bayer: Nothing }, format = Prg })
 
     it "--format wins over the extension: --format png writes a PNG under any name" do
       parse [ "in.png", "out.jpg", "--format", "png" ] `shouldEqual` Right (defaults { output = "out.jpg" })
@@ -205,13 +208,20 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         parse ([ "in.png", "out." <> format ] <> extra) `shouldSatisfy`
           failsWith (format <> " output needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
 
+    it "prg output without --machine c64-hires, from --format or the extension, saying why" do
+      for_ [ [], [ "--levels", "4" ], [ "--machine", "zx-spectrum" ] ] \extra -> do
+        parse (files <> [ "--format", "prg" ] <> extra) `shouldSatisfy`
+          failsWith "prg output needs --machine c64-hires: the file holds a C64 hires screen"
+        parse ([ "in.png", "out.prg" ] <> extra) `shouldSatisfy`
+          failsWith "prg output needs --machine c64-hires: the file holds a C64 hires screen"
+
     it "an output whose extension names no format, without --format, with advice" do
       for_ [ "out.jpg", "out.pgn", "out", "out.", ".png", "v1.2/out" ] \output ->
         parse [ "in.png", output ] `shouldSatisfy`
-          failsWith ("can't tell the output format from \"" <> output <> "\": name it .png, .scr or .tap, or give --format png, scr or tap")
+          failsWith ("can't tell the output format from \"" <> output <> "\": name it .png, .scr, .tap or .prg, or give --format png, scr, tap or prg")
 
     it "an unknown format, listing the valid names" do
-      parse (files <> [ "--format", "gif" ]) `shouldSatisfy` failsWith "use one of: png, scr, tap"
+      parse (files <> [ "--format", "gif" ]) `shouldSatisfy` failsWith "use one of: png, scr, tap, prg"
 
     it "a threshold that isn't a number" do
       parse (files <> [ "--threshold", "half" ]) `shouldSatisfy` isLeft

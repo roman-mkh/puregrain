@@ -20,7 +20,7 @@ import Node.FS.Sync (writeFile)
 import Node.Process (argv, exit')
 import Options.Applicative (handleParseResult)
 import Puregrain.Cli.Options (FormatName(..), Options, describeQuantizer, kernelName, parseOptions)
-import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, pipelineFor, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
 import Safe.Coerce (coerce)
@@ -78,6 +78,10 @@ run opts = do
           bytes <- either throw pure (tapeFile (tapeName opts.output) out)
           writeBytes opts.output bytes
           log $ "Wrote " <> opts.output <> " (ZX Spectrum tape, " <> show (Array.length bytes) <> " bytes)"
+        Prg -> do
+          bytes <- either throw pure (programFile out)
+          writeBytes opts.output bytes
+          log $ "Wrote " <> opts.output <> " (C64 program, " <> show (Array.length bytes) <> " bytes)"
   where
   report ms space = log $ "Dithered in " <> toStringWith (fixed 1) ms <> " ms ("
     <> kernelName opts.kernel <> ", " <> describeQuantizer opts.quantizer <> ", " <> space <> ")"

@@ -379,8 +379,9 @@ The machine screens have checks of their own:
   the colors from the color codes' bits. `Test.Puregrain.ZxSpectrumSpec`
   reads arbitrary screens back the same way.
 - **The color composite at 512×512, with `--format scr` and with
-  `--format tap`:** rejected before dithering, with exit code 1 and an
-  error naming the required 256×192, and no file written. Both files hold
+  `--format tap`, and with `--machine c64-hires --format prg`:** rejected
+  before dithering, with exit code 1 and an error naming the required
+  size, 256×192 or 320×200, and no file written. Each of these files holds
   exactly one screen.
 - **The color composite at 256×192, as a tape (`.tap`, the format from
   the extension, without `--format`), with
@@ -395,3 +396,11 @@ The machine screens have checks of their own:
   `bright` (and `--bayer 8`):** with `normal`, every channel of every pixel
   is 0 or 216 (`0xD8`), the Spectrum's colors without BRIGHT; with
   `bright`, 0 or 255 (black is the same either way).
+- **The color composite at 320×200, with `--machine c64-hires --bayer 8`,
+  as a PNG and as a C64 program (`.prg`, the format from the
+  extension):** the program is 14,145 bytes and loads at 2049. Read on
+  its own, line by line through each line's link, its BASIC viewer lists
+  as the five lines it should, every keyword stored as its token. Its
+  colors (at 3072) and bitmap (at 8192) decode to the PNG's picture, pixel
+  for pixel. `Test.Puregrain.C64Spec` reads arbitrary screens back the same
+  way.

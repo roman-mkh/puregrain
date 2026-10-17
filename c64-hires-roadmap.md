@@ -147,44 +147,48 @@ it.
 | Address | Content |
 |---|---|
 | $0801 | the BASIC viewer, then two zero bytes, the end of the program |
+| up to $0BFF | zeros |
+| $0C00–$0FE7 | the colors, 1000 bytes, one per cell: foreground × 16 + background |
 | up to $1FFF | zeros |
 | $2000–$3F3F | the bitmap, 8000 bytes |
-| $3F40–$4327 | the screen RAM, 1000 bytes: the cells' colors |
 
-That's 15,145 bytes. The bitmap sits where the video chip can show it,
-and the colors follow it, as in an Art Studio file. The viewer copies the
-colors to the screen RAM at 1024 ($0400); BASIC keeps its variables after
-the end of the loaded file, so nothing overlaps.
+That's 14,145 bytes. The video chip reads the colors and the bitmap where
+they are, so nothing is copied (decided in phase 3, 2026-10-17; phase 0
+had planned the colors after the bitmap, as in an Art Studio file, copied
+to 1024 by a BASIC loop behind a black screen for a few seconds). 53272's
+bits 4–7 give the colors' place in steps of 1024, bit 3 the bitmap's
+(C64-Wiki: 53272); both lie outside 4096–8191, where the video chip sees
+the character ROM (C64-Wiki: VIC bank). BASIC keeps its variables after
+the end of the loaded file (pointer 45/46, VARTAB; C64-Wiki: Zeropage),
+so nothing overlaps.
 
-The viewer, about six lines (the exact text is settled in phase 3):
+The viewer:
 
 ```
 10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)
-20 POKE 53280,0:POKE 53265,D AND 239
-30 FOR I=0 TO 999:POKE 1024+I,PEEK(16192+I):NEXT
-40 POKE 53272,24:POKE 53265,D OR 32
-50 GET K$:IF K$="" THEN 50
-60 POKE 53265,D:POKE 53272,M:POKE 53280,B:PRINT CHR$(147)
+20 POKE 53265,D AND 239:POKE 53280,0:POKE 53272,56:POKE 53265,D OR 32
+30 POKE 198,0
+40 GET K$:IF K$="" THEN 40
+50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D
 ```
 
 1. Remember the border color and the two video registers, so they can be
    put back as they were, whatever mode the machine was in.
-2. Black border, screen blanked: clearing bit 4 of 53265 ($D011) shows
-   only the border color, so the copying isn't seen.
-3. Copy the 1000 colors from 16192 ($3F40) to the screen RAM at 1024; a
-   few seconds in BASIC.
-4. Bitmap at 8192 ($2000) and screen RAM at 1024: 53272 ($D018) = 24.
-   Bitmap mode on, screen shown again: bit 5 of 53265 set.
-5. Wait for a key.
-6. Put everything back and clear the text screen.
+2. Blank the screen (clear bit 4 of 53265), so nothing half-set shows;
+   black border; colors at 3 × 1024 and the bitmap at 8192: 53272 = 3 ×
+   16 + 8 = 56; bitmap mode on (bit 5) and the screen shown again.
+3. Empty the keyboard buffer (198 counts the keys in it), so a key
+   pressed while loading doesn't end the picture at once.
+4. Wait for a key.
+5. Blank, put the registers and the border back, and show the text
+   screen, which the viewer never touched.
 
 How a C64 BASIC line is stored: the address of the next line (two bytes,
 low first), the line number (two bytes, low first), the text with each
 keyword one byte, and a zero; the program ends with two zero bytes. Unlike
 the Spectrum, numbers in the text are plain digits. The token codes the
-viewer needs: `FOR` $81, `NEXT` $82, `IF` $8B, `POKE` $97,
-`PRINT` $99, `GET` $A1, `TO` $A4, `THEN` $A7, `+` $AA, `AND` $AF, `OR`
-$B0, `=` $B2, `PEEK` $C2, `CHR$` $C7.
+viewer needs: `IF` $8B, `POKE` $97, `GET` $A1, `THEN` $A7, `AND` $AF,
+`OR` $B0, `=` $B2, `PEEK` $C2.
 
 Sources: [C64-Wiki: BASIC token](https://www.c64-wiki.com/wiki/token)
 (the line format, with a worked example, and the token codes);
@@ -194,7 +198,10 @@ bits 4 to 7, × 1024; the bitmap at 8192 with bit 3);
 thread](https://commodore.ca/forum/viewtopic.php?p=17011) (bit 4 blanks
 the screen, 27 is the usual value); [A C64 Game, step
 25](https://gamedev.net/blog/949/entry-2250713-a-c64-game-step-25/) (bit 5
-is bitmap mode).
+is bitmap mode); [C64-Wiki: VIC bank](https://www.c64-wiki.com/wiki/VIC_bank)
+(the character ROM at 4096–8191 in bank 0);
+[C64-Wiki: Zeropage](https://www.c64-wiki.com/wiki/Zeropage) (198, the
+keys in the keyboard buffer; 45/46, where BASIC's variables start).
 
 ### The standard format: Art Studio, `.art`
 
@@ -272,6 +279,34 @@ These go to TODO.md when this file is dissolved.
   wildcard), the size error in `screenSizeCheck`, and a function like
   `screenFile` that gives the bytes for `C64HiresDithered` and `Left` for
   a ZX screen.
+- **The `.prg`** (phase 3): `toHiresPrg` in the library, `programFile`
+  and `--format prg` in the CLI (only with `c64-hires`; a ZX screen gives
+  `Left`). `isGrid` and `sizeOf`, the size checks for the files, moved
+  from the ZX module to `Puregrain.Internal.Util`, shared by both. The
+  spec's `listing` walks the BASIC lines through their links with its own
+  token table, and rejects a keyword stored as plain letters (the C64
+  wouldn't run it); check-cli's check 11 does the same in JavaScript.
+- **Emulators** (the phase 3 check, 2026-10-17): `samples/c64-bayer8.prg`
+  runs in [VICE's online version](https://vice.janicek.co/c64), in VICE's
+  default palette, Pepto's older one, so it looks duller than our PNG;
+  and in [ty64](https://ty64.krissz.hu/), whose default palette is
+  Colodore (at Pepto's default settings; its code also offers Pepto,
+  Community Colors, CCS64 and others): there the colors match the PNG.
+  ty64 also starts with a CRT-TV filter (scanlines, noise). For
+  `docs/machine-screens/c64.md`, agreed with the user:
+
+  > - **Running it:** open it in an emulator, which starts it.
+  >   - In the browser, [ty64](https://ty64.krissz.hu/): drop the file
+  >     onto it. It shows Colodore's colors by default, as our PNG does,
+  >     through a CRT-TV filter you can switch off. [VICE's online
+  >     version](https://vice.janicek.co/c64) runs it too, in VICE's
+  >     default palette, Pepto's older and duller one.
+  >   - On the desktop, VICE: drop the file onto its window. Choose the
+  >     Colodore palette in its video settings to see the colors as in
+  >     the PNG.
+  >   - On a C64, type `LOAD "name",8` and `RUN`.
+  > - **Colors:** the file holds color codes, not colors, so each
+  >   emulator shows them in its own palette.
 - **The palette** (2026-10-17): with Pepto's 2001 values, the `c64`
   preset's until then, a test photo came out almost gray; even the best
   possible mixes of those colors keep only 42% of its color. `c64`
@@ -289,6 +324,6 @@ These go to TODO.md when this file is dissolved.
 - [x] 0. Verify and design
 - [x] 1. Library: `Puregrain.Machine.C64` with `hiresScreen`; `C64Spec`
 - [x] 2. CLI: `--machine c64-hires`, PNG output; tests; the `color:c64-cells` check
-- [ ] 3. The `.prg`
+- [x] 3. The `.prg`: `toHiresPrg`, `--format prg`; tests and the end-to-end check; checked in emulators (VICE's online version, ty64)
 - [ ] 4. The standard hires picture format
 - [ ] 5. The recommended mode and delivery

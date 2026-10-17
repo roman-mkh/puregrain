@@ -13,7 +13,7 @@ import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atk
 import Effect.Aff (Aff)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (DitheredScreen(..), Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Pipeline (DitheredScreen(..), Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, programFile, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
@@ -174,6 +174,15 @@ spec = describe "Puregrain.Cli.Pipeline" do
       screenFile c64Screen `shouldSatisfy` isLeft
       tapeFile "picture" c64Screen `shouldSatisfy` isLeft
 
+    it "c64-hires's program file is the library's .prg, 14,145 bytes; a ZX Spectrum screen has none" do
+      let
+        image = map (\y -> map (\x -> RGB { r: toNumber (x * 4 / 5), g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 319)) (0 .. 199)
+        out = ditherCells atkinson nearestInCell C64.hiresScreen image
+      programFile (C64HiresDithered out) `shouldEqual` C64.toHiresPrg out
+      map Array.length (programFile (C64HiresDithered out)) `shouldEqual` Right 14145
+      -- The options never ask for it.
+      programFile (ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
+
     it "names the tape after the output file: no directory or extension, printable ASCII only, at most 10" do
       tapeName "samples/zx-bayer8.tap" `shouldEqual` "zx-bayer8"
       tapeName "samples/output-zx-bayer8.tap" `shouldEqual` "output-zx-"
@@ -194,10 +203,14 @@ spec = describe "Puregrain.Cli.Pipeline" do
       for_ [ { width: 256, height: 191 }, { width: 255, height: 192 } ] \{ width, height } ->
         for_ [ Scr, Tap ] \format -> screenSizeCheck format ZxSpectrumScreen width height `shouldSatisfy` isLeft
 
-    it "knows the C64 hires screen's size: 320x200, other sizes noted for a PNG" do
-      screenSizeCheck Png C64HiresScreen 320 200 `shouldEqual` Right Nothing
+    it "knows the C64 hires screen's size: 320x200, other sizes noted for a PNG and rejected for a program file" do
+      for_ [ Png, Prg ] \format -> screenSizeCheck format C64HiresScreen 320 200 `shouldEqual` Right Nothing
       screenSizeCheck Png C64HiresScreen 256 192
         `shouldEqual` Right (Just "Note: a C64 hires screen is 320x200, this image is 256x192 (any size works for a PNG)")
+      screenSizeCheck Prg C64HiresScreen 256 192 `shouldEqual` Left
+        ( "--format prg needs a 320x200 image, a C64 hires screen; this one is 256x192. "
+            <> "Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
+        )
 
   describe "names -> library values" do
     it "each kernel name maps to the library's kernel" do

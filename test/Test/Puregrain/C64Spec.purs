@@ -5,20 +5,26 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Foldable (all, and, sum)
-import Data.Int (toNumber)
-import Data.Maybe (fromMaybe)
+import Data.Char (fromCharCode)
+import Data.Either (Either(..), either)
+import Data.Foldable (all, and, any, sum)
+import Data.Int (pow, toNumber)
+import Data.Maybe (Maybe(..), fromMaybe, maybe)
+import Data.String (Pattern(..), contains, joinWith)
+import Data.String.CodeUnits as CodeUnits
 import Data.Traversable (traverse)
-import Test.QuickCheck (class Arbitrary, (===))
-import Test.QuickCheck.Gen (chooseInt, elements, vectorOf)
+import Partial.Unsafe (unsafeCrashWith)
+import Test.QuickCheck (class Arbitrary, Result(..), (===))
+import Test.QuickCheck.Gen (Gen, chooseInt, elements, vectorOf)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (shouldEqual)
-import Test.Spec.QuickCheck (quickCheck)
+import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
+import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
 import Puregrain.Cells (cellColors, ditherCells)
-import Puregrain.Machine.C64 (HiresCell, background, foreground, hiresCells, hiresPalette, hiresScreen)
+import Puregrain.Machine.C64 (HiresCell, background, foreground, hiresCells, hiresPalette, hiresScreen, toHiresPrg)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
+import Test.Puregrain.Util (mentions)
 
 -- | The 16 colors by code, written out independently of the preset:
 -- | Colodore's values, as in VICE's data/C64/colodore.vpl.
@@ -50,19 +56,140 @@ sameColors a b = all (\c -> NEA.elem c (colorsOf b)) (colorsOf a) && all (\c -> 
 all136 :: Array HiresCell
 all136 = NEA.toArray hiresCells
 
--- | A picture made only of valid hires cells: 1 to 3 cells each way, each
--- | cell a random hires cell, each pixel one of that cell's colors.
+-- | The hires cell with these colors. Crashes for one that `hiresCells`
+-- | doesn't have; the tests ask only for ones it has.
+hiresCell :: Int -> Int -> HiresCell
+hiresCell fg bg = case Array.find (\c -> foreground c == fg && background c == bg) all136 of
+  Just c -> c
+  Nothing -> unsafeCrashWith "no such hires cell"
+
+-- | Black on white: black is the darker, so it's the foreground.
+blackOnWhite :: HiresCell
+blackOnWhite = hiresCell 0 1
+
+-- | Cells and pixels, as `ditherCells` returns them and `toHiresPrg`
+-- | takes them.
+type Screen = { cells :: Array (Array HiresCell), image :: Array (Array RGB) }
+
+-- | A width × height grid from a function of the position (x, y).
+grid :: forall a. Int -> Int -> (Int -> Int -> a) -> Array (Array a)
+grid width height f = map (\y -> map (\x -> f x y) (Array.range 0 (width - 1))) (Array.range 0 (height - 1))
+
+-- | A whole screen, 40 × 25 cells of 8 × 8 pixels, from each cell's
+-- | colors and each pixel's color by position.
+screenOf :: (Int -> Int -> HiresCell) -> (Int -> Int -> RGB) -> Screen
+screenOf cellAt pixelAt = { cells: grid 40 25 cellAt, image: grid 320 200 pixelAt }
+
+-- | Black on white everywhere; white pixels, except black ones at the
+-- | given points.
+foregroundAt :: Array { x :: Int, y :: Int } -> Screen
+foregroundAt points = screenOf (\_ _ -> blackOnWhite) \x y ->
+  if Array.elem { x, y } points then expectedColor 0 else expectedColor 1
+
+-- | The bytes other than `usual`, with their offsets: a short answer to
+-- | compare, and a readable failure.
+unusual :: Int -> Array Int -> Array { offset :: Int, value :: Int }
+unusual usual bytes = Array.filter (\b -> b.value /= usual) (Array.mapWithIndex (\offset value -> { offset, value }) bytes)
+
+-- | The bytes of a .prg that load from the address `from` up to `to`
+-- | (exclusive): the file loads at 2049, after its two-byte load address.
+region :: Int -> Int -> Array Int -> Array Int
+region from to = Array.slice (from - 2049 + 2) (to - 2049 + 2)
+
+-- | The byte a .prg loads at `address`, or 0 past its end.
+loadedAt :: Array Int -> Int -> Int
+loadedAt bytes address = fromMaybe 0 (Array.index bytes (address - 2049 + 2))
+
+-- | What a cell's color byte holds.
+type Codes = { foreground :: Int, background :: Int }
+
+codesOf :: HiresCell -> Codes
+codesOf c = { foreground: foreground c, background: background c }
+
+-- | Reads the picture back from a .prg, written independently of
+-- | `toHiresPrg`: each pixel's byte by the forward address formula
+-- | (`toHiresPrg` goes from the byte to the pixels), with arithmetic
+-- | instead of bit operations, and the colors from the list above.
+readPicture :: Array Int -> { cells :: Array (Array Codes), image :: Array (Array RGB) }
+readPicture bytes = { cells: grid 40 25 codesAt, image: grid 320 200 pixelAt }
+  where
+  codesAt column row =
+    let
+      c = loadedAt bytes (3072 + row * 40 + column)
+    in
+      { foreground: c / 16, background: c `mod` 16 }
+  pixelAt x y =
+    let
+      byte = loadedAt bytes (8192 + (y / 8) * 320 + (x / 8) * 8 + y `mod` 8)
+      isForeground = (byte / pow 2 (7 - x `mod` 8)) `mod` 2 == 1
+      codes = codesAt (x / 8) (y / 8)
+    in
+      expectedColor (if isForeground then codes.foreground else codes.background)
+
+-- | The BASIC keywords the viewer uses, with their one-byte tokens
+-- | (C64-Wiki: BASIC token), written out independently of the library.
+keywords :: Array { name :: String, token :: Int }
+keywords =
+  [ { name: "PEEK", token: 0xC2 }, { name: "POKE", token: 0x97 }, { name: "AND", token: 0xAF }
+  , { name: "OR", token: 0xB0 }, { name: "GET", token: 0xA1 }, { name: "IF", token: 0x8B }
+  , { name: "THEN", token: 0xA7 }, { name: "=", token: 0xB2 }
+  ]
+
+-- | Lists the BASIC program of a .prg as LIST would, read independently of
+-- | `toHiresPrg`: from 2049, line by line through each line's link, which
+-- | must point just past the line's 0. `Left` for a wrong link, an unknown
+-- | token, or a keyword stored as plain letters, which the C64 wouldn't
+-- | run (the viewer quotes nothing, so no keyword is meant as text).
+listing :: Array Int -> Either String (Array String)
+listing bytes = go 2049 []
+  where
+  go address lines =
+    let
+      link = loadedAt bytes address + 256 * loadedAt bytes (address + 1)
+      number = loadedAt bytes (address + 2) + 256 * loadedAt bytes (address + 3)
+      text = Array.takeWhile (_ /= 0) (Array.drop (address + 4 - 2049 + 2) bytes)
+      next = address + 4 + Array.length text + 1
+    in
+      if link == 0 then Right lines
+      else if link /= next then Left ("line " <> show number <> " links to " <> show link <> ", not to " <> show next)
+      else do
+        line <- detokenize text
+        go link (Array.snoc lines (show number <> " " <> line))
+  detokenize text = do
+    parts <- traverse part text
+    let plain = joinWith "" (map (\b -> if b >= 128 then "_" else character b) text)
+    if any (\k -> contains (Pattern k.name) plain) keywords then Left ("a keyword stored as plain letters: " <> plain)
+    else Right (joinWith "" parts)
+  part b =
+    if b >= 128 then maybe (Left ("unknown token " <> show b)) (Right <<< _.name) (Array.find (\k -> k.token == b) keywords)
+    else Right (character b)
+  character b = maybe "?" CodeUnits.singleton (fromCharCode b)
+
+-- | Valid cells, `columns` × `rows` of them: each cell a random hires
+-- | cell, each pixel one of that cell's colors.
+genScreen :: Int -> Int -> Gen Screen
+genScreen columns rows = do
+  cells <- vectorOf rows (vectorOf columns (elements hiresCells))
+  image <- Array.concat <$> traverse pixelRows cells
+  pure { cells, image }
+  where
+  -- The 8 pixel rows of one row of cells.
+  pixelRows row = vectorOf 8 (Array.concat <$> traverse (\c -> vectorOf 8 (elements (colorsOf c))) row)
+
+-- | A picture made only of valid hires cells, 1 to 3 cells each way.
 newtype HiresPicture = HiresPicture (Array (Array RGB))
 
 instance Arbitrary HiresPicture where
   arbitrary = do
     columns <- chooseInt 1 3
     rows <- chooseInt 1 3
-    cells <- vectorOf rows (vectorOf columns (elements hiresCells))
-    HiresPicture <<< Array.concat <$> traverse pixelRows cells
-    where
-    -- The 8 pixel rows of one row of cells.
-    pixelRows row = vectorOf 8 (Array.concat <$> traverse (\c -> vectorOf 8 (elements (colorsOf c))) row)
+    HiresPicture <<< _.image <$> genScreen columns rows
+
+-- | A whole screen of valid cells, 320 × 200 pixels.
+newtype FullScreen = FullScreen Screen
+
+instance Arbitrary FullScreen where
+  arbitrary = FullScreen <$> genScreen 40 25
 
 spec :: Spec Unit
 spec = describe "Puregrain.Machine.C64" do
@@ -104,3 +231,80 @@ spec = describe "Puregrain.Machine.C64" do
     it "leaves a picture made only of valid hires cells unchanged, with any kernel and rule" do
       quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (HiresPicture picture) ->
         (ditherCells kernel rule hiresScreen picture).image === picture
+
+  describe "toHiresPrg" do
+    it "loads at 2049, where BASIC programs start, with the viewer there: five lines, keywords as tokens" do
+      let bytes = toHiresPrg (foregroundAt [])
+      map (Array.take 2) bytes `shouldEqual` Right [ 0x01, 0x08 ]
+      (bytes >>= listing) `shouldEqual` Right
+        [ "10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)"
+        , "20 POKE 53265,D AND 239:POKE 53280,0:POKE 53272,56:POKE 53265,D OR 32"
+        , "30 POKE 198,0"
+        , "40 GET K$:IF K$=\"\" THEN 40"
+        , "50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D"
+        ]
+      -- The program ends at 2226 with two zero bytes; zeros follow up to
+      -- the colors at 3072.
+      map (unusual 0 <<< region 2226 3072) bytes `shouldEqual` Right []
+
+    it "stores a BASIC line as the C64 does: the next line's address and the line number, low byte first, the text, a 0" do
+      -- Line 30, after line 10 (37 bytes from 2049) and line 20 (56):
+      -- the next line at 2154 ($086A), the number 30, POKE as its token,
+      -- the rest as characters.
+      map (region 2142 2154) (toHiresPrg (foregroundAt []))
+        `shouldEqual` Right [ 0x6A, 0x08, 30, 0, 0x97, 0x20, 0x31, 0x39, 0x38, 0x2C, 0x30, 0 ]
+
+    it "puts each pixel at the C64's address: each cell's 8 bytes in a row, the leftmost pixel in the highest bit" do
+      let bitmapOf points = map (unusual 0 <<< region 8192 16192) (toHiresPrg (foregroundAt points))
+      bitmapOf [ { x: 0, y: 0 } ] `shouldEqual` Right [ { offset: 0, value: 128 } ]
+      bitmapOf [ { x: 7, y: 0 } ] `shouldEqual` Right [ { offset: 0, value: 1 } ]
+      -- One pixel row down is the next byte, one cell to the right 8
+      -- bytes on, and one cell row down 320.
+      bitmapOf [ { x: 0, y: 1 } ] `shouldEqual` Right [ { offset: 1, value: 128 } ]
+      bitmapOf [ { x: 8, y: 0 } ] `shouldEqual` Right [ { offset: 8, value: 128 } ]
+      bitmapOf [ { x: 0, y: 8 } ] `shouldEqual` Right [ { offset: 320, value: 128 } ]
+      bitmapOf [ { x: 319, y: 199 } ] `shouldEqual` Right [ { offset: 7999, value: 1 } ]
+
+    it "writes 14,145 bytes, the colors at 3072, foreground x 16 + background, row by row, the bitmap at 8192, zeros between" do
+      let
+        -- Cell column 2 of cell row 1: blue (the darker) on yellow, all
+        -- background.
+        special x y = x == 2 && y == 1
+        bytes = toHiresPrg $ screenOf (\x y -> if special x y then hiresCell 6 7 else blackOnWhite) \x y ->
+          if special (x / 8) (y / 8) then expectedColor 7 else expectedColor 1
+      map Array.length bytes `shouldEqual` Right 14145
+      map (unusual 1 <<< region 3072 4072) bytes `shouldEqual` Right [ { offset: 40 + 2, value: 6 * 16 + 7 } ]
+      map (unusual 0 <<< region 4072 8192) bytes `shouldEqual` Right []
+      map (unusual 0 <<< region 8192 16192) bytes `shouldEqual` Right []
+
+    it "gives a single-color cell the bit 0 everywhere, like a pair's background" do
+      let
+        -- The first cell is white alone, with white pixels; all the
+        -- others are black on white, with black (foreground) pixels.
+        bytes = toHiresPrg $ screenOf (\x y -> if x == 0 && y == 0 then hiresCell 1 1 else blackOnWhite) \x y ->
+          if x < 8 && y < 8 then expectedColor 1 else expectedColor 0
+      map (unusual 255 <<< region 8192 16192) bytes `shouldEqual` Right (map (\row -> { offset: row, value: 0 }) (Array.range 0 7))
+
+    it "can be read back: an independent reader gives the same cells and pixels, for any valid screen" do
+      -- 10 screens instead of 100: each has 64,000 pixels.
+      quickCheck' 10 \(FullScreen s) -> case toHiresPrg s of
+        Left message -> Failed message
+        Right bytes ->
+          let
+            decoded = readPicture bytes
+          in
+            if Array.length bytes /= 14145 then Failed ("got " <> show (Array.length bytes) <> " bytes, not 14145")
+            else if decoded.cells /= map (map codesOf) s.cells then Failed "the cells read back differ"
+            else if decoded.image /= s.image then Failed "the pixels read back differ"
+            else Success
+
+    it "rejects an image that isn't 320x200, cells that don't match it, and a pixel that isn't one of its cell's colors" do
+      let
+        valid = foregroundAt []
+        failure = either Just (const Nothing) <<< toHiresPrg
+      failure (valid { image = map (Array.drop 1) valid.image }) `shouldSatisfy` mentions "the image must be 320x200, a C64 hires screen; it's 319x200"
+      failure (valid { image = Array.drop 1 valid.image }) `shouldSatisfy` mentions "it's 320x199"
+      failure (valid { cells = map (Array.drop 1) valid.cells }) `shouldSatisfy` mentions "the cells must form a 40x25 grid, one per 8x8 cell of the image; they're 39x25"
+      -- Red in a cell of black and white.
+      failure (screenOf (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor 2 else expectedColor 1)
+        `shouldSatisfy` mentions "pixel (3, 5) isn't one of its cell's colors"
