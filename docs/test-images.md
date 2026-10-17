@@ -379,7 +379,8 @@ The machine screens have checks of their own:
   the colors from the color codes' bits. `Test.Puregrain.ZxSpectrumSpec`
   reads arbitrary screens back the same way.
 - **The color composite at 512×512, with `--format scr` and with
-  `--format tap`, and with `--machine c64-hires --format prg`:** rejected
+  `--format tap`, and with `--machine c64-hires --format prg` and `--format
+  art`:** rejected
   before dithering, with exit code 1 and an error naming the required
   size, 256×192 or 320×200, and no file written. Each of these files holds
   exactly one screen.
@@ -404,3 +405,9 @@ The machine screens have checks of their own:
   colors (at 3072) and bitmap (at 8192) decode to the PNG's picture, pixel
   for pixel. `Test.Puregrain.C64Spec` reads arbitrary screens back the same
   way.
+- **The same picture as an Art Studio file (`.art`):** 9009 bytes, loading
+  at 8192. Read as RECOIL, the library behind many C64 picture viewers,
+  reads one (the bitmap from offset 2, the colors from offset 8002, a 0
+  bit the lower half of a cell's color byte), it decodes to the PNG's
+  picture, pixel for pixel, and its bitmap and colors are the `.prg`'s.
+  `Test.Puregrain.C64Spec` reads arbitrary screens back the same way.

@@ -10,6 +10,7 @@ module Puregrain.Cli.Pipeline
   , screenFile
   , tapeFile
   , programFile
+  , artStudioFile
   , tapeName
   , screenSizeCheck
   , kernelOf
@@ -121,6 +122,13 @@ programFile = case _ of
   C64HiresDithered s -> C64.toHiresPrg s
   ZxDithered _ -> Left "a .prg file holds a C64 hires screen, not a ZX Spectrum's"
 
+-- | An Art Studio picture file of a dithered hires screen, as bytes: an
+-- | .art file. `Left` as for `programFile`.
+artStudioFile :: DitheredScreen -> Either String (Array Int)
+artStudioFile = case _ of
+  C64HiresDithered s -> C64.toArtStudio s
+  ZxDithered _ -> Left "an .art file holds a C64 hires screen, not a ZX Spectrum's"
+
 -- | The name on the tape, from the output path: the file's name without
 -- | its directory and extension, printable ASCII characters only, the
 -- | first 10 (a Spectrum tape name's length).
@@ -143,6 +151,7 @@ screenSizeCheck format machine width height =
     Scr -> Left (machineFileOnly Scr)
     Tap -> Left (machineFileOnly Tap)
     Prg -> Left (machineFileOnly Prg)
+    Art -> Left (machineFileOnly Art)
   where
   screen = case machine of
     ZxSpectrumScreen -> { width: 256, height: 192, name: "a ZX Spectrum screen" }

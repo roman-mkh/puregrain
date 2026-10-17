@@ -16,7 +16,8 @@
 -- |
 -- | `cells` holds each cell's `HiresCell`: its foreground and background,
 -- | as the machine's screen memory needs them; `toHiresPrg` turns the
--- | whole result into a C64 program that shows it. The colors are those of
+-- | whole result into a C64 program that shows it, and `toArtStudio` into
+-- | an Art Studio picture file. The colors are those of
 -- | `Puregrain.Palette.Presets.c64`. The C64's multicolor mode isn't
 -- | supported yet.
 module Puregrain.Machine.C64
@@ -27,6 +28,7 @@ module Puregrain.Machine.C64
   , hiresPalette
   , hiresScreen
   , toHiresPrg
+  , toArtStudio
   ) where
 
 import Prelude
@@ -137,23 +139,57 @@ hiresScreen = { size: { width: 8, height: 8 }, palette: hiresPalette, candidates
 -- | that don't form the matching 40 × 25 grid, or for a pixel that isn't
 -- | one of its cell's colors: then the cells weren't chosen for this image.
 toHiresPrg :: { cells :: Array (Array HiresCell), image :: Array (Array RGB) } -> Either String (Array Int)
-toHiresPrg { cells, image } =
-  -- The sizes are checked before anything reads the arrays by index.
-  if not (isGrid 320 200 image) then
-    Left ("toHiresPrg: the image must be 320x200, a C64 hires screen; it's " <> sizeOf image)
-  else if not (isGrid 40 25 cells) then
-    Left ("toHiresPrg: the cells must form a 40x25 grid, one per 8x8 cell of the image; they're " <> sizeOf cells)
-  else do
-    bitmap <- traverse (bitmapByte cells image) (Array.range 0 7999)
-    -- Each part at its address, zeros up to the next.
-    pure
-      ( word basicStart
-          <> padTo (colorsStart - basicStart) viewer
-          <> padTo (bitmapStart - colorsStart) (map colorByte (Array.concat cells))
-          <> bitmap
-      )
+toHiresPrg dithered = do
+  { bitmap, colors } <- screenMemory "toHiresPrg" dithered
+  -- Each part at its address, zeros up to the next.
+  pure
+    ( word basicStart
+        <> padTo (colorsStart - basicStart) viewer
+        <> padTo (bitmapStart - colorsStart) colors
+        <> bitmap
+    )
   where
   padTo n bytes = bytes <> Array.replicate (n - Array.length bytes) 0
+
+-- | A dithered hires screen as an Art Studio file, `.art`: the format of
+-- | the C64's best-known hires paint program, which many viewers and
+-- | converters open.
+-- |
+-- | - `{ cells, image }`: what `Puregrain.Cells.ditherCells` returns with
+-- |   this module's `hiresScreen`, for a 320 × 200 picture.
+-- |
+-- | ```purescript
+-- | bytes = toArtStudio (ditherCells noDiffusion (orderedInCell m) hiresScreen picture)
+-- | ```
+-- |
+-- | The file is 9009 bytes: the address it loads at, 8192 ($2000); the
+-- | bitmap, 8000 bytes; the cells' colors, 1000 bytes, both as in
+-- | `toHiresPrg`; and 7 filler bytes, zeros, as long as Art Studio's own
+-- | files.
+-- |
+-- | `Left`, with a message, as for `toHiresPrg`.
+toArtStudio :: { cells :: Array (Array HiresCell), image :: Array (Array RGB) } -> Either String (Array Int)
+toArtStudio dithered = do
+  { bitmap, colors } <- screenMemory "toArtStudio" dithered
+  pure (word bitmapStart <> bitmap <> colors <> Array.replicate 7 0)
+
+-- | The screen as the video chip reads it: the bitmap, 8000 bytes, and the
+-- | cells' colors, 1000 bytes. `name` is the caller's, for the messages.
+-- | `Left` for an image that isn't 320 × 200, cells that don't form the
+-- | matching 40 × 25 grid, or a pixel that isn't one of its cell's colors.
+screenMemory
+  :: String
+  -> { cells :: Array (Array HiresCell), image :: Array (Array RGB) }
+  -> Either String { bitmap :: Array Int, colors :: Array Int }
+screenMemory name { cells, image } =
+  -- The sizes are checked before anything reads the arrays by index.
+  if not (isGrid 320 200 image) then
+    Left (name <> ": the image must be 320x200, a C64 hires screen; it's " <> sizeOf image)
+  else if not (isGrid 40 25 cells) then
+    Left (name <> ": the cells must form a 40x25 grid, one per 8x8 cell of the image; they're " <> sizeOf cells)
+  else do
+    bitmap <- traverse (bitmapByte name cells image) (Array.range 0 7999)
+    pure { bitmap, colors: map colorByte (Array.concat cells) }
 
 -- | Where the file's parts go in the C64's memory: BASIC programs start at
 -- | 2049. The video chip finds the colors and the bitmap where 53272 says,
@@ -173,23 +209,23 @@ bitmapStart = 0x2000
 -- | The bitmap byte at offset `o`: 8 pixels of one row of one cell. The
 -- | cells come row by row, 40 to a row of cells, each as 8 bytes, its top
 -- | pixel row first.
-bitmapByte :: Array (Array HiresCell) -> Array (Array RGB) -> Int -> Either String Int
-bitmapByte cells image o = foldM (\byte i -> (\b -> byte * 2 + b) <$> foregroundBit (column * 8 + i)) 0 (Array.range 0 7)
+bitmapByte :: String -> Array (Array HiresCell) -> Array (Array RGB) -> Int -> Either String Int
+bitmapByte name cells image o = foldM (\byte i -> (\b -> byte * 2 + b) <$> foregroundBit (column * 8 + i)) 0 (Array.range 0 7)
   where
   column = (o / 8) `mod` 40
   y = (o / 320) * 8 + o `mod` 8
-  -- Safe: `toHiresPrg` checked both grids before calling this.
+  -- Safe: `screenMemory` checked both grids before calling this.
   at :: forall a. Array (Array a) -> Int -> Int -> a
   at rows r c = unsafePartial (Array.unsafeIndex (Array.unsafeIndex rows r) c)
-  foregroundBit x = pixelBit (at cells (y / 8) column) x y (at image y x)
+  foregroundBit x = pixelBit name (at cells (y / 8) column) x y (at image y x)
 
 -- | 1 for the cell's foreground, 0 for its background. The background is
 -- | tried first, so a single-color cell gets 0 everywhere.
-pixelBit :: HiresCell -> Int -> Int -> RGB -> Either String Int
-pixelBit (HiresCell c) x y pixel =
+pixelBit :: String -> HiresCell -> Int -> Int -> RGB -> Either String Int
+pixelBit name (HiresCell c) x y pixel =
   if pixel == color c.background then Right 0
   else if pixel == color c.foreground then Right 1
-  else Left ("toHiresPrg: pixel (" <> show x <> ", " <> show y <> ") isn't one of its cell's colors; were the cells chosen for this image?")
+  else Left (name <> ": pixel (" <> show x <> ", " <> show y <> ") isn't one of its cell's colors; were the cells chosen for this image?")
 
 -- | A cell's byte for the video chip: the foreground, the color of the 1
 -- | bits, in the upper half; the background in the lower.

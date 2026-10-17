@@ -21,7 +21,7 @@ import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
 import Puregrain.Cells (cellColors, ditherCells)
-import Puregrain.Machine.C64 (HiresCell, background, foreground, hiresCells, hiresPalette, hiresScreen, toHiresPrg)
+import Puregrain.Machine.C64 (HiresCell, background, foreground, hiresCells, hiresPalette, hiresScreen, toArtStudio, toHiresPrg)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
 import Test.Puregrain.Util (mentions)
@@ -106,25 +106,37 @@ type Codes = { foreground :: Int, background :: Int }
 codesOf :: HiresCell -> Codes
 codesOf c = { foreground: foreground c, background: background c }
 
--- | Reads the picture back from a .prg, written independently of
--- | `toHiresPrg`: each pixel's byte by the forward address formula
--- | (`toHiresPrg` goes from the byte to the pixels), with arithmetic
--- | instead of bit operations, and the colors from the list above.
-readPicture :: Array Int -> { cells :: Array (Array Codes), image :: Array (Array RGB) }
-readPicture bytes = { cells: grid 40 25 codesAt, image: grid 320 200 pixelAt }
+-- | Reads a picture back, written independently of the library: each
+-- | pixel's byte by the forward address formula (the library goes from the
+-- | byte to the pixels), with arithmetic instead of bit operations, and
+-- | the colors from the list above. `bitmapAt` and `colorsAt` give the
+-- | bitmap's and the colors' bytes by their offset in each.
+readPicture :: (Int -> Int) -> (Int -> Int) -> { cells :: Array (Array Codes), image :: Array (Array RGB) }
+readPicture bitmapAt colorsAt = { cells: grid 40 25 codesAt, image: grid 320 200 pixelAt }
   where
   codesAt column row =
     let
-      c = loadedAt bytes (3072 + row * 40 + column)
+      c = colorsAt (row * 40 + column)
     in
       { foreground: c / 16, background: c `mod` 16 }
   pixelAt x y =
     let
-      byte = loadedAt bytes (8192 + (y / 8) * 320 + (x / 8) * 8 + y `mod` 8)
+      byte = bitmapAt ((y / 8) * 320 + (x / 8) * 8 + y `mod` 8)
       isForeground = (byte / pow 2 (7 - x `mod` 8)) `mod` 2 == 1
       codes = codesAt (x / 8) (y / 8)
     in
       expectedColor (if isForeground then codes.foreground else codes.background)
+
+-- | The picture in a .prg: the bitmap loads at 8192, the colors at 3072.
+readPrg :: Array Int -> { cells :: Array (Array Codes), image :: Array (Array RGB) }
+readPrg bytes = readPicture (\o -> loadedAt bytes (8192 + o)) (\o -> loadedAt bytes (3072 + o))
+
+-- | The picture in an Art Studio file, as RECOIL reads one: the bitmap
+-- | from offset 2, after the load address, the colors from offset 8002.
+readArt :: Array Int -> { cells :: Array (Array Codes), image :: Array (Array RGB) }
+readArt bytes = readPicture (\o -> byteAt (2 + o)) (\o -> byteAt (8002 + o))
+  where
+  byteAt i = fromMaybe 0 (Array.index bytes i)
 
 -- | The BASIC keywords the viewer uses, with their one-byte tokens
 -- | (C64-Wiki: BASIC token), written out independently of the library.
@@ -291,7 +303,7 @@ spec = describe "Puregrain.Machine.C64" do
         Left message -> Failed message
         Right bytes ->
           let
-            decoded = readPicture bytes
+            decoded = readPrg bytes
           in
             if Array.length bytes /= 14145 then Failed ("got " <> show (Array.length bytes) <> " bytes, not 14145")
             else if decoded.cells /= map (map codesOf) s.cells then Failed "the cells read back differ"
@@ -308,3 +320,43 @@ spec = describe "Puregrain.Machine.C64" do
       -- Red in a cell of black and white.
       failure (screenOf (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor 2 else expectedColor 1)
         `shouldSatisfy` mentions "pixel (3, 5) isn't one of its cell's colors"
+
+  describe "toArtStudio" do
+    it "writes 9009 bytes: the load address 8192, the bitmap and the colors as in the .prg, then 7 zeros" do
+      let
+        -- Cell column 2 of cell row 1 blue on yellow, all background; the
+        -- others black on white, with one black pixel at (0, 0).
+        special x y = x == 2 && y == 1
+        screen = screenOf (\x y -> if special x y then hiresCell 6 7 else blackOnWhite) \x y ->
+          if special (x / 8) (y / 8) then expectedColor 7 else if x == 0 && y == 0 then expectedColor 0 else expectedColor 1
+        art = toArtStudio screen
+        prg = toHiresPrg screen
+      map Array.length art `shouldEqual` Right 9009
+      map (Array.take 2) art `shouldEqual` Right [ 0x00, 0x20 ]
+      -- Compared as a whole: a failure would print thousands of numbers
+      -- otherwise.
+      (map (Array.slice 2 8002) art == map (region 8192 16192) prg) `shouldEqual` true
+      (map (Array.slice 8002 9002) art == map (region 3072 4072) prg) `shouldEqual` true
+      map (Array.drop 9002) art `shouldEqual` Right [ 0, 0, 0, 0, 0, 0, 0 ]
+
+    it "can be read back as RECOIL reads it: the same cells and pixels, for any valid screen" do
+      -- 10 screens instead of 100: each has 64,000 pixels.
+      quickCheck' 10 \(FullScreen s) -> case toArtStudio s of
+        Left message -> Failed message
+        Right bytes ->
+          let
+            decoded = readArt bytes
+          in
+            if Array.length bytes /= 9009 then Failed ("got " <> show (Array.length bytes) <> " bytes, not 9009")
+            else if decoded.cells /= map (map codesOf) s.cells then Failed "the cells read back differ"
+            else if decoded.image /= s.image then Failed "the pixels read back differ"
+            else Success
+
+    it "rejects what toHiresPrg rejects, naming itself" do
+      let
+        valid = foregroundAt []
+        failure = either Just (const Nothing) <<< toArtStudio
+      failure (valid { image = Array.drop 1 valid.image }) `shouldSatisfy` mentions "toArtStudio: the image must be 320x200, a C64 hires screen; it's 320x199"
+      failure (valid { cells = map (Array.drop 1) valid.cells }) `shouldSatisfy` mentions "toArtStudio: the cells must form a 40x25 grid"
+      failure (screenOf (\_ _ -> blackOnWhite) \x y -> if x == 3 && y == 5 then expectedColor 2 else expectedColor 1)
+        `shouldSatisfy` mentions "toArtStudio: pixel (3, 5) isn't one of its cell's colors"

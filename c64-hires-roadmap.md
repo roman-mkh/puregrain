@@ -229,8 +229,16 @@ Doodle](https://www.c64-wiki.com/wiki/Doodle). The Archive Team's file
 format wiki, "Just Solve the File Format Problem", agrees (files start
 with 00 20, usually 9002, 9003 or 9009 bytes), but only reached us through
 a search summary; the page didn't load. The docs.rs crate calls its layout
-community knowledge, not checked against a reference, so phase 4 confirms
-it: our file must open correctly in a RECOIL viewer.
+community knowledge, not checked against a reference, so phase 4 checked
+it against RECOIL's own decoder (source 6.4.5, `recoil.fu`, 2026-10-18):
+an `.art` of 9002, 9003 or 9009 bytes goes to `DecodeIph`, which calls
+`DecodeC64Hires(content, 2, 0x1f42)`: the bitmap from offset 2, the
+colors from 8002; each pixel's byte at `(y & ~7) * 40 + (x & ~7) + (y &
+7)`, its bit `7 - x mod 8`, and `c == 0 ? v & 0xf : v >> 4`, the lower
+half for 0 bits. The load address and the last 7 bytes aren't read. Our
+layout matches exactly. RECOIL's own C64 palette is Pepto 2001
+(`C64Palette[2] = 0x68372b`), so its viewers show duller colors than our
+PNG, as VICE does.
 
 ### How to check the files without a C64
 
@@ -307,6 +315,12 @@ These go to TODO.md when this file is dissolved.
   >   - On a C64, type `LOAD "name",8` and `RUN`.
   > - **Colors:** the file holds color codes, not colors, so each
   >   emulator shows them in its own palette.
+
+  The `.art` (the phase 4 check, 2026-10-18): `samples/c64-bayer8.art`
+  opens in [RECOIL's web viewer](https://recoil.sourceforge.net/web.html)
+  and looks like the PNG, in duller colors: RECOIL's own C64 palette is
+  Pepto 2001. For `c64.md`: RECOIL's viewers (in the browser, as apps,
+  and as plugins for image viewers) open it, in Pepto's colors.
 - **The palette** (2026-10-17): with Pepto's 2001 values, the `c64`
   preset's until then, a test photo came out almost gray; even the best
   possible mixes of those colors keep only 42% of its color. `c64`
@@ -325,5 +339,5 @@ These go to TODO.md when this file is dissolved.
 - [x] 1. Library: `Puregrain.Machine.C64` with `hiresScreen`; `C64Spec`
 - [x] 2. CLI: `--machine c64-hires`, PNG output; tests; the `color:c64-cells` check
 - [x] 3. The `.prg`: `toHiresPrg`, `--format prg`; tests and the end-to-end check; checked in emulators (VICE's online version, ty64)
-- [ ] 4. The standard hires picture format
+- [x] 4. The standard hires picture format: `toArtStudio`, `--format art`; tests and the end-to-end check; checked in RECOIL's web viewer
 - [ ] 5. The recommended mode and delivery

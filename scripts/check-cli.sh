@@ -141,10 +141,10 @@ result=$(node -e '
   && pass "color composite at 256x192, --machine zx-spectrum --format scr: the .scr decodes to the PNG" \
   || fail "color composite at 256x192, --machine zx-spectrum --format scr: $result"
 
-# 8. A .scr file, a tape or a .prg holds exactly one screen (256×192, or
-#    320×200 for the C64), so another size is rejected before dithering:
+# 8. A .scr file, a tape, a .prg or an .art holds exactly one screen
+#    (256×192, or 320×200 for the C64), so another size is rejected before dithering:
 #    exit code 1, an error naming the size, and no file written.
-for target in "zx-spectrum scr 256x192" "zx-spectrum tap 256x192" "c64-hires prg 320x200"; do
+for target in "zx-spectrum scr 256x192" "zx-spectrum tap 256x192" "c64-hires prg 320x200" "c64-hires art 320x200"; do
   set -- $target
   rm -f $out/wrong-size.$2
   code=0
@@ -271,3 +271,40 @@ result=$(node -e '
 [ "$result" = ok ] \
   && pass "color composite at 320x200, --machine c64-hires to a .prg: the viewer, then the PNG's picture" \
   || fail "color composite at 320x200, --machine c64-hires to a .prg: $result"
+
+# 12. An Art Studio file (.art) of the same picture, read here as RECOIL,
+#     the library behind many C64 picture viewers, reads one (its
+#     DecodeC64HiresFrame): the bitmap from offset 2, the colors from
+#     offset 8002, a 0 bit the lower half of the cell's color byte and a 1
+#     bit the upper, with Colodore's values written out here. It must match
+#     the PNG of check 11's run pixel for pixel, be 9009 bytes long, load
+#     at 8192, and hold the same bitmap and colors as that run's .prg.
+$cli $out/color-320x200.png $out/c64-color.art --machine c64-hires --bayer 8 >/dev/null
+result=$(node -e '
+  const fs = require("fs"); const { PNG } = require("pngjs");
+  const art = fs.readFileSync(process.argv[1]);
+  const prg = fs.readFileSync(process.argv[2]);
+  const png = PNG.sync.read(fs.readFileSync(process.argv[3]));
+  const problems = [];
+  if (art.length !== 9009) problems.push(art.length + " bytes, not 9009");
+  if (art[0] + 256 * art[1] !== 8192) problems.push("loads at " + (art[0] + 256 * art[1]) + ", not 8192");
+  const colors = [0x000000, 0xffffff, 0x96282e, 0x5bd6ce, 0x9f2dad, 0x41b936, 0x2724c4, 0xeff347,
+    0x9f4815, 0x5e3500, 0xda5f66, 0x474747, 0x787878, 0x91ff84, 0x6864ff, 0xaeaeae];
+  let wrong = 0;
+  for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) {
+    const offset = (y & ~7) * 40 + (x & ~7) + (y & 7);
+    const bit = (art[2 + offset] >> (~x & 7)) & 1;
+    const v = art[8002 + (offset >> 3)];
+    const rgb = colors[bit === 0 ? v & 15 : v >> 4];
+    const i = (y * 320 + x) * 4;
+    if (png.data[i] !== rgb >> 16 || png.data[i + 1] !== ((rgb >> 8) & 255) || png.data[i + 2] !== (rgb & 255)) wrong++;
+  }
+  if (wrong > 0) problems.push(wrong + " pixels differ");
+  const prgAt = (address) => prg[address - 2049 + 2];
+  for (let o = 0; o < 8000; o++) if (art[2 + o] !== prgAt(8192 + o)) { problems.push("its bitmap differs from the .prg, at offset " + o); break; }
+  for (let o = 0; o < 1000; o++) if (art[8002 + o] !== prgAt(3072 + o)) { problems.push("its colors differ from the .prg, at offset " + o); break; }
+  console.log(problems.length > 0 ? problems.join("; ") : "ok");' \
+  $out/c64-color.art $out/c64-color.prg $out/c64-color.png)
+[ "$result" = ok ] \
+  && pass "color composite at 320x200, --machine c64-hires to an .art: read as RECOIL does, the PNG's picture" \
+  || fail "color composite at 320x200, --machine c64-hires to an .art: $result"

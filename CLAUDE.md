@@ -73,7 +73,7 @@ from the code alone.
   machine (`ZxDithered`, `C64HiresDithered`), since each holds its own
   machine's cells, which its files need; `screenImage` reads the picture.
   The output
-  format, `png`, `scr`, `tap` or `prg` (names from `formatName`), comes from the
+  format, `png`, `scr`, `tap`, `prg` or `art` (names from `formatName`), comes from the
   output file's extension, in any case (since 2026-10-16; the user's
   suggestion), or from `--format NAME`, which always wins: `--format png`
   writes a PNG under any name, on purpose. An extension that names no
@@ -84,7 +84,7 @@ from the code alone.
   for the format and for the tape name alike. Only the chosen file is
   written (decided 2026-10-12: one option for the format, no second file
   next to the PNG). `resolve` rejects `scr` and `tap` output without
-  `--machine zx-spectrum`, and `prg` without `--machine c64-hires`,
+  `--machine zx-spectrum`, and `prg` and `art` without `--machine c64-hires`,
   matching the machine without a wildcard, so a
   new machine must decide its formats. `--machine-palette NAME`
   (2026-10-17, the user's design) picks which of the machine's colors
@@ -101,7 +101,7 @@ from the code alone.
   means per-pixel colors without cells. `screenSizeCheck`
   runs before dithering: for an image other than the machine's screen
   (256×192, or 320×200 for `c64-hires`), a note with a
-  PNG (any size works, e.g. a poster), an error with `scr`, `tap` or `prg` (exit
+  PNG (any size works, e.g. a poster), an error with `scr`, `tap`, `prg` or `art` (exit
   1, no file). `screenFile` maps a dithered screen to its encoder (`Zx.toScr`),
   `tapeFile` to its tape writer (`Zx.toTap`, 2026-10-16, `--format tap`),
   with the name from `tapeName`: the output file's name without directory
@@ -109,8 +109,9 @@ from the code alone.
   are `Left` (the options never ask for them). `programFile`
   (2026-10-17, `--format prg`) maps a C64 hires screen to
   `C64.toHiresPrg`, a `.prg` with a BASIC viewer (its layout and viewer:
-  `c64-hires-roadmap.md` until phase 5 moves them to the docs); for a ZX
-  screen it's `Left`. `Main` writes the bytes
+  `c64-hires-roadmap.md` until phase 5 moves them to the docs), and
+  `artStudioFile` (2026-10-18, `--format art`) to `C64.toArtStudio`, an
+  Art Studio picture; for a ZX screen both are `Left`. `Main` writes the bytes
   with `node-fs`/`node-buffer`, no JS of our own.
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,

@@ -57,7 +57,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | Option | Argument | Default | What it does |
 |---|---|---|---|
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
-| `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr`, `.tap` or `.prg`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
+| `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr`, `.tap`, `.prg` or `.art`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
@@ -65,7 +65,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
 | `--machine` | `zx-spectrum`, `c64-hires` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell: the ZX Spectrum's, or the Commodore 64's hires screen. See [Machine screens](#machine-screens). |
 | `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black; `c64-hires` offers only `full`. Needs `--machine`. |
-| `--format` | `png`, `scr`, `tap`, `prg` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image; `prg` is a C64 program that shows it, for `--machine c64-hires` on a 320×200 image. See [Machine screens](#machine-screens). |
+| `--format` | `png`, `scr`, `tap`, `prg`, `art` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image; `prg` is a C64 program that shows it, and `art` an Art Studio picture, both for `--machine c64-hires` on a 320×200 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
@@ -79,7 +79,7 @@ with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
 it uses ordered dithering inside the cells. `--machine-palette` needs
 `--machine`. `--kernel` and `--gray` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
 holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`; a
-`.prg` holds a C64 hires screen, so it needs `--machine c64-hires`. An
+`.prg` or `.art` holds a C64 hires screen, so it needs `--machine c64-hires`. An
 output whose extension names no format, `out.jpg` say, is rejected
 unless `--format` says what to write.
 
@@ -98,7 +98,8 @@ unless `--format` says what to write.
 - **Output file type:** gray results are written as 8-bit grayscale PNGs,
   everything else as 8-bit RGB PNGs. Alpha is never written. As `.scr`
   or `.tap`, the output is the ZX Spectrum's screen file or a tape image
-  instead, and as `.prg` a C64 program.
+  instead, and as `.prg` or `.art` a C64 program or an Art Studio
+  picture.
 - **Per channel versus whole pixel.** There are two ways to dither color:
   - `--levels` treats red, green and blue as three independent gray
     images (the project calls this *scalarED*).
@@ -191,7 +192,9 @@ a note, as for the Spectrum. As `.prg`, the output is a C64 program that
 shows the picture by itself, 14,145 bytes, for a 320×200 image: open it
 in an emulator, which starts it (VICE starts a `.prg` dropped onto its
 window), or `LOAD` and `RUN` it on a C64. A key ends it, and the screen
-is as before.
+is as before. As `.art`, it's an Art Studio picture, 9009 bytes, the
+C64's best-known hires picture format, which many viewers and converters
+open, for example those built on [RECOIL](https://recoil.sourceforge.net/).
 
 - **Which mode:** it depends on the picture. `--bayer 8`, ordered
   dithering inside the cells, suits drawn graphics and smooth shading, and
@@ -360,7 +363,7 @@ error.
 | Code | When |
 |---|---|
 | `0` | Success, or `--help`. |
-| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg`, an output that can't be written, or the CLI not built yet. |
+| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg` or `.art`, an output that can't be written, or the CLI not built yet. |
 
 ## Limitations
 
@@ -396,7 +399,7 @@ error.
     defined once there; the parser and the help text are derived from it.
     Checks across options that optparse can't express (`--bayer` only with
     `--levels` or `--machine`, `scr` and `tap` output only with
-    `--machine zx-spectrum`, `prg` only with `--machine c64-hires`) are
+    `--machine zx-spectrum`, `prg` and `art` only with `--machine c64-hires`) are
     in `resolve`, and reported like
     optparse's own errors. `resolve` also picks the default kernel, which
     depends on `--bayer`, and the format, from `--format` or else the
