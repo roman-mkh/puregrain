@@ -763,6 +763,18 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   The job finished about a minute after the upload: the docs and the
   compiler matrix come after "Successfully uploaded package to the
   registry", so check `finishedAt` and `success` before calling it done.
+- **0.2.0 was published on 2026-10-18** (22:55 UTC on 2026-10-17): tag
+  `v0.2.0`, registry job `2b741211-8c04-4a35-a2d8-72ca1dbf5ed4` (log:
+  https://registry.purescript.org/api/v1/jobs/2b741211-8c04-4a35-a2d8-72ca1dbf5ed4;
+  finished after 34 s, `success: true`), CI green on `master` and on the
+  tag, GitHub Release created by CI, docs on Pursuit (the
+  `Puregrain.Machine.C64` page included). Without a job ID, `spago
+  registry info puregrain --refresh` also confirms a finished publish:
+  the version is listed with its `publishedTime` and a filled compiler
+  matrix (0.15.0–0.15.16), which the job adds only at its end. Contents: `Puregrain.Machine.C64`,
+  `Zx.normalScreen`/`brightScreen`, and the `c64` palette switched to
+  Colodore, which changes output and so made it 0.2.0, not 0.1.2 (see
+  CHANGELOG.md).
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified
