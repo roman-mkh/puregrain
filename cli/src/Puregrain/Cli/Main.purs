@@ -61,10 +61,10 @@ run opts = do
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"
-    Screen machine rule -> do
+    Screen { machine, palette, rule } -> do
       note <- either throw pure (screenSizeCheck opts.format machine width (Array.length image))
       maybe (pure unit) log note
-      { ms, result: out } <- timed (ditherScreen machine kernel rule) image
+      { ms, result: out } <- timed (ditherScreen machine palette kernel rule) image
       report ms "RGB"
       case opts.format of
         Png -> do

@@ -21,7 +21,7 @@ import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
 import Puregrain.Cells (cellColors, ditherCells)
-import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, ink, paper, screen, toScr, toTap)
+import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, brightScreen, ink, normalScreen, paper, screen, toScr, toTap)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
@@ -138,8 +138,12 @@ nameCodes name = codes <> Array.replicate (10 - Array.length codes) 32
 -- | Valid cells, `columns` × `rows` of them: each cell a random
 -- | attribute, each pixel one of that attribute's colors.
 genScreen :: Int -> Int -> Gen Screen
-genScreen columns rows = do
-  cells <- vectorOf rows (vectorOf columns (elements attributes))
+genScreen = genScreenFrom attributes
+
+-- | As `genScreen`, with the cells' attributes drawn from the given ones.
+genScreenFrom :: NonEmptyArray Attribute -> Int -> Int -> Gen Screen
+genScreenFrom candidates columns rows = do
+  cells <- vectorOf rows (vectorOf columns (elements candidates))
   image <- Array.concat <$> traverse pixelRows cells
   pure { cells, image }
   where
@@ -154,6 +158,23 @@ instance Arbitrary TestScreen where
     columns <- chooseInt 1 3
     rows <- chooseInt 1 3
     TestScreen <<< _.image <$> genScreen columns rows
+
+-- | A picture made only of valid cells of normal brightness, or only of
+-- | bright ones (black included), 1 to 3 cells each way.
+newtype NormalPicture = NormalPicture (Array (Array RGB))
+newtype BrightPicture = BrightPicture (Array (Array RGB))
+
+instance Arbitrary NormalPicture where
+  arbitrary = do
+    columns <- chooseInt 1 3
+    rows <- chooseInt 1 3
+    NormalPicture <<< _.image <$> genScreenFrom normalScreen.candidates columns rows
+
+instance Arbitrary BrightPicture where
+  arbitrary = do
+    columns <- chooseInt 1 3
+    rows <- chooseInt 1 3
+    BrightPicture <<< _.image <$> genScreenFrom brightScreen.candidates columns rows
 
 -- | A whole screen of valid cells, 256 × 192 pixels.
 newtype FullScreen = FullScreen Screen
@@ -197,6 +218,27 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
       screen.size `shouldEqual` { width: 8, height: 8 }
       NEA.toArray screen.candidates `shouldEqual` all71
       map (cellColors <<< screen.palette) all71 `shouldEqual` map colorsOf all71
+
+  describe "normalScreen and brightScreen" do
+    it "normalScreen has the 36 attributes without BRIGHT, in their usual order, and the same cells and colors" do
+      Array.length (NEA.toArray normalScreen.candidates) `shouldEqual` 36
+      NEA.toArray normalScreen.candidates `shouldEqual` Array.filter (not <<< bright) all71
+      normalScreen.size `shouldEqual` { width: 8, height: 8 }
+      map (cellColors <<< normalScreen.palette) all71 `shouldEqual` map colorsOf all71
+
+    it "brightScreen has black and the 35 attributes with BRIGHT, in their usual order, and the same cells and colors" do
+      let black a = ink a == 0 && paper a == 0
+      Array.length (NEA.toArray brightScreen.candidates) `shouldEqual` 36
+      NEA.toArray brightScreen.candidates `shouldEqual` Array.filter (\a -> bright a || black a) all71
+      Array.filter (\a -> not (bright a) && not (black a)) (NEA.toArray brightScreen.candidates) `shouldEqual` []
+      brightScreen.size `shouldEqual` { width: 8, height: 8 }
+      map (cellColors <<< brightScreen.palette) all71 `shouldEqual` map colorsOf all71
+
+    it "each leaves a picture made only of its own valid cells unchanged, with any kernel and rule" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (NormalPicture picture) ->
+        (ditherCells kernel rule normalScreen picture).image === picture
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (BrightPicture picture) ->
+        (ditherCells kernel rule brightScreen picture).image === picture
 
   describe "dithering with the attributes" do
     -- Holds only because of the order: normal white, for example, lies on

@@ -13,7 +13,7 @@ import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
 import ExitCodes as ExitCode
 import Options.Applicative (ParserResult(..), renderFailure)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), Options, QuantizerChoice(..), allFormats, allKernels, allMachines, allPalettes, formatName, kernelName, machineName, paletteName, parseOptions)
+import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, kernelName, machineName, machinePaletteName, paletteName, parseOptions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -46,7 +46,7 @@ files = [ "in.png", "out.png" ]
 
 -- | The ZX Spectrum's screen, with or without a Bayer map's side.
 zx :: Maybe Int -> QuantizerChoice
-zx bayer = Machine { name: ZxSpectrumScreen, bayer }
+zx bayer = Machine { name: ZxSpectrumScreen, palette: FullPalette, bayer }
 
 spec :: Spec Unit
 spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.md)" do
@@ -69,7 +69,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
 
     it "--machine accepts every machine's name" do
       for_ allMachines \m ->
-        parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine { name: m, bayer: Nothing } })
+        parse (files <> [ "--machine", machineName m ]) `shouldEqual` Right (defaults { quantizer = Machine { name: m, palette: FullPalette, bayer: Nothing } })
 
     it "--format accepts every format's name (with --machine zx-spectrum, which scr needs)" do
       for_ allFormats \f ->
@@ -81,6 +81,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
       map machineName allMachines `shouldEqual` [ "zx-spectrum" ]
       map formatName allFormats `shouldEqual` [ "png", "scr", "tap" ]
+      map machinePaletteName allMachinePalettes `shouldEqual` [ "full", "normal", "bright" ]
 
     it "without --format, the output's extension picks the format, in any case" do
       parse [ "in.png", "out.PNG" ] `shouldEqual` Right (defaults { output = "out.PNG" })
@@ -97,6 +98,13 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "--format png works with every mode" do
       parse (files <> [ "--format", "png" ]) `shouldEqual` Right defaults
       parse (files <> [ "--levels", "4", "--format", "png" ]) `shouldEqual` Right (defaults { quantizer = Levels 4 })
+
+    it "--machine-palette full, normal or bright, with --machine, and with --bayer" do
+      for_ allMachinePalettes \p -> do
+        parse (files <> [ "--machine", "zx-spectrum", "--machine-palette", machinePaletteName p ])
+          `shouldEqual` Right (defaults { quantizer = Machine { name: ZxSpectrumScreen, palette: p, bayer: Nothing } })
+        parse (files <> [ "--machine-palette", machinePaletteName p, "--machine", "zx-spectrum", "--bayer", "8" ])
+          `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = Machine { name: ZxSpectrumScreen, palette: p, bayer: Just 8 } })
 
     it "--machine works with any kernel and with --gray" do
       parse (files <> [ "--machine", "zx-spectrum", "-k", "atkinson", "--gray" ])
@@ -172,6 +180,12 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "an unknown machine, listing the valid names" do
       parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"
 
+    it "--machine-palette without --machine, saying why, and an unknown one, listing the valid names" do
+      parse (files <> [ "--machine-palette", "normal" ]) `shouldSatisfy`
+        failsWith "--machine-palette needs --machine: it picks among a machine's colors"
+      parse (files <> [ "--machine", "zx-spectrum", "--machine-palette", "pastel" ]) `shouldSatisfy`
+        failsWith "use one of: full, normal, bright"
+
     it "scr or tap output without --machine zx-spectrum, from --format or the extension, saying why" do
       for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra -> do
         parse (files <> [ "--format", format ] <> extra) `shouldSatisfy`
@@ -203,7 +217,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         Left why -> fail why
 
     it "a rejected command line exits with 1" do
-      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ], [ "in.png", "out.jpg" ] ] \args ->
+      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ], [ "in.png", "out.jpg" ], files <> [ "--machine-palette", "normal" ] ] \args ->
         case exitCodeOf args of
           Right code -> code `shouldEqual` ExitCode.Error
           Left why -> fail why

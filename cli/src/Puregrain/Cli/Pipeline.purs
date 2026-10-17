@@ -29,12 +29,15 @@ import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
+import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
 import Puregrain.Machine.ZxSpectrum as Zx
 
 -- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
--- | cell by cell, with a rule inside the cells).
-data Pipeline = Gray (Quantize Number) | Color (Quantize RGB) | Screen MachineName CellQuantizer
+-- | cell by cell, with the machine's palette and a rule inside the cells).
+data Pipeline
+  = Gray (Quantize Number)
+  | Color (Quantize RGB)
+  | Screen { machine :: MachineName, palette :: MachinePaletteName, rule :: CellQuantizer }
 
 -- | A threshold always runs on gray. Levels, with or without `--bayer`,
 -- | run on gray when the image is gray, and per channel (scalarED)
@@ -54,14 +57,20 @@ pipelineFor choice grayImage = case choice of
   Bayer { side, levels }
     | grayImage -> Gray (ordered (bayerOf side) (evenRamp levels))
     | otherwise -> Color (perChannel (ordered (bayerOf side) (evenRamp levels)))
-  Machine { name, bayer: side } -> Screen name (maybe nearestInCell (orderedInCell <<< bayerOf) side)
+  Machine { name, palette, bayer: side } ->
+    Screen { machine: name, palette, rule: maybe nearestInCell (orderedInCell <<< bayerOf) side }
 
 -- | Dithers an RGB image to the machine's screen, cell by cell, with the
--- | kernel and the rule inside the cells: the picture, and each cell's
--- | choice, which the machine's screen file needs.
-ditherScreen :: MachineName -> Kernel -> CellQuantizer -> Array (Array RGB) -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) }
-ditherScreen machine kernel rule image = case machine of
-  ZxSpectrumScreen -> ditherCells kernel rule Zx.screen image
+-- | machine's palette, the kernel and the rule inside the cells: the
+-- | picture, and each cell's choice, which the machine's screen file needs.
+ditherScreen :: MachineName -> MachinePaletteName -> Kernel -> CellQuantizer -> Array (Array RGB) -> { cells :: Array (Array Zx.Attribute), image :: Array (Array RGB) }
+ditherScreen machine palette kernel rule image = case machine of
+  ZxSpectrumScreen -> ditherCells kernel rule zxMode image
+  where
+  zxMode = case palette of
+    FullPalette -> Zx.screen
+    NormalPalette -> Zx.normalScreen
+    BrightPalette -> Zx.brightScreen
 
 -- | The machine's own screen file for a dithered screen, as bytes: a
 -- | .scr file for the ZX Spectrum. `Left` for a screen of the wrong size,

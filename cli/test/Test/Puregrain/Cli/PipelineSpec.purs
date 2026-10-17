@@ -12,7 +12,7 @@ import Data.Ord (abs)
 import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), PaletteName(..), QuantizerChoice(..))
+import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
 import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
@@ -54,13 +54,13 @@ shouldBeGray :: Pipeline -> Quantize Number -> Aff Unit
 shouldBeGray pipeline expected = case pipeline of
   Gray q -> probe q grayProbes `shouldEqual` probe expected grayProbes
   Color _ -> fail "expected gray processing, got RGB"
-  Screen _ _ -> fail "expected gray processing, got a machine's screen"
+  Screen _ -> fail "expected gray processing, got a machine's screen"
 
 shouldBeColor :: Pipeline -> Quantize RGB -> Aff Unit
 shouldBeColor pipeline expected = case pipeline of
   Color q -> probe q rgbProbes `shouldEqual` probe expected rgbProbes
   Gray _ -> fail "expected RGB processing, got gray"
-  Screen _ _ -> fail "expected RGB processing, got a machine's screen"
+  Screen _ -> fail "expected RGB processing, got a machine's screen"
 
 -- | 16 × 12 pixels, more than one 8 × 8 cell each way, in varied colors:
 -- | a wrong cell size or rule would give a different result. (An image
@@ -71,17 +71,19 @@ screenProbe = map (\y -> map (\x -> RGB { r: toNumber (x * 16), g: toNumber (y *
 -- | The rule inside the cells can't be compared directly either: both
 -- | rules dither the probe, without diffusion, so the rule alone decides
 -- | each pixel.
-shouldBeScreen :: Pipeline -> MachineName -> CellQuantizer -> Aff Unit
-shouldBeScreen pipeline machine expected = case pipeline of
-  Screen m rule -> do
-    m `shouldEqual` machine
-    (ditherScreen m noDiffusion rule screenProbe).image `shouldEqual` (ditherScreen m noDiffusion expected screenProbe).image
+shouldBeScreen :: Pipeline -> MachineName -> MachinePaletteName -> CellQuantizer -> Aff Unit
+shouldBeScreen pipeline machine palette expected = case pipeline of
+  Screen s -> do
+    s.machine `shouldEqual` machine
+    s.palette `shouldEqual` palette
+    (ditherScreen s.machine s.palette noDiffusion s.rule screenProbe).image
+      `shouldEqual` (ditherScreen s.machine s.palette noDiffusion expected screenProbe).image
   Gray _ -> fail "expected a machine's screen, got gray processing"
   Color _ -> fail "expected a machine's screen, got RGB processing"
 
--- | `shouldBeScreen` for the ZX Spectrum, written infix.
+-- | `shouldBeScreen` for the ZX Spectrum's full palette, written infix.
 shouldBeScreen' :: Pipeline -> CellQuantizer -> Aff Unit
-shouldBeScreen' pipeline = shouldBeScreen pipeline ZxSpectrumScreen
+shouldBeScreen' pipeline = shouldBeScreen pipeline ZxSpectrumScreen FullPalette
 
 -- | The library's Bayer map of a side the test knows is valid.
 withBayer :: Int -> (ThresholdMap -> Aff Unit) -> Aff Unit
@@ -122,24 +124,34 @@ spec = describe "Puregrain.Cli.Pipeline" do
 
     it "--machine: the machine's screen, each pixel the nearer of its cell's colors, RGB - for gray and for color input" do
       for_ [ true, false ] \grayImage ->
-        pipelineFor (Machine { name: ZxSpectrumScreen, bayer: Nothing }) grayImage `shouldBeScreen'` nearestInCell
+        pipelineFor (Machine { name: ZxSpectrumScreen, palette: FullPalette, bayer: Nothing }) grayImage `shouldBeScreen'` nearestInCell
 
     it "--machine with --bayer: ordered dithering inside the cells, with that map" do
       for_ [ 4, 8 ] \side -> withBayer side \m ->
-        pipelineFor (Machine { name: ZxSpectrumScreen, bayer: Just side }) false `shouldBeScreen'` orderedInCell m
+        pipelineFor (Machine { name: ZxSpectrumScreen, palette: FullPalette, bayer: Just side }) false `shouldBeScreen'` orderedInCell m
+
+    it "--machine-palette: the machine's screen with that palette" do
+      for_ [ NormalPalette, BrightPalette ] \palette ->
+        shouldBeScreen (pipelineFor (Machine { name: ZxSpectrumScreen, palette, bayer: Nothing }) false) ZxSpectrumScreen palette nearestInCell
 
   describe "screens" do
     it "zx-spectrum dithers with the library's ZX Spectrum screen mode, with the given kernel and rule" do
-      ditherScreen ZxSpectrumScreen atkinson nearestInCell screenProbe
+      ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe
         `shouldEqual` ditherCells atkinson nearestInCell Zx.screen screenProbe
       withBayer 8 \m ->
-        ditherScreen ZxSpectrumScreen atkinson (orderedInCell m) screenProbe
+        ditherScreen ZxSpectrumScreen FullPalette atkinson (orderedInCell m) screenProbe
           `shouldEqual` ditherCells atkinson (orderedInCell m) Zx.screen screenProbe
+
+    it "zx-spectrum's normal and bright palettes are the library's normalScreen and brightScreen" do
+      ditherScreen ZxSpectrumScreen NormalPalette atkinson nearestInCell screenProbe
+        `shouldEqual` ditherCells atkinson nearestInCell Zx.normalScreen screenProbe
+      ditherScreen ZxSpectrumScreen BrightPalette atkinson nearestInCell screenProbe
+        `shouldEqual` ditherCells atkinson nearestInCell Zx.brightScreen screenProbe
 
     it "zx-spectrum's screen file is the library's .scr, 6912 bytes, and its tape the library's .tap" do
       let
         image = map (\y -> map (\x -> RGB { r: toNumber x, g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 255)) (0 .. 191)
-        out = ditherScreen ZxSpectrumScreen atkinson nearestInCell image
+        out = ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell image
       screenFile ZxSpectrumScreen out `shouldEqual` Zx.toScr out
       map Array.length (screenFile ZxSpectrumScreen out) `shouldEqual` Right 6912
       tapeFile ZxSpectrumScreen "picture" out `shouldEqual` Zx.toTap "picture" out

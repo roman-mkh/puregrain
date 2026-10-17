@@ -187,3 +187,20 @@ result=$(node -e '
 [ "$result" = ok ] \
   && pass "color composite at 256x192, --machine zx-spectrum to a .tap: loader, then the .scr's screen" \
   || fail "color composite at 256x192, --machine zx-spectrum to a .tap: $result"
+
+# 10. --machine-palette picks which of the Spectrum's colors the cells may
+#     use: with normal, every channel of every pixel is 0 or 216 (0xD8);
+#     with bright, 0 or 255 (black is the same either way).
+for palette in "normal 216" "bright 255"; do
+  set -- $palette
+  $cli $out/color-256x192.png $out/zx-$1.png --machine zx-spectrum --machine-palette $1 --bayer 8 >/dev/null
+  others=$(node -e '
+    const fs = require("fs"); const { PNG } = require("pngjs");
+    const p = PNG.sync.read(fs.readFileSync(process.argv[1])); const level = Number(process.argv[2]);
+    let n = 0;
+    for (let i = 0; i < p.data.length; i += 4) for (let c = 0; c < 3; c++) if (p.data[i + c] !== 0 && p.data[i + c] !== level) n++;
+    console.log(n);' $out/zx-$1.png $2)
+  [ "$others" -eq 0 ] \
+    && pass "color composite at 256x192, --machine zx-spectrum --machine-palette $1: every channel 0 or $2" \
+    || fail "color composite at 256x192, --machine zx-spectrum --machine-palette $1: $others channel values other than 0 and $2"
+done

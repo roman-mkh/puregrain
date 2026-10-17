@@ -19,6 +19,9 @@ npm run dither-cli -- picture.png screen.png --machine zx-spectrum --bayer 8
 # error diffusion inside the cells, for photos with fine detail
 npm run dither-cli -- picture.png screen.png --machine zx-spectrum --kernel atkinson
 
+# normal brightness only: no BRIGHT, so large light areas stay even
+npm run dither-cli -- picture.png screen.png --machine zx-spectrum --machine-palette normal --bayer 8
+
 # the Spectrum's own files: a screen file, and a tape that loads and shows it
 npm run dither-cli -- picture.png screen.scr --machine zx-spectrum --bayer 8
 npm run dither-cli -- picture.png screen.tap --machine zx-spectrum --bayer 8
@@ -77,6 +80,13 @@ makes **71 attributes** that look different, the candidates for each cell
   only the nearer pair, listed first, keeps it as it was.
 - **With ordered dithering,** the ink is the pattern's base: a cell is ink,
   with paper dots added as a pixel nears the paper.
+- **One brightness only:** `Zx.normalScreen` offers the 36 attributes
+  without BRIGHT, and `Zx.brightScreen` black and the 35 with BRIGHT, both
+  in the usual order; on the command line, `--machine-palette normal` or
+  `bright`. With normal only, neighbouring cells never switch between
+  normal and BRIGHT, so large light areas, skin or sky, say, stay even,
+  and the picture is calmer, its colors less vivid. Bright only suits
+  vivid pictures: logos, cartoons, strong colors.
 
 ## The screen file: .scr
 

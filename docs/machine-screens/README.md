@@ -15,7 +15,8 @@ of its own:
 
 In the library, `Puregrain.Cells` dithers with cells of any size and any
 candidate colors, and a `Puregrain.Machine.<Name>` module describes one
-machine. On the command line, `--machine NAME` picks the machine (see
+machine. On the command line, `--machine NAME` picks the machine, and
+`--machine-palette NAME` which of its colors the cells may use (see
 [cli/README.md](../../cli/README.md#machine-screens)).
 
 ## How it works

@@ -49,7 +49,7 @@ keep them.
 ```
 puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
               [--threshold T | --levels N | --palette NAME] [--bayer N]
-              [--machine NAME] [--format NAME] [--gray]
+              [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
 ```
 
 ## Options
@@ -64,6 +64,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
 | `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
+| `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black. Needs `--machine`. |
 | `--format` | `png`, `scr`, `tap` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
@@ -75,8 +76,8 @@ or `--palette`. Without `--kernel`, it passes no error on: pure ordered
 dithering. Every other mode uses Floyd–Steinberg unless `--kernel` says
 otherwise. `--machine` defines all the colors itself, so it combines
 with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
-it uses ordered dithering inside the cells. `--kernel` and `--gray` work
-with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
+it uses ordered dithering inside the cells. `--machine-palette` needs
+`--machine`. `--kernel` and `--gray` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
 holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`. An
 output whose extension names no format, `out.jpg` say, is rejected
 unless `--format` says what to write.
@@ -190,8 +191,11 @@ and the Spectrum's colors and files are described in
   picture](../docs/machine-screens/README.md#which-mode-for-which-picture).
 - **Options:** any `--kernel` works; `--kernel none` gives flat cells.
   `--bayer N` gives ordered dithering inside the cells, with no error
-  passed on unless `--kernel` names a kernel. `--gray` converts the input
-  to gray first.
+  passed on unless `--kernel` names a kernel. `--machine-palette normal`
+  uses normal brightness only: neighbouring cells never switch between
+  normal and BRIGHT, so large light areas stay even, and the picture is
+  calmer. `--machine-palette bright` uses BRIGHT only, for vivid
+  pictures. `--gray` converts the input to gray first.
 - **Size:** the Spectrum's screen is 256×192. Other sizes work for a PNG,
   a poster in the Spectrum's style, say; the CLI then prints a note. A
   screen file or tape (`.scr` or `.tap`) needs exactly 256×192: for any

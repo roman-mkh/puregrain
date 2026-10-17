@@ -4,6 +4,7 @@ module Puregrain.Cli.Options
   ( KernelName(..)
   , PaletteName(..)
   , MachineName(..)
+  , MachinePaletteName(..)
   , FormatName(..)
   , QuantizerChoice(..)
   , Options
@@ -14,6 +15,8 @@ module Puregrain.Cli.Options
   , kernelName
   , paletteName
   , machineName
+  , machinePaletteName
+  , allMachinePalettes
   , formatName
   , splitFileName
   , describeQuantizer
@@ -61,6 +64,16 @@ derive instance Generic MachineName _
 instance Show MachineName where
   show = genericShow
 
+-- | Which of a machine's colors its cells may use, by the machine's own
+-- | terms: on the ZX Spectrum, all of them, or normal brightness only, or
+-- | BRIGHT only (with black).
+data MachinePaletteName = FullPalette | NormalPalette | BrightPalette
+
+derive instance Eq MachinePaletteName
+derive instance Generic MachinePaletteName _
+instance Show MachinePaletteName where
+  show = genericShow
+
 -- | The output file's format: a PNG, or for `--machine zx-spectrum` the
 -- | Spectrum's own screen file or a tape image that loads and shows it.
 data FormatName = Png | Scr | Tap
@@ -84,7 +97,7 @@ data QuantizerChoice
   | Levels Int
   | Palette PaletteName
   | Bayer { side :: Int, levels :: Int }
-  | Machine { name :: MachineName, bayer :: Maybe Int }
+  | Machine { name :: MachineName, palette :: MachinePaletteName, bayer :: Maybe Int }
 
 derive instance Eq QuantizerChoice
 derive instance Generic QuantizerChoice _
@@ -114,6 +127,9 @@ allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum 
 allMachines :: Array MachineName
 allMachines = [ ZxSpectrumScreen ]
 
+allMachinePalettes :: Array MachinePaletteName
+allMachinePalettes = [ FullPalette, NormalPalette, BrightPalette ]
+
 allFormats :: Array FormatName
 allFormats = [ Png, Scr, Tap ]
 
@@ -125,6 +141,9 @@ palettes = map (\p -> Tuple (paletteName p) p) allPalettes
 
 machines :: Array (Tuple String MachineName)
 machines = map (\m -> Tuple (machineName m) m) allMachines
+
+machinePalettes :: Array (Tuple String MachinePaletteName)
+machinePalettes = map (\p -> Tuple (machinePaletteName p) p) allMachinePalettes
 
 formats :: Array (Tuple String FormatName)
 formats = map (\f -> Tuple (formatName f) f) allFormats
@@ -158,6 +177,13 @@ machineName :: MachineName -> String
 machineName = case _ of
   ZxSpectrumScreen -> "zx-spectrum"
 
+-- | The Spectrum's own terms: normal and BRIGHT.
+machinePaletteName :: MachinePaletteName -> String
+machinePaletteName = case _ of
+  FullPalette -> "full"
+  NormalPalette -> "normal"
+  BrightPalette -> "bright"
+
 formatName :: FormatName -> String
 formatName = case _ of
   Png -> "png"
@@ -170,7 +196,10 @@ describeQuantizer = case _ of
   Levels n -> show n <> " levels"
   Palette p -> "palette " <> paletteName p
   Bayer { side, levels } -> "Bayer " <> show side <> "x" <> show side <> ", " <> show levels <> " levels"
-  Machine { name, bayer } -> machineName name <> maybe "" (\side -> ", Bayer " <> show side <> "x" <> show side) bayer
+  Machine { name, palette, bayer } ->
+    machineName name
+      <> (if palette == FullPalette then "" else " (" <> machinePaletteName palette <> ")")
+      <> maybe "" (\side -> ", Bayer " <> show side <> "x" <> show side) bayer
 
 -- | A reader for one of a fixed set of names, listing them on a mistake.
 oneOf :: forall a. String -> Array (Tuple String a) -> ReadM a
@@ -217,6 +246,7 @@ type RawOptions =
   , quantizer :: Maybe QuantizerChoice
   , bayer :: Maybe Int
   , machine :: Maybe MachineName
+  , machinePalette :: Maybe MachinePaletteName
   , format :: Maybe FormatName
   , gray :: Boolean
   }
@@ -245,6 +275,15 @@ rawOptions = ado
     ( long "machine" <> metavar "NAME"
         <> help ("dither to a machine's screen, a few colors per cell: " <> orList (map fst machines))
     )
+  machinePalette <- optional $ option (oneOf "machine palette" machinePalettes)
+    ( long "machine-palette" <> metavar "NAME"
+        <> help
+          ( "which of the machine's colors the cells may use: " <> orList (map fst machinePalettes)
+              <> " (default: " <> machinePaletteName FullPalette <> "); for " <> machineName ZxSpectrumScreen <> ", "
+              <> machinePaletteName NormalPalette <> " is without BRIGHT, " <> machinePaletteName BrightPalette
+              <> " BRIGHT only"
+          )
+    )
   -- No `value` here: without --format, the output's extension decides (see `resolve`).
   format <- optional $ option (oneOf "format" formats)
     ( long "format" <> metavar "NAME"
@@ -256,7 +295,7 @@ rawOptions = ado
           )
     )
   gray <- switch (long "gray" <> help "convert a color input to gray (luma) first")
-  in { input, output, kernel, quantizer: q, bayer, machine, format, gray }
+  in { input, output, kernel, quantizer: q, bayer, machine, machinePalette, format, gray }
 
 parserInfo :: ParserInfo RawOptions
 parserInfo = info (rawOptions <**> helper)
@@ -277,7 +316,8 @@ parserInfo = info (rawOptions <**> helper)
 -- | works over levels or inside a machine's cells, so it combines with
 -- | `--levels` or `--machine` and nothing else; `--machine` defines all
 -- | the colors, so it combines with none of the quantizer options
--- | (`--kernel` and `--gray` work with everything); a
+-- | (`--kernel` and `--gray` work with everything); `--machine-palette`
+-- | picks among the machine's colors, so it needs `--machine`; a
 -- | screen file or tape holds a machine's screen, so `scr` and `tap`
 -- | output need `--machine zx-spectrum`. Without `--format`, the output's
 -- | extension picks the format, and an extension that names none is
@@ -291,13 +331,15 @@ resolve :: RawOptions -> Either String Options
 resolve raw = ado
   quantizer <- case raw.machine of
     Just m -> machineChoice m
-    Nothing -> quantizerChoice
+    Nothing ->
+      if isJust raw.machinePalette then Left "--machine-palette needs --machine: it picks among a machine's colors"
+      else quantizerChoice
   format <- formatOf raw.format raw.output >>= formatChoice
   in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray }
   where
   defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
   machineChoice m = case raw.quantizer of
-    Nothing -> Right (Machine { name: m, bayer: raw.bayer })
+    Nothing -> (\palette -> Machine { name: m, palette, bayer: raw.bayer }) <$> paletteChoice m (fromMaybe FullPalette raw.machinePalette)
     Just _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"
   quantizerChoice = case raw.quantizer, raw.bayer of
     Nothing, Nothing -> Right (Threshold 128.0)
@@ -309,6 +351,12 @@ resolve raw = ado
     Just _, Just _ ->
       Left "--bayer works over levels: use it alone (2 levels) or with --levels N, not with --threshold"
     Just q, Nothing -> Right q
+  -- No wildcards: a new machine or palette name must decide which go
+  -- together (on the Spectrum, all of them).
+  paletteChoice m p = case m, p of
+    ZxSpectrumScreen, FullPalette -> Right FullPalette
+    ZxSpectrumScreen, NormalPalette -> Right NormalPalette
+    ZxSpectrumScreen, BrightPalette -> Right BrightPalette
   -- No wildcard for the machine: a new machine must decide its formats.
   formatChoice format = case format, raw.machine of
     Png, _ -> Right Png

@@ -81,7 +81,18 @@ from the code alone.
   written (decided 2026-10-12: one option for the format, no second file
   next to the PNG). `resolve` rejects `scr` and `tap` output without
   `--machine zx-spectrum`, matching the machine without a wildcard, so a
-  new machine must decide its formats. `screenSizeCheck`
+  new machine must decide its formats. `--machine-palette NAME`
+  (2026-10-17, the user's design) picks which of the machine's colors
+  the cells may use: `full` (the default), `normal` and `bright`, the
+  Spectrum's own terms (preferred wherever there are some; `no-bright`
+  was rejected for `normal`). It needs `--machine`; `resolve` matches
+  machine and palette name without wildcards, so a new machine or name
+  must decide which go together. Kept narrow on purpose: it chooses a
+  set of colors and nothing else. A machine's screen modes with other
+  cell sizes, or variants of its color values, would be another option
+  or machine name, and `--machine-*` options must not multiply without
+  control (the user's caution). Reusing `--palette` was rejected: it
+  means per-pixel colors without cells. `screenSizeCheck`
   runs before dithering: for an image other than 256×192, a note with a
   PNG (any size works, e.g. a poster), an error with `scr` or `tap` (exit
   1, no file). `screenFile` maps the machine to its encoder (`Zx.toScr`),
@@ -357,7 +368,10 @@ from the code alone.
   machine, with its display rules; `C64`, `Msx` would sit next to it).
   Imported `as Zx`, with ZX names: `Attribute` (opaque, so only the 71
   valid values exist; read with `ink`, `paper` as color codes 0–7, and
-  `bright`), `attributes`, `attributePalette`, and `screen`, the
+  `bright`), `attributes`, `attributePalette`, `normalScreen` and
+  `brightScreen` (2026-10-17: the 36 attributes without BRIGHT, or black
+  and the 35 with BRIGHT, filtered from `attributes` so their order and
+  tie rule hold), and `screen`, the
   `CellMode` with 8 × 8 cells (it replaced a separate `cellSize`,
   2026-10-15). The 71:
   per brightness 8 single colors and 28 pairs, minus the duplicate

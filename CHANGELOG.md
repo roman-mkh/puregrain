@@ -6,6 +6,12 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Added
+
+- `Puregrain.Machine.ZxSpectrum`: `normalScreen` and `brightScreen`, the
+  screen mode with normal brightness only, or with BRIGHT only (and
+  black). `screen` stays the full palette.
+
 ## 0.1.1 - 2026-10-16
 
 ### Added

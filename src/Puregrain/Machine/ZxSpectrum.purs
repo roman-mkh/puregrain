@@ -30,6 +30,8 @@ module Puregrain.Machine.ZxSpectrum
   , attributes
   , attributePalette
   , screen
+  , normalScreen
+  , brightScreen
   , toScr
   , toTap
   ) where
@@ -43,7 +45,7 @@ import Data.Char (toCharCode)
 import Data.Either (Either(..))
 import Data.Foldable (all, foldM, foldl)
 import Data.Int.Bits (shr, xor, (.&.))
-import Data.Maybe (maybe)
+import Data.Maybe (fromJust, maybe)
 import Data.String.CodeUnits (toCharArray)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafePartial)
@@ -111,9 +113,28 @@ attributePalette (Attribute a) =
 
 -- | The Spectrum's screen mode, for `Puregrain.Cells`: cells of 8 × 8
 -- | pixels, each using one of the `attributes`, tried in their order, with
--- | `attributePalette`'s colors.
+-- | `attributePalette`'s colors. This is the full palette, normal and
+-- | BRIGHT; for one brightness only, see `normalScreen` and `brightScreen`.
 screen :: CellMode Attribute
 screen = { size: { width: 8, height: 8 }, palette: attributePalette, candidates: attributes }
+
+-- | The screen mode with normal brightness only: the 36 attributes without
+-- | BRIGHT, 8 single colors and 28 pairs, in their usual order. Neighbouring
+-- | cells never switch between normal and bright, so large light areas
+-- | stay even; the picture is calmer, its colors less vivid.
+normalScreen :: CellMode Attribute
+normalScreen = screen { candidates = onlyAttributes (not <<< bright) }
+
+-- | The screen mode with BRIGHT only: black, which looks the same either
+-- | way, and the 35 attributes with BRIGHT, in their usual order. The
+-- | strongest colors, for vivid pictures.
+brightScreen :: CellMode Attribute
+brightScreen = screen { candidates = onlyAttributes (\a -> bright a || (ink a == 0 && paper a == 0)) }
+
+-- | The attributes that pass the test, in their usual order. Both tests
+-- | above keep all-black, so the result is never empty.
+onlyAttributes :: (Attribute -> Boolean) -> NonEmptyArray Attribute
+onlyAttributes keep = unsafePartial (fromJust (NEA.fromArray (NEA.filter keep attributes)))
 
 -- | A dithered screen as a `.scr` file: the 6912 bytes of the Spectrum's
 -- | screen memory, as `SAVE "name" SCREEN$` saves them, and as many
