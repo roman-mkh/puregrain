@@ -231,10 +231,10 @@ const ZX_ATTRIBUTES = (() => {
 })();
 
 // The C64's 16 colors by code, written out here independently of the
-// library: Pepto's values (pepto.de/projects/colorvic/2001/).
+// library: Colodore's values, as in VICE's data/C64/colodore.vpl.
 const C64_COLORS = [
-  0x000000, 0xffffff, 0x68372b, 0x70a4b2, 0x6f3d86, 0x588d43, 0x352879, 0xb8c76f,
-  0x6f4f25, 0x433900, 0x9a6759, 0x444444, 0x6c6c6c, 0x9ad284, 0x6c5eb5, 0x959595,
+  0x000000, 0xffffff, 0x96282e, 0x5bd6ce, 0x9f2dad, 0x41b936, 0x2724c4, 0xeff347,
+  0x9f4815, 0x5e3500, 0xda5f66, 0x474747, 0x787878, 0x91ff84, 0x6864ff, 0xaeaeae,
 ].map((n) => [n >> 16, (n >> 8) & 0xff, n & 0xff]);
 
 // The C64's hires cells: every single color and every pair of two of the

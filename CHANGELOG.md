@@ -12,6 +12,14 @@ raises the minor version (0.1 → 0.2).
   screen mode with normal brightness only, or with BRIGHT only (and
   black). `screen` stays the full palette.
 
+### Changed
+
+- `c64` (`Puregrain.Palette.Presets`) has new values: Colodore, Pepto's
+  2017 revision of his 2001 model, which `c64` used until now, at the
+  display settings VICE ships (brightness 47.5, contrast 100, saturation
+  70). Its colors are more saturated, so dithered pictures keep more of
+  their color. This changes the output of every dithering with `c64`.
+
 ## 0.1.1 - 2026-10-16
 
 ### Added

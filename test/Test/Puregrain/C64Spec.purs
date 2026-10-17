@@ -21,17 +21,17 @@ import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
 
 -- | The 16 colors by code, written out independently of the preset:
--- | Pepto's values (pepto.de/projects/colorvic/2001/).
-pepto :: Array RGB
-pepto = map hex
-  [ 0x000000, 0xFFFFFF, 0x68372B, 0x70A4B2, 0x6F3D86, 0x588D43, 0x352879, 0xB8C76F
-  , 0x6F4F25, 0x433900, 0x9A6759, 0x444444, 0x6C6C6C, 0x9AD284, 0x6C5EB5, 0x959595
+-- | Colodore's values, as in VICE's data/C64/colodore.vpl.
+colodore :: Array RGB
+colodore = map hex
+  [ 0x000000, 0xFFFFFF, 0x96282E, 0x5BD6CE, 0x9F2DAD, 0x41B936, 0x2724C4, 0xEFF347
+  , 0x9F4815, 0x5E3500, 0xDA5F66, 0x474747, 0x787878, 0x91FF84, 0x6864FF, 0xAEAEAE
   ]
   where
   hex n = RGB { r: toNumber (n / 65536), g: toNumber ((n / 256) `mod` 256), b: toNumber (n `mod` 256) }
 
 expectedColor :: Int -> RGB
-expectedColor code = fromMaybe (RGB { r: -1.0, g: -1.0, b: -1.0 }) (Array.index pepto code)
+expectedColor code = fromMaybe (RGB { r: -1.0, g: -1.0, b: -1.0 }) (Array.index colodore code)
 
 luma :: RGB -> Number
 luma (RGB p) = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b
@@ -84,7 +84,7 @@ spec = describe "Puregrain.Machine.C64" do
     it "puts the darker color, by luma, in the foreground" do
       Array.filter (\c -> luma (expectedColor (foreground c)) > luma (expectedColor (background c))) all136 `shouldEqual` []
 
-    it "uses the C64's colors, Pepto's values, foreground first" do
+    it "uses the C64's colors, Colodore's values, foreground first" do
       let
         expected c =
           if foreground c == background c then NEA.singleton (expectedColor (foreground c))

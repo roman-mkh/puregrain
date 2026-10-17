@@ -281,7 +281,7 @@ from the code alone.
   display-adjusted "CGA/EGA/VGA" column, not these digital values),
   `ansi16`/`ansi256` (xterm's values — plain presets, deliberately no
   terminal-scheme parameter: the console/VGA colors are already
-  `cga16`), `c64` (Pepto), `zxSpectrum`
+  `cga16`), `c64` (Colodore, see below), `zxSpectrum`
   (normal = 0xD8). Historical/terminal palettes have no official RGB, so
   every preset cites its source in a comment — values were checked
   against those sources, not recalled. Per-pixel; the ZX attribute cells
@@ -290,7 +290,19 @@ from the code alone.
   item.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
-  short table).
+  short table). `c64` switched from Pepto's 2001 values to Colodore on
+  2026-10-17 (the user's decision): with the 2001 colors a test photo came
+  out almost gray. Measured on it, even the best possible mixes of the
+  2001 colors keep only 42% of its color (Colodore at VICE's settings
+  77%, at the model's defaults 63%), and Atkinson's color error after
+  blurring fell from 37.9 to 21.2 (29.3 with the defaults). The values
+  are VICE's `colodore.vpl`, which is Pepto's model at brightness 47.5,
+  contrast 100, saturation 70: verified by re-implementing the model from
+  pepto.de/projects/colorvic (its defaults are 50/100/50) and searching
+  the settings. Chosen over the defaults for the closer colors, a
+  legitimate setting of the same model. VICE's *default* palette file is
+  still Pepto 2001 (`pepto-pal`), so "what VICE shows" favors neither.
+  Output with `c64` changes, so the next release is 0.2.0.
 - `Puregrain.Ordered` — ordered (Bayer) dithering as an ordinary
   `Quantize Number`, over levels; color via `perChannel`. Pure ordered
   dithering = `noDiffusion`; with any other kernel it's the
@@ -597,7 +609,7 @@ rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
 8×8 grid only from the image's corner; its 71 attributes written out in
 JS independently of the library) is the exact-check input for
 `--machine zx-spectrum`, and `color:c64-cells` (all 136 hires cells,
-Pepto's colors written out in JS; 2026-10-17) for `--machine c64-hires`,
+Colodore's colors written out in JS; 2026-10-17) for `--machine c64-hires`,
 at 320×200; `--list` marks such tiles "(alone only)".
 pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`

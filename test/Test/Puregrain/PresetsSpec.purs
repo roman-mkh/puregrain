@@ -172,19 +172,19 @@ spec = describe "Puregrain.Palette.Presets" do
       Array.zipWith (\(RGB a) (RGB b) -> [ b.r - a.r, b.g - a.g, b.b - a.b ]) grays (Array.drop 1 grays)
         `shouldEqual` Array.replicate 23 [ 10.0, 10.0, 10.0 ]
 
-  describe "c64 (Pepto's PAL palette)" do
+  describe "c64 (Colodore)" do
     it "has 16 distinct colors" do
       NEA.length c64 `shouldEqual` 16
       distinctCount c64 `shouldEqual` 16
 
-    it "matches Pepto's published values, in VIC-II index order" do
+    it "matches Colodore's values as in VICE's colodore.vpl, in VIC-II index order" do
       NEA.index c64 0 `shouldEqual` Just black
       NEA.index c64 1 `shouldEqual` Just white
-      NEA.index c64 2 `shouldEqual` Just (rgb 0x68 0x37 0x2B)
-      NEA.index c64 9 `shouldEqual` Just (rgb 0x43 0x39 0x00)
-      NEA.index c64 11 `shouldEqual` Just (rgb 0x44 0x44 0x44)
-      NEA.index c64 14 `shouldEqual` Just (rgb 0x6C 0x5E 0xB5)
-      NEA.index c64 15 `shouldEqual` Just (rgb 0x95 0x95 0x95)
+      NEA.index c64 2 `shouldEqual` Just (rgb 0x96 0x28 0x2E)
+      NEA.index c64 9 `shouldEqual` Just (rgb 0x5E 0x35 0x00)
+      NEA.index c64 11 `shouldEqual` Just (rgb 0x47 0x47 0x47)
+      NEA.index c64 14 `shouldEqual` Just (rgb 0x68 0x64 0xFF)
+      NEA.index c64 15 `shouldEqual` Just (rgb 0xAE 0xAE 0xAE)
 
   describe "zxSpectrum" do
     it "has 15 distinct colors (bright black is just black)" do

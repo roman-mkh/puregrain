@@ -18,7 +18,7 @@ In the library they're plain `NonEmptyArray RGB` values in
 | `cga16` | `cga16` | 16 | IBM PC: CGA's colors, EGA's and VGA's defaults, the DOS/Linux console | [Wikipedia: Color Graphics Adapter](https://en.wikipedia.org/wiki/Color_Graphics_Adapter) |
 | `ansi16` | `ansi16` | 16 | The ANSI terminal colors, as xterm's defaults | xterm's [XTerm-col.ad](https://raw.githubusercontent.com/ThomasDickey/xterm-snapshots/master/XTerm-col.ad); matches [Wikipedia: ANSI escape code](https://en.wikipedia.org/wiki/ANSI_escape_code) |
 | `ansi256` | `ansi256` | 256 (249 distinct) | xterm's 256 colors | xterm's [256colres.pl](https://raw.githubusercontent.com/ThomasDickey/xterm-snapshots/master/256colres.pl) |
-| `c64` | `c64` | 16 | Commodore 64 | [Pepto's 2001 palette](https://www.pepto.de/projects/colorvic/2001/) |
+| `c64` | `c64` | 16 | Commodore 64 | [Colodore](https://www.pepto.de/projects/colorvic/), as in VICE's [colodore.vpl](https://raw.githubusercontent.com/VICE-Team/svn-mirror/main/vice/data/C64/colodore.vpl) |
 | `zxSpectrum` | `zx15` | 15 | ZX Spectrum, normal and bright | [lospec](https://lospec.com/palette-list/zx-spectrum), from the 85% rule in [Wikipedia: ZX Spectrum graphic modes](https://en.wikipedia.org/wiki/ZX_Spectrum_graphic_modes) |
 
 Old computers had analog video, and terminals let users change their
@@ -138,8 +138,13 @@ cube). That leaves 249 distinct colors.
 The Commodore 64's 16 colors in VIC-II index order: black, white, red,
 cyan, purple, green, blue, yellow, orange, brown, light red, dark grey,
 grey, light green, light blue, light grey. There's no official RGB
-definition. These are Pepto's calculated PAL values (2001, gamma
-corrected), the usual reference.
+definition. These are the values of Colodore (2017), Pepto's own revision
+of his 2001 model, which was long the usual reference. Its colors are
+more saturated, so dithered pictures keep more of their color. The model
+takes a display's settings; these values, as in VICE's `colodore.vpl`,
+are brightness 47.5, contrast 100 and saturation 70 (its defaults, 50,
+100 and 50, give duller colors). Versions up to 0.1.1 used the 2001
+values.
 
 ### `zxSpectrum` (`zx15`)
 

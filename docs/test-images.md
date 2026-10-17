@@ -300,8 +300,8 @@ a known limit of error diffusion in cells, not a regression.
   alone only (`--pattern color:c64-cells`, at 320×200 for the check), for
   the same reason.
 - **Why:** an exact check for `--machine c64-hires` (see below). Its
-  colors, Pepto's values, are written out in the generator independently
-  of the library.
+  colors, Colodore's values (see [palettes.md](palettes.md#c64)), are
+  written out in the generator independently of the library.
 - **Look for:** nothing to judge by eye; it's a test image.
 
 ## Exact checks

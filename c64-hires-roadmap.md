@@ -33,7 +33,8 @@ Verified so far:
 | Where they come from | screen RAM, one byte per cell: the upper nibble is the color of the 1 bits, the lower nibble the color of the 0 bits; color RAM isn't used |
 | Bitmap | 8000 bytes, cell by cell: each cell's 8 bytes in a row, the top pixel row first; the cells left to right, then top to bottom. A byte's highest bit is the leftmost pixel |
 
-The 16 colors are the library's `c64` preset (Pepto's values), in the
+The 16 colors are the library's `c64` preset (Colodore's values since
+2026-10-17, see "Notes from the work"), in the
 VIC-II's index order: black, white, red, cyan, purple, green, blue, yellow,
 orange, brown, light red, dark grey, grey, light green, light blue, light
 grey. Dark grey, grey and light grey have r = g = b, so they lie on the
@@ -47,7 +48,8 @@ Sources: [C64-Wiki: Standard Bitmap
 Mode](https://www.c64-wiki.com/wiki/Standard_Bitmap_Mode),
 [Compute!: Bitmap Graphics On The
 64](https://www.atarimagazines.com/compute/issue43/208_1_Bitmap_Graphics_On_The_64.php),
-[Pepto's palette](https://www.pepto.de/projects/colorvic/2001/).
+[Colodore](https://www.pepto.de/projects/colorvic/), with VICE's
+settings ([colodore.vpl](https://raw.githubusercontent.com/VICE-Team/svn-mirror/main/vice/data/C64/colodore.vpl)).
 
 ## Decisions
 
@@ -270,6 +272,12 @@ These go to TODO.md when this file is dissolved.
   wildcard), the size error in `screenSizeCheck`, and a function like
   `screenFile` that gives the bytes for `C64HiresDithered` and `Left` for
   a ZX screen.
+- **The palette** (2026-10-17): with Pepto's 2001 values, the `c64`
+  preset's until then, a test photo came out almost gray; even the best
+  possible mixes of those colors keep only 42% of its color. `c64`
+  switched to Colodore at VICE's settings (77% at best), as its own
+  commit; the hires order and foregrounds follow by themselves, since
+  they're computed from the preset. Details: CLAUDE.md, palettes.md.
 - **The `color:c64-cells` tile** shares the drawing with `color:zx-cells`
   (the ZX tile stayed byte-identical). 136 is a multiple of the 4
   patterns, so each hires cell always gets the same pattern (the ZX's 71
