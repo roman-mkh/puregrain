@@ -6,6 +6,8 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+## 0.2.0 - 2026-10-18
+
 ### Added
 
 - `Puregrain.Machine.ZxSpectrum`: `normalScreen` and `brightScreen`, the
