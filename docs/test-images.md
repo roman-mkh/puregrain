@@ -13,7 +13,7 @@ rendered on its own at full size.
 ## Generating
 
 ```bash
-npm run generate-images                         # samples/: gray and color at 512², color at 256×192
+npm run generate-images                         # samples/: gray and color at 512², color at 256×192 and 320×200
 node scripts/generate-images.mjs --list         # composites, their tiles, one line each
 node scripts/generate-images.mjs --pattern gray:zone-plate               # one tile, full frame
 node scripts/generate-images.mjs --pattern gray --sizes 64,256,1024x256 --out samples/bench
@@ -43,7 +43,8 @@ of interior. Benchmarks pass their sizes explicitly. Non-square sizes are
 useful there: 1024×64 against 64×1024 separates cost per row from the number
 of rows. `npm run generate-images` also writes the color composite at
 256×192, the ZX Spectrum's screen size, for `--machine zx-spectrum`
-(`npm run dither:zx`).
+(`npm run dither:zx`), and at 320×200, the C64's hires screen, for
+`--machine c64-hires` (`npm run dither:c64`).
 
 ## How to look at dithered output
 
@@ -293,6 +294,31 @@ cell's two colors can't use builds up (see [which mode for which
 picture](machine-screens/README.md#which-mode-for-which-picture)); that's
 a known limit of error diffusion in cells, not a regression.
 
+### `color:c64-cells`
+- **What:** C64 hires cells: each 8×8 cell shows only the two colors of
+  one hires cell, cycling through all 136 (the 16 single colors and the
+  120 pairs), with the same four patterns as `color:zx-cells`. Rendered
+  alone only (`--pattern color:c64-cells`, at 320×200 for the check), for
+  the same reason.
+- **Why:** an exact check for `--machine c64-hires` (see below). Its
+  colors, Colodore's values (see [palettes.md](palettes.md#c64)), are
+  written out in the generator independently of the library.
+- **Look for:** nothing to judge by eye; it's a test image.
+
+For the visual check of `--machine c64-hires`, use the color composite at
+320×200. `npm run dither:c64` writes it, as for the Spectrum, with
+ordered dithering, `--bayer 8`, as `samples/output-c64-bayer8.png` (and as
+`.prg` and `.art`, for an emulator and a viewer), and with Atkinson as
+`samples/output-c64-atkinson.png`. Look for the same as on the Spectrum:
+every 8×8 cell in at most two colors, the cell grid where colors change,
+and patterns of a cell's two colors in smooth shading. The colors are
+the C64's, softer than the Spectrum's: the hue bands come out in its
+reds, greens and blues, and the patches with exact Spectrum colors don't
+stay flat, since the C64 has no pure red, green or blue. Bayer 8 and
+Atkinson keep the tones equally well here (measured after blurring,
+2026-10-18); with Floyd–Steinberg, the streaks known from the Spectrum
+appear.
+
 ## Exact checks
 
 `npm run check:cli` runs all of these through the real CLI (after
@@ -341,7 +367,7 @@ between pixels without a kernel, and keeps exact levels:
 Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.
 
-Five checks cover machine screens:
+The machine screens have checks of their own:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
   equals input byte for byte, with Floyd–Steinberg, with `--kernel none`,
@@ -354,6 +380,12 @@ Five checks cover machine screens:
   normal white fits both pairs perfectly, and only the nearer pair, tried
   first, leaves it unchanged. Also a property in
   `Test.Puregrain.ZxSpectrumSpec`, for arbitrary screens and kernels.
+- **`color:c64-cells` at 320×200, with `--machine c64-hires`:** the same
+  for the C64's hires cells, in the same four modes. Here the grays test
+  the order: grey lies on the segment from black to white, so a cell of
+  black and grey fits black and white perfectly too, and only the nearer
+  pair, tried first, leaves it unchanged. Also a property in
+  `Test.Puregrain.C64Spec`.
 - **The color composite at 256×192, as a PNG and as a screen file
   (`--format scr`), with Atkinson:** the `.scr` file is 6912 bytes long,
   has FLASH off in every cell, and holds the PNG's picture pixel for pixel.
@@ -362,8 +394,10 @@ Five checks cover machine screens:
   the colors from the color codes' bits. `Test.Puregrain.ZxSpectrumSpec`
   reads arbitrary screens back the same way.
 - **The color composite at 512×512, with `--format scr` and with
-  `--format tap`:** rejected before dithering, with exit code 1 and an
-  error naming the required 256×192, and no file written. Both files hold
+  `--format tap`, and with `--machine c64-hires --format prg` and `--format
+  art`:** rejected
+  before dithering, with exit code 1 and an error naming the required
+  size, 256×192 or 320×200, and no file written. Each of these files holds
   exactly one screen.
 - **The color composite at 256×192, as a tape (`.tap`, the format from
   the extension, without `--format`), with
@@ -374,3 +408,21 @@ Five checks cover machine screens:
   both named after the output file, and the screen's bytes, equal to the
   `.scr` of the same run. `Test.Puregrain.ZxSpectrumSpec` reads arbitrary
   screens' tapes back the same way.
+- **The color composite at 256×192, with `--machine-palette normal` and
+  `bright` (and `--bayer 8`):** with `normal`, every channel of every pixel
+  is 0 or 216 (`0xD8`), the Spectrum's colors without BRIGHT; with
+  `bright`, 0 or 255 (black is the same either way).
+- **The color composite at 320×200, with `--machine c64-hires --bayer 8`,
+  as a PNG and as a C64 program (`.prg`, the format from the
+  extension):** the program is 14,145 bytes and loads at 2049. Read on
+  its own, line by line through each line's link, its BASIC viewer lists
+  as the five lines it should, every keyword stored as its token. Its
+  colors (at 3072) and bitmap (at 8192) decode to the PNG's picture, pixel
+  for pixel. `Test.Puregrain.C64Spec` reads arbitrary screens back the same
+  way.
+- **The same picture as an Art Studio file (`.art`):** 9009 bytes, loading
+  at 8192. Read as RECOIL, the library behind many C64 picture viewers,
+  reads one (the bitmap from offset 2, the colors from offset 8002, a 0
+  bit the lower half of a cell's color byte), it decodes to the PNG's
+  picture, pixel for pixel, and its bitmap and colors are the `.prg`'s.
+  `Test.Puregrain.C64Spec` reads arbitrary screens back the same way.

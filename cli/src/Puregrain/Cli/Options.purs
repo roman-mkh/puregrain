@@ -54,10 +54,11 @@ derive instance Generic PaletteName _
 instance Show PaletteName where
   show = genericShow
 
--- | A machine whose screen the image is dithered to, cell by cell. (The
--- | constructor is named for the screen, since `ZxSpectrum` is the
--- | palette's, whose command-line name is "zx15".)
-data MachineName = ZxSpectrumScreen
+-- | A machine's screen the image is dithered to, cell by cell: the ZX
+-- | Spectrum's, or the Commodore 64's hires mode. (The constructors are
+-- | named for the screens: `ZxSpectrum` and `C64` are the palettes', whose
+-- | command-line names are "zx15" and "c64".)
+data MachineName = ZxSpectrumScreen | C64HiresScreen
 
 derive instance Eq MachineName
 derive instance Generic MachineName _
@@ -74,9 +75,11 @@ derive instance Generic MachinePaletteName _
 instance Show MachinePaletteName where
   show = genericShow
 
--- | The output file's format: a PNG, or for `--machine zx-spectrum` the
--- | Spectrum's own screen file or a tape image that loads and shows it.
-data FormatName = Png | Scr | Tap
+-- | The output file's format: a PNG; for `--machine zx-spectrum` the
+-- | Spectrum's own screen file or a tape image that loads and shows it;
+-- | for `--machine c64-hires` a C64 program that shows it, or an Art
+-- | Studio picture file.
+data FormatName = Png | Scr | Tap | Prg | Art
 
 derive instance Eq FormatName
 derive instance Generic FormatName _
@@ -125,13 +128,13 @@ allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
 
 allMachines :: Array MachineName
-allMachines = [ ZxSpectrumScreen ]
+allMachines = [ ZxSpectrumScreen, C64HiresScreen ]
 
 allMachinePalettes :: Array MachinePaletteName
 allMachinePalettes = [ FullPalette, NormalPalette, BrightPalette ]
 
 allFormats :: Array FormatName
-allFormats = [ Png, Scr, Tap ]
+allFormats = [ Png, Scr, Tap, Prg, Art ]
 
 kernels :: Array (Tuple String KernelName)
 kernels = map (\k -> Tuple (kernelName k) k) allKernels
@@ -176,6 +179,14 @@ paletteName = case _ of
 machineName :: MachineName -> String
 machineName = case _ of
   ZxSpectrumScreen -> "zx-spectrum"
+  C64HiresScreen -> "c64-hires"
+
+-- | The palettes a machine offers, by its own terms; the first is the
+-- | default. No wildcard: a new machine must list its own.
+machinePalettesOf :: MachineName -> Array MachinePaletteName
+machinePalettesOf = case _ of
+  ZxSpectrumScreen -> [ FullPalette, NormalPalette, BrightPalette ]
+  C64HiresScreen -> [ FullPalette ]
 
 -- | The Spectrum's own terms: normal and BRIGHT.
 machinePaletteName :: MachinePaletteName -> String
@@ -189,6 +200,8 @@ formatName = case _ of
   Png -> "png"
   Scr -> "scr"
   Tap -> "tap"
+  Prg -> "prg"
+  Art -> "art"
 
 describeQuantizer :: QuantizerChoice -> String
 describeQuantizer = case _ of
@@ -281,7 +294,7 @@ rawOptions = ado
           ( "which of the machine's colors the cells may use: " <> orList (map fst machinePalettes)
               <> " (default: " <> machinePaletteName FullPalette <> "); for " <> machineName ZxSpectrumScreen <> ", "
               <> machinePaletteName NormalPalette <> " is without BRIGHT, " <> machinePaletteName BrightPalette
-              <> " BRIGHT only"
+              <> " BRIGHT only; " <> machineName C64HiresScreen <> " offers only " <> machinePaletteName FullPalette
           )
     )
   -- No `value` here: without --format, the output's extension decides (see `resolve`).
@@ -291,7 +304,9 @@ rawOptions = ado
           ( "output file format: " <> orList (map fst formats) <> " (default: from OUTPUT's extension); " <> formatName Scr
               <> " is the ZX Spectrum's screen file, " <> formatName Tap
               <> " a tape image that loads and shows it, for --machine " <> machineName ZxSpectrumScreen
-              <> " on a 256x192 image"
+              <> " on a 256x192 image; " <> formatName Prg <> " a C64 program that shows it, and "
+              <> formatName Art <> " an Art Studio picture, for --machine " <> machineName C64HiresScreen
+              <> " on a 320x200 image"
           )
     )
   gray <- switch (long "gray" <> help "convert a color input to gray (luma) first")
@@ -308,7 +323,9 @@ parserInfo = info (rawOptions <**> helper)
             <> "Gray input (or --gray) gives a grayscale PNG; color input with --levels, --bayer "
             <> "or --palette gives an RGB PNG. --machine zx-spectrum dithers to the ZX Spectrum's "
             <> "screen, two colors per 8x8 cell; as .scr or .tap it writes the Spectrum's own screen file "
-            <> "or a tape image."
+            <> "or a tape image. --machine c64-hires dithers to the Commodore 64's hires screen, also "
+            <> "two colors per 8x8 cell; as .prg it writes a C64 program that shows it, as .art an "
+            <> "Art Studio picture."
         )
   )
 
@@ -351,19 +368,29 @@ resolve raw = ado
     Just _, Just _ ->
       Left "--bayer works over levels: use it alone (2 levels) or with --levels N, not with --threshold"
     Just q, Nothing -> Right q
-  -- No wildcards: a new machine or palette name must decide which go
-  -- together (on the Spectrum, all of them).
-  paletteChoice m p = case m, p of
-    ZxSpectrumScreen, FullPalette -> Right FullPalette
-    ZxSpectrumScreen, NormalPalette -> Right NormalPalette
-    ZxSpectrumScreen, BrightPalette -> Right BrightPalette
+  paletteChoice m p =
+    if Array.elem p (machinePalettesOf m) then Right p
+    else Left
+      ( "--machine-palette " <> machinePaletteName p <> " isn't one of " <> machineName m
+          <> "'s palettes; use one of: " <> joinWith ", " (map machinePaletteName (machinePalettesOf m))
+      )
   -- No wildcard for the machine: a new machine must decide its formats.
   formatChoice format = case format, raw.machine of
     Png, _ -> Right Png
     Scr, Just ZxSpectrumScreen -> Right Scr
+    Scr, Just C64HiresScreen -> Left (zxOnly Scr)
+    Scr, Nothing -> Left (zxOnly Scr)
     Tap, Just ZxSpectrumScreen -> Right Tap
-    f, Nothing ->
-      Left (formatName f <> " output needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen")
+    Tap, Just C64HiresScreen -> Left (zxOnly Tap)
+    Tap, Nothing -> Left (zxOnly Tap)
+    Prg, Just C64HiresScreen -> Right Prg
+    Prg, Just ZxSpectrumScreen -> Left (c64Only Prg)
+    Prg, Nothing -> Left (c64Only Prg)
+    Art, Just C64HiresScreen -> Right Art
+    Art, Just ZxSpectrumScreen -> Left (c64Only Art)
+    Art, Nothing -> Left (c64Only Art)
+  zxOnly f = formatName f <> " output needs --machine " <> machineName ZxSpectrumScreen <> ": the file holds a ZX Spectrum screen"
+  c64Only f = formatName f <> " output needs --machine " <> machineName C64HiresScreen <> ": the file holds a C64 hires screen"
 
 -- | The output format: `--format` if given, else the one the output
 -- | file's extension names, in any case. `Left` with advice when the

@@ -13,7 +13,8 @@ import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atk
 import Effect.Aff (Aff)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Pipeline (DitheredScreen(..), Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, programFile, artStudioFile, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
@@ -76,8 +77,8 @@ shouldBeScreen pipeline machine palette expected = case pipeline of
   Screen s -> do
     s.machine `shouldEqual` machine
     s.palette `shouldEqual` palette
-    (ditherScreen s.machine s.palette noDiffusion s.rule screenProbe).image
-      `shouldEqual` (ditherScreen s.machine s.palette noDiffusion expected screenProbe).image
+    ditherScreen s.machine s.palette noDiffusion s.rule screenProbe
+      `shouldEqual` ditherScreen s.machine s.palette noDiffusion expected screenProbe
   Gray _ -> fail "expected a machine's screen, got gray processing"
   Color _ -> fail "expected a machine's screen, got RGB processing"
 
@@ -134,28 +135,61 @@ spec = describe "Puregrain.Cli.Pipeline" do
       for_ [ NormalPalette, BrightPalette ] \palette ->
         shouldBeScreen (pipelineFor (Machine { name: ZxSpectrumScreen, palette, bayer: Nothing }) false) ZxSpectrumScreen palette nearestInCell
 
+    it "--machine c64-hires: the C64's hires screen, with or without --bayer" do
+      shouldBeScreen (pipelineFor (Machine { name: C64HiresScreen, palette: FullPalette, bayer: Nothing }) false) C64HiresScreen FullPalette nearestInCell
+      withBayer 8 \m ->
+        shouldBeScreen (pipelineFor (Machine { name: C64HiresScreen, palette: FullPalette, bayer: Just 8 }) false) C64HiresScreen FullPalette (orderedInCell m)
+
   describe "screens" do
     it "zx-spectrum dithers with the library's ZX Spectrum screen mode, with the given kernel and rule" do
       ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe
-        `shouldEqual` ditherCells atkinson nearestInCell Zx.screen screenProbe
+        `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.screen screenProbe)
       withBayer 8 \m ->
         ditherScreen ZxSpectrumScreen FullPalette atkinson (orderedInCell m) screenProbe
-          `shouldEqual` ditherCells atkinson (orderedInCell m) Zx.screen screenProbe
+          `shouldEqual` ZxDithered (ditherCells atkinson (orderedInCell m) Zx.screen screenProbe)
+
+    it "c64-hires dithers with the library's C64 hires screen mode, with the given kernel and rule" do
+      ditherScreen C64HiresScreen FullPalette atkinson nearestInCell screenProbe
+        `shouldEqual` C64HiresDithered (ditherCells atkinson nearestInCell C64.hiresScreen screenProbe)
+      withBayer 8 \m ->
+        ditherScreen C64HiresScreen FullPalette atkinson (orderedInCell m) screenProbe
+          `shouldEqual` C64HiresDithered (ditherCells atkinson (orderedInCell m) C64.hiresScreen screenProbe)
 
     it "zx-spectrum's normal and bright palettes are the library's normalScreen and brightScreen" do
       ditherScreen ZxSpectrumScreen NormalPalette atkinson nearestInCell screenProbe
-        `shouldEqual` ditherCells atkinson nearestInCell Zx.normalScreen screenProbe
+        `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.normalScreen screenProbe)
       ditherScreen ZxSpectrumScreen BrightPalette atkinson nearestInCell screenProbe
-        `shouldEqual` ditherCells atkinson nearestInCell Zx.brightScreen screenProbe
+        `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.brightScreen screenProbe)
 
     it "zx-spectrum's screen file is the library's .scr, 6912 bytes, and its tape the library's .tap" do
       let
         image = map (\y -> map (\x -> RGB { r: toNumber x, g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 255)) (0 .. 191)
-        out = ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell image
-      screenFile ZxSpectrumScreen out `shouldEqual` Zx.toScr out
-      map Array.length (screenFile ZxSpectrumScreen out) `shouldEqual` Right 6912
-      tapeFile ZxSpectrumScreen "picture" out `shouldEqual` Zx.toTap "picture" out
-      map Array.length (tapeFile ZxSpectrumScreen "picture" out) `shouldEqual` Right 6980
+        out = ditherCells atkinson nearestInCell Zx.screen image
+      screenFile (ZxDithered out) `shouldEqual` Zx.toScr out
+      map Array.length (screenFile (ZxDithered out)) `shouldEqual` Right 6912
+      tapeFile "picture" (ZxDithered out) `shouldEqual` Zx.toTap "picture" out
+      map Array.length (tapeFile "picture" (ZxDithered out)) `shouldEqual` Right 6980
+      -- A C64 screen has neither; the options never ask for them.
+      let c64Screen = ditherScreen C64HiresScreen FullPalette atkinson nearestInCell screenProbe
+      screenFile c64Screen `shouldSatisfy` isLeft
+      tapeFile "picture" c64Screen `shouldSatisfy` isLeft
+
+    it "c64-hires's program file is the library's .prg, 14,145 bytes; a ZX Spectrum screen has none" do
+      let
+        image = map (\y -> map (\x -> RGB { r: toNumber (x * 4 / 5), g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 319)) (0 .. 199)
+        out = ditherCells atkinson nearestInCell C64.hiresScreen image
+      programFile (C64HiresDithered out) `shouldEqual` C64.toHiresPrg out
+      map Array.length (programFile (C64HiresDithered out)) `shouldEqual` Right 14145
+      -- The options never ask for it.
+      programFile (ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
+
+    it "c64-hires's Art Studio file is the library's .art, 9009 bytes; a ZX Spectrum screen has none" do
+      let
+        image = map (\y -> map (\x -> RGB { r: toNumber (x * 4 / 5), g: toNumber (y + 32), b: toNumber ((x + y) / 2) }) (0 .. 319)) (0 .. 199)
+        out = ditherCells atkinson nearestInCell C64.hiresScreen image
+      artStudioFile (C64HiresDithered out) `shouldEqual` C64.toArtStudio out
+      map Array.length (artStudioFile (C64HiresDithered out)) `shouldEqual` Right 9009
+      artStudioFile (ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
 
     it "names the tape after the output file: no directory or extension, printable ASCII only, at most 10" do
       tapeName "samples/zx-bayer8.tap" `shouldEqual` "zx-bayer8"
@@ -176,6 +210,16 @@ spec = describe "Puregrain.Cli.Pipeline" do
         )
       for_ [ { width: 256, height: 191 }, { width: 255, height: 192 } ] \{ width, height } ->
         for_ [ Scr, Tap ] \format -> screenSizeCheck format ZxSpectrumScreen width height `shouldSatisfy` isLeft
+
+    it "knows the C64 hires screen's size: 320x200, other sizes noted for a PNG and rejected for a program file" do
+      for_ [ Png, Prg, Art ] \format -> screenSizeCheck format C64HiresScreen 320 200 `shouldEqual` Right Nothing
+      screenSizeCheck Png C64HiresScreen 256 192
+        `shouldEqual` Right (Just "Note: a C64 hires screen is 320x200, this image is 256x192 (any size works for a PNG)")
+      screenSizeCheck Prg C64HiresScreen 256 192 `shouldEqual` Left
+        ( "--format prg needs a 320x200 image, a C64 hires screen; this one is 256x192. "
+            <> "Resize it first (see \"Machine screens\" in cli/README.md), or write a PNG, which can have any size."
+        )
+      screenSizeCheck Art C64HiresScreen 320 199 `shouldSatisfy` isLeft
 
   describe "names -> library values" do
     it "each kernel name maps to the library's kernel" do

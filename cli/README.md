@@ -57,15 +57,15 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | Option | Argument | Default | What it does |
 |---|---|---|---|
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
-| `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr` or `.tap`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
+| `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr`, `.tap`, `.prg` or `.art`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
-| `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
-| `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black. Needs `--machine`. |
-| `--format` | `png`, `scr`, `tap` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
+| `--machine` | `zx-spectrum`, `c64-hires` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell: the ZX Spectrum's, or the Commodore 64's hires screen. See [Machine screens](#machine-screens). |
+| `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black; `c64-hires` offers only `full`. Needs `--machine`. |
+| `--format` | `png`, `scr`, `tap`, `prg`, `art` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image; `prg` is a C64 program that shows it, and `art` an Art Studio picture, both for `--machine c64-hires` on a 320×200 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
@@ -78,7 +78,8 @@ otherwise. `--machine` defines all the colors itself, so it combines
 with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
 it uses ordered dithering inside the cells. `--machine-palette` needs
 `--machine`. `--kernel` and `--gray` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
-holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`. An
+holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`; a
+`.prg` or `.art` holds a C64 hires screen, so it needs `--machine c64-hires`. An
 output whose extension names no format, `out.jpg` say, is rejected
 unless `--format` says what to write.
 
@@ -97,7 +98,8 @@ unless `--format` says what to write.
 - **Output file type:** gray results are written as 8-bit grayscale PNGs,
   everything else as 8-bit RGB PNGs. Alpha is never written. As `.scr`
   or `.tap`, the output is the ZX Spectrum's screen file or a tape image
-  instead.
+  instead, and as `.prg` or `.art` a C64 program or an Art Studio
+  picture.
 - **Per channel versus whole pixel.** There are two ways to dither color:
   - `--levels` treats red, green and blue as three independent gray
     images (the project calls this *scalarED*).
@@ -136,8 +138,8 @@ position, taken from the `N`×`N` Bayer matrix repeated across the image.
   The texture is the Bayer one, broken up where diffusion moves a dot.
 - **Levels and color** work as for `--levels`: `--bayer 4 --levels 4` gives
   4 grays, or 4 levels per channel on color input.
-- **Inside a machine's cells:** `--machine zx-spectrum --bayer N` puts
-  each cell's two colors in the Bayer pattern. See
+- **Inside a machine's cells:** `--machine NAME --bayer N` puts each
+  cell's two colors in the Bayer pattern. See
   [Machine screens](#machine-screens).
 - **Not with palettes.** `--bayer` with `--palette` is rejected: ordered
   dithering against a palette needs a different method. For palettes that
@@ -172,53 +174,73 @@ the CLI:
 - **`--palette zx15` gives each pixel a Spectrum color, not the real
   Spectrum look.** The machine allowed only 2 colors per 8×8 cell:
   for that, use `--machine zx-spectrum` (see [Machine screens](#machine-screens)).
+  The same holds for `--palette c64` and `--machine c64-hires`.
 
 ## Machine screens
 
-`--machine zx-spectrum` dithers to the ZX Spectrum's screen: 8×8 cells,
-each with two colors, an ink and a paper, both normal or both bright.
-Each cell gets the pair that fits its pixels best, and its pixels are
-dithered with just those two colors. How that works, what it looks like,
-and the Spectrum's colors and files are described in
-[docs/machine-screens/](../docs/machine-screens/README.md).
+`--machine NAME` dithers to a machine's screen, where each 8×8 cell may
+use only two colors. Each cell gets the pair that fits its pixels best,
+and its pixels are dithered with just those two colors.
+
+| `--machine` | Screen | Colors per cell | Its own files |
+|---|---|---|---|
+| `zx-spectrum` | ZX Spectrum, 256×192 | an ink and a paper, both normal or both bright | `.scr`, `.tap` |
+| `c64-hires` | Commodore 64, hires mode, 320×200 | any two of 16, a foreground and a background | `.prg`, `.art` |
+
+How that works, what it looks like, and each machine's colors and files
+are described in [docs/machine-screens/](../docs/machine-screens/README.md).
 
 - **Which mode:** it depends on the picture. `--bayer 8`, ordered
   dithering inside the cells, suits drawn graphics and smooth shading, and
-  gives the classic Spectrum look. `--kernel atkinson`, error diffusion,
-  suits photos with fine detail; for photos, two steps are an alternative
-  worth trying. Floyd–Steinberg, the default without
+  gives the classic look. `--kernel atkinson`, error diffusion, suits
+  photos with fine detail; on the Spectrum, two steps are an alternative
+  worth trying for photos. Floyd–Steinberg, the default without
   `--bayer`, can leave streaks. Details: [which mode for which
   picture](../docs/machine-screens/README.md#which-mode-for-which-picture).
 - **Options:** any `--kernel` works; `--kernel none` gives flat cells.
   `--bayer N` gives ordered dithering inside the cells, with no error
-  passed on unless `--kernel` names a kernel. `--machine-palette normal`
-  uses normal brightness only: neighbouring cells never switch between
-  normal and BRIGHT, so large light areas stay even, and the picture is
-  calmer. `--machine-palette bright` uses BRIGHT only, for vivid
-  pictures. `--gray` converts the input to gray first.
-- **Size:** the Spectrum's screen is 256×192. Other sizes work for a PNG,
-  a poster in the Spectrum's style, say; the CLI then prints a note. A
-  screen file or tape (`.scr` or `.tap`) needs exactly 256×192: for any
-  other size the CLI stops with an error before dithering. To bring a
-  picture to the screen's size, resize it with another tool first, for
-  example ImageMagick (the `!` ignores the aspect ratio):
-  `magick photo.png -resize '256x192!' screen.png`.
-- **Output:** an RGB PNG, or the Spectrum's own files, by the output's
-  extension. A `.scr` is the screen memory, 6912 bytes, which emulators
-  open (Fuse: File → Open SCR Screenshot). A `.tap` is a tape that loads
-  and shows the picture by itself: open it in an emulator, or type
-  `LOAD ""` on a Spectrum. The name on the tape is the output file's name,
-  without its directory and extension, cut to 10 characters. The CLI
-  writes only the format you choose; for several, run it once per format,
-  as `npm run dither:zx` does. The files' layouts:
-  [zx-spectrum.md](../docs/machine-screens/zx-spectrum.md).
+  passed on unless `--kernel` names a kernel. On the Spectrum,
+  `--machine-palette normal` uses normal brightness only: neighbouring
+  cells never switch between normal and BRIGHT, so large light areas stay
+  even, and the picture is calmer; `--machine-palette bright` uses BRIGHT
+  only, for vivid pictures. `c64-hires` offers only `full`. `--gray`
+  converts the input to gray first.
+- **Size:** a PNG can have any size, a poster in a machine's style, say;
+  the CLI then prints a note. A machine's own files need exactly its
+  screen's size, 256×192 or 320×200: for any other size the CLI stops
+  with an error before dithering. To bring a picture to the screen's
+  size, resize it with another tool first, for example ImageMagick (the
+  `!` ignores the aspect ratio): `magick photo.png -resize '256x192!'
+  screen.png`.
+- **Output:** an RGB PNG, or a machine's own file, by the output's
+  extension:
+  - `.scr`: the Spectrum's screen memory, 6912 bytes, which emulators
+    open (Fuse: File → Open SCR Screenshot).
+  - `.tap`: a Spectrum tape that loads and shows the picture by itself.
+    Open it in an emulator, or type `LOAD ""` on a Spectrum. The name on
+    the tape is the output file's name, without its directory and
+    extension, cut to 10 characters.
+  - `.prg`: a C64 program that shows the picture by itself, 14,145 bytes.
+    Open it in an emulator, which starts it, or `LOAD` and `RUN` it on a
+    C64; a key ends it, and the screen is as before.
+  - `.art`: an Art Studio picture, 9009 bytes, the C64's best-known hires
+    picture format, which many viewers and converters open, such as those
+    built on [RECOIL](https://recoil.sourceforge.net/).
+
+  The CLI writes only the format you choose; for several, run it once per
+  format, as `npm run dither:zx` and `npm run dither:c64` do. The files'
+  layouts, and emulators and viewers to try them in:
+  [zx-spectrum.md](../docs/machine-screens/zx-spectrum.md),
+  [c64.md](../docs/machine-screens/c64.md).
 - **Speed:** like the other color modes, it's several times slower than
   gray dithering; a large poster can take minutes. Pure ordered dithering
   is faster than error diffusion, since no error is passed on.
 
 The library side is `Puregrain.Cells` (cells of any size, with any
-candidate colors) and `Puregrain.Machine.ZxSpectrum` (the Spectrum's
-screen mode, and `toScr` and `toTap` for its files).
+candidate colors), `Puregrain.Machine.ZxSpectrum` (the Spectrum's
+screen mode, and `toScr` and `toTap` for its files) and
+`Puregrain.Machine.C64` (the C64's hires screen mode, and `toHiresPrg`
+and `toArtStudio` for its files).
 
 ## Examples
 
@@ -310,6 +332,14 @@ npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-s
 # the Spectrum's own screen file, and a tape that loads it (256×192 only)
 npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.scr --machine zx-spectrum --bayer 8
 npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine zx-spectrum --bayer 8
+
+# the C64's hires screen, with the 8×8 Bayer map and with Atkinson
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.png --machine c64-hires --bayer 8
+npm run dither-cli -- samples/color-320x200.png samples/c64-atk.png --machine c64-hires --kernel atkinson
+
+# a C64 program that shows the picture, and an Art Studio picture (320×200 only)
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.prg --machine c64-hires --bayer 8
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.art --machine c64-hires --bayer 8
 ```
 
 ### Shortcuts
@@ -326,6 +356,7 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine 
 | `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4 --kernel floyd-steinberg` |
 | `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
 | `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 8` as a PNG, a screen file and a tape (`.scr`, `.tap`), and `--kernel atkinson` as a PNG, to compare |
+| `npm run dither:c64` | `color-320x200.png` with `--machine c64-hires`: `--bayer 8` as a PNG, a program and an Art Studio picture (`.prg`, `.art`), and `--kernel atkinson` as a PNG, to compare |
 
 ## Output and timing
 
@@ -348,7 +379,7 @@ error.
 | Code | When |
 |---|---|
 | `0` | Success, or `--help`. |
-| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output, an output that can't be written, or the CLI not built yet. |
+| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg` or `.art`, an output that can't be written, or the CLI not built yet. |
 
 ## Limitations
 
@@ -384,7 +415,8 @@ error.
     defined once there; the parser and the help text are derived from it.
     Checks across options that optparse can't express (`--bayer` only with
     `--levels` or `--machine`, `scr` and `tap` output only with
-    `--machine zx-spectrum`) are in `resolve`, and reported like
+    `--machine zx-spectrum`, `prg` and `art` only with `--machine c64-hires`) are
+    in `resolve`, and reported like
     optparse's own errors. `resolve` also picks the default kernel, which
     depends on `--bayer`, and the format, from `--format` or else the
     output's extension.

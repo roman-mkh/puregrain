@@ -2,7 +2,8 @@
 
 Some 8-bit home computers couldn't color every pixel freely. Their screens
 are divided into **cells**, and each cell may use only a few colors: on the
-ZX Spectrum, two per 8×8 cell. puregrain dithers a picture to such a
+ZX Spectrum and in the Commodore 64's hires mode, two per 8×8 cell.
+puregrain dithers a picture to such a
 screen, cell by cell, so the result is a picture the machine could really
 show.
 
@@ -12,6 +13,7 @@ of its own:
 | Machine | Cells | Colors per cell | On the command line | Page |
 |---|---|---|---|---|
 | ZX Spectrum | 8×8 | 2 of 15: an ink and a paper, both normal or both bright | `--machine zx-spectrum` | [zx-spectrum.md](zx-spectrum.md) |
+| Commodore 64, hires mode | 8×8 | 2 of 16, any two: a foreground and a background | `--machine c64-hires` | [c64.md](c64.md) |
 
 In the library, `Puregrain.Cells` dithers with cells of any size and any
 candidate colors, and a `Puregrain.Machine.<Name>` module describes one
@@ -56,8 +58,7 @@ measured in the stored sRGB values, where the dithering mixes too.
 
 The threshold comes from the pixel's position in the picture, not in its
 cell, so a map of any size works. A map whose side divides the cell's
-repeats in every cell: the 2×2, 4×4 and 8×8 Bayer maps on the Spectrum's
-8×8 cells. The 16×16 map spreads its 257 tone steps over 2×2 cells.
+repeats in every cell: the 2×2, 4×4 and 8×8 Bayer maps on 8×8 cells. The 16×16 map spreads its 257 tone steps over 2×2 cells.
 How ordered dithering works in general: [ordered-dithering.md](../ordered-dithering.md).
 
 ## Which mode for which picture
@@ -67,7 +68,7 @@ at 100% zoom.
 
 | Picture | Best | Why |
 |---|---|---|
-| Drawn graphics, smooth shading, gradients; the classic look of much Spectrum art | Ordered: `--bayer 8` | Every tone is kept, as a pattern of the cell's two colors, shadows included. There are no streaks, since no error flows. `--bayer 4` gives a coarser pattern with fewer tone steps. |
+| Drawn graphics, smooth shading, gradients; the classic look of much 8-bit art | Ordered: `--bayer 8` | Every tone is kept, as a pattern of the cell's two colors, shadows included. There are no streaks, since no error flows. `--bayer 4` gives a coarser pattern with fewer tone steps. |
 | Photos with fine detail, especially on a light background | Error diffusion: `--kernel atkinson` | The dots go where the detail is, and Atkinson's extra contrast keeps edges crisp. A Bayer map lays the same pattern over everything, and on 8×8 cells it's as large as a cell, so small details turn into texture. |
 
 On the Spectrum, an alternative worth trying for photos is two steps:
@@ -88,15 +89,17 @@ Two things to know about error diffusion inside cells:
   whose colors can express it turns it into a line of extreme pixels.
   Atkinson passes on only 3/4 of each error, so such error dies out.
 
-This advice comes from the generated [test images](../test-images.md) and
-from a portrait photo at 256×192.
+This advice comes from the generated [test images](../test-images.md), on
+both machines, and from a portrait photo at 256×192. On the C64's test
+image too, ordered dithering and Atkinson keep the tones about equally
+well, and Floyd–Steinberg streaks.
 
 ## What it looks like
 
 - **Attribute clash:** where colors change, the cell grid shows, and a
   colored edge steps from cell to cell. On the Spectrum this was called
-  *attribute clash*, and it's much of what makes the pictures look
-  authentic.
+  *attribute clash*; the C64's hires mode shows it too. It's much of what
+  makes the pictures look authentic.
 - **Inside a cell,** smooth shading becomes a pattern of the cell's two
   colors: regular with ordered dithering, irregular with error diffusion.
 - **A cell that fits several candidates equally well** gets the one listed
@@ -108,7 +111,8 @@ from a portrait photo at 256×192.
 Any size works, for a poster in a machine's style, say. If the size isn't
 a multiple of the cell size, the cells at the right and bottom edges are
 smaller. A machine's own files need the exact size of its screen, 256×192
-on the Spectrum. To bring a picture to that size, resize it with another
+on the Spectrum and 320×200 on the C64. To bring a picture to that size,
+resize it with another
 tool first, for example ImageMagick, where the `!` ignores the aspect
 ratio:
 
@@ -137,7 +141,8 @@ for a lazy stream of rows, one band at a time, so only one band is in
 memory.
 
 A machine's screen mode is a `CellMode`: the cell size, the candidates,
-and each candidate's colors (`Zx.screen` for the Spectrum). For cells of
+and each candidate's colors (`Zx.screen` for the Spectrum,
+`C64.hiresScreen` for the C64). For cells of
 your own, write the record; the candidates can be the palettes themselves:
 
 ```purescript

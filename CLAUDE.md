@@ -54,8 +54,9 @@ from the code alone.
   Steinberg stays the general default: it passes on all the error (true
   tones), with the fewest neighbours of the kernels that do, and it's the
   classic. `--machine NAME`
-  (2026-10-11; names from `machineName`, now `zx-spectrum`; constructor
-  `ZxSpectrumScreen`, since `ZxSpectrum` is the palette's; that palette's
+  (2026-10-11; names from `machineName`, now `zx-spectrum` and, since
+  2026-10-17, `c64-hires`; constructors `ZxSpectrumScreen` and
+  `C64HiresScreen`, since `ZxSpectrum` and `C64` are the palettes'; that palette's
   CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
   its color count like `cga16`, so `zx-spectrum` means only the real
   look; the CLI isn't published, so nobody outside broke) is a quantizer
@@ -68,8 +69,11 @@ from the code alone.
   or `orderedInCell` with the Bayer map; the PipelineSpec compares rules
   by dithering a 16 × 12 probe without diffusion, as it compares
   quantizers by probes. `ditherScreen` calls `ditherCells` with the
-  machine's mode and returns the cells with the picture. The output
-  format, `png`, `scr` or `tap` (names from `formatName`), comes from the
+  machine's mode and returns a `DitheredScreen`, one constructor per
+  machine (`ZxDithered`, `C64HiresDithered`), since each holds its own
+  machine's cells, which its files need; `screenImage` reads the picture.
+  The output
+  format, `png`, `scr`, `tap`, `prg` or `art` (names from `formatName`), comes from the
   output file's extension, in any case (since 2026-10-16; the user's
   suggestion), or from `--format NAME`, which always wins: `--format png`
   writes a PNG under any name, on purpose. An extension that names no
@@ -80,25 +84,34 @@ from the code alone.
   for the format and for the tape name alike. Only the chosen file is
   written (decided 2026-10-12: one option for the format, no second file
   next to the PNG). `resolve` rejects `scr` and `tap` output without
-  `--machine zx-spectrum`, matching the machine without a wildcard, so a
+  `--machine zx-spectrum`, and `prg` and `art` without `--machine c64-hires`,
+  matching the machine without a wildcard, so a
   new machine must decide its formats. `--machine-palette NAME`
   (2026-10-17, the user's design) picks which of the machine's colors
   the cells may use: `full` (the default), `normal` and `bright`, the
   Spectrum's own terms (preferred wherever there are some; `no-bright`
-  was rejected for `normal`). It needs `--machine`; `resolve` matches
-  machine and palette name without wildcards, so a new machine or name
-  must decide which go together. Kept narrow on purpose: it chooses a
+  was rejected for `normal`). It needs `--machine`; `machinePalettesOf`
+  lists each machine's palettes, the default first (no wildcard, so a new
+  machine must list its own): `c64-hires` offers only `full`, and
+  `resolve` rejects the others, naming the machine's. Kept narrow on purpose: it chooses a
   set of colors and nothing else. A machine's screen modes with other
   cell sizes, or variants of its color values, would be another option
   or machine name, and `--machine-*` options must not multiply without
   control (the user's caution). Reusing `--palette` was rejected: it
   means per-pixel colors without cells. `screenSizeCheck`
-  runs before dithering: for an image other than 256×192, a note with a
-  PNG (any size works, e.g. a poster), an error with `scr` or `tap` (exit
-  1, no file). `screenFile` maps the machine to its encoder (`Zx.toScr`),
+  runs before dithering: for an image other than the machine's screen
+  (256×192, or 320×200 for `c64-hires`), a note with a
+  PNG (any size works, e.g. a poster), an error with `scr`, `tap`, `prg` or `art` (exit
+  1, no file). `screenFile` maps a dithered screen to its encoder (`Zx.toScr`),
   `tapeFile` to its tape writer (`Zx.toTap`, 2026-10-16, `--format tap`),
   with the name from `tapeName`: the output file's name without directory
-  and extension, printable ASCII only, cut to 10. `Main` writes the bytes
+  and extension, printable ASCII only, cut to 10. For a C64 screen both
+  are `Left` (the options never ask for them). `programFile`
+  (2026-10-17, `--format prg`) maps a C64 hires screen to
+  `C64.toHiresPrg`, a `.prg` with a BASIC viewer (its layout and viewer:
+  `docs/machine-screens/c64.md`), and
+  `artStudioFile` (2026-10-18, `--format art`) to `C64.toArtStudio`, an
+  Art Studio picture; for a ZX screen both are `Left`. `Main` writes the bytes
   with `node-fs`/`node-buffer`, no JS of our own.
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
@@ -161,7 +174,8 @@ from the code alone.
   its `README.md` for what all cell screens share, which mode for which
   picture included, and one page per machine, `zx-spectrum.md` first,
   with the colors, attributes, file layouts and sources; mirrors
-  `Puregrain.Cells` and `Puregrain.Machine.<Name>`),
+  `Puregrain.Cells` and `Puregrain.Machine.<Name>`; `c64.md` since
+  2026-10-18),
   `benchmarks-dithering.md` (current),
   `benchmarks-fifo.md` (finished record). READMEs summarize and link
   rather than copy, so tables don't drift apart. The CLI README's
@@ -274,16 +288,29 @@ from the code alone.
   display-adjusted "CGA/EGA/VGA" column, not these digital values),
   `ansi16`/`ansi256` (xterm's values — plain presets, deliberately no
   terminal-scheme parameter: the console/VGA colors are already
-  `cga16`), `c64` (Pepto), `zxSpectrum`
+  `cga16`), `c64` (Colodore, see below), `zxSpectrum`
   (normal = 0xD8). Historical/terminal palettes have no official RGB, so
   every preset cites its source in a comment — values were checked
   against those sources, not recalled. Per-pixel; the ZX attribute cells
-  are `Puregrain.Machine.ZxSpectrum` with `Puregrain.Cells`, and other
+  and the C64's hires cells are `Puregrain.Machine.ZxSpectrum` and
+  `Puregrain.Machine.C64` with `Puregrain.Cells`, and other
   block-constrained looks (C64 multicolor, pseudo-graphics) are a TODO.md
   item.
   User-facing reference: `docs/palettes.md` — keep it in step with the
   module (a new preset means a new row there and in cli/README.md's
-  short table).
+  short table). `c64` switched from Pepto's 2001 values to Colodore on
+  2026-10-17 (the user's decision): with the 2001 colors a test photo came
+  out almost gray. Measured on it, even the best possible mixes of the
+  2001 colors keep only 42% of its color (Colodore at VICE's settings
+  77%, at the model's defaults 63%), and Atkinson's color error after
+  blurring fell from 37.9 to 21.2 (29.3 with the defaults). The values
+  are VICE's `colodore.vpl`, which is Pepto's model at brightness 47.5,
+  contrast 100, saturation 70: verified by re-implementing the model from
+  pepto.de/projects/colorvic (its defaults are 50/100/50) and searching
+  the settings. Chosen over the defaults for the closer colors, a
+  legitimate setting of the same model. VICE's *default* palette file is
+  still Pepto 2001 (`pepto-pal`), so "what VICE shows" favors neither.
+  Output with `c64` changes, so the next release is 0.2.0.
 - `Puregrain.Ordered` — ordered (Bayer) dithering as an ordinary
   `Quantize Number`, over levels; color via `perChannel`. Pure ordered
   dithering = `noDiffusion`; with any other kernel it's the
@@ -411,6 +438,53 @@ from the code alone.
   library depends on `strings` since then. The spec's `readTape` walks
   the blocks independently, and check-cli's JavaScript reader compares
   the tape's screen with the same run's `.scr`.
+- `Puregrain.Machine.C64` (2026-10-17/18, branch `c64-hires`) — the C64's
+  hires bitmap mode, the second machine module, imported `as C64`. One
+  module per machine, so the multicolor mode (a TODO.md item) would join
+  it; the names leave room for it (no type called just `Cell`).
+  `HiresCell` is opaque, so only the 136 valid values exist (read with
+  `foreground` and `background`, color codes 0–15); `hiresCells`,
+  `hiresPalette`, `hiresScreen` (the `CellMode`, 8 × 8). The 136: 16
+  single colors and 120 pairs. The foreground (the 1 bits) is the darker
+  color by luma, 0.299 R + 0.587 G + 0.114 B of the preset's values,
+  since the C64's codes aren't in order of brightness; on an exact tie,
+  the lower code. Seven pairs are nearly equal by the C64's design (green
+  and light red); there the tiny difference decides, which only sets an
+  ordered pattern's direction. Order as on the Spectrum: single colors
+  first, by code, then pairs nearest first (spread, then foreground, then
+  background). It keeps a picture of valid cells unchanged (grey lies on
+  the black–white line); single colors first can't be guarded by that
+  property (a single color is always an endpoint of a narrower pair), only
+  by the ordering test (mutation checked). Colors come from the `c64`
+  preset by index; `C64Spec` writes them out independently. Its name
+  needed digits in test discovery. `toHiresPrg` (phase 3) writes a
+  14,145-byte `.prg`: load address 2049; a five-line BASIC viewer there;
+  the colors at 3072 ($0C00), foreground × 16 + background; the bitmap at
+  8192 ($2000), cell by cell (byte (y/8)·320 + (x/8)·8 + y mod 8, bit 7 −
+  x mod 8; the background is tested first, so a single-color cell gets 0
+  bits); zeros between. The video chip reads the colors in place (53272 =
+  3 × 16 + 8 = 56), decided 2026-10-17 over phase 0's plan, colors after
+  the bitmap copied to 1024 by a BASIC loop (a few seconds of black
+  screen, and the text screen overwritten). The viewer is BASIC, not 6502
+  code, so it's readable and checkable: it notes 53280/53265/53272,
+  blanks the screen, sets a black border (decided 2026-10-17: simple, the
+  usual frame; matching the picture's edge is a TODO.md idea), turns
+  bitmap mode on, empties the keyboard buffer (198), waits for a key, and
+  puts everything back; the text screen is never touched. `C64Spec`'s
+  `listing` walks the BASIC lines through their links with its own token
+  table and rejects a keyword stored as plain letters (the C64 wouldn't
+  run it); check-cli's check 11 does the same in JavaScript.
+  `toArtStudio` (phase 4) writes Art Studio's 9009 bytes: load address
+  8192, the bitmap, the colors, 7 zeros. Its layout was verified against
+  RECOIL 6.4.5's own decoder (`DecodeIph` calls `DecodeC64Hires(content,
+  2, 0x1f42)`), not just the docs.rs crate's "community knowledge";
+  `readArt` and check 12 read it as RECOIL does. Both writers share
+  `screenMemory` (the size checks, the bitmap, the colors; a `Left` names
+  the caller), and `isGrid`/`sizeOf` moved to `Puregrain.Internal.Util`,
+  shared with the ZX module. Checked by the user: the `.prg` in VICE's
+  online version and in ty64 (ty64 defaults to Colodore, VICE to Pepto
+  2001), the `.art` in RECOIL's web viewer (RECOIL's own C64 palette is
+  Pepto 2001). User docs: `docs/machine-screens/c64.md`.
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -552,7 +626,8 @@ hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 
 Library specs are flat `Test.Puregrain.<Name>Spec` modules, one per
 module tested (e.g. `PixelSpec`, `QuantizeSpec`, `RowSpec`). `Test.Main`
-discovers them with `^Test\.Puregrain\.[A-Za-z]+Spec$`: spec-discovery
+discovers them with `^Test\.Puregrain\.[A-Za-z0-9]+Spec$` (digits since
+2026-10-17: with letters only, a `C64Spec` would silently never run): spec-discovery
 runs an unanchored `RegExp.test` over the shared `output/`, and the
 anchors plus the single name segment keep out the CLI's
 `Test.Puregrain.Cli.*` specs, which the CLI lists explicitly.
@@ -560,7 +635,7 @@ anchors plus the single name segment keep out the CLI's
 The documented exact checks (docs/test-images.md → "Exact checks") are
 deliberately tested twice, at two levels: as Spec properties over
 arbitrary kernels/palettes/images ("whole images" blocks in
-`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`), and end to end through the real CLI on the
+`PaletteSpec`/`PixelSpec`/`OrderedSpec`/`ZxSpectrumSpec`/`C64Spec`), and end to end through the real CLI on the
 generated images (`npm run check:cli`). Not redundant: Spec can't
 reach the CLI's plumbing (PNG I/O, gray/RGB routing, launcher);
 check:cli can't cover arbitrary inputs.
@@ -575,7 +650,12 @@ writes both composites at 512², and the color one at 256×192 (the ZX
 Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
 a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
 Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
-comparison. Two steps, `--palette zx15 --kernel atkinson` and then
+comparison. Likewise at 320×200 (the C64's hires screen) for
+`npm run dither:c64`: Bayer 8 as a PNG, a `.prg` and an `.art`, and
+Atkinson as a PNG (chosen by eye 2026-10-18, as for the ZX; after
+blurring, Bayer 8, Bayer 4 and Atkinson kept the tones equally well,
+25.7/25.7/26.0, while Floyd–Steinberg and the Bayer 8 hybrid streaked,
+about 35). Two steps, `--palette zx15 --kernel atkinson` and then
 `--machine zx-spectrum --kernel none`, are mentioned briefly as an
 alternative worth trying for photos (2026-10-17, the user's find), not
 as a recommendation: measured after blurring, they keep the tones least
@@ -588,7 +668,12 @@ where the kernel picks the method (none, since 2026-10-14). A tile may be left o
 rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
 8×8 grid only from the image's corner; its 71 attributes written out in
 JS independently of the library) is the exact-check input for
-`--machine zx-spectrum`; `--list` marks such tiles "(alone only)".
+`--machine zx-spectrum`, and `color:c64-cells` (all 136 hires cells,
+Colodore's colors written out in JS; 2026-10-17) for `--machine c64-hires`,
+at 320×200; `--list` marks such tiles "(alone only)". The two share their
+drawing; since 136 is a multiple of the 4 cell patterns, each hires cell
+always gets the same pattern (the ZX's 71 cycle through all four), which
+the exact check doesn't depend on.
 pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 — the `new PNG({ colorType })` constructor option is ignored by the

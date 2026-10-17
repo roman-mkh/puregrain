@@ -45,11 +45,12 @@ import Data.Char (toCharCode)
 import Data.Either (Either(..))
 import Data.Foldable (all, foldM, foldl)
 import Data.Int.Bits (shr, xor, (.&.))
-import Data.Maybe (fromJust, maybe)
+import Data.Maybe (fromJust)
 import Data.String.CodeUnits (toCharArray)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafePartial)
 import Puregrain.Cells (CellMode, CellPalette, colorPair, singleColor)
+import Puregrain.Internal.Util (isGrid, sizeOf)
 import Puregrain.Palette (distance2)
 import Puregrain.Palette.Presets (zxSpectrum)
 import Puregrain.Pixel (RGB)
@@ -165,18 +166,6 @@ toScr { cells, image } =
     Left ("toScr: the cells must form a 32x24 grid, one per 8x8 cell of the image; they're " <> sizeOf cells)
   else
     (_ <> map attributeByte (Array.concat cells)) <$> traverse (bitmapByte cells image) (Array.range 0 6143)
-
--- | Whether the rows form a grid of exactly `width` × `height`.
-isGrid :: forall a. Int -> Int -> Array (Array a) -> Boolean
-isGrid width height rows = Array.length rows == height && Array.all (\row -> Array.length row == width) rows
-
--- | "width x height", or, for rows of different lengths, how many rows.
-sizeOf :: forall a. Array (Array a) -> String
-sizeOf rows =
-  if Array.all (\row -> Array.length row == width) rows then show width <> "x" <> show (Array.length rows)
-  else show (Array.length rows) <> " rows of different lengths"
-  where
-  width = maybe 0 Array.length (Array.head rows)
 
 -- | The bitmap byte at offset `o`: 8 pixels of one row. The Spectrum
 -- | interleaves the rows: from high to low, the offset's bits give the

@@ -31,10 +31,12 @@ palette such as CGA or the Commodore 64. It comes with a
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
 - **Machine screens:** the real look of 8-bit machines whose cells allow
-  only a few colors, starting with the ZX Spectrum's two colors per 8×8
-  cell, with ordered dithering or error diffusion inside the cells.
-  Written as a PNG, or as the Spectrum's own screen file and a tape that
-  loads it. See [docs/machine-screens/](docs/machine-screens/README.md).
+  only a few colors: the ZX Spectrum and the Commodore 64's hires mode,
+  two colors per 8×8 cell, with ordered dithering or error diffusion
+  inside the cells. Written as a PNG, or as the machine's own files: the
+  Spectrum's screen file and a tape that loads it, a C64 program that
+  shows the picture, and an Art Studio picture. See
+  [docs/machine-screens/](docs/machine-screens/README.md).
 - **In memory or as a stream:** dither a whole image at once, or a lazy
   stream of rows, each dithered only when it's needed, so only the rows in
   flight are in memory and the input can even be endless. Or go one row
@@ -172,7 +174,7 @@ workspace and are built together.
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |
-| [docs/machine-screens/](docs/machine-screens/README.md) | Machine screens: dithering with cells, which mode for which picture; one page per machine, the ZX Spectrum first |
+| [docs/machine-screens/](docs/machine-screens/README.md) | Machine screens: dithering with cells, which mode for which picture; one page per machine, the ZX Spectrum and the Commodore 64 |
 | [docs/test-images.md](docs/test-images.md) | The generated test images, and what to look for in the results |
 | [docs/benchmarks-dithering.md](docs/benchmarks-dithering.md) | Current performance, per mode and kernel |
 | [docs/benchmarks-fifo.md](docs/benchmarks-fifo.md) | History: how an O(N³) slowdown was found and fixed |

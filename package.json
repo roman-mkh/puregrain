@@ -17,13 +17,14 @@
     "dither:color:bw": "npm run dither-cli -- samples/color-512.png samples/output-color-bw.png --palette bw",
     "dither:color:bayer": "npm run dither-cli -- samples/color-512.png samples/output-color-bayer4.png --bayer 4 --kernel none --levels 4",
     "dither:zx": "npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.png --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.scr --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.tap --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-atkinson.png --machine zx-spectrum --kernel atkinson",
+    "dither:c64": "npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.png --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.prg --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.art --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-atkinson.png --machine c64-hires --kernel atkinson",
     "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli",
     "check:cli": "bash scripts/check-cli.sh",
     "check:clean": "rm -rf output && npm run check",
     "release:check": "node scripts/release-check.mjs",
     "bench": "node scripts/benchmark.mjs",
     "clean:bench": "rm -f samples/bench/*.png",
-    "generate-images": "node scripts/generate-images.mjs && node scripts/generate-images.mjs --pattern color --size 256x192",
+    "generate-images": "node scripts/generate-images.mjs && node scripts/generate-images.mjs --pattern color --size 256x192 && node scripts/generate-images.mjs --pattern color --size 320x200",
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
   },
   "dependencies": {
