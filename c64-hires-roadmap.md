@@ -262,12 +262,25 @@ These go to TODO.md when this file is dissolved.
   and is narrower than any pair that only passes through it, so its pixels
   stay exact either way. So the "pictures unchanged" property can't guard
   this order; the ordering test does (mutation-checked, phase 1).
+- **`DitheredScreen`** (phase 2): the CLI's `ditherScreen` returns one
+  constructor per machine, `ZxDithered` or `C64HiresDithered`, since each
+  holds its own machine's cells, which its files need; `screenImage`
+  reads the picture for a PNG. Phase 3 adds `prg` the same way: a
+  `FormatName`, its rows in `formatChoice` (only with `c64-hires`, no
+  wildcard), the size error in `screenSizeCheck`, and a function like
+  `screenFile` that gives the bytes for `C64HiresDithered` and `Left` for
+  a ZX screen.
+- **The `color:c64-cells` tile** shares the drawing with `color:zx-cells`
+  (the ZX tile stayed byte-identical). 136 is a multiple of the 4
+  patterns, so each hires cell always gets the same pattern (the ZX's 71
+  cycle through all four); the exact check depends only on which colors a
+  cell holds, so that's fine.
 
 ## Progress
 
 - [x] 0. Verify and design
 - [x] 1. Library: `Puregrain.Machine.C64` with `hiresScreen`; `C64Spec`
-- [ ] 2. CLI
+- [x] 2. CLI: `--machine c64-hires`, PNG output; tests; the `color:c64-cells` check
 - [ ] 3. The `.prg`
 - [ ] 4. The standard hires picture format
 - [ ] 5. The recommended mode and delivery

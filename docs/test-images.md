@@ -293,6 +293,17 @@ cell's two colors can't use builds up (see [which mode for which
 picture](machine-screens/README.md#which-mode-for-which-picture)); that's
 a known limit of error diffusion in cells, not a regression.
 
+### `color:c64-cells`
+- **What:** C64 hires cells: each 8×8 cell shows only the two colors of
+  one hires cell, cycling through all 136 (the 16 single colors and the
+  120 pairs), with the same four patterns as `color:zx-cells`. Rendered
+  alone only (`--pattern color:c64-cells`, at 320×200 for the check), for
+  the same reason.
+- **Why:** an exact check for `--machine c64-hires` (see below). Its
+  colors, Pepto's values, are written out in the generator independently
+  of the library.
+- **Look for:** nothing to judge by eye; it's a test image.
+
 ## Exact checks
 
 `npm run check:cli` runs all of these through the real CLI (after
@@ -341,7 +352,7 @@ between pixels without a kernel, and keeps exact levels:
 Both are also properties in `Test.Puregrain.OrderedSpec`, for arbitrary
 images, maps and levels.
 
-Five checks cover machine screens:
+The machine screens have checks of their own:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
   equals input byte for byte, with Floyd–Steinberg, with `--kernel none`,
@@ -354,6 +365,12 @@ Five checks cover machine screens:
   normal white fits both pairs perfectly, and only the nearer pair, tried
   first, leaves it unchanged. Also a property in
   `Test.Puregrain.ZxSpectrumSpec`, for arbitrary screens and kernels.
+- **`color:c64-cells` at 320×200, with `--machine c64-hires`:** the same
+  for the C64's hires cells, in the same four modes. Here the grays test
+  the order: grey lies on the segment from black to white, so a cell of
+  black and grey fits black and white perfectly too, and only the nearer
+  pair, tried first, leaves it unchanged. Also a property in
+  `Test.Puregrain.C64Spec`.
 - **The color composite at 256×192, as a PNG and as a screen file
   (`--format scr`), with Atkinson:** the `.scr` file is 6912 bytes long,
   has FLASH off in every cell, and holds the PNG's picture pixel for pixel.
@@ -374,3 +391,7 @@ Five checks cover machine screens:
   both named after the output file, and the screen's bytes, equal to the
   `.scr` of the same run. `Test.Puregrain.ZxSpectrumSpec` reads arbitrary
   screens' tapes back the same way.
+- **The color composite at 256×192, with `--machine-palette normal` and
+  `bright` (and `--bayer 8`):** with `normal`, every channel of every pixel
+  is 0 or 216 (`0xD8`), the Spectrum's colors without BRIGHT; with
+  `bright`, 0 or 255 (black is the same either way).

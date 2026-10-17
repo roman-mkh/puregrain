@@ -79,7 +79,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "the documented kernel, palette, machine and format names are exactly the ones in the README" do
       map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
-      map machineName allMachines `shouldEqual` [ "zx-spectrum" ]
+      map machineName allMachines `shouldEqual` [ "zx-spectrum", "c64-hires" ]
       map formatName allFormats `shouldEqual` [ "png", "scr", "tap" ]
       map machinePaletteName allMachinePalettes `shouldEqual` [ "full", "normal", "bright" ]
 
@@ -106,15 +106,22 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         parse (files <> [ "--machine-palette", machinePaletteName p, "--machine", "zx-spectrum", "--bayer", "8" ])
           `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = Machine { name: ZxSpectrumScreen, palette: p, bayer: Just 8 } })
 
+    it "--machine c64-hires offers only --machine-palette full" do
+      parse (files <> [ "--machine", "c64-hires", "--machine-palette", "full" ])
+        `shouldEqual` Right (defaults { quantizer = Machine { name: C64HiresScreen, palette: FullPalette, bayer: Nothing } })
+
     it "--machine works with any kernel and with --gray" do
-      parse (files <> [ "--machine", "zx-spectrum", "-k", "atkinson", "--gray" ])
-        `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = zx Nothing, gray = true })
+      for_ allMachines \m ->
+        parse (files <> [ "--machine", machineName m, "-k", "atkinson", "--gray" ])
+          `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = Machine { name: m, palette: FullPalette, bayer: Nothing }, gray = true })
 
     it "--machine with --bayer N: ordered dithering inside the cells, pure unless --kernel is given" do
       parse (files <> [ "--machine", "zx-spectrum", "--bayer", "8" ])
         `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = zx (Just 8) })
       parse (files <> [ "--bayer", "4", "--machine", "zx-spectrum", "-k", "atkinson", "--format", "scr" ])
         `shouldEqual` Right (defaults { kernel = Atkinson, quantizer = zx (Just 4), format = Scr })
+      parse (files <> [ "--machine", "c64-hires", "--bayer", "8" ])
+        `shouldEqual` Right (defaults { kernel = NoDiffusion, quantizer = Machine { name: C64HiresScreen, palette: FullPalette, bayer: Just 8 } })
 
     it "--threshold takes a number, --levels a whole number" do
       parse (files <> [ "--threshold", "96.5" ]) `shouldEqual` Right (defaults { quantizer = Threshold 96.5 })
@@ -135,7 +142,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         `shouldEqual` Right (defaults { kernel = FloydSteinberg, quantizer = Bayer { side: 8, levels: 6 } })
 
     it "without --bayer, every mode defaults to Floyd-Steinberg" do
-      for_ [ [], [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ], [ "--machine", "zx-spectrum" ] ] \extra ->
+      for_ [ [], [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ], [ "--machine", "zx-spectrum" ], [ "--machine", "c64-hires" ] ] \extra ->
         map _.kernel (parse (files <> extra)) `shouldEqual` Right FloydSteinberg
 
     it "--gray turns gray conversion on" do
@@ -174,11 +181,11 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         failsWith "ordered dithering against a palette isn't supported"
 
     it "--machine with --threshold, --levels or --palette, saying why" do
-      for_ [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ] ] \extra ->
-        parse (files <> [ "--machine", "zx-spectrum" ] <> extra) `shouldSatisfy` failsWith "the machine defines the colors"
+      for_ allMachines \m -> for_ [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "bw" ] ] \extra ->
+        parse (files <> [ "--machine", machineName m ] <> extra) `shouldSatisfy` failsWith "the machine defines the colors"
 
     it "an unknown machine, listing the valid names" do
-      parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum"
+      parse (files <> [ "--machine", "c64" ]) `shouldSatisfy` failsWith "use one of: zx-spectrum, c64-hires"
 
     it "--machine-palette without --machine, saying why, and an unknown one, listing the valid names" do
       parse (files <> [ "--machine-palette", "normal" ]) `shouldSatisfy`
@@ -186,8 +193,13 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse (files <> [ "--machine", "zx-spectrum", "--machine-palette", "pastel" ]) `shouldSatisfy`
         failsWith "use one of: full, normal, bright"
 
+    it "--machine-palette normal or bright with c64-hires, listing the machine's palettes" do
+      for_ [ "normal", "bright" ] \p ->
+        parse (files <> [ "--machine", "c64-hires", "--machine-palette", p ]) `shouldSatisfy`
+          failsWith ("--machine-palette " <> p <> " isn't one of c64-hires's palettes; use one of: full")
+
     it "scr or tap output without --machine zx-spectrum, from --format or the extension, saying why" do
-      for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ] ] \extra -> do
+      for_ [ "scr", "tap" ] \format -> for_ [ [], [ "--levels", "4" ], [ "--palette", "zx15" ], [ "--machine", "c64-hires" ] ] \extra -> do
         parse (files <> [ "--format", format ] <> extra) `shouldSatisfy`
           failsWith (format <> " output needs --machine zx-spectrum: the file holds a ZX Spectrum screen")
         parse ([ "in.png", "out." <> format ] <> extra) `shouldSatisfy`

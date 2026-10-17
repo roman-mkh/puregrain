@@ -54,8 +54,9 @@ from the code alone.
   Steinberg stays the general default: it passes on all the error (true
   tones), with the fewest neighbours of the kernels that do, and it's the
   classic. `--machine NAME`
-  (2026-10-11; names from `machineName`, now `zx-spectrum`; constructor
-  `ZxSpectrumScreen`, since `ZxSpectrum` is the palette's; that palette's
+  (2026-10-11; names from `machineName`, now `zx-spectrum` and, since
+  2026-10-17, `c64-hires`; constructors `ZxSpectrumScreen` and
+  `C64HiresScreen`, since `ZxSpectrum` and `C64` are the palettes'; that palette's
   CLI name was renamed from `zx-spectrum` to `zx15` on 2026-10-11, named by
   its color count like `cga16`, so `zx-spectrum` means only the real
   look; the CLI isn't published, so nobody outside broke) is a quantizer
@@ -68,7 +69,10 @@ from the code alone.
   or `orderedInCell` with the Bayer map; the PipelineSpec compares rules
   by dithering a 16 × 12 probe without diffusion, as it compares
   quantizers by probes. `ditherScreen` calls `ditherCells` with the
-  machine's mode and returns the cells with the picture. The output
+  machine's mode and returns a `DitheredScreen`, one constructor per
+  machine (`ZxDithered`, `C64HiresDithered`), since each holds its own
+  machine's cells, which its files need; `screenImage` reads the picture.
+  The output
   format, `png`, `scr` or `tap` (names from `formatName`), comes from the
   output file's extension, in any case (since 2026-10-16; the user's
   suggestion), or from `--format NAME`, which always wins: `--format png`
@@ -85,20 +89,23 @@ from the code alone.
   (2026-10-17, the user's design) picks which of the machine's colors
   the cells may use: `full` (the default), `normal` and `bright`, the
   Spectrum's own terms (preferred wherever there are some; `no-bright`
-  was rejected for `normal`). It needs `--machine`; `resolve` matches
-  machine and palette name without wildcards, so a new machine or name
-  must decide which go together. Kept narrow on purpose: it chooses a
+  was rejected for `normal`). It needs `--machine`; `machinePalettesOf`
+  lists each machine's palettes, the default first (no wildcard, so a new
+  machine must list its own): `c64-hires` offers only `full`, and
+  `resolve` rejects the others, naming the machine's. Kept narrow on purpose: it chooses a
   set of colors and nothing else. A machine's screen modes with other
   cell sizes, or variants of its color values, would be another option
   or machine name, and `--machine-*` options must not multiply without
   control (the user's caution). Reusing `--palette` was rejected: it
   means per-pixel colors without cells. `screenSizeCheck`
-  runs before dithering: for an image other than 256×192, a note with a
+  runs before dithering: for an image other than the machine's screen
+  (256×192, or 320×200 for `c64-hires`), a note with a
   PNG (any size works, e.g. a poster), an error with `scr` or `tap` (exit
-  1, no file). `screenFile` maps the machine to its encoder (`Zx.toScr`),
+  1, no file). `screenFile` maps a dithered screen to its encoder (`Zx.toScr`),
   `tapeFile` to its tape writer (`Zx.toTap`, 2026-10-16, `--format tap`),
   with the name from `tapeName`: the output file's name without directory
-  and extension, printable ASCII only, cut to 10. `Main` writes the bytes
+  and extension, printable ASCII only, cut to 10. For a C64 screen both
+  are `Left` (the options never ask for them). `Main` writes the bytes
   with `node-fs`/`node-buffer`, no JS of our own.
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
@@ -589,7 +596,9 @@ where the kernel picks the method (none, since 2026-10-14). A tile may be left o
 rendered alone: `color:zx-cells` (valid ZX cells, which line up with the
 8×8 grid only from the image's corner; its 71 attributes written out in
 JS independently of the library) is the exact-check input for
-`--machine zx-spectrum`; `--list` marks such tiles "(alone only)".
+`--machine zx-spectrum`, and `color:c64-cells` (all 136 hires cells,
+Pepto's colors written out in JS; 2026-10-17) for `--machine c64-hires`,
+at 320×200; `--list` marks such tiles "(alone only)".
 pngjs gotcha: the output
 PNG color type must be passed to `PNG.sync.write(png, { colorType })`
 — the `new PNG({ colorType })` constructor option is ignored by the

@@ -63,8 +63,8 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
 | `--bayer` | `N` = 2, 4, 8 or 16 | | Ordered dithering with the `N`×`N` Bayer map, over the `--levels` (2 without it), or inside `--machine`'s cells. Pure by default; combined with error diffusion when `--kernel` names a kernel. See [Ordered dithering](#ordered-dithering). |
-| `--machine` | `zx-spectrum` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell. See [Machine screens](#machine-screens). |
-| `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black. Needs `--machine`. |
+| `--machine` | `zx-spectrum`, `c64-hires` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell: the ZX Spectrum's, or the Commodore 64's hires screen. See [Machine screens](#machine-screens). |
+| `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black; `c64-hires` offers only `full`. Needs `--machine`. |
 | `--format` | `png`, `scr`, `tap` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image. See [Machine screens](#machine-screens). |
 | `--gray` | | off | Converts a color input to gray before dithering. |
 | `-h`, `--help` | | | Shows the help and exits. |
@@ -182,6 +182,12 @@ dithered with just those two colors. How that works, what it looks like,
 and the Spectrum's colors and files are described in
 [docs/machine-screens/](../docs/machine-screens/README.md).
 
+`--machine c64-hires` does the same for the Commodore 64's hires screen:
+320×200 pixels in 8×8 cells, each with any two of the machine's 16
+colors, a foreground and a background. There's no BRIGHT rule, so
+`--machine-palette` offers only `full`. Other sizes work, with a note, as
+for the Spectrum; for now the output is a PNG only.
+
 - **Which mode:** it depends on the picture. `--bayer 8`, ordered
   dithering inside the cells, suits drawn graphics and smooth shading, and
   gives the classic Spectrum look. `--kernel atkinson`, error diffusion,
@@ -217,8 +223,9 @@ and the Spectrum's colors and files are described in
   is faster than error diffusion, since no error is passed on.
 
 The library side is `Puregrain.Cells` (cells of any size, with any
-candidate colors) and `Puregrain.Machine.ZxSpectrum` (the Spectrum's
-screen mode, and `toScr` and `toTap` for its files).
+candidate colors), `Puregrain.Machine.ZxSpectrum` (the Spectrum's
+screen mode, and `toScr` and `toTap` for its files) and
+`Puregrain.Machine.C64` (the C64's hires screen mode).
 
 ## Examples
 

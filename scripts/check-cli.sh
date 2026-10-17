@@ -15,6 +15,7 @@ node scripts/generate-images.mjs --pattern color --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:palette-exact --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:channel-ramps --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:zx-cells --size 256x192 --out $out >/dev/null
+node scripts/generate-images.mjs --pattern color:c64-cells --size 320x200 --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color --size 256x192 --out $out >/dev/null
 
 pass() { echo "PASS  $1"; }
@@ -90,18 +91,23 @@ for kernel in none floyd-steinberg; do
     || fail "color:palette-exact alone, --levels 6 --bayer 4 --kernel $kernel: output differs from input"
 done
 
-# 6. An image made only of valid ZX Spectrum cells (each 8×8 cell only the
-#    ink and paper of one attribute) fits the machine's own cells exactly,
-#    so the error is zero everywhere and it must come back unchanged: with
-#    error diffusion and without, and with ordered dithering inside the
-#    cells, pure and combined with a kernel (every threshold lies strictly
-#    between a cell's two colors). The CLI twin of the property in
-#    Test.Puregrain.ZxSpectrumSpec.
-for mode in "--kernel floyd-steinberg" "--kernel none" "--bayer 8" "--bayer 8 --kernel floyd-steinberg"; do
-  $cli $out/color-zx-cells-256x192.png $out/zx.png --machine zx-spectrum $mode >/dev/null
-  cmp -s $out/color-zx-cells-256x192.png $out/zx.png \
-    && pass "color:zx-cells alone, --machine zx-spectrum $mode: output == input" \
-    || fail "color:zx-cells alone, --machine zx-spectrum $mode: output differs from input"
+# 6. An image made only of valid cells of a machine's screen (each 8×8
+#    cell only the two colors of one of its cells: a ZX Spectrum
+#    attribute's ink and paper, or a C64 hires cell's two colors) fits the
+#    machine's own cells exactly, so the error is zero everywhere and it
+#    must come back unchanged: with error diffusion and without, and with
+#    ordered dithering inside the cells, pure and combined with a kernel
+#    (every threshold lies strictly between a cell's two colors). The CLI
+#    twin of the properties in Test.Puregrain.ZxSpectrumSpec and
+#    Test.Puregrain.C64Spec.
+for screen in "zx-spectrum zx-cells 256x192" "c64-hires c64-cells 320x200"; do
+  set -- $screen
+  for mode in "--kernel floyd-steinberg" "--kernel none" "--bayer 8" "--bayer 8 --kernel floyd-steinberg"; do
+    $cli $out/color-$2-$3.png $out/$1.png --machine $1 $mode >/dev/null
+    cmp -s $out/color-$2-$3.png $out/$1.png \
+      && pass "color:$2 alone, --machine $1 $mode: output == input" \
+      || fail "color:$2 alone, --machine $1 $mode: output differs from input"
+  done
 done
 
 # 7. A .scr file (--format scr) holds the same picture as the PNG of the

@@ -230,14 +230,45 @@ const ZX_ATTRIBUTES = (() => {
   return list;
 })();
 
-// Where a cell shows its ink (true) rather than its paper, by the pixel's
-// position in the cell: a checkerboard, stripes, a half, sparse dots.
-const ZX_CELL_PATTERNS = [
+// The C64's 16 colors by code, written out here independently of the
+// library: Pepto's values (pepto.de/projects/colorvic/2001/).
+const C64_COLORS = [
+  0x000000, 0xffffff, 0x68372b, 0x70a4b2, 0x6f3d86, 0x588d43, 0x352879, 0xb8c76f,
+  0x6f4f25, 0x433900, 0x9a6759, 0x444444, 0x6c6c6c, 0x9ad284, 0x6c5eb5, 0x959595,
+].map((n) => [n >> 16, (n >> 8) & 0xff, n & 0xff]);
+
+// The C64's hires cells: every single color and every pair of two of the
+// 16 colors, 136 in all, each a pair of colors, the lower code first
+// (which of the two is the foreground doesn't matter here).
+const C64_HIRES_CELLS = (() => {
+  const list = [];
+  for (let a = 0; a < 16; a++) {
+    for (let b = a; b < 16; b++) list.push([C64_COLORS[a], C64_COLORS[b]]);
+  }
+  return list;
+})();
+
+// Where a cell shows its first color (true) rather than its second, by the
+// pixel's position in the cell: a checkerboard, stripes, a half, sparse
+// dots.
+const CELL_PATTERNS = [
   (x, y) => (x + y) % 2 === 0,
   (x, y) => y % 2 === 0,
   (x) => x < 4,
   (x, y) => (x + 2 * y) % 5 === 0,
 ];
+
+// 8×8 cells, row by row, each in only the two colors of one of `cells`
+// (pairs of colors), all of them in turn, with the patterns in turn.
+function drawCells(img, rect, cells) {
+  const columns = Math.ceil(rect.w / 8);
+  forEachPixel(rect, (x, y) => {
+    const cell = Math.floor((y - rect.y0) / 8) * columns + Math.floor((x - rect.x0) / 8);
+    const [first, second] = cells[cell % cells.length];
+    const firstHere = CELL_PATTERNS[cell % CELL_PATTERNS.length]((x - rect.x0) % 8, (y - rect.y0) % 8);
+    setRGB(img, x, y, firstHere ? first : second);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Tile registry. Ids are "<pattern>:<name>"; the pattern decides the PNG
@@ -371,20 +402,18 @@ export const TILES = [
     description: 'Colored sphere with a white specular highlight on a dark bluish-gray: smooth color shading.',
     draw: (img, rect) => drawSphere(img, rect, [220, 70, 50], [60, 64, 72]),
   },
-  // Not placed in the color composite: its cells are only aligned to the
-  // Spectrum's 8×8 grid when the tile starts at the image's corner.
+  // The cell tiles aren't placed in the color composite: their cells are
+  // only aligned to the machine's 8×8 grid when the tile starts at the
+  // image's corner.
   {
     id: 'color:zx-cells',
     description: 'ZX Spectrum cells, rendered alone: each 8×8 cell only the ink and paper of one attribute, all 71 in turn. Must come out unchanged with --machine zx-spectrum.',
-    draw: (img, rect) => {
-      const columns = Math.ceil(rect.w / 8);
-      forEachPixel(rect, (x, y) => {
-        const cell = Math.floor((y - rect.y0) / 8) * columns + Math.floor((x - rect.x0) / 8);
-        const [ink, paper] = ZX_ATTRIBUTES[cell % ZX_ATTRIBUTES.length];
-        const inkHere = ZX_CELL_PATTERNS[cell % ZX_CELL_PATTERNS.length]((x - rect.x0) % 8, (y - rect.y0) % 8);
-        setRGB(img, x, y, inkHere ? ink : paper);
-      });
-    },
+    draw: (img, rect) => drawCells(img, rect, ZX_ATTRIBUTES),
+  },
+  {
+    id: 'color:c64-cells',
+    description: 'C64 hires cells, rendered alone: each 8×8 cell only the two colors of one hires cell, all 136 in turn. Must come out unchanged with --machine c64-hires.',
+    draw: (img, rect) => drawCells(img, rect, C64_HIRES_CELLS),
   },
 ];
 
