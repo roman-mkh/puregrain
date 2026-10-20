@@ -718,6 +718,18 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   formatting, or release check E (`--ensure-ranges` changes nothing)
   fails although no range is missing. Hit 2026-10-09, after the
   one-line `description` was added; spago's wrapped form is stable.
+  `--ensure-ranges` also *raises every existing lower bound* to the
+  package set's version whenever the set moves, not only adding missing
+  ranges (seen 2026-10-20, set 81.4.0 → 81.9.0: `prelude >=6.0.2` became
+  `>=6.0.3`). Decided then (the user agreed): commit the raised bounds,
+  with a CHANGELOG line, so the minimum versions are the ones we build
+  and test with, as spago intends; the alternative, keeping lower
+  bounds and checking for missing ranges some other way, would claim
+  versions no longer tested. Before raising them, check the new
+  versions' compilers (`spago registry info <pkg>`); for 81.9.0 they
+  were unchanged, 0.15.0–0.15.16. A package-set update is its own
+  change on `master`, checked by `check:clean` and byte-identical CLI
+  outputs.
 - **npm install scripts (`allowScripts` in `package.json`, 2026-10-09):**
   npm 11 warns about dependency install scripts not listed there, and its
   docs say they're blocked by default (npm 11.21 still ran them, checked

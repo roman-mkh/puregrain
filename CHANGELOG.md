@@ -6,6 +6,13 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Changed
+
+- The minimum versions of the library's dependencies are raised to those
+  of the package set it's built and tested with, 81.9.0: patch and minor
+  steps, such as `prelude` 6.0.3 and `strings` 6.1.0. The supported
+  compilers stay the same, 0.15.0 to 0.15.16.
+
 ## 0.2.0 - 2026-10-18
 
 ### Added
