@@ -121,15 +121,24 @@
           "dependencies": [
             "aff",
             "aff-promise",
+            "arraybuffer-types",
+            "arrays",
             "canvas",
             "effect",
             "either",
             "exceptions",
             "foldable-traversable",
+            "foreign",
             "halogen",
+            "halogen-subscriptions",
             "integers",
+            "lists",
             "maybe",
+            "partial",
             "prelude",
+            "puregrain",
+            "refs",
+            "transformers",
             "unsafe-coerce",
             "web-events",
             "web-file",
@@ -139,10 +148,21 @@
         },
         "test": {
           "dependencies": [
+            "aff",
+            "arraybuffer-types",
+            "arrays",
+            "effect",
+            "either",
             "foldable-traversable",
+            "foreign",
             "integers",
+            "maybe",
+            "puregrain",
+            "refs",
             "spec",
-            "spec-node"
+            "spec-node",
+            "transformers",
+            "web-workers"
           ]
         }
       }

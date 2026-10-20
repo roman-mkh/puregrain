@@ -12,12 +12,31 @@ the workspace's notes in the root `CLAUDE.md`.
   (decoding and reading a picture, drawing pixels; FFI in `Picture.js`),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
-  (every text the UI shows, decision 12), `Puregrain.Web.Worker` (the
-  worker's entry). `web/static/` holds `index.html`, which loads
+  (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
+  the choices and the CLI's rules for them, and their message form),
+  `Puregrain.Web.Dither` (pure: the settings as library values, as the
+  CLI's `Pipeline` builds them; its gray conversion copied from there),
+  `Puregrain.Web.Message` (the page's and the worker's messages, decoded
+  with `foreign`), `Puregrain.Web.Pixels` (reading and writing rows of the
+  RGBA bytes; FFI, rounding as the CLI's PNG writer),
+  `Puregrain.Web.Run` (the row loop with the stepper, progress as a
+  callback), `Puregrain.Web.Worker` (the worker's entry: only its
+  messaging). The page imports the library only through the `Puregrain`
+  facade, as the CLI does. `web/static/` holds `index.html`, which loads
   `pico.min.css`, `app.css` and `app.js`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
-  (`ZoomSpec` so far), run by `spago test` with the other suites. Only
-  pure modules: Node has no browser.
+  (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `ZoomSpec`),
+  run by `spago test` with the other suites, in Node, so only modules
+  that don't touch the browser at load (FFI that only uses the browser
+  when called is fine). `RunSpec` pins the worker's row loop to the
+  CLI's path: the same bytes as `ditherImage` on the whole picture, with
+  the CLI's gray conversion and rounding, for 8 settings.
+- **A run:** each change of the picture or a setting ends the worker and
+  starts a new one with the settings, the size and a copy of the pixels
+  (transferred); the worker answers with progress after every hundredth
+  of the rows, then the result's pixels (transferred). `runs` counts the
+  runs, ended ones included, so an answer from an ended worker is
+  dropped. While a run goes, the view shows the original.
 - **Zoom in screen pixels:** the canvas's CSS size is the picture's size
   × zoom ÷ `devicePixelRatio`, so each picture pixel is exactly zoom ×
   zoom screen pixels, also at fractional ratios (1.25, 1.5 on many
@@ -31,9 +50,9 @@ the workspace's notes in the root `CLAUDE.md`.
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes:** `app.js` 91.4 KB, 22.5 KB gzipped, after phase 2 (77.9 KB,
-  19.1 KB gzipped after phase 1: almost all of it Halogen); `worker.js`
-  813 bytes; Pico 11.7 KB gzipped.
+- **Sizes** after phase 3: `app.js` 111.7 KB, 27.3 KB gzipped (77.9 KB,
+  19.1 KB gzipped after phase 1: mostly Halogen); `worker.js` 45.7 KB,
+  12.1 KB gzipped, now with the library; Pico 11.7 KB gzipped.
 
 ## Building
 
@@ -123,6 +142,17 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
 - **Drops:** the whole `main` takes them, so that a drop beside the input
   doesn't make the browser open the file; `dragover` must call
   `preventDefault`, or the browser refuses the drop.
+- **Halogen matches unkeyed children by position.** When an element
+  before the canvas comes or goes (the progress bar, say), the canvas is
+  rebuilt as a new, blank element, and drawing through the old reference
+  misses it: phase 3's first browser check read a blank canvas. Parts
+  whose elements come and go sit in fixed containers (`.settings`,
+  `.status`), so the canvas keeps its place.
+- **`web-workers` 2.0.0 can't send a record as such:** its `IsSendable`
+  instance for records needs `IsSendableRowList`, which it doesn't
+  export ("the class was not in scope"). Each message is sent wrapped
+  with `unsafeWrap`; the records hold only plain data and typed arrays,
+  and the receiving side decodes them (`Puregrain.Web.Message`).
 - **Sharp pixels:** CSS `image-rendering: pixelated` (Firefox 93, Safari
   10). **The split view:** `clip-path` with `inset()` on the top layer.
 - **Download:** `canvas.toBlob`, `URL.createObjectURL` and `<a download>`.
@@ -147,6 +177,16 @@ ping" from it.
   readable by the snap); a synthetic drop works as
   `new DragEvent("drop", { dataTransfer })` with `new DataTransfer()`
   holding a `File`; `WebDriver:TakeScreenshot` gives screen pixels.
+- **Checked in phase 3:** for 7 settings (a threshold, levels with
+  Atkinson, a palette with JJN, pure Bayer, the hybrid, a palette after
+  "gray first", 3 levels), the page's result on the color composite at
+  320×200 equals the CLI's output, all 192,000 channel values. A
+  1024×1024 run shows rising progress, the page answers within a few
+  milliseconds meanwhile, and Cancel ends it, shows the original, and
+  no late answer is applied.
+- **A dev server may already be running on port 8000,** the user's own
+  (`npm run web:serve`): checks use another port (8001), and stop only
+  their own server.
 - **Another pixel ratio:** a profile's `user.js` with
   `user_pref("layout.css.devPixelsPerPx", "1.5");` makes Firefox's ratio
   1.5, like many laptops.

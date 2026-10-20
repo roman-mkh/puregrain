@@ -111,8 +111,11 @@ users is a separate task, see TODO.md.)
     later change cancels the run and starts a new one; no "Dither"
     button. One rule follows (Claude's addition, for phase 3): when a
     method is chosen while the colors are still "none", the colors take
-    the CLI's default, a gray threshold at 128, so there's something to
-    dither with.
+    the CLI's defaults: a gray threshold at 128, or 2 levels when a Bayer
+    map is chosen (the CLI's `--bayer` alone), so there's something to
+    dither with. "No Bayer map" and "gray first" aren't methods: with no
+    colors, they leave the original. While a run goes, the original is
+    shown; the result replaces it when it's done.
 17. **Browsers** (Q11): current desktop versions of Chrome, Firefox,
     Safari and Edge; phones on a best-effort basis.
 18. **A `CLAUDE.md` in `web/`** (Q12, 2026-10-19): Claude Code reads a
@@ -252,6 +255,6 @@ None at the moment.
 - [x] 0. Verify and design
 - [x] 1. Setup: the package, the two bundles, the dev server; checked in headless Firefox
 - [x] 2. Load and show: picker, drop, decoding, whole-number zoom; checked in headless Firefox at ratios 1 and 1.5
-- [ ] 3. Settings and dithering
+- [x] 3. Settings and dithering: the form, the worker with the stepper, progress, cancelling; the results equal the CLI's
 - [ ] 4. Compare and save
 - [ ] 5. Delivery

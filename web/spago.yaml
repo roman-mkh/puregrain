@@ -3,15 +3,24 @@ package:
   dependencies:
     - aff
     - aff-promise
+    - arraybuffer-types
+    - arrays
     - canvas
     - effect
     - either
     - exceptions
     - foldable-traversable
+    - foreign
     - halogen
+    - halogen-subscriptions
     - integers
+    - lists
     - maybe
+    - partial
     - prelude
+    - puregrain
+    - refs
+    - transformers
     - unsafe-coerce
     - web-events
     - web-file
@@ -20,7 +29,18 @@ package:
   test:
     main: Test.Puregrain.Web.Main
     dependencies:
+      - aff
+      - arraybuffer-types
+      - arrays
+      - effect
+      - either
       - foldable-traversable
+      - foreign
       - integers
+      - maybe
+      - puregrain
+      - refs
       - spec
       - spec-node
+      - transformers
+      - web-workers
