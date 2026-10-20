@@ -25,12 +25,16 @@
     "bench": "node scripts/benchmark.mjs",
     "clean:bench": "rm -f samples/bench/*.png",
     "generate-images": "node scripts/generate-images.mjs && node scripts/generate-images.mjs --pattern color --size 256x192 && node scripts/generate-images.mjs --pattern color --size 320x200",
-    "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images"
+    "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images",
+    "web:build": "node web/build.mjs",
+    "web:serve": "esbuild --serve=localhost:8000 --servedir=web/dist"
   },
   "dependencies": {
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
+    "@picocss/pico": "^2.1.1",
+    "esbuild": "^0.28.2",
     "purescript": "^0.15.16",
     "purs-backend-es": "^1.4.3",
     "purs-tidy": "^0.11.1",
@@ -39,6 +43,7 @@
   "allowScripts": {
     "purescript": true,
     "ssh2": false,
-    "cpu-features": false
+    "cpu-features": false,
+    "esbuild": false
   }
 }

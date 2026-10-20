@@ -126,6 +126,15 @@ from the code alone.
   art: `shades` in `QuickStart` (one editable list, █ = white for dark
   terminals; reverse it for light backgrounds), 2 characters per pixel
   for square pixels, every line within 80 columns.
+- **`puregrain-web`** (`web/spago.yaml`, `web/src/`, modules
+  `Puregrain.Web.*`; since 2026-10-20, on the long-term branch `web-ui`)
+  — the web UI, the library's second real client, in Halogen. Its plan,
+  decisions and open questions are in `web/ROADMAP.md`; its architecture
+  and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
+  in `web/`. `npm run web:build` bundles it into `web/dist/`
+  (gitignored), `npm run web:serve` serves that on localhost:8000. The
+  workspace's strict build compiles it, so a library change that breaks
+  it fails `npm run check` and CI.
 - **`.purs-repl`** (the REPL's startup file, at the workspace root) is
   committed, through an exception in `.gitignore` (since 2026-10-08;
   spago's own template ignores `.purs*` and treats it as personal, and

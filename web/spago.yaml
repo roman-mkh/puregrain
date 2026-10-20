@@ -1,0 +1,10 @@
+package:
+  name: puregrain-web
+  dependencies:
+    - effect
+    - foreign
+    - halogen
+    - halogen-subscriptions
+    - maybe
+    - prelude
+    - web-workers

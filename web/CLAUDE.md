@@ -5,8 +5,31 @@ when working in `web/` (decision 18 in `ROADMAP.md`). The plan, the
 decisions and the open questions are in `ROADMAP.md`; the library's and
 the workspace's notes in the root `CLAUDE.md`.
 
+## The package
+
+- **Modules:** `Puregrain.Web.Main` (the page's entry: mounts the app on
+  the body), `Puregrain.Web.App` (the component), `Puregrain.Web.Text`
+  (every text the UI shows, decision 12), `Puregrain.Web.Worker` (the
+  worker's entry). `web/static/` holds `index.html`, which loads
+  `pico.min.css` and `app.js`.
+- **Build:** `npm run web:build` (`web/build.mjs`) bundles the page into
+  `web/dist/app.js` and the worker into `web/dist/worker.js`, minified,
+  and copies `web/static/` and Pico's stylesheet next to them.
+  `web/dist/` is gitignored. `npm run web:serve` serves it on
+  http://localhost:8000; stop it with Ctrl+C.
+- **Sizes** (phase 1, 2026-10-20): `app.js` 77.9 KB, 19.1 KB gzipped,
+  almost all of it Halogen; `worker.js` 813 bytes; Pico 11.7 KB gzipped.
+
 ## Building
 
+- **`spago bundle` resolves `--outfile` relative to the package's own
+  folder** (`web/`), not the directory it runs in: `--outfile
+  web/dist/app.js` wrote `web/web/dist/app.js`. `web/build.mjs` passes
+  `dist/…`.
+- **esbuild's server stops when its standard input closes** ("stopped
+  automatically because stdin was closed"): fine in a terminal, but from
+  a script without one, keep its input open, for example
+  `tail -f /dev/null | npx esbuild --serve=… --servedir=…`.
 - **`spago bundle` needs esbuild** (spago 1.0.4, checked in its code
   2026-10-20): it looks for an `esbuild` executable, so esbuild is a dev
   dependency. With `--platform browser` and the default bundle type
@@ -31,9 +54,10 @@ the workspace's notes in the root `CLAUDE.md`.
 - **Pico CSS** is `@picocss/pico` 2.1.1: MIT, no install script;
   `css/pico.min.css` is 83 KB, 11.7 KB gzipped.
 
-## PureScript packages (package set 81.4.0)
+## PureScript packages (package set 81.9.0)
 
-- `halogen` 7.0.0 (the registry has 7.1.0, the set 7.0.0), `web-html`,
+- `halogen` 7.0.0 (the registry has 7.1.0, the sets up to 81.9.0 have
+  7.0.0), `web-html`,
   `web-file`, `web-uievents`, `web-workers` 2.0.0, `canvas` 6.0.0,
   `arraybuffer-types`, `aff`, `js-promise-aff`.
 - **`web-workers`:** `Web.Worker.Worker` (`new`, `postMessage`,
@@ -73,3 +97,22 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
 - **Download:** `canvas.toBlob`, `URL.createObjectURL` and `<a download>`.
 - **Workers:** classic workers and `terminate` everywhere; a message's
   `ArrayBuffer` can be transferred instead of copied.
+
+## Checking in a real browser
+
+Without Playwright (decision 14): the system's Firefox, headless, driven
+through Marionette, its built-in remote control (length-prefixed JSON
+over TCP, port 2828), by a few lines of Python from the standard
+library. Phase 1's check loaded the page and read "The worker answered:
+ping" from it.
+
+- **Firefox here is a snap** (`/usr/bin/firefox` starts
+  `/snap/bin/firefox`, version 157): it has a private `/tmp`, so a
+  throwaway profile and any output go under
+  `~/snap/firefox/common/` and are removed afterwards; never the
+  user's own profile (`-no-remote -profile <dir>`).
+- **`firefox --headless --screenshot`** shows the page but can't wait:
+  it takes the picture at the load event, before a worker answers. To
+  wait for something, use Marionette (`--marionette`, then
+  `WebDriver:NewSession`, `WebDriver:Navigate`,
+  `WebDriver:ExecuteScript` in a loop, `Marionette:Quit`).

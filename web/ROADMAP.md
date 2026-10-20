@@ -209,6 +209,11 @@ None at the moment.
 - The background color for transparent parts: configurable, or from the
   page's theme.
 - Translations of the UI's texts.
+- **A browser smoke test without Playwright,** for decision 14's later
+  question: phase 1 was checked in the system's Firefox, headless, driven
+  through its built-in remote control (Marionette) by a few lines of
+  Python; see `web/CLAUDE.md`. No npm dependency. Whether GitHub's
+  runners have a Firefox for it in CI is still to check.
 - Keeping transparency (a question for the library and the CLI too, for
   TODO.md): the library has `RGBA` and dithers it per channel already,
   but palettes are RGB only, and the CLI ignores alpha. Transparency
@@ -245,7 +250,7 @@ None at the moment.
 ## Progress
 
 - [x] 0. Verify and design
-- [ ] 1. Setup
+- [x] 1. Setup: the package, the two bundles, the dev server; checked in headless Firefox
 - [ ] 2. Load and show
 - [ ] 3. Settings and dithering
 - [ ] 4. Compare and save
