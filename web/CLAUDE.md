@@ -8,17 +8,32 @@ the workspace's notes in the root `CLAUDE.md`.
 ## The package
 
 - **Modules:** `Puregrain.Web.Main` (the page's entry: mounts the app on
-  the body), `Puregrain.Web.App` (the component), `Puregrain.Web.Text`
+  the body), `Puregrain.Web.App` (the component), `Puregrain.Web.Picture`
+  (decoding and reading a picture, drawing pixels; FFI in `Picture.js`),
+  `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
+  `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Worker` (the
   worker's entry). `web/static/` holds `index.html`, which loads
-  `pico.min.css` and `app.js`.
+  `pico.min.css`, `app.css` and `app.js`.
+- **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
+  (`ZoomSpec` so far), run by `spago test` with the other suites. Only
+  pure modules: Node has no browser.
+- **Zoom in screen pixels:** the canvas's CSS size is the picture's size
+  × zoom ÷ `devicePixelRatio`, so each picture pixel is exactly zoom ×
+  zoom screen pixels, also at fractional ratios (1.25, 1.5 on many
+  laptops). A whole-number scale stays exact whatever the canvas's
+  offset: checked at ratio 1.5 with a 1-pixel checkerboard in Firefox's
+  screen-pixel screenshot (squares exactly 1 and 2 screen pixels at 1×
+  and 2×, phase 2). The browser's zoom changes the ratio and fires
+  `resize`, which the app listens to.
 - **Build:** `npm run web:build` (`web/build.mjs`) bundles the page into
   `web/dist/app.js` and the worker into `web/dist/worker.js`, minified,
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** (phase 1, 2026-10-20): `app.js` 77.9 KB, 19.1 KB gzipped,
-  almost all of it Halogen; `worker.js` 813 bytes; Pico 11.7 KB gzipped.
+- **Sizes:** `app.js` 91.4 KB, 22.5 KB gzipped, after phase 2 (77.9 KB,
+  19.1 KB gzipped after phase 1: almost all of it Halogen); `worker.js`
+  813 bytes; Pico 11.7 KB gzipped.
 
 ## Building
 
@@ -76,7 +91,9 @@ the workspace's notes in the root `CLAUDE.md`.
   `halogen-canvas`, `webb-file`). `canvas`'s `tryLoadImage` loads through
   an `<img>` element, which can't turn color conversion off (decision
   9), so it's our FFI: the call with `colorSpaceConversion: "none"`
-  returns a Promise, which `js-promise-aff`'s `toAffE` makes an `Aff`.
+  returns a Promise, which `aff-promise`'s `toAffE` makes an `Aff`
+  (`aff-promise` rather than `js-promise-aff`: its `Control.Promise`
+  brings the `Promise` type in the same package).
 
 ## Browser facts
 
@@ -92,6 +109,20 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
 - **Transparency:** a canvas keeps colors premultiplied by alpha, so fully
   transparent pixels lose theirs and read back black. Fill the canvas
   white first, then `drawImage`, then `getImageData` (decision 9).
+- **Checked in phase 2** (Firefox 157, ratios 1 and 1.5): a plain PNG
+  reads back exactly; a PNG with a gAMA chunk (gamma 1.0) too, while the
+  same file through an `<img>` element comes back converted (137,447 of
+  192,000 channel values changed), so `colorSpaceConversion: "none"` is
+  in effect; transparent parts become white, half-transparent ones blend
+  onto white, exact to the value.
+- **A canvas's `width` or `height` set clears it.** Halogen's virtual DOM
+  sets only the properties that changed, so a zoom change (a new CSS
+  size) keeps the picture; a new picture gets a new canvas, drawn after
+  the state change rendered it (`getHTMLElementRef`, then
+  `putImageData`).
+- **Drops:** the whole `main` takes them, so that a drop beside the input
+  doesn't make the browser open the file; `dragover` must call
+  `preventDefault`, or the browser refuses the drop.
 - **Sharp pixels:** CSS `image-rendering: pixelated` (Firefox 93, Safari
   10). **The split view:** `clip-path` with `inset()` on the top layer.
 - **Download:** `canvas.toBlob`, `URL.createObjectURL` and `<a download>`.
@@ -111,6 +142,14 @@ ping" from it.
   throwaway profile and any output go under
   `~/snap/firefox/common/` and are removed afterwards; never the
   user's own profile (`-no-remote -profile <dir>`).
+- **Useful Marionette commands:** `WebDriver:ElementSendKeys` with a file
+  path chooses that file in an `<input type="file">` (the path must be
+  readable by the snap); a synthetic drop works as
+  `new DragEvent("drop", { dataTransfer })` with `new DataTransfer()`
+  holding a `File`; `WebDriver:TakeScreenshot` gives screen pixels.
+- **Another pixel ratio:** a profile's `user.js` with
+  `user_pref("layout.css.devPixelsPerPx", "1.5");` makes Firefox's ratio
+  1.5, like many laptops.
 - **`firefox --headless --screenshot`** shows the page but can't wait:
   it takes the picture at the load event, before a worker answers. To
   wait for something, use Marionette (`--marionette`, then

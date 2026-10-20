@@ -1,0 +1,14 @@
+/* The web UI's own styles, on top of Pico CSS. */
+
+/* The picture at whole-number zoom: its CSS size makes each picture pixel
+   exactly `zoom` screen pixels (Puregrain.Web.Zoom), and the browser draws
+   them without smoothing. A large picture scrolls inside its box. */
+.view {
+  overflow: auto;
+  max-height: 75vh;
+}
+
+.picture {
+  display: block;
+  image-rendering: pixelated;
+}

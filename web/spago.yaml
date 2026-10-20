@@ -1,10 +1,26 @@
 package:
   name: puregrain-web
   dependencies:
+    - aff
+    - aff-promise
+    - canvas
     - effect
-    - foreign
+    - either
+    - exceptions
+    - foldable-traversable
     - halogen
-    - halogen-subscriptions
+    - integers
     - maybe
     - prelude
+    - unsafe-coerce
+    - web-events
+    - web-file
+    - web-html
     - web-workers
+  test:
+    main: Test.Puregrain.Web.Main
+    dependencies:
+      - foldable-traversable
+      - integers
+      - spec
+      - spec-node

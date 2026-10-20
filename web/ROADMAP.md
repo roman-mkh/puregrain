@@ -251,7 +251,7 @@ None at the moment.
 
 - [x] 0. Verify and design
 - [x] 1. Setup: the package, the two bundles, the dev server; checked in headless Firefox
-- [ ] 2. Load and show
+- [x] 2. Load and show: picker, drop, decoding, whole-number zoom; checked in headless Firefox at ratios 1 and 1.5
 - [ ] 3. Settings and dithering
 - [ ] 4. Compare and save
 - [ ] 5. Delivery
