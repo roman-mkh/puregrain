@@ -36,9 +36,9 @@ users is a separate task, see TODO.md.)
   download. Functional, not yet styled. Detailed below. Done on
   2026-10-21; its user docs are in `README.md`.
 - **v2:** the machines, with their files as downloads; the design, the
-  look and feel (a review of CSS frameworks, animations); an estimate of
-  the total time after the first rows. Next; its phases are still to
-  plan.
+  look and feel (a review of CSS frameworks, animations), with the
+  project's logo ([logo-ideas.md](logo-ideas.md)); an estimate of the
+  total time after the first rows. Next; its phases are still to plan.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side.
 - **The pull request** comes when the UI is ready to present: functional,
