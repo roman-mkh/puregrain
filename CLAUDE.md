@@ -131,10 +131,13 @@ from the code alone.
   — the web UI, the library's second real client, in Halogen. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
-  in `web/`. `npm run web:build` bundles it into `web/dist/`
-  (gitignored), `npm run web:serve` serves that on localhost:8000. The
-  workspace's strict build compiles it, so a library change that breaks
-  it fails `npm run check` and CI.
+  in `web/`; its user docs, with a manual checklist, in `web/README.md`.
+  `npm run web:build` bundles it into `web/dist/` (gitignored),
+  `npm run web:serve` serves that on localhost:8000. The workspace's
+  strict build compiles it, so a library change that breaks it fails
+  `npm run check` and CI. Version 1 (functional, not styled) was done on
+  2026-10-21: loading, the settings, dithering in a worker with progress
+  and cancelling, the split view, the PNG download.
 - **`.purs-repl`** (the REPL's startup file, at the workspace root) is
   committed, through an exception in `.gitignore` (since 2026-10-08;
   spago's own template ignores `.purs*` and treats it as personal, and
@@ -192,6 +195,9 @@ from the code alone.
   (the CLI's size error points there for the resize hint), the files in
   a sentence each, and links.
 - `cli/README.md` — the CLI's user docs.
+- `web/README.md` — the web UI's user docs: running it, using it, its
+  settings as CLI options, and the manual checklist (on the `web-ui`
+  branch until the merge).
 
 ## Core architecture
 

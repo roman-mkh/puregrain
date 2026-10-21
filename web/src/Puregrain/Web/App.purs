@@ -1,6 +1,6 @@
--- | The web UI's component. For now (phase 4 of web/ROADMAP.md): choose
--- | a picture or drop one, choose the settings, see the result, dithered
--- | in a worker with progress and cancelling, over the original at
+-- | The web UI's component, version 1 (web/ROADMAP.md): choose a picture
+-- | or drop one, choose the settings, see the result, dithered in a
+-- | worker with progress and cancelling, over the original at
 -- | whole-number zoom, split by a slider, and save it as a PNG.
 module Puregrain.Web.App (component) where
 

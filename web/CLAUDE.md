@@ -3,7 +3,10 @@
 The web UI's own memory: its architecture and gotchas, which matter only
 when working in `web/` (decision 18 in `ROADMAP.md`). The plan, the
 decisions and the open questions are in `ROADMAP.md`; the library's and
-the workspace's notes in the root `CLAUDE.md`.
+the workspace's notes in the root `CLAUDE.md`. The user docs are in
+`README.md`, with the manual checklist (decision 14): when the UI
+changes, keep its description, its table of the CLI's options and the
+checklist in step.
 
 ## The package
 

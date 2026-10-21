@@ -33,10 +33,12 @@ users is a separate task, see TODO.md.)
 
 - **v1, the spike:** set up the web project; load a picture; basic
   settings; one picture with its result; progress and cancelling; PNG
-  download. Functional, not yet styled. Detailed below.
+  download. Functional, not yet styled. Detailed below. Done on
+  2026-10-21; its user docs are in `README.md`.
 - **v2:** the machines, with their files as downloads; the design, the
   look and feel (a review of CSS frameworks, animations); an estimate of
-  the total time after the first rows.
+  the total time after the first rows. Next; its phases are still to
+  plan.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side.
 - **The pull request** comes when the UI is ready to present: functional,
@@ -98,8 +100,9 @@ users is a separate task, see TODO.md.)
 14. **Testing** (Q8): thin components; the logic (settings to library
     calls, valid combinations, the state's changes on each action) in
     pure functions with specs, run in Node like the other suites; a
-    short manual checklist for the rest. Headless-browser tests are a
-    later decision.
+    short manual checklist for the rest (`README.md`, "Checking a change
+    by hand", since phase 5). Headless-browser tests are a later
+    decision.
 15. **The split slider is our own** (Q9): two canvases stacked in one
     box, the top one cut at the slider's position with CSS; in v1 a
     plain range input sets the position. A handle dragged on the picture,
@@ -139,7 +142,7 @@ users is a separate task, see TODO.md.)
     offline locally. The cost, serving the bytes ourselves, is small:
     Pico is 11.7 KB gzipped, and the bundles are measured in phase 1.
 
-## v1 in detail (draft, to settle)
+## v1 in detail
 
 - **Project:** a workspace package `puregrain-web` in `web/`, modules
   `Puregrain.Web.*`. Its dependencies (Halogen, the browser APIs) never
@@ -231,7 +234,7 @@ None at the moment.
   could be kept as on or off per pixel, for icons and sprites; the
   machines have none.
 
-## Phases of v1 (draft)
+## Phases of v1
 
 0. **Verify and design, no code:** Halogen in our package set; `spago
    bundle` for the app and for the worker; how a worker loads the
@@ -265,4 +268,4 @@ None at the moment.
 - [x] 2. Load and show: picker, drop, decoding, whole-number zoom; checked in headless Firefox at ratios 1 and 1.5
 - [x] 3. Settings and dithering: the form, the worker with the stepper, progress, cancelling; the results equal the CLI's
 - [x] 4. Compare and save: the split view with a range input, the PNG download; checked in headless Firefox at ratios 1 and 1.5
-- [ ] 5. Delivery
+- [x] 5. Delivery: user docs in `README.md`, with the manual checklist (decision 14)
