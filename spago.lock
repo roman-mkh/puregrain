@@ -138,6 +138,7 @@
             "prelude",
             "puregrain",
             "refs",
+            "strings",
             "transformers",
             "unsafe-coerce",
             "web-events",

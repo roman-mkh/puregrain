@@ -153,8 +153,14 @@ users is a separate task, see TODO.md.)
 - **View:** the original and the result in one box with a vertical split
   slider (decision 15), at whole-number zoom (1× to 4×) with sharp pixels: dither
   patterns blur or form moiré at any other scale. Both layers share the
-  box, so they share zoom and scrolling.
-- **Download:** the result as a PNG.
+  box, so they share zoom and scrolling. The original shows left of the
+  split, the result right of it; the split moves by whole picture
+  columns, starts in the middle for each picture and stays there across
+  runs (phase 4).
+- **Download:** the result as a PNG, named after the picture and the
+  settings, with the CLI's names in the form's order:
+  `photo-levels4-atkinson-bayer8.png` (Claude's addition, phase 4: a
+  name per setting tells several downloads apart).
 - **Tests:** as in decision 14.
 
 ## Phase 0 results (2026-10-20)
@@ -213,10 +219,12 @@ None at the moment.
   page's theme.
 - Translations of the UI's texts.
 - **A browser smoke test without Playwright,** for decision 14's later
-  question: phase 1 was checked in the system's Firefox, headless, driven
-  through its built-in remote control (Marionette) by a few lines of
-  Python; see `web/CLAUDE.md`. No npm dependency. Whether GitHub's
-  runners have a Firefox for it in CI is still to check.
+  question: phases 1 to 4 were checked in the system's Firefox, headless,
+  driven through its built-in remote control (Marionette), first by a few
+  lines of Python, in phase 4 by a Node script: the client is about 40
+  lines on `node:net`, and pngjs reads the screenshots and downloads, so
+  it fits the Node stack. See `web/CLAUDE.md`. No new npm dependency.
+  Whether GitHub's runners have a Firefox for it in CI is still to check.
 - Keeping transparency (a question for the library and the CLI too, for
   TODO.md): the library has `RGBA` and dithers it per channel already,
   but palettes are RGB only, and the CLI ignores alpha. Transparency
@@ -256,5 +264,5 @@ None at the moment.
 - [x] 1. Setup: the package, the two bundles, the dev server; checked in headless Firefox
 - [x] 2. Load and show: picker, drop, decoding, whole-number zoom; checked in headless Firefox at ratios 1 and 1.5
 - [x] 3. Settings and dithering: the form, the worker with the stepper, progress, cancelling; the results equal the CLI's
-- [ ] 4. Compare and save
+- [x] 4. Compare and save: the split view with a range input, the PNG download; checked in headless Firefox at ratios 1 and 1.5
 - [ ] 5. Delivery

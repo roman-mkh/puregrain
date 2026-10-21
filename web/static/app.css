@@ -12,3 +12,17 @@
   display: block;
   image-rendering: pixelated;
 }
+
+/* The original and the result stacked in one box (decision 15): the
+   result on top, its left part cut off at the split by a clip-path that
+   the app sets, so the original shows there. */
+.layers {
+  position: relative;
+  width: fit-content;
+}
+
+.result {
+  position: absolute;
+  top: 0;
+  left: 0;
+}

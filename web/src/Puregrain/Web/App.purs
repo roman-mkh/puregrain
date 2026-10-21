@@ -1,7 +1,7 @@
--- | The web UI's component. For now (phase 3 of web/ROADMAP.md): choose
--- | a picture or drop one, choose the settings, and see the result,
--- | dithered in a worker with progress and cancelling, at whole-number
--- | zoom.
+-- | The web UI's component. For now (phase 4 of web/ROADMAP.md): choose
+-- | a picture or drop one, choose the settings, see the result, dithered
+-- | in a worker with progress and cancelling, over the original at
+-- | whole-number zoom, split by a slider, and save it as a PNG.
 module Puregrain.Web.App (component) where
 
 import Prelude
@@ -29,6 +29,7 @@ import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
+import Puregrain.Web.Save (fileName, savePng)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, allKernels, allPalettes, bayerAllowed, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, initial, isOriginal, kernelId, paletteId)
 import Puregrain.Web.Text (texts)
@@ -56,23 +57,25 @@ data Load
   | Loaded Picture
 
 -- | The dithering: none, running (rows done of all), finished with the
--- | result, cancelled, or failed.
+-- | result (and whether saving it failed), cancelled, or failed.
 data Run
   = Idle
   | Running { done :: Int, total :: Int }
-  | Finished ImageData
+  | Finished { image :: ImageData, saveFailed :: Boolean }
   | Cancelled
   | RunFailed String
 
 -- | `loads` and `runs` count the loads and the runs started, so that a
 -- | slow load's result, or an answer from a worker already ended, is
 -- | dropped. `typed` keeps the threshold and the number of levels last
--- | typed, for when those colors are chosen again.
+-- | typed, for when those colors are chosen again. `split` is the
+-- | picture's columns that show the original, left of the result.
 type State =
   { load :: Load
   , loads :: Int
   , zoom :: Int
   , pixelRatio :: Number
+  , split :: Int
   , settings :: Settings
   , typed :: { threshold :: Int, levels :: Int }
   , run :: Run
@@ -96,9 +99,14 @@ data Action
   | GrayChosen Boolean
   | Cancel
   | FromWorker Int Foreign
+  | SplitMoved String
+  | Save
 
-canvasRef :: H.RefLabel
-canvasRef = H.RefLabel "picture"
+originalRef :: H.RefLabel
+originalRef = H.RefLabel "original"
+
+resultRef :: H.RefLabel
+resultRef = H.RefLabel "result"
 
 component :: forall q i o m. MonadAff m => H.Component q i o m
 component = H.mkComponent
@@ -107,6 +115,7 @@ component = H.mkComponent
       , loads: 0
       , zoom: 1
       , pixelRatio: 1.0
+      , split: 0
       , settings: initial
       , typed: { threshold: 128, levels: 2 }
       , run: Idle
@@ -137,31 +146,58 @@ picture state = case state.load of
   Loaded p ->
     let
       size = cssSize state.pixelRatio state.zoom { width: p.width, height: p.height }
+      sizeStyle = "width: " <> show size.width <> "px; height: " <> show size.height <> "px"
+      -- The result's left edge is cut at the split, so the original shows
+      -- on its left: at whole picture columns, so at whole screen pixels.
+      cut = "clip-path: inset(0 0 0 " <> show (toNumber state.split * 100.0 / toNumber p.width) <> "%)"
+      finished = isFinished state.run
     in
       -- The parts whose elements come and go sit in fixed containers, so
-      -- the canvas keeps its place among its siblings: Halogen matches
-      -- unkeyed children by position, and would otherwise rebuild the
-      -- canvas, blank, whenever the progress bar appears or goes.
+      -- the canvases keep their places among their siblings: Halogen
+      -- matches unkeyed children by position, and would otherwise rebuild
+      -- a canvas, blank, whenever the progress bar appears or goes.
       [ HH.p_ [ HH.text (texts.loaded { name: p.name, width: p.width, height: p.height }) ]
       , HH.div [ HP.class_ (H.ClassName "settings") ] (settingsForm state.settings)
       , HH.div [ HP.class_ (H.ClassName "status") ] (runStatus state.run)
-      ]
-        <>
-          [ HH.label_
-              [ HH.text texts.zoom
-              , HH.select [ HE.onValueChange ZoomChosen ]
-                  (map (\z -> option (show z) (texts.zoomLevel z) (z == state.zoom)) zooms)
+      , HH.label_
+          [ HH.text texts.zoom
+          , HH.select [ HE.onValueChange ZoomChosen ]
+              (map (\z -> option (show z) (texts.zoomLevel z) (z == state.zoom)) zooms)
+          ]
+      , HH.label_
+          [ HH.text texts.split
+          , HH.input
+              [ HP.type_ HP.InputRange
+              , HP.min 0.0
+              , HP.max (toNumber p.width)
+              , HP.value (show state.split)
+              , HP.disabled (not finished)
+              , HE.onValueInput SplitMoved
               ]
-          , HH.div [ HP.class_ (H.ClassName "view") ]
+          ]
+      -- The original and the result stacked in one box (decision 15), so
+      -- they share its zoom and scrolling; the result only once there is
+      -- one.
+      , HH.div [ HP.class_ (H.ClassName "view") ]
+          [ HH.div [ HP.class_ (H.ClassName "layers") ]
               [ HH.canvas
-                  [ HP.ref canvasRef
+                  [ HP.ref originalRef
                   , HP.class_ (H.ClassName "picture")
                   , HP.width p.width
                   , HP.height p.height
-                  , HP.style ("width: " <> show size.width <> "px; height: " <> show size.height <> "px")
+                  , HP.style sizeStyle
+                  ]
+              , HH.canvas
+                  [ HP.ref resultRef
+                  , HP.classes [ H.ClassName "picture", H.ClassName "result" ]
+                  , HP.width p.width
+                  , HP.height p.height
+                  , HP.style (sizeStyle <> "; " <> cut)
+                  , HP.prop (H.PropName "hidden") (not finished)
                   ]
               ]
           ]
+      ]
 
 settingsForm :: forall m. Settings -> Array (H.ComponentHTML Action () m)
 settingsForm s =
@@ -229,12 +265,19 @@ runStatus = case _ of
     , HH.progress [ HP.max (toNumber r.total), HP.value (toNumber r.done) ] []
     , HH.button [ HE.onClick (const Cancel) ] [ HH.text texts.cancel ]
     ]
-  Finished _ -> []
+  Finished r ->
+    [ HH.button [ HE.onClick (const Save) ] [ HH.text texts.save ] ]
+      <> (if r.saveFailed then [ HH.p_ [ HH.text texts.saveFailed ] ] else [])
   Cancelled -> [ HH.p_ [ HH.text texts.cancelled ] ]
   RunFailed reason -> [ HH.p_ [ HH.text (texts.ditherFailed reason) ] ]
 
 option :: forall m. String -> String -> Boolean -> H.ComponentHTML Action () m
 option value label selected = HH.option [ HP.value value, HP.selected selected ] [ HH.text label ]
+
+isFinished :: Run -> Boolean
+isFinished = case _ of
+  Finished _ -> true
+  _ -> false
 
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
@@ -284,7 +327,6 @@ handleAction = case _ of
   Cancel -> do
     stopWorker
     H.modify_ _ { run = Cancelled }
-    showPixels
   FromWorker id reply -> do
     s <- H.get
     when (id == s.runs) do
@@ -295,8 +337,27 @@ handleAction = case _ of
         Right (Done pixels) -> case s.load of
           Loaded p -> do
             image <- liftEffect (toImageData pixels p.width p.height)
-            finish (Finished image)
+            -- Drawn while its canvas is still hidden, then shown.
+            canvas <- H.getHTMLElementRef resultRef
+            for_ canvas \element -> liftEffect (Picture.draw element image)
+            finish (Finished { image, saveFailed: false })
           _ -> pure unit
+  SplitMoved value -> do
+    s <- H.get
+    case s.load, Int.fromString value of
+      Loaded p, Just split -> H.modify_ _ { split = clamp 0 p.width split }
+      _, _ -> pure unit
+  Save -> do
+    s <- H.get
+    canvas <- H.getHTMLElementRef resultRef
+    case s.load, s.run, canvas of
+      Loaded p, Finished _, Just element -> do
+        saved <- liftAff (savePng element (fileName p.name s.settings))
+        -- Unless another run has started meanwhile (`runs` counts on).
+        H.modify_ \now -> case now.run of
+          Finished r | now.runs == s.runs -> now { run = Finished r { saveFailed = not saved } }
+          _ -> now
+      _, _, _ -> pure unit
   where
   readPixelRatio = do
     ratio <- liftEffect pixelRatio
@@ -304,7 +365,6 @@ handleAction = case _ of
   finish run = do
     stopWorker
     H.modify_ _ { run = run }
-    showPixels
 
 -- | A change of the settings; a real change restarts the dithering.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
@@ -324,7 +384,6 @@ restart = do
   case s.load of
     Loaded p | not (isOriginal s.settings) -> startRun p s.settings
     _ -> H.modify_ _ { run = Idle }
-  showPixels
 
 -- | A new worker, given the settings, the size and a copy of the picture's
 -- | pixels; its answers come back as `FromWorker`, with this run's number.
@@ -347,20 +406,6 @@ stopWorker = do
   for_ s.worker (liftEffect <<< Worker.terminate)
   H.modify_ _ { worker = Nothing, runs = s.runs + 1 }
 
--- | Draws what the view shows: the result once there is one, the original
--- | otherwise, also while a run is going.
-showPixels :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
-showPixels = do
-  s <- H.get
-  case s.load of
-    Loaded p -> do
-      canvas <- H.getHTMLElementRef canvasRef
-      let
-        pixels = case s.run of
-          Finished image -> image
-          _ -> p.pixels
-      for_ canvas \element -> liftEffect (Picture.draw element pixels)
-    _ -> pure unit
 
 loadFile :: forall o m. MonadAff m => File -> H.HalogenM State Action () o m Unit
 loadFile file = do
@@ -372,6 +417,8 @@ loadFile file = do
     case result of
       Left err -> H.modify_ _ { load = Failed { name: File.name file, reason: message err } }
       Right p -> do
-        H.modify_ _ { load = Loaded p }
-        -- The state change rendered the canvas; dither, and draw.
+        H.modify_ _ { load = Loaded p, split = p.width / 2 }
+        -- The state change rendered the canvases; draw, and dither.
+        canvas <- H.getHTMLElementRef originalRef
+        for_ canvas \element -> liftEffect (Picture.draw element p.pixels)
         restart

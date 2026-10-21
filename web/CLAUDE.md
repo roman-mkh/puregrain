@@ -20,15 +20,16 @@ the workspace's notes in the root `CLAUDE.md`.
   with `foreign`), `Puregrain.Web.Pixels` (reading and writing rows of the
   RGBA bytes; FFI, rounding as the CLI's PNG writer),
   `Puregrain.Web.Run` (the row loop with the stepper, progress as a
-  callback), `Puregrain.Web.Worker` (the worker's entry: only its
-  messaging). The page imports the library only through the `Puregrain`
-  facade, as the CLI does. `web/static/` holds `index.html`, which loads
-  `pico.min.css`, `app.css` and `app.js`.
+  callback), `Puregrain.Web.Save` (the result's file name, pure, and
+  the download; FFI), `Puregrain.Web.Worker` (the worker's entry: only
+  its messaging). The page imports the library only through the
+  `Puregrain` facade, as the CLI does. `web/static/` holds `index.html`,
+  which loads `pico.min.css`, `app.css` and `app.js`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
-  (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `ZoomSpec`),
-  run by `spago test` with the other suites, in Node, so only modules
-  that don't touch the browser at load (FFI that only uses the browser
-  when called is fine). `RunSpec` pins the worker's row loop to the
+  (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `SaveSpec`,
+  `ZoomSpec`), run by `spago test` with the other suites, in Node, so
+  only modules that don't touch the browser at load (FFI that only uses
+  the browser when called is fine). `RunSpec` pins the worker's row loop to the
   CLI's path: the same bytes as `ditherImage` on the whole picture, with
   the CLI's gray conversion and rounding, for 8 settings.
 - **A run:** each change of the picture or a setting ends the worker and
@@ -37,6 +38,14 @@ the workspace's notes in the root `CLAUDE.md`.
   of the rows, then the result's pixels (transferred). `runs` counts the
   runs, ended ones included, so an answer from an ended worker is
   dropped. While a run goes, the view shows the original.
+- **The view:** two canvases stacked in `.layers`, the original below,
+  drawn once per picture, and the result on top, drawn when a run
+  finishes, before it's shown. Without a result it's hidden (the
+  `hidden` property, which Pico makes `display: none`), and the slider
+  and the download are unavailable. The result's `clip-path: inset(0 0 0
+  X%)` cuts off its left part: X is the split, the range input's value
+  in picture columns (0 to the width) as a share of the width, so the
+  cut falls between screen pixels at every zoom and pixel ratio.
 - **Zoom in screen pixels:** the canvas's CSS size is the picture's size
   × zoom ÷ `devicePixelRatio`, so each picture pixel is exactly zoom ×
   zoom screen pixels, also at fractional ratios (1.25, 1.5 on many
@@ -50,9 +59,10 @@ the workspace's notes in the root `CLAUDE.md`.
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after phase 3: `app.js` 111.7 KB, 27.3 KB gzipped (77.9 KB,
+- **Sizes** after phase 4: `app.js` 115.8 KB, 28.5 KB gzipped (77.9 KB,
   19.1 KB gzipped after phase 1: mostly Halogen); `worker.js` 45.7 KB,
-  12.1 KB gzipped, now with the library; Pico 11.7 KB gzipped.
+  12.1 KB gzipped, with the library (since phase 3); Pico 11.7 KB
+  gzipped.
 
 ## Building
 
@@ -156,6 +166,15 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
 - **Sharp pixels:** CSS `image-rendering: pixelated` (Firefox 93, Safari
   10). **The split view:** `clip-path` with `inset()` on the top layer.
 - **Download:** `canvas.toBlob`, `URL.createObjectURL` and `<a download>`.
+  The link needn't be in the page: the HTML standard lets an `a` element
+  follow its link unconnected ("cannot navigate" excepts `a` elements).
+  The download fetches the file after the click has returned, so the URL
+  is revoked 40 s later, as FileSaver.js does.
+- **Firefox's PNG** from `toBlob` (version 157, a fresh profile) is RGBA
+  (color type 6) with a private chunk `deBG` after the image data: 16
+  hex digits made from its fingerprinting protection's randomization key
+  and the image's hash (`nsPNGEncoder::MaybeAddCustomMetadata` in its
+  source). The pixels are exact; only the file's bytes vary.
 - **Workers:** classic workers and `terminate` everywhere; a message's
   `ArrayBuffer` can be transferred instead of copied.
 
@@ -163,9 +182,10 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
 
 Without Playwright (decision 14): the system's Firefox, headless, driven
 through Marionette, its built-in remote control (length-prefixed JSON
-over TCP, port 2828), by a few lines of Python from the standard
-library. Phase 1's check loaded the page and read "The worker answered:
-ping" from it.
+over TCP, port 2828), by a few lines of Python from the standard library
+(phases 1 to 3) or of Node (phase 4: a client of about 40 lines on
+`node:net`, with pngjs reading screenshots and downloads). Phase 1's
+check loaded the page and read "The worker answered: ping" from it.
 
 - **Firefox here is a snap** (`/usr/bin/firefox` starts
   `/snap/bin/firefox`, version 157): it has a private `/tmp`, so a
@@ -184,9 +204,23 @@ ping" from it.
   1024×1024 run shows rising progress, the page answers within a few
   milliseconds meanwhile, and Cancel ends it, shows the original, and
   no late answer is applied.
+- **Checked in phase 4:** the view shows the original left of the split
+  and the result right of it, exact to the screen pixel, at ratio 1
+  (zoom 1× at splits 0, 1, 37, 160, 319 and 320, and 3×) and at 1.5 (1×
+  and 2×); the split stays across runs and is back in the middle for a
+  new picture. The downloads (4 levels with Atkinson, a threshold with
+  Floyd–Steinberg) have the CLI's pixel values and the settings' names.
+  While a run goes and after Cancel, the result is hidden, the slider
+  disabled, and no download offered.
+- **Downloads** go straight into a folder with these in the profile's
+  `user.js`: `browser.download.folderList` 2, `browser.download.dir`,
+  `browser.download.useDownloadDir` true and
+  `browser.download.always_ask_before_handling_new_types` false.
+  `marionette.port` (2829, say) moves Marionette off its default port.
 - **A dev server may already be running on port 8000,** the user's own
   (`npm run web:serve`): checks use another port (8001), and stop only
-  their own server.
+  their own server. The user's own Firefox may be running too: a check's
+  Firefox runs with `-no-remote` and its own profile beside it.
 - **Another pixel ratio:** a profile's `user.js` with
   `user_pref("layout.css.devPixelsPerPx", "1.5");` makes Firefox's ratio
   1.5, like many laptops.

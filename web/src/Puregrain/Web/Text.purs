@@ -32,6 +32,9 @@ texts
      , cancel :: String
      , cancelled :: String
      , ditherFailed :: String -> String
+     , split :: String
+     , save :: String
+     , saveFailed :: String
      }
 texts =
   { title: "puregrain"
@@ -70,4 +73,7 @@ texts =
   , cancel: "Cancel"
   , cancelled: "Cancelled; the original is shown."
   , ditherFailed: \reason -> "The dithering failed: " <> reason
+  , split: "Split: the original on the left, the result on the right"
+  , save: "Download as PNG"
+  , saveFailed: "The browser couldn't make the PNG."
   }
