@@ -35,15 +35,19 @@ users is a separate task, see TODO.md.)
   settings; one picture with its result; progress and cancelling; PNG
   download. Functional, not yet styled. Detailed below. Done on
   2026-10-21; its user docs are in `README.md`.
-- **v2:** the machines, with their files as downloads; the design, the
-  look and feel (a review of CSS frameworks, animations), with the
-  project's logo ([logo-ideas.md](logo-ideas.md)); an estimate of the
-  total time after the first rows. Next; its phases are still to plan.
+- **v2:** the machines, with their files as downloads; fitting a picture
+  to the machine's screen; an estimate of the time left; the project's
+  logo ([logo-ideas.md](logo-ideas.md)); the design, the look and feel;
+  at its end the merge into `master` and the hosting. Planned on
+  2026-10-22: decisions 20 to 26, and the phases below.
+- **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
+  the default, with a switch to turn it off, released as the library's
+  0.3.0. The web UI then gets the switch too.
 - **v3:** several results kept and compared; magnifying with synchronized
-  pan; side by side.
-- **The pull request** comes when the UI is ready to present: functional,
-  styled and hosted on GitHub (decision 13; the hosting is the user's
-  decision, since it publishes).
+  pan; side by side. On a new branch from `master` (decision 20).
+- **The pull request** comes at the end of v2 (decision 20), when the UI
+  is ready to present: functional, styled and hosted on GitHub (decision
+  13; the hosting is the user's decision, since it publishes).
 - **Later:** see "Later ideas".
 
 ## Decisions
@@ -142,6 +146,67 @@ users is a separate task, see TODO.md.)
     offline locally. The cost, serving the bytes ourselves, is small:
     Pico is 11.7 KB gzipped, and the bundles are measured in phase 1.
 
+Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
+
+20. **The merge after v2** (v2's Q1): with v2 the web UI is functional,
+    styled and hosted, decision 13's conditions, so `web-ui` goes into
+    `master` by one pull request at the end of v2. v3 starts on a new
+    branch from `master`, after dithering in linear light (see
+    "Versions").
+21. **Machine screens** (v2's Q2): both machines, the ZX Spectrum with its
+    palettes full, normal and bright, and the C64's hires mode, with
+    ordered dithering inside the cells, the kernels and gray first, as in
+    the CLI. The result is a PNG; for a picture of the screen's size
+    (256×192, 320×200) the machine's files too: `.scr` and `.tap`,
+    `.prg` and `.art`. A machine with no method gives flat cells: a hint
+    names the recommended method (ordered dithering, 8×8), and nothing is
+    chosen by itself (decision 16). The tape's name follows the CLI's
+    rule (the name without its extension, printable ASCII only, the
+    first 10 characters), applied to the picture's name, since the
+    download's is generated; `puregrain` when nothing printable is left.
+    Progress comes after each band of cells, counted in the rows each
+    band brings: no cell height is needed, and the last, partial band of
+    a poster counts right.
+22. **Fit to the screen** (v2's Q3): besides the CLI's rule (a PNG of any
+    size, the machine's files only at the screen's size), the page
+    offers to fit a picture to the machine's screen: scaled to cover it,
+    and what's left over cropped. Photos are far bigger than the screen:
+    cropping alone would keep 0.4% of a 12-megapixel photo. Who scales,
+    the browser or our own code (in the library, so that the CLI could
+    offer the same with `--fit`), is settled before the phase.
+23. **The time estimate** (v2's Q4, the user's design): time so far ÷
+    rows done × rows left, from all the rows so far, updated with each
+    progress message. Shown once the predicted total is over 10 s, the
+    limit of attention in Jakob Nielsen's response-time limits
+    (*Usability Engineering*, 1993): beyond it, users turn to other things
+    and want to know when the computer expects to be done. Once shown, it
+    stays until the end. As "about 40 s left" or "about 2 min 30 s left";
+    the progress bar stays for every run.
+24. **The design process** (v2's Q5, the user's): the logo first, in its
+    own phase, since it can set the design's direction; then the screen's
+    areas in text, sketches (as text, as HTML mockups, the user's as
+    images), the components, and then the technical choices. Responsive,
+    accessible (keyboard, labels, contrast), light and dark: today's
+    standard. With a machine there are several downloads: a format menu
+    next to the download button (the user's idea), settled in the design.
+25. **A browser smoke test in v2** (v2's Q6): `npm run check:web`
+    automates the checklist's exact parts: the CLI's pixels, the split,
+    the downloads. Its tool, and CI, are settled before the delivery
+    phase: our own Marionette client (Firefox only, no dependency; it
+    checked phases 1 to 4, see `web/CLAUDE.md`), Puppeteer over WebDriver
+    BiDi (Chrome, Firefox), or Playwright (Chromium, Firefox, WebKit:
+    Claude's recommendation, as it covers the engines of all four target
+    browsers).
+26. **Hosting on GitHub Pages** (v2's Q7): from `master` after the merge,
+    built and deployed by a GitHub Actions workflow, at
+    `https://roman-mkh.github.io/puregrain/`. **No visitor statistics**
+    (the user's decision): Pages has none for a site (the repository's
+    traffic page counts its pages on github.com), and an analytics script
+    would break decision 19 and the README's privacy promise. Turning
+    Pages on is the user's, since it publishes. A temporary preview from
+    `web-ui`, to try phones, Safari and Chrome, is an option for the
+    design phase.
+
 ## v1 in detail
 
 - **Project:** a workspace package `puregrain-web` in `web/`, modules
@@ -213,21 +278,17 @@ candidate for the library after v1.
 
 ## Open questions
 
-None at the moment.
+Each is settled before its phase of v2:
+
+- **Phase 2:** who scales a picture to fit the screen, the browser or our
+  own code (decision 22).
+- **Phase 7:** the smoke test's tool, and CI (decision 25).
 
 ## Later ideas
 
-- An estimate of the total time, after the first rows (v2).
 - The background color for transparent parts: configurable, or from the
   page's theme.
 - Translations of the UI's texts.
-- **A browser smoke test without Playwright,** for decision 14's later
-  question: phases 1 to 4 were checked in the system's Firefox, headless,
-  driven through its built-in remote control (Marionette), first by a few
-  lines of Python, in phase 4 by a Node script: the client is about 40
-  lines on `node:net`, and pngjs reads the screenshots and downloads, so
-  it fits the Node stack. See `web/CLAUDE.md`. No new npm dependency.
-  Whether GitHub's runners have a Firefox for it in CI is still to check.
 - Keeping transparency (a question for the library and the CLI too, for
   TODO.md): the library has `RGBA` and dithers it per channel already,
   but palettes are RGB only, and the CLI ignores alpha. Transparency
@@ -261,7 +322,7 @@ None at the moment.
    (decision 13). CONTRIBUTING.md gets the branching rule (decisions 1
    and 13) with the pull request.
 
-## Progress
+## Progress of v1
 
 - [x] 0. Verify and design
 - [x] 1. Setup: the package, the two bundles, the dev server; checked in headless Firefox
@@ -269,3 +330,45 @@ None at the moment.
 - [x] 3. Settings and dithering: the form, the worker with the stepper, progress, cancelling; the results equal the CLI's
 - [x] 4. Compare and save: the split view with a range input, the PNG download; checked in headless Firefox at ratios 1 and 1.5
 - [x] 5. Delivery: user docs in `README.md`, with the manual checklist (decision 14)
+
+## Phases of v2
+
+The scope and the phases are settled now; the technical details and the
+design before each phase; and the plan is corrected as the phases teach
+us (the user's proposal, 2026-10-22). The sizes are rough.
+
+0. **Verify and design, no code** (small): the machine path in the
+   worker (`Puregrain.Cells.ditherBands` with the rows read as needed,
+   progress after each band, the `{ cells, image }` record the file
+   writers take); the CLI's rules to mirror (the size check, the tape's
+   name, how the defaults combine); downloads made from bytes; the
+   estimate's rule.
+1. **Machine screens** (large): decision 21. The settings, the worker's
+   band path, the four files, the downloads; the results checked against
+   the CLI's, by specs and in the browser.
+2. **Fit to the screen** (medium): decision 22.
+3. **The time estimate** (small): decision 23.
+4. **The logo** (medium): its concept and colors, the script that makes
+   it with puregrain, SVG and PNG, the favicon
+   ([logo-ideas.md](logo-ideas.md)); before the page's design (decision
+   24).
+5. **Design review** (medium, mostly discussion): the screen's areas in
+   text, sketches, components, the technical choices (decision 24).
+6. **Design** (large): the look; the split handle dragged on the picture
+   (decision 15); responsive, accessible, light and dark; the download
+   button with its format menu.
+7. **Delivery of v2** (medium): user docs, the checklist and the
+   CLAUDE.md notes; the smoke test (decision 25); the Pages workflow
+   (decision 26); the pull request, with the logo in the root README and
+   CONTRIBUTING.md's branching rule (decisions 1 and 13).
+
+## Progress of v2
+
+- [ ] 0. Verify and design
+- [ ] 1. Machine screens
+- [ ] 2. Fit to the screen
+- [ ] 3. The time estimate
+- [ ] 4. The logo
+- [ ] 5. Design review
+- [ ] 6. Design
+- [ ] 7. Delivery

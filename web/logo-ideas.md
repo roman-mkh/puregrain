@@ -1,8 +1,8 @@
 # Logo: ideas
 
-Working notes for the project's logo, to design with the web UI's v2
-([ROADMAP.md](ROADMAP.md)). Only the approach is agreed so far; the
-questions below are open.
+Working notes for the project's logo, made in the web UI's v2
+([ROADMAP.md](ROADMAP.md), phase 4). Only the approach is agreed so far;
+the questions below are open.
 
 ## Where it's used
 
@@ -56,6 +56,6 @@ test-image previews (`npm run docs:images`).
 
 ## When
 
-With the web UI's v2 design, on `web-ui`: the page needs the logo, and
-the two are best designed together. The README gets it with the merge
-into `master`, when the web UI is presented.
+In its own phase of v2 (phase 4 in ROADMAP.md), before the page's design,
+whose direction it may set; on `web-ui`, since the page needs it. The
+README gets it with the merge into `master` at the end of v2.
