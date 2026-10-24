@@ -4,7 +4,8 @@
 -- | it (decision 11 in web/ROADMAP.md).
 -- |
 -- | It reads its job, dithers the picture (`Puregrain.Web.Run`), reports
--- | the progress, and sends the result's pixels, transferred, not copied.
+-- | the progress, and sends the result's pixels and a machine's files,
+-- | transferred, not copied.
 module Puregrain.Web.Worker (main) where
 
 import Prelude
@@ -22,7 +23,7 @@ main :: Effect Unit
 main = Self.onMessage \event -> case runExcept (readJob (data_ event)) of
   Left errors -> Self.postMessage (errorMessage ("the worker couldn't read its job: " <> describe errors))
   Right job -> do
-    result <- ditherPicture job.settings { width: job.width, height: job.height, pixels: job.pixels } (Self.postMessage <<< progressMessage)
+    result <- ditherPicture job (Self.postMessage <<< progressMessage)
     case result of
       Left reason -> Self.postMessage (errorMessage reason)
-      Right out -> Self.postMessage' (doneMessage out) [ transferable out ]
+      Right out -> Self.postMessage' (doneMessage out) ([ transferable out.pixels ] <> map (transferable <<< _.bytes) out.files)

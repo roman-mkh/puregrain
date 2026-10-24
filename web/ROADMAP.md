@@ -437,7 +437,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 ## Progress of v2
 
 - [x] 0. Verify and design: the machine path needs no library change; the CLI's rules, downloads from bytes, the estimate's clock
-- [ ] 1. Machine screens
+- [x] 1. Machine screens: the target menu, both machines with their palettes, the band loop with progress, the four files; the screens and files equal the CLI's, byte for byte
 - [ ] 2. Fit to the screen
 - [ ] 3. The time estimate
 - [ ] 4. The logo

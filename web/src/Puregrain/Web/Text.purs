@@ -4,7 +4,7 @@ module Puregrain.Web.Text (texts) where
 
 import Prelude
 
-import Puregrain.Web.Settings (KernelName(..), PaletteName(..))
+import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), screenSizeOf)
 
 texts
   :: { title :: String
@@ -14,11 +14,15 @@ texts
      , loaded :: { name :: String, width :: Int, height :: Int } -> String
      , zoom :: String
      , zoomLevel :: Int -> String
+     , target :: String
+     , targetName :: Target -> String
      , colors :: String
      , colorsOriginal :: String
      , colorsThreshold :: String
      , colorsLevels :: String
      , palette :: PaletteName -> String
+     , machinePalette :: MachineName -> MachinePaletteName -> String
+     , sizeNote :: MachineName -> { width :: Int, height :: Int } -> String
      , thresholdValue :: String
      , levelsValue :: String
      , kernel :: String
@@ -27,6 +31,7 @@ texts
      , bayerOff :: String
      , bayerSide :: Int -> String
      , bayerNeedsLevels :: String
+     , flatCells :: String
      , gray :: String
      , dithering :: { done :: Int, total :: Int } -> String
      , cancel :: String
@@ -34,6 +39,7 @@ texts
      , ditherFailed :: String -> String
      , split :: String
      , save :: String
+     , saveFile :: String -> String
      , saveFailed :: String
      }
 texts =
@@ -44,6 +50,10 @@ texts =
   , loaded: \p -> p.name <> ": " <> show p.width <> " × " <> show p.height <> " pixels"
   , zoom: "Zoom"
   , zoomLevel: \zoom -> show zoom <> "×"
+  , target: "Target"
+  , targetName: case _ of
+      AnyScreen -> "Any screen"
+      Machine machine -> machineName machine
   , colors: "Colors"
   , colorsOriginal: "None: the original"
   , colorsThreshold: "Gray, black and white at a threshold"
@@ -56,6 +66,18 @@ texts =
       Ansi256 -> "xterm, 256 colors"
       C64 -> "Commodore 64, 16 colors"
       ZxSpectrum -> "ZX Spectrum, 15 colors"
+  , machinePalette: \machine palette -> case machine, palette of
+      C64HiresScreen, _ -> "16 colors"
+      ZxSpectrumScreen, FullPalette -> "15 colors, normal and bright"
+      ZxSpectrumScreen, NormalPalette -> "8 colors, normal only"
+      ZxSpectrumScreen, BrightPalette -> "8 colors, bright only"
+  , sizeNote: \machine picture ->
+      let
+        screen = screenSizeOf machine
+      in
+        "A " <> machineName machine <> " screen is " <> show screen.width <> " × " <> show screen.height
+          <> "; this picture is " <> show picture.width <> " × " <> show picture.height
+          <> ". Any size works for a PNG; the machine's own files need the screen's size."
   , thresholdValue: "Threshold (0-255)"
   , levelsValue: "Levels (2-256)"
   , kernel: "Error diffusion"
@@ -68,6 +90,7 @@ texts =
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette."
+  , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
   , gray: "Turn the picture gray first"
   , dithering: \p -> "Dithering: " <> show p.done <> " of " <> show p.total <> " rows"
   , cancel: "Cancel"
@@ -75,5 +98,10 @@ texts =
   , ditherFailed: \reason -> "The dithering failed: " <> reason
   , split: "Split: the original on the left, the result on the right"
   , save: "Download as PNG"
+  , saveFile: \format -> "Download ." <> format
   , saveFailed: "The browser couldn't make the PNG."
   }
+  where
+  machineName = case _ of
+    ZxSpectrumScreen -> "ZX Spectrum"
+    C64HiresScreen -> "Commodore 64"

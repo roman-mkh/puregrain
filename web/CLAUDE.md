@@ -16,31 +16,50 @@ checklist in step.
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
-  the choices and the CLI's rules for them, and their message form),
-  `Puregrain.Web.Dither` (pure: the settings as library values, as the
-  CLI's `Pipeline` builds them; its gray conversion copied from there),
-  `Puregrain.Web.Message` (the page's and the worker's messages, decoded
-  with `foreign`), `Puregrain.Web.Pixels` (reading and writing rows of the
-  RGBA bytes; FFI, rounding as the CLI's PNG writer),
-  `Puregrain.Web.Run` (the row loop with the stepper, progress as a
-  callback), `Puregrain.Web.Save` (the result's file name, pure, and
-  the download; FFI), `Puregrain.Web.Worker` (the worker's entry: only
-  its messaging). The page imports the library only through the
-  `Puregrain` facade, as the CLI does. `web/static/` holds `index.html`,
-  which loads `pico.min.css`, `app.css` and `app.js`.
+  the choices, the target among them, the CLI's rules for them, and
+  their message form), `Puregrain.Web.Dither` (pure: the settings as
+  library values, as the CLI's `Pipeline` builds them; its gray
+  conversion copied from there), `Puregrain.Web.Message` (the page's and
+  the worker's messages, decoded with `foreign`), `Puregrain.Web.Pixels`
+  (reading and writing rows of the RGBA bytes, rounding as the CLI's PNG
+  writer, and a file's bytes; FFI), `Puregrain.Web.Run` (the row loop
+  with the stepper, and a machine's band loop with its files, progress as
+  a callback), `Puregrain.Web.Save` (the files' names and the tape's,
+  pure, and the downloads; FFI), `Puregrain.Web.Worker` (the worker's
+  entry: only its messaging). The page and the worker import the library
+  through the `Puregrain` facade, and the specialty modules outside it
+  (`Puregrain.Cells`, `Puregrain.Machine.*`) directly, as the CLI does;
+  only the worker's bundle holds those. `web/static/` holds
+  `index.html`, which loads `pico.min.css`, `app.css` and `app.js`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
   (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `SaveSpec`,
   `ZoomSpec`), run by `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
-  the browser when called is fine). `RunSpec` pins the worker's row loop to the
-  CLI's path: the same bytes as `ditherImage` on the whole picture, with
-  the CLI's gray conversion and rounding, for 8 settings.
+  the browser when called is fine). `RunSpec` pins the worker's row loop
+  to the CLI's path: the same bytes as `ditherImage` on the whole
+  picture, with the CLI's gray conversion and rounding, for 8 settings;
+  and the band loop: the same pixels and files as `ditherCells` and the
+  machines' writers, for 6 machine settings, with progress after each
+  band. Seven deliberate breakages were all caught (v2's phase 1); one
+  first slipped through, the Spectrum's normal colors mapped to its
+  bright screen mode, since both sides used the same mapping: a spec
+  pins the mapping against the library's modes now.
 - **A run:** each change of the picture or a setting ends the worker and
   starts a new one with the settings, the size and a copy of the pixels
-  (transferred); the worker answers with progress after every hundredth
-  of the rows, then the result's pixels (transferred). `runs` counts the
+  (transferred), and the name for a ZX Spectrum tape; the worker answers
+  with progress after every hundredth of the rows, or after each band of
+  a machine's cells, then the result's pixels and, for a machine's screen
+  of the screen's size, its files (all transferred). `runs` counts the
   runs, ended ones included, so an answer from an ended worker is
   dropped. While a run goes, the view shows the original.
+- **A lazy list keeps every cell it has computed, for whatever holds its
+  first cell.** The band loop reads rows through a lazy list and gets
+  the bands as one, so a variable holding either list's start would
+  keep the whole picture: measured on a 1024 × 4096 poster for the ZX
+  Spectrum (Node, the live heap after a collection every 512 rows), it
+  grew steadily to 417 MB. `Run` makes both lists afresh where they're
+  consumed, from functions, so only the loop's reference moves along
+  them: the heap stays within about 1 MB of the start.
 - **The view:** two canvases stacked in `.layers`, the original below,
   drawn once per picture, and the result on top, drawn when a run
   finishes, before it's shown. Without a result it's hidden (the
@@ -62,10 +81,10 @@ checklist in step.
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after phase 4: `app.js` 115.8 KB, 28.5 KB gzipped (77.9 KB,
-  19.1 KB gzipped after phase 1: mostly Halogen); `worker.js` 45.7 KB,
-  12.1 KB gzipped, with the library (since phase 3); Pico 11.7 KB
-  gzipped.
+- **Sizes** after v2's phase 1: `app.js` 126.1 KB, 30.8 KB gzipped
+  (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen);
+  `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since v1's
+  phase 3) and the machines' modules; Pico 11.7 KB gzipped.
 
 ## Building
 
@@ -226,10 +245,20 @@ check loaded the page and read "The worker answered: ping" from it.
   Floyd–Steinberg) have the CLI's pixel values and the settings' names.
   While a run goes and after Cancel, the result is hidden, the slider
   disabled, and no download offered.
+- **Checked in v2's phase 1:** on the color composites at the screens'
+  sizes, the page's ZX Spectrum screen (the 8×8 Bayer map; the bright
+  colors with Atkinson) and C64 screen (the 8×8 map) equal the CLI's,
+  every pixel, and the downloaded `.scr`, `.tap`, `.prg` and `.art`
+  are byte for byte the CLI's files; the 512 × 512 composite gives the
+  CLI's poster, with the size note and the PNG button only. The target's
+  menus, the hint and the return to any screen work as decision 21
+  says.
 - **Downloads** go straight into a folder with these in the profile's
   `user.js`: `browser.download.folderList` 2, `browser.download.dir`,
   `browser.download.useDownloadDir` true and
-  `browser.download.always_ask_before_handling_new_types` false.
+  `browser.download.always_ask_before_handling_new_types` false; for a
+  machine's files, `browser.helperApps.neverAsk.saveToDisk` names
+  `application/octet-stream` too.
   `marionette.port` (2829, say) moves Marionette off its default port.
 - **A dev server may already be running on port 8000,** the user's own
   (`npm run web:serve`): checks use another port (8001), and stop only

@@ -2,12 +2,14 @@
 -- | options. `isNeutral`, `luma` and `toNeutral` are copied from the CLI's
 -- | `Puregrain.Cli.Pipeline`, so both clients turn a picture gray alike;
 -- | after v1 they're a candidate for the library (web/ROADMAP.md, phase 0
--- | results).
+-- | results). The machines' modules aren't in the `Puregrain` facade, so
+-- | they're imported directly, as the CLI does.
 module Puregrain.Web.Dither
   ( Pipeline(..)
   , pipelineFor
   , kernelOf
   , paletteOf
+  , zxModeOf
   , isNeutral
   , luma
   , toNeutral
@@ -17,19 +19,25 @@ import Prelude
 
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Int (toNumber)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), maybe)
 import Partial.Unsafe (unsafeCrashWith)
 import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, threshold, websafe216, zxSpectrum)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), PaletteName(..), Settings)
+import Puregrain.Cells (CellMode, CellQuantizer, nearestInCell, orderedInCell)
+import Puregrain.Machine.ZxSpectrum as Zx
+import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName, MachinePaletteName(..), PaletteName(..), Settings, Target(..))
 
--- | Dither in one gray channel, or in RGB.
+-- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
+-- | cell by cell, with the machine's palette and a rule inside the cells).
 data Pipeline
   = Gray (Quantize Number)
   | Color (Quantize RGB)
+  | Screen { machine :: MachineName, palette :: MachinePaletteName, rule :: CellQuantizer }
 
 -- | The quantizer for the settings, as the CLI chooses it: a threshold
 -- | always on gray; levels, with or without a Bayer map, on gray for a
--- | gray picture and per channel otherwise; a palette always on RGB.
+-- | gray picture and per channel otherwise; a palette always on RGB; a
+-- | machine's colors on RGB too, with the nearer of each cell's colors,
+-- | or with a Bayer map ordered dithering inside the cells.
 -- | `grayPicture` is true for an all-neutral picture, or when the settings
 -- | turn it gray. `Nothing` for the original: nothing to dither.
 pipelineFor :: Settings -> Boolean -> Maybe Pipeline
@@ -44,6 +52,10 @@ pipelineFor s grayPicture = case s.colors of
     in
       Just (if grayPicture then Gray scalar else Color (perChannel scalar))
   Palette p -> Just (Color (nearestColor (paletteOf p)))
+  MachineColors palette -> case s.target of
+    Machine machine -> Just (Screen { machine, palette, rule: maybe nearestInCell (orderedInCell <<< bayerOf) s.bayer })
+    -- The settings' rules rule these colors out for any screen.
+    AnyScreen -> Nothing
 
 kernelOf :: KernelName -> Kernel
 kernelOf = case _ of
@@ -61,6 +73,13 @@ paletteOf = case _ of
   Ansi256 -> ansi256
   C64 -> c64
   ZxSpectrum -> zxSpectrum
+
+-- | The ZX Spectrum's screen mode with these of its colors.
+zxModeOf :: MachinePaletteName -> CellMode Zx.Attribute
+zxModeOf = case _ of
+  FullPalette -> Zx.screen
+  NormalPalette -> Zx.normalScreen
+  BrightPalette -> Zx.brightScreen
 
 -- | The settings offer only powers of 2, for which `bayer` always has a
 -- | map.

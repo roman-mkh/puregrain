@@ -5,13 +5,15 @@
 // (cli/src/Puregrain/Cli/Png.js), so both give the same bytes.
 const toByte = (v) => Math.min(255, Math.max(0, Math.round(v)));
 
-export const readRow = (pixels) => (width) => (y) => () => {
+export const rowAt = (pixels) => (width) => (y) => {
   const row = new Array(width);
   for (let x = 0, i = y * width * 4; x < width; x++, i += 4) {
     row[x] = { r: pixels[i], g: pixels[i + 1], b: pixels[i + 2] };
   }
   return row;
 };
+
+export const readRow = (pixels) => (width) => (y) => () => rowAt(pixels)(width)(y);
 
 export const writeRgbRow = (pixels) => (width) => (y) => (row) => () => {
   for (let x = 0, i = y * width * 4; x < width; x++, i += 4) {
@@ -44,7 +46,11 @@ export const newPixels = (length) => () => new Uint8ClampedArray(length);
 
 export const copyPixels = (pixels) => () => new Uint8ClampedArray(pixels);
 
-export const transferable = (pixels) => pixels.buffer;
+export const transferable = (view) => view.buffer;
 
 export const toImageData = (pixels) => (width) => (height) => () =>
   new ImageData(pixels, width, height);
+
+export const bytesOf = (bytes) => () => Uint8Array.from(bytes);
+
+export const byteArray = (bytes) => () => Array.from(bytes);

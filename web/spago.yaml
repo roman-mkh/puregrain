@@ -22,6 +22,8 @@ package:
     - refs
     - strings
     - transformers
+    - tuples
+    - unfoldable
     - unsafe-coerce
     - web-events
     - web-file

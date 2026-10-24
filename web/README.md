@@ -1,15 +1,16 @@
 # puregrain-web
 
 Dithering in the browser, built on the puregrain library in this
-repository: choose a picture, choose how to dither it, and compare the
-result with the original, pixel for pixel, before saving it as a PNG. The
-same settings give the same pixels as the
+repository: choose a picture, choose how to dither it, for any screen or
+for a ZX Spectrum's or a Commodore 64's, and compare the result with the
+original, pixel for pixel, before saving it as a PNG or as the machine's
+own files. The same settings give the same pixels and files as the
 [command-line tool](../cli/README.md).
 
-> **Status: version 1, functional but not styled yet,** on the `web-ui`
-> branch. It isn't hosted anywhere yet, so run it from a checkout of this
-> repository. Machine screens, the design and more come in later versions
-> ([ROADMAP.md](ROADMAP.md)).
+> **Status: version 2 in progress, functional but not styled yet,** on
+> the `web-ui` branch. It isn't hosted anywhere yet, so run it from a
+> checkout of this repository. The design and more come with the rest of
+> version 2 ([ROADMAP.md](ROADMAP.md)).
 
 ## Running it
 
@@ -34,17 +35,25 @@ the dithering, for a page opened as a file. After changing a source, run
    color profile, as the command-line tool reads them; transparent parts
    become white.
 2. **Choose the settings.** They start at "none", and the page shows the
-   original. As in the command-line tool, they choose two things:
-   - **the colors:** gray, black and white at a threshold (0–255), a
-     number of levels per channel (2–256), or one of the palettes;
+   original. As in the command-line tool, they choose:
+   - **the target:** any screen, or a machine's: the ZX Spectrum's, or the
+     Commodore 64's hires screen, where each 8×8 cell may use only two
+     colors ([machine screens](../docs/machine-screens/README.md));
+   - **the colors**, which follow the target: for any screen, gray, black
+     and white at a threshold (0–255), a number of levels per channel
+     (2–256), or one of the palettes; for the Spectrum all its 15 colors,
+     the normal ones only or the bright ones only; for the C64 its 16;
    - **the method:** error diffusion (Floyd–Steinberg, Atkinson or
      Jarvis–Judice–Ninke), ordered dithering with a Bayer map (2×2 to
-     16×16), or both. A Bayer map works over levels, so it isn't offered
-     with a threshold or a palette.
+     16×16), or both. A Bayer map works over levels, or inside a
+     machine's cells, so it isn't offered with a threshold or a palette.
 
    "Turn the picture gray first" does that before dithering. Choosing a
+   machine dithers its screen at once, with all its colors. Choosing a
    method while the colors are still "none" chooses them too: a threshold
-   at 128 for a kernel, 2 levels for a Bayer map.
+   at 128 for a kernel, 2 levels for a Bayer map, or a machine's colors.
+   With a machine and no method, each pixel just takes the nearer of its
+   cell's colors, and the page recommends ordered dithering, 8×8.
 3. **Dithering starts by itself** with each change, in the background, so
    the page keeps responding. A progress bar shows the rows done, and
    Cancel stops it; a change during a run starts it over. Until the
@@ -54,9 +63,20 @@ the dithering, for a page opened as a file. After changing a source, run
    picture pixel exactly 1 to 4 screen pixels wide, whatever the screen's
    density, so the dither pattern stays sharp: at any other scale it
    would blur or form moiré. A large picture scrolls in its box.
-5. **Download as PNG.** The file is named after the picture and the
-   settings: `photo.jpg` with 4 levels, Atkinson and the 8×8 Bayer map
-   becomes `photo-levels4-atkinson-bayer8.png`.
+5. **Download.** As a PNG, or for a machine's screen also as the
+   machine's own files: the Spectrum's screen file (`.scr`) and a tape
+   that loads it (`.tap`), or a C64 program that shows the picture
+   (`.prg`) and an Art Studio picture (`.art`)
+   ([what they are, and how to open them](../docs/machine-screens/README.md)).
+   The files need a picture of the screen's size, 256×192 or 320×200; for
+   any other size the page says so, and offers the PNG, a poster in the
+   machine's style. A file is named after the picture and the settings:
+   `photo.jpg` with 4 levels, Atkinson and the 8×8 Bayer map becomes
+   `photo-levels4-atkinson-bayer8.png`, and for the Spectrum's bright
+   colors with the 8×8 map `photo-zx-spectrum-bright-bayer8.tap`. The
+   name on the tape is the picture's name, as the command-line tool makes
+   it from its output's: without the extension, printable ASCII only, at
+   most 10 characters (`puregrain` when nothing is left).
 
 What each kernel, Bayer map and palette does, and how gray and color are
 chosen, is in the command-line tool's documentation:
@@ -69,6 +89,8 @@ chosen, is in the command-line tool's documentation:
 
 | On the page | `npm run dither-cli -- IN.png OUT.png ...` |
 |---|---|
+| Target: a machine | `--machine NAME` (`zx-spectrum`, `c64-hires`) |
+| Colors, for a machine | `--machine-palette NAME` (`full`, `normal`, `bright`) |
 | Colors: gray, black and white at a threshold | `--threshold T` |
 | Colors: levels per channel | `--levels N` |
 | Colors: a palette | `--palette NAME` (`bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15`) |
@@ -84,9 +106,10 @@ kernel defaults to Floyd–Steinberg (to none with `--bayer`). For
 `photo-threshold128.png`, the command line therefore needs
 `--threshold 128 --kernel none`.
 
-The pixels are the same, not the files' bytes: the browser writes its own
-PNGs (Firefox: 8-bit RGBA), while the command-line tool writes gray
-results as grayscale PNGs and color ones as RGB.
+The pixels are the same, and so are a machine's files, byte for byte.
+A PNG's bytes aren't: the browser writes its own PNGs (Firefox: 8-bit
+RGBA), while the command-line tool writes gray results as grayscale PNGs
+and color ones as RGB.
 
 ## Privacy
 
@@ -102,9 +125,8 @@ Firefox.
 
 ## Limitations
 
-- Only PNG output, and no machine screens yet: the command-line tool's
-  `--machine zx-spectrum` and `--machine c64-hires`, with their files,
-  come in version 2.
+- A machine's files need a picture of the screen's size. Fitting a
+  picture to the screen comes next, in version 2.
 - One result at a time. Keeping several and comparing them comes later.
 - No size limit, and no estimate of the time yet: a large picture takes
   a while (a 1024×1024 color picture a few seconds, in Firefox on the
@@ -123,18 +145,20 @@ Firefox.
     every text it shows.
   - `Settings.purs` (the choices and their rules), `Dither.purs` (the
     settings as library values, as the command-line tool builds them),
-    `Save.purs` (the file name) and `Zoom.purs` are pure, and tested.
+    `Save.purs` (the files' names and the tape's) and `Zoom.purs` are
+    pure, and tested.
   - `Worker.purs` is the worker's entry; `Run.purs` dithers row by row
-    with the library's stepper and reports progress; `Message.purs` holds
-    the messages between the page and the worker.
+    with the library's stepper, or a machine's screen band by band, a row
+    of cells at a time, reports progress, and makes the machine's files;
+    `Message.purs` holds the messages between the page and the worker.
   - `Picture`, `Pixels`, `Save` and `Screen` reach the browser through a
     few lines of JavaScript each.
 - `web/build.mjs` (`npm run web:build`) bundles the page and the worker
   with spago and esbuild into `web/dist/` (not committed), and copies
   `web/static/` and Pico CSS there.
 - `npm test` runs the package's specs with the other suites: the
-  settings' rules, the worker's dithering against the command-line tool's
-  path, the messages, the file names and the zoom.
+  settings' rules, the worker's dithering and a machine's files against
+  the command-line tool's path, the messages, the names and the zoom.
 - The plan, the decisions and their reasons: [ROADMAP.md](ROADMAP.md).
   Architecture and gotchas: [CLAUDE.md](CLAUDE.md), notes kept for the
   AI assistant used in development.
@@ -159,4 +183,9 @@ What the specs can't reach, the browser itself, is checked by hand. After
 7. The downloaded file has the settings in its name and shows the result.
 8. A result looks like the command-line tool's with the same settings
    (the table above), both viewed at 100%.
-9. The browser's console shows no errors.
+9. A machine as the target: its colors only, its screen dithered at
+   once, with the hint until a method is chosen. At the screen's size
+   (`npm run generate-images` makes `samples/color-256x192.png` and
+   `samples/color-320x200.png`), the machine's files come with buttons
+   and open in an emulator; at any other size, the note, and the PNG only.
+10. The browser's console shows no errors.

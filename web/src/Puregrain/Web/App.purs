@@ -1,7 +1,8 @@
--- | The web UI's component, version 1 (web/ROADMAP.md): choose a picture
--- | or drop one, choose the settings, see the result, dithered in a
--- | worker with progress and cancelling, over the original at
--- | whole-number zoom, split by a slider, and save it as a PNG.
+-- | The web UI's component (web/ROADMAP.md): choose a picture or drop
+-- | one, choose the settings, for any screen or a machine's, see the
+-- | result, dithered in a worker with progress and cancelling, over the
+-- | original at whole-number zoom, split by a slider, and save it as a
+-- | PNG, or as the machine's own files.
 module Puregrain.Web.App (component) where
 
 import Prelude
@@ -25,13 +26,13 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
-import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
+import Puregrain.Web.Message (FileBytes, Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
-import Puregrain.Web.Save (fileName, savePng)
+import Puregrain.Web.Save (fileName, saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
-import Puregrain.Web.Settings (Colors(..), Settings, allKernels, allPalettes, bayerAllowed, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, initial, isOriginal, kernelId, paletteId)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, flatCells, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Zoom (cssSize, zooms)
 import Web.Event.Event (Event, EventType(..))
@@ -57,11 +58,12 @@ data Load
   | Loaded Picture
 
 -- | The dithering: none, running (rows done of all), finished with the
--- | result (and whether saving it failed), cancelled, or failed.
+-- | result, a machine's files, and whether saving the PNG failed;
+-- | cancelled, or failed.
 data Run
   = Idle
   | Running { done :: Int, total :: Int }
-  | Finished { image :: ImageData, saveFailed :: Boolean }
+  | Finished { image :: ImageData, files :: Array FileBytes, saveFailed :: Boolean }
   | Cancelled
   | RunFailed String
 
@@ -91,6 +93,7 @@ data Action
   | DragOver DragEvent
   | Dropped DragEvent
   | ZoomChosen String
+  | TargetChosen String
   | ColorsChosen String
   | ThresholdTyped String
   | LevelsTyped String
@@ -101,6 +104,7 @@ data Action
   | FromWorker Int Foreign
   | SplitMoved String
   | Save
+  | SaveFile String
 
 originalRef :: H.RefLabel
 originalRef = H.RefLabel "original"
@@ -157,7 +161,7 @@ picture state = case state.load of
       -- matches unkeyed children by position, and would otherwise rebuild
       -- a canvas, blank, whenever the progress bar appears or goes.
       [ HH.p_ [ HH.text (texts.loaded { name: p.name, width: p.width, height: p.height }) ]
-      , HH.div [ HP.class_ (H.ClassName "settings") ] (settingsForm state.settings)
+      , HH.div [ HP.class_ (H.ClassName "settings") ] (settingsForm state.settings { width: p.width, height: p.height })
       , HH.div [ HP.class_ (H.ClassName "status") ] (runStatus state.run)
       , HH.label_
           [ HH.text texts.zoom
@@ -199,17 +203,19 @@ picture state = case state.load of
           ]
       ]
 
-settingsForm :: forall m. Settings -> Array (H.ComponentHTML Action () m)
-settingsForm s =
+settingsForm :: forall m. Settings -> { width :: Int, height :: Int } -> Array (H.ComponentHTML Action () m)
+settingsForm s size =
   [ HH.label_
+      [ HH.text texts.target
+      , HH.select [ HE.onValueChange TargetChosen ]
+          ( [ option "any" (texts.targetName AnyScreen) (s.target == AnyScreen) ]
+              <> map (\m -> option (machineId m) (texts.targetName (Machine m)) (s.target == Machine m)) allMachines
+          )
+      ]
+  , HH.label_
       [ HH.text texts.colors
       , HH.select [ HE.onValueChange ColorsChosen ]
-          ( [ option "original" texts.colorsOriginal (s.colors == Original)
-            , option "threshold" texts.colorsThreshold (isThreshold s.colors)
-            , option "levels" texts.colorsLevels (isLevels s.colors)
-            ]
-              <> map (\p -> option (paletteId p) (texts.palette p) (s.colors == Palette p)) allPalettes
-          )
+          ([ option "original" texts.colorsOriginal (s.colors == Original) ] <> colorsOf s.target)
       ]
   ]
     <> amount s.colors
@@ -228,13 +234,25 @@ settingsForm s =
           ]
       ]
     <> (if bayerAllowed s.colors then [] else [ HH.small_ [ HH.text texts.bayerNeedsLevels ] ])
+    <> (if flatCells s then [ HH.small_ [ HH.text texts.flatCells ] ] else [])
     <>
       [ HH.label_
           [ HH.input [ HP.type_ HP.InputCheckbox, HP.checked s.gray, HE.onChecked GrayChosen ]
           , HH.text texts.gray
           ]
       ]
+    <> sizeNote s.target
   where
+  colorsOf = case _ of
+    AnyScreen ->
+      [ option "threshold" texts.colorsThreshold (isThreshold s.colors)
+      , option "levels" texts.colorsLevels (isLevels s.colors)
+      ]
+        <> map (\p -> option (paletteId p) (texts.palette p) (s.colors == Palette p)) allPalettes
+    Machine m -> map (\p -> option (machinePaletteId p) (texts.machinePalette m p) (s.colors == MachineColors p)) (machinePalettesOf m)
+  sizeNote = case _ of
+    Machine m | screenSizeOf m /= size -> [ HH.p_ [ HH.small_ [ HH.text (texts.sizeNote m size) ] ] ]
+    _ -> []
   isThreshold = case _ of
     Threshold _ -> true
     _ -> false
@@ -267,6 +285,7 @@ runStatus = case _ of
     ]
   Finished r ->
     [ HH.button [ HE.onClick (const Save) ] [ HH.text texts.save ] ]
+      <> map (\f -> HH.button [ HE.onClick (const (SaveFile f.format)) ] [ HH.text (texts.saveFile f.format) ]) r.files
       <> (if r.saveFailed then [ HH.p_ [ HH.text texts.saveFailed ] ] else [])
   Cancelled -> [ HH.p_ [ HH.text texts.cancelled ] ]
   RunFailed reason -> [ HH.p_ [ HH.text (texts.ditherFailed reason) ] ]
@@ -301,6 +320,12 @@ handleAction = case _ of
     liftEffect (Event.preventDefault (DragEvent.toEvent event))
     for_ (DataTransfer.files (DragEvent.dataTransfer event) >>= FileList.item 0) loadFile
   ZoomChosen value -> for_ (Int.fromString value) \zoom -> H.modify_ _ { zoom = zoom }
+  TargetChosen value -> do
+    let
+      target =
+        if value == "any" then Just AnyScreen
+        else Machine <$> Array.find (\m -> machineId m == value) allMachines
+    for_ target \t -> change (chooseTarget t)
   ColorsChosen value -> do
     s <- H.get
     let
@@ -308,7 +333,9 @@ handleAction = case _ of
         "original" -> Just Original
         "threshold" -> Just (Threshold s.typed.threshold)
         "levels" -> Just (Levels s.typed.levels)
-        name -> Palette <$> Array.find (\p -> paletteId p == name) allPalettes
+        name -> case s.settings.target of
+          AnyScreen -> Palette <$> Array.find (\p -> paletteId p == name) allPalettes
+          Machine m -> MachineColors <$> Array.find (\p -> machinePaletteId p == name) (machinePalettesOf m)
     for_ colors \c -> change (chooseColors c)
   ThresholdTyped value ->
     for_ (Int.fromString value) \t -> when (t >= 0 && t <= 255) do
@@ -334,13 +361,13 @@ handleAction = case _ of
         Left errors -> finish (RunFailed (describe errors))
         Right (Progress p) -> H.modify_ _ { run = Running p }
         Right (Failure reason) -> finish (RunFailed reason)
-        Right (Done pixels) -> case s.load of
+        Right (Done result) -> case s.load of
           Loaded p -> do
-            image <- liftEffect (toImageData pixels p.width p.height)
+            image <- liftEffect (toImageData result.pixels p.width p.height)
             -- Drawn while its canvas is still hidden, then shown.
             canvas <- H.getHTMLElementRef resultRef
             for_ canvas \element -> liftEffect (Picture.draw element image)
-            finish (Finished { image, saveFailed: false })
+            finish (Finished { image, files: result.files, saveFailed: false })
           _ -> pure unit
   SplitMoved value -> do
     s <- H.get
@@ -352,12 +379,19 @@ handleAction = case _ of
     canvas <- H.getHTMLElementRef resultRef
     case s.load, s.run, canvas of
       Loaded p, Finished _, Just element -> do
-        saved <- liftAff (savePng element (fileName p.name s.settings))
+        saved <- liftAff (savePng element (fileName p.name s.settings "png"))
         -- Unless another run has started meanwhile (`runs` counts on).
         H.modify_ \now -> case now.run of
           Finished r | now.runs == s.runs -> now { run = Finished r { saveFailed = not saved } }
           _ -> now
       _, _, _ -> pure unit
+  SaveFile format -> do
+    s <- H.get
+    case s.load, s.run of
+      Loaded p, Finished r ->
+        for_ (Array.find (\f -> f.format == format) r.files) \f ->
+          liftEffect (saveBytes f.bytes (fileName p.name s.settings format))
+      _, _ -> pure unit
   where
   readPixelRatio = do
     ratio <- liftEffect pixelRatio
@@ -395,7 +429,8 @@ startRun p settings = do
     worker <- liftEffect (Worker.new "worker.js" Worker.defaultWorkerOptions)
     liftEffect (Worker.onMessage (\event -> HS.notify listener (FromWorker id (data_ event))) worker)
     copy <- liftEffect (copyPixels (imageDataBuffer p.pixels))
-    liftEffect (Worker.postMessage' (jobMessage { settings, width: p.width, height: p.height, pixels: copy }) [ transferable copy ] worker)
+    let job = { settings, width: p.width, height: p.height, pixels: copy, tapeName: tapeName p.name }
+    liftEffect (Worker.postMessage' (jobMessage job) [ transferable copy ] worker)
     H.modify_ _ { worker = Just worker, run = Running { done: 0, total: p.height } }
 
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
