@@ -231,7 +231,7 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
   name per setting tells several downloads apart).
 - **Tests:** as in decision 14.
 
-## Phase 0 results (2026-10-20)
+## Phase 0 results of v1 (2026-10-20)
 
 Everything v1 needs is available; the details, with their sources, are
 in `web/CLAUDE.md`.
@@ -275,6 +275,78 @@ The gray processing (an all-neutral picture, or gray asked for) needs the
 CLI's `isNeutral` and `luma`, which live in the CLI's `Pipeline`: like
 the names (decision 12), copied into the web package first, and a
 candidate for the library after v1.
+
+## Phase 0 results of v2 (2026-10-22)
+
+Everything v2's phase 1 needs is in the library and the CLI already; the
+package facts are in `web/CLAUDE.md`.
+
+### The machine path in the worker
+
+- **No library change.** The CLI dithers a machine's screen in memory
+  (`ditherCells`); `ditherBands` gives the same bands lazily (the
+  library pins the two equal), with all its work inside `defer`: a
+  band's rows are read and dithered only when the band is forced. So the
+  worker can report progress between bands with today's API.
+- **Rows read as needed:** the input is a lazy list made with `unfoldr`,
+  whose step runs only when its cell is forced; a pure function reads a
+  row from the job's pixels, which nothing writes during the run. So a
+  poster of any size holds about one band at a time: as RGB records, a
+  6000 × 4000 picture would be 24 million objects.
+- **The loop:** force the next band, write its rows into the result's
+  pixels, keep its cells, report the rows done, counted from the band
+  (decision 21). At the end, for a picture of the screen's size, the
+  file writers get `{ cells, image }`, the image read back from the
+  result's pixels (a screen is only 49,152 or 64,000 pixels).
+- **Gray and color:** as in the CLI, "gray first" turns the picture gray
+  before anything else, and a machine's screen always runs on RGB.
+- **Checked against the CLI** as in v1's phase 3: a spec compares the
+  worker's band loop with the CLI's path (`ditherCells` on the whole
+  picture) for each machine and rule; the browser check compares the
+  downloaded files with the CLI's, byte for byte.
+
+### The CLI's rules to mirror
+
+- **Names:** `zx-spectrum`, with the palettes `full` (the default),
+  `normal` and `bright` (`Zx.screen`, `Zx.normalScreen`,
+  `Zx.brightScreen`); `c64-hires`, with only `full`
+  (`C64.hiresScreen`).
+- **Inside the cells:** `nearestInCell`, or `orderedInCell (bayer n)`
+  with a Bayer map; any kernel. So the page offers a Bayer map with a
+  machine too.
+- **The size:** a PNG of any size, with a note naming the screen's size
+  and the picture's; the files only at 256 × 192 or 320 × 200.
+- **The tape's name:** the CLI's `tapeName`, on the picture's name (the
+  name without its extension, codes 32 to 126 only, the first 10). The
+  library takes an empty name too (10 spaces on the tape); `puregrain`
+  instead is the page's choice (decision 21).
+- **Defaults:** the CLI's kernel is Floyd–Steinberg (none with
+  `--bayer`); the page keeps none and shows the hint (decisions 16, 21).
+- **Download names:** the colors' part is the machine's name, with its
+  palette unless it's the full one: `photo-zx-spectrum-bright-bayer8.tap`,
+  `photo-c64-hires-atkinson.prg`.
+
+### Downloads made from bytes
+
+- The writers give `Either String (Array Int)`. `web-file` makes a
+  `Blob` only from strings, so a few lines of FFI make one from bytes,
+  saved like the PNG (a link with `download`, its URL revoked later), as
+  `application/octet-stream`.
+- The worker makes the files, since it has the cells, and sends them with
+  the result's pixels, transferred: `.scr` 6912 bytes, `.tap` 6980,
+  `.prg` 14,145, `.art` 9009. The job carries the tape's name.
+
+### The estimate's rule (decision 23)
+
+- **The clock** is the page's: `Effect.Now.now` (package `now`, in our
+  set; `web-html` has no `performance`), in milliseconds, from posting
+  the job to each progress message.
+- **A pure function, with a spec:** the time left, elapsed ÷ done ×
+  (total − done), and whether to show it (a predicted total over 10 s;
+  once shown, the page keeps showing it). Its text lives in `Text.purs`.
+  Proposed rounding, to settle in phase 3: under a minute in steps of 5
+  s ("about 45 s left"), up to 10 minutes as minutes and steps of 10 s
+  ("about 2 min 30 s left"), beyond that in whole minutes.
 
 ## Open questions
 
@@ -364,7 +436,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 
 ## Progress of v2
 
-- [ ] 0. Verify and design
+- [x] 0. Verify and design: the machine path needs no library change; the CLI's rules, downloads from bytes, the estimate's clock
 - [ ] 1. Machine screens
 - [ ] 2. Fit to the screen
 - [ ] 3. The time estimate

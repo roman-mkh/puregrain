@@ -126,6 +126,17 @@ checklist in step.
   returns a Promise, which `aff-promise`'s `toAffE` makes an `Aff`
   (`aff-promise` rather than `js-promise-aff`: its `Control.Promise`
   brings the `Promise` type in the same package).
+- **Facts for v2's machine path** (checked 2026-10-22):
+  - `Data.List.Lazy`'s `unfoldr` (lists 7.0.1) calls its step function
+    inside `defer`, only when that cell is forced, so it can read rows
+    as they're needed.
+  - `Puregrain.Cells.ditherBands` does all its work inside `defer`, and
+    `ditherCells` is the same bands concatenated: the file writers'
+    `{ cells, image }` record can be built from the bands.
+  - `web-file`'s `Blob` (`fromString`, `fromArray`) takes only strings:
+    a blob of bytes needs FFI.
+  - The clock: `Effect.Now.now` from the `now` package (6.0.0, in the
+    set); `web-html` 4.1.1 binds no `performance`.
 
 ## Browser facts
 
