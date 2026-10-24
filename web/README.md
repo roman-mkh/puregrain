@@ -47,6 +47,9 @@ the dithering, for a page opened as a file. After changing a source, run
      Jarvis–Judice–Ninke), ordered dithering with a Bayer map (2×2 to
      16×16), or both. A Bayer map works over levels, or inside a
      machine's cells, so it isn't offered with a threshold or a palette.
+     For black and white with a Bayer map, choose 2 levels and "Turn the
+     picture gray first" (the command-line tool's `--bayer 8 --gray`):
+     2 levels per channel would give a color picture 8 colors.
 
    "Turn the picture gray first" does that before dithering. Choosing a
    machine dithers its screen at once, with all its colors. Choosing a

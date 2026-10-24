@@ -89,7 +89,7 @@ texts =
   , bayer: "Ordered dithering (Bayer map)"
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side
-  , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette."
+  , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
   , gray: "Turn the picture gray first"
   , dithering: \p -> "Dithering: " <> show p.done <> " of " <> show p.total <> " rows"
