@@ -61,6 +61,12 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       image as a 1-bit PNG is half the size (2.66 → 1.33 MB for a 6000 × 5807 photo, 46% for the 512² gray
       composite). pngjs can write neither (only 8- or 16-bit samples, no color type 3), so it needs a small
       writer of our own on Node's `zlib`: about 40 lines for 1-bit, tried in a scratch script.
+- [ ] **A background color for transparent parts** (decided 2026-10-25, decision 27 in `web/ROADMAP.md`):
+      `--background RRGGBB`, white by default, as in the web UI. Today the CLI ignores alpha and dithers the
+      colors stored under transparent parts, so the two clients differ on such pictures. The flattening, color
+      × alpha + background × (1 − alpha) per channel, rounded, becomes a library helper both clients use. With
+      dithering in linear light (see "Algorithms"), which decides whether to flatten in linear light too;
+      before the web UI's v3.
 
 ## Algorithms
 
@@ -94,6 +100,11 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 
 ## Future directions (not in scope now)
+
+- [ ] Keeping transparency in the output, for icons and sprites (moved here from `web/ROADMAP.md`'s later
+      ideas, 2026-10-25): the library has `RGBA` and dithers it per channel already, but palettes are RGB
+      only, and the CLI ignores alpha. Transparency could be kept as on or off per pixel; the machines have
+      none.
 
 - [ ] Calmer error diffusion in cells (an idea, set aside 2026-10-14: ordered dithering inside cells, which
       passes no error on, becomes the main mode for machine screens). With Floyd–Steinberg, `--machine

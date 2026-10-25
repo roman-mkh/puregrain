@@ -79,7 +79,7 @@ users is a separate task, see TODO.md.)
    WebP, BMP); its color-profile conversion is turned off, so the stored
    values are dithered, as in the CLI. Transparent parts are put onto
    white; a configurable color, or one from the page's theme, may come
-   later.
+   later (decision 27: a color of the user's choice).
 10. **No size limit and no warning in v1** (Q4): the progress indicator
     shows how long it takes. An estimate of the total time after the
     first rows comes later (v2).
@@ -206,6 +206,23 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     Pages on is the user's, since it publishes. A temporary preview from
     `web-ui`, to try phones, Safari and Chrome, is an option for the
     design phase.
+27. **A background color for transparent parts** (2026-10-25, the user's
+    proposal): one rule for both clients, transparent parts put onto a
+    background color, white by default. The page offers a color picker
+    (`<input type="color">`) for a picture with transparency; the CLI gets
+    `--background RRGGBB`, a hex value as in CSS. The flattening is our
+    own code, not the browser's compositing: color × alpha + background ×
+    (1 − alpha), per channel, rounded; one formula for both clients,
+    tested. For it the page needs the picture's exact RGBA, while a 2D
+    canvas keeps colors premultiplied by alpha, which rounds
+    semi-transparent ones: how to read them exactly is settled before
+    phase 2. The page's part comes in phase 2, its formula a pure
+    function of the web package; the library's helper and the CLI's flag
+    come on `master` with linear light, before v3 (which decides whether
+    to flatten in linear light), and the page then takes the library's
+    helper, as planned for `luma`. Until then the clients differ on a
+    picture with transparency: the CLI dithers the colors stored under
+    transparent parts.
 
 ## v1 in detail
 
@@ -353,19 +370,17 @@ package facts are in `web/CLAUDE.md`.
 Each is settled before its phase of v2:
 
 - **Phase 2:** who scales a picture to fit the screen, the browser or our
-  own code (decision 22).
+  own code (decision 22); how the page reads a picture's exact RGBA, for
+  the flattening onto the background (decision 27).
 - **Phase 7:** the smoke test's tool, and CI (decision 25).
 
 ## Later ideas
 
-- The background color for transparent parts: configurable, or from the
-  page's theme.
+- The background's default from the page's theme, in dark mode
+  (decision 27 has white).
 - Translations of the UI's texts.
-- Keeping transparency (a question for the library and the CLI too, for
-  TODO.md): the library has `RGBA` and dithers it per channel already,
-  but palettes are RGB only, and the CLI ignores alpha. Transparency
-  could be kept as on or off per pixel, for icons and sprites; the
-  machines have none.
+- Keeping transparency in the output, for icons and sprites: in TODO.md's
+  future directions, since it concerns the library and the CLI too.
 
 ## Phases of v1
 
@@ -418,7 +433,9 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 1. **Machine screens** (large): decision 21. The settings, the worker's
    band path, the four files, the downloads; the results checked against
    the CLI's, by specs and in the browser.
-2. **Fit to the screen** (medium): decision 22.
+2. **Preparing the picture** (medium): fitting it to the machine's
+   screen (decision 22), and the background color for transparent parts
+   (decision 27).
 3. **The time estimate** (small): decision 23.
 4. **The logo** (medium): its concept and colors, the script that makes
    it with puregrain, SVG and PNG, the favicon
@@ -438,7 +455,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 
 - [x] 0. Verify and design: the machine path needs no library change; the CLI's rules, downloads from bytes, the estimate's clock
 - [x] 1. Machine screens: the target menu, both machines with their palettes, the band loop with progress, the four files; the screens and files equal the CLI's, byte for byte
-- [ ] 2. Fit to the screen
+- [ ] 2. Preparing the picture: fit to the screen, the background for transparent parts
 - [ ] 3. The time estimate
 - [ ] 4. The logo
 - [ ] 5. Design review

@@ -5,7 +5,8 @@ repository: choose a picture, choose how to dither it, for any screen or
 for a ZX Spectrum's or a Commodore 64's, and compare the result with the
 original, pixel for pixel, before saving it as a PNG or as the machine's
 own files. The same settings give the same pixels and files as the
-[command-line tool](../cli/README.md).
+[command-line tool](../cli/README.md), for pictures without transparency
+(see below).
 
 > **Status: version 2 in progress, functional but not styled yet,** on
 > the `web-ui` branch. It isn't hosted anywhere yet, so run it from a
@@ -113,6 +114,11 @@ The pixels are the same, and so are a machine's files, byte for byte.
 A PNG's bytes aren't: the browser writes its own PNGs (Firefox: 8-bit
 RGBA), while the command-line tool writes gray results as grayscale PNGs
 and color ones as RGB.
+
+**Not yet for a picture with transparent parts:** the page puts them onto
+white, while the command-line tool ignores transparency and dithers the
+colors the file stores under them. A background color of your choice,
+the same in both, is planned.
 
 ## Privacy
 
