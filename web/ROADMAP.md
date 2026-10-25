@@ -196,7 +196,11 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     (*Usability Engineering*, 1993): beyond it, users turn to other things
     and want to know when the computer expects to be done. Once shown, it
     stays until the end. As "about 40 s left" or "about 2 min 30 s left";
-    the progress bar stays for every run.
+    the progress bar stays for every run. Rounded (phase 3): under a
+    minute to the nearest 5 s, up to 10 minutes to the nearest 10 s,
+    beyond to the nearest minute; "a few seconds left" at the end. The
+    page's clock, from posting the job; checked in Firefox to within 20%
+    of the time actually left.
 24. **The design process** (v2's Q5, the user's): the logo first, in its
     own phase, since it can set the design's direction; then the screen's
     areas in text, sketches (as text, as HTML mockups, the user's as
@@ -478,7 +482,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 0. Verify and design: the machine path needs no library change; the CLI's rules, downloads from bytes, the estimate's clock
 - [x] 1. Machine screens: the target menu, both machines with their palettes, the band loop with progress, the four files; the screens and files equal the CLI's, byte for byte
 - [x] 2. Preparing the picture: the background under transparent parts, read exactly through WebGL, and the fit by our own area averaging; both equal independent references, and the dithered results the CLI's
-- [ ] 3. The time estimate
+- [x] 3. The time estimate: shown for runs predicted over 10 s, rounded in steps, kept to the end; within 20% of the time actually left in Firefox
 - [ ] 4. The logo
 - [ ] 5. Design review
 - [ ] 6. Design

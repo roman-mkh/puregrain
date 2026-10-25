@@ -16,7 +16,8 @@ checklist in step.
   pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
   background and the fit, decisions 22 and 27: the rules pure, the loops
   over a whole picture in `Prepare.js`, pinned to the rules by
-  `PrepareSpec`),
+  `PrepareSpec`), `Puregrain.Web.Estimate` (the time left, decision 23:
+  pure, with the page's clock, `Effect.Now`),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
@@ -85,7 +86,7 @@ checklist in step.
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 2: `app.js` 135.2 KB, 33.7 KB gzipped
+- **Sizes** after v2's phase 3: `app.js` 137.0 KB, 34.2 KB gzipped
   (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen);
   `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since v1's
   phase 3) and the machines' modules; Pico 11.7 KB gzipped.
@@ -303,6 +304,11 @@ check loaded the page and read "The worker answered: ping" from it.
   288 × 192, cropped, and a 100 × 80 icon centered on black, each equal
   to the reference, each with its note; the fit and the background stay
   for the next picture, and the names carry `fit` and `bg-`.
+- **Checked in v2's phase 3:** a 4096 × 3072 picture, Floyd–Steinberg
+  with a threshold, ran 31 s in headless Firefox: the time left showed
+  from 2.2 s ("about 30 s left", 29 s actually left), stayed to the end,
+  and was within 20% of the time actually left whenever more than 10 s
+  were. A 320 × 200 picture showed none.
 - **`WebDriver:Navigate` reloads the page,** and with it every setting:
   a check that loads one picture after another with the same settings
   must choose the next file in the same page, by sending it to the file

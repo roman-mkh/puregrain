@@ -4,6 +4,7 @@ import Prelude
 
 import Effect (Effect)
 import Test.Puregrain.Web.DitherSpec as DitherSpec
+import Test.Puregrain.Web.EstimateSpec as EstimateSpec
 import Test.Puregrain.Web.MessageSpec as MessageSpec
 import Test.Puregrain.Web.PrepareSpec as PrepareSpec
 import Test.Puregrain.Web.RunSpec as RunSpec
@@ -19,6 +20,7 @@ main :: Effect Unit
 main = runSpecAndExitProcess [ consoleReporter ] do
   SettingsSpec.spec
   DitherSpec.spec
+  EstimateSpec.spec
   MessageSpec.spec
   PrepareSpec.spec
   RunSpec.spec

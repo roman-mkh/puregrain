@@ -6,6 +6,7 @@ package:
     - arraybuffer-types
     - arrays
     - canvas
+    - datetime
     - effect
     - either
     - exceptions
@@ -16,6 +17,7 @@ package:
     - integers
     - lists
     - maybe
+    - now
     - partial
     - prelude
     - puregrain

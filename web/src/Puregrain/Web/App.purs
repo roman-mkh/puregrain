@@ -13,7 +13,7 @@ import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), isJust, maybe)
 import Effect (Effect)
 import Effect.Aff (try)
 import Effect.Aff.Class (class MonadAff, liftAff)
@@ -27,6 +27,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
+import Puregrain.Web.Estimate (clock, next, rounded)
 import Puregrain.Web.Message (FileBytes, Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
@@ -71,12 +72,13 @@ type Prepared =
   , fitted :: Maybe { screen :: { width :: Int, height :: Int }, placement :: Placement }
   }
 
--- | The dithering: none, running (rows done of all), finished with the
--- | result, a machine's files, and whether saving the PNG failed;
+-- | The dithering: none, running (rows done of all, when it started, and
+-- | the time left once it's worth showing, decision 23), finished with
+-- | the result, a machine's files, and whether saving the PNG failed;
 -- | cancelled, or failed.
 data Run
   = Idle
-  | Running { done :: Int, total :: Int }
+  | Running { done :: Int, total :: Int, started :: Number, left :: Maybe Number }
   | Finished { image :: ImageData, files :: Array FileBytes, saveFailed :: Boolean }
   | Cancelled
   | RunFailed String
@@ -340,7 +342,7 @@ runStatus :: forall m. Run -> Array (H.ComponentHTML Action () m)
 runStatus = case _ of
   Idle -> []
   Running r ->
-    [ HH.p_ [ HH.text (texts.dithering r) ]
+    [ HH.p_ [ HH.text (texts.dithering { done: r.done, total: r.total } <> maybe "" (\ms -> ", " <> texts.timeLeft (rounded ms)) r.left) ]
     , HH.progress [ HP.max (toNumber r.total), HP.value (toNumber r.done) ] []
     , HH.button [ HE.onClick (const Cancel) ] [ HH.text texts.cancel ]
     ]
@@ -431,7 +433,11 @@ handleAction = case _ of
     when (id == s.runs) do
       case runExcept (readReply reply) of
         Left errors -> finish (RunFailed (describe errors))
-        Right (Progress p) -> H.modify_ _ { run = Running p }
+        Right (Progress p) -> do
+          t <- liftEffect clock
+          H.modify_ \now -> case now.run of
+            Running r -> now { run = Running r { done = p.done, total = p.total, left = next r.left { elapsed: t - r.started, done: p.done, total: p.total } } }
+            _ -> now
         Right (Failure reason) -> finish (RunFailed reason)
         Right (Done result) -> case s.load of
           Loaded { prepared } -> do
@@ -554,8 +560,9 @@ startRun { picture: p, prepared } settings = do
     liftEffect (Worker.onMessage (\event -> HS.notify listener (FromWorker id (data_ event))) worker)
     copy <- liftEffect (copyPixels (imageDataBuffer prepared.image))
     let job = { settings, width: prepared.width, height: prepared.height, pixels: copy, tapeName: tapeName p.name }
+    started <- liftEffect clock
     liftEffect (Worker.postMessage' (jobMessage job) [ transferable copy ] worker)
-    H.modify_ _ { worker = Just worker, run = Running { done: 0, total: prepared.height } }
+    H.modify_ _ { worker = Just worker, run = Running { done: 0, total: prepared.height, started, left: Nothing } }
 
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
 -- | it had already sent is dropped.

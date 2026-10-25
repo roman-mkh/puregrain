@@ -61,8 +61,10 @@ the dithering, for a page opened as a file. After changing a source, run
    cell's colors, and the page recommends ordered dithering, 8×8.
 3. **Dithering starts by itself** with each change, in the background, so
    the page keeps responding. A progress bar shows the rows done, and
-   Cancel stops it; a change during a run starts it over. Until the
-   result is there, the original is shown.
+   Cancel stops it; a change during a run starts it over. A run that
+   looks like it will take over 10 seconds also shows the time left,
+   from the pace so far: "about 45 s left", "about 2 min 30 s left".
+   Until the result is there, the original is shown.
 4. **Compare.** The original shows left of the split and the result right
    of it; the slider moves the split. The zoom, 1× to 4×, makes each
    picture pixel exactly 1 to 4 screen pixels wide, whatever the screen's
@@ -151,9 +153,9 @@ Firefox.
 - In a browser without WebGL, the colors at a picture's semi-transparent
   edges may be off by one after the background is put under them.
 - One result at a time. Keeping several and comparing them comes later.
-- No size limit, and no estimate of the time yet: a large picture takes
-  a while (a 1024×1024 color picture a few seconds, in Firefox on the
-  development machine). The progress bar shows how far it is.
+- No size limit: a large picture takes a while (a 1024×1024 color
+  picture a few seconds, in Firefox on the development machine). The
+  progress bar and the time left show how far it is.
 - The library's limitations apply too: no linear-light diffusion, plain
   RGB distance for palettes, rows always scanned left to right (see
   [the command-line tool's limitations](../cli/README.md#limitations)).
@@ -217,4 +219,7 @@ What the specs can't reach, the browser itself, is checked by hand. After
    back. A picture with transparency (a PNG icon) shows the background's
    color picker, and a new color changes what's under the transparent
    parts.
-11. The browser's console shows no errors.
+11. A run of more than 10 seconds (a picture of 10 megapixels or more)
+   shows the time left after a few seconds, counting down in steps, and
+   keeps it to the end; a short run shows none.
+12. The browser's console shows no errors.

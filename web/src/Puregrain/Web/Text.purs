@@ -5,6 +5,7 @@ module Puregrain.Web.Text (texts) where
 import Prelude
 
 import Data.String.Common (joinWith)
+import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
 import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), screenSizeOf)
 
@@ -40,6 +41,7 @@ texts
      , flatCells :: String
      , gray :: String
      , dithering :: { done :: Int, total :: Int } -> String
+     , timeLeft :: TimeLeft -> String
      , cancel :: String
      , cancelled :: String
      , ditherFailed :: String -> String
@@ -111,6 +113,14 @@ texts =
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
   , gray: "Turn the picture gray first"
   , dithering: \p -> "Dithering: " <> show p.done <> " of " <> show p.total <> " rows"
+  , timeLeft: \t ->
+      if t.minutes == 0 && t.seconds == 0 then "a few seconds left"
+      else
+        "about "
+          <> (if t.minutes > 0 then show t.minutes <> " min" else "")
+          <> (if t.minutes > 0 && t.seconds > 0 then " " else "")
+          <> (if t.seconds > 0 then show t.seconds <> " s" else "")
+          <> " left"
   , cancel: "Cancel"
   , cancelled: "Cancelled; the original is shown."
   , ditherFailed: \reason -> "The dithering failed: " <> reason
