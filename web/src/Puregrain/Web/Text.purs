@@ -4,6 +4,8 @@ module Puregrain.Web.Text (texts) where
 
 import Prelude
 
+import Data.String.Common (joinWith)
+import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
 import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), screenSizeOf)
 
 texts
@@ -23,6 +25,10 @@ texts
      , palette :: PaletteName -> String
      , machinePalette :: MachineName -> MachinePaletteName -> String
      , sizeNote :: MachineName -> { width :: Int, height :: Int } -> String
+     , fitChoice :: String
+     , fitted :: MachineName -> { picture :: { width :: Int, height :: Int }, placement :: Placement } -> String
+     , background :: String
+     , transparentParts :: String
      , thresholdValue :: String
      , levelsValue :: String
      , kernel :: String
@@ -78,6 +84,18 @@ texts =
         "A " <> machineName machine <> " screen is " <> show screen.width <> " × " <> show screen.height
           <> "; this picture is " <> show picture.width <> " × " <> show picture.height
           <> ". Any size works for a PNG; the machine's own files need the screen's size."
+  , fitChoice: "Fit the picture to the screen"
+  , fitted: \machine f ->
+      let
+        screen = screenSizeOf machine
+        done =
+          (if isScaledDown f.picture f.placement then [ "scaled down from " <> size f.picture <> " to " <> size f.placement ] else [ "not scaled" ])
+            <> (if isCropped screen f.placement then [ "cropped to the screen" ] else [])
+            <> (if leavesBackground screen f.placement then [ "the background around it" ] else [])
+      in
+        "Fitted to the " <> machineName machine <> "'s screen, " <> size screen <> ": " <> joinWith ", " done <> "."
+  , background: "Background"
+  , transparentParts: "The picture's transparent parts are put onto the background color."
   , thresholdValue: "Threshold (0-255)"
   , levelsValue: "Levels (2-256)"
   , kernel: "Error diffusion"
@@ -102,6 +120,8 @@ texts =
   , saveFailed: "The browser couldn't make the PNG."
   }
   where
+  size :: forall r. { width :: Int, height :: Int | r } -> String
+  size s = show s.width <> " × " <> show s.height
   machineName = case _ of
     ZxSpectrumScreen -> "ZX Spectrum"
     C64HiresScreen -> "Commodore 64"

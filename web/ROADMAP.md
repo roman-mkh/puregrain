@@ -169,11 +169,26 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     a poster counts right.
 22. **Fit to the screen** (v2's Q3): besides the CLI's rule (a PNG of any
     size, the machine's files only at the screen's size), the page
-    offers to fit a picture to the machine's screen: scaled to cover it,
-    and what's left over cropped. Photos are far bigger than the screen:
-    cropping alone would keep 0.4% of a 12-megapixel photo. Who scales,
-    the browser or our own code (in the library, so that the CLI could
-    offer the same with `--fit`), is settled before the phase.
+    offers to fit a picture to the machine's screen. Photos are far
+    bigger than the screen: cropping alone would keep 0.4% of a
+    12-megapixel photo. Settled for phase 2 (2026-10-25, with the user):
+    - **Only with a machine as the target:** only a machine has a screen.
+    - **One rule for every size:** scaled down, never up, so that it
+      covers the screen as far as it can; centered; cropped where it
+      overflows; the background color (decision 27) where it doesn't
+      reach. A 6000 × 4000 photo becomes 288 × 192 and loses 16 columns
+      on each side; a 100 × 80 icon stays as it is, the background around
+      it. Enlarging isn't planned: no use case (the user).
+    - **A checkbox in the size note,** off by default: unchecked, the
+      picture is dithered as a poster, as by the CLI. Checked, the note
+      says what was done (the user's idea).
+    - **Our own scaling, not the browser's:** area averaging. Measured in
+      Firefox (v2's phase 2): `drawImage` aliases badly at every
+      smoothing quality, while the decoder's own high-quality resize is
+      clean, but each browser has its own filter, and the CLI couldn't
+      reproduce it. Ours is the same everywhere, and the CLI can get it
+      with `--fit`; a sharper filter of our own could follow if needed.
+    - **Download names** get `fit` when the picture is fitted.
 23. **The time estimate** (v2's Q4, the user's design): time so far ÷
     rows done × rows left, from all the rows so far, updated with each
     progress message. Shown once the predicted total is over 10 s, the
@@ -215,14 +230,24 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     (1 − alpha), per channel, rounded; one formula for both clients,
     tested. For it the page needs the picture's exact RGBA, while a 2D
     canvas keeps colors premultiplied by alpha, which rounds
-    semi-transparent ones: how to read them exactly is settled before
-    phase 2. The page's part comes in phase 2, its formula a pure
-    function of the web package; the library's helper and the CLI's flag
-    come on `master` with linear light, before v3 (which decides whether
-    to flatten in linear light), and the page then takes the library's
-    helper, as planned for `luma`. Until then the clients differ on a
-    picture with transparency: the CLI dithers the colors stored under
-    transparent parts.
+    semi-transparent ones. Settled for phase 2 (2026-10-25): the page
+    reads a picture with transparency through WebGL, as a texture that
+    isn't premultiplied, read back: exact in Firefox, where the 2D canvas
+    was off by up to 254 at low alpha, our formula on its values by 1 in
+    a third of the flattened values, and the browser's own compositing
+    by 1 or 2 in about half of them. Without WebGL, the page falls back
+    to the canvas values. The background is whatever lies behind the
+    picture: under its transparent parts, and around a fitted picture
+    that doesn't fill the screen (decision 22), so the color picker shows
+    whenever the background shows. The page says so next to it (the
+    user's idea). Download names get `bg-RRGGBB` when the background
+    shows and isn't white. The page's part comes in phase 2, its formula
+    a pure function of the web package; the library's helper and the
+    CLI's flag come on `master` with linear light, before v3 (which
+    decides whether to flatten in linear light), and the page then takes
+    the library's helper, as planned for `luma`. Until then the clients
+    differ on a picture with transparency: the CLI dithers the colors
+    stored under transparent parts.
 
 ## v1 in detail
 
@@ -369,9 +394,6 @@ package facts are in `web/CLAUDE.md`.
 
 Each is settled before its phase of v2:
 
-- **Phase 2:** who scales a picture to fit the screen, the browser or our
-  own code (decision 22); how the page reads a picture's exact RGBA, for
-  the flattening onto the background (decision 27).
 - **Phase 7:** the smoke test's tool, and CI (decision 25).
 
 ## Later ideas
@@ -455,7 +477,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 
 - [x] 0. Verify and design: the machine path needs no library change; the CLI's rules, downloads from bytes, the estimate's clock
 - [x] 1. Machine screens: the target menu, both machines with their palettes, the band loop with progress, the four files; the screens and files equal the CLI's, byte for byte
-- [ ] 2. Preparing the picture: fit to the screen, the background for transparent parts
+- [x] 2. Preparing the picture: the background under transparent parts, read exactly through WebGL, and the fit by our own area averaging; both equal independent references, and the dithered results the CLI's
 - [ ] 3. The time estimate
 - [ ] 4. The logo
 - [ ] 5. Design review

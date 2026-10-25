@@ -33,8 +33,9 @@ the dithering, for a page opened as a file. After changing a source, run
 1. **Choose a picture,** with the file chooser or by dropping it onto the
    page. Any picture the browser can read works: PNG, JPEG, GIF, WebP,
    BMP and more. The colors are read as the file stores them, without its
-   color profile, as the command-line tool reads them; transparent parts
-   become white.
+   color profile, as the command-line tool reads them. Transparent parts
+   go onto a background color, white unless you choose another: the page
+   offers a color picker for a picture with transparency.
 2. **Choose the settings.** They start at "none", and the page shows the
    original. As in the command-line tool, they choose:
    - **the target:** any screen, or a machine's: the ZX Spectrum's, or the
@@ -72,15 +73,23 @@ the dithering, for a page opened as a file. After changing a source, run
    that loads it (`.tap`), or a C64 program that shows the picture
    (`.prg`) and an Art Studio picture (`.art`)
    ([what they are, and how to open them](../docs/machine-screens/README.md)).
-   The files need a picture of the screen's size, 256×192 or 320×200; for
-   any other size the page says so, and offers the PNG, a poster in the
-   machine's style. A file is named after the picture and the settings:
-   `photo.jpg` with 4 levels, Atkinson and the 8×8 Bayer map becomes
-   `photo-levels4-atkinson-bayer8.png`, and for the Spectrum's bright
-   colors with the 8×8 map `photo-zx-spectrum-bright-bayer8.tap`. The
-   name on the tape is the picture's name, as the command-line tool makes
-   it from its output's: without the extension, printable ASCII only, at
-   most 10 characters (`puregrain` when nothing is left).
+   The files need a picture of the screen's size, 256×192 or 320×200. For
+   any other size the page says so, offers the PNG, a poster in the
+   machine's style, and offers to **fit the picture to the screen**:
+   scaled down, never up, so that it covers the screen as far as it can,
+   centered, cropped where it overflows, and the background color where
+   it doesn't reach. A 6000×4000 photo becomes 288×192 and loses 16
+   columns on each side; a 100×80 icon stays as it is, centered on the
+   background. The page says what it did, and the fitted picture is what
+   the split view shows as the original. A file is named after the
+   picture and the settings: `photo.jpg` with 4 levels, Atkinson and the
+   8×8 Bayer map becomes `photo-levels4-atkinson-bayer8.png`, and fitted
+   to the Spectrum's screen with the 8×8 map
+   `photo-zx-spectrum-fit-bayer8.tap`; a background that shows and isn't
+   white adds `bg-` and its color, as in `logo-bg-2a5ac8-levels4.png`.
+   The name on the tape is the picture's name, as the command-line tool
+   makes it from its output's: without the extension, printable ASCII
+   only, at most 10 characters (`puregrain` when nothing is left).
 
 What each kernel, Bayer map and palette does, and how gray and color are
 chosen, is in the command-line tool's documentation:
@@ -115,10 +124,13 @@ A PNG's bytes aren't: the browser writes its own PNGs (Firefox: 8-bit
 RGBA), while the command-line tool writes gray results as grayscale PNGs
 and color ones as RGB.
 
-**Not yet for a picture with transparent parts:** the page puts them onto
-white, while the command-line tool ignores transparency and dithers the
-colors the file stores under them. A background color of your choice,
-the same in both, is planned.
+**Not yet for a picture with transparent parts, or a fitted one:** the
+page puts transparent parts onto the background color, while the
+command-line tool ignores transparency and dithers the colors the file
+stores under them; and the command-line tool can't fit a picture yet.
+Both are planned for it, with the page's rules (`--background`,
+`--fit`). Until then, a fitted picture saved as a PNG and given to the
+command-line tool gives the same result.
 
 ## Privacy
 
@@ -134,8 +146,10 @@ Firefox.
 
 ## Limitations
 
-- A machine's files need a picture of the screen's size. Fitting a
-  picture to the screen comes next, in version 2.
+- A picture is never enlarged: a small one stays small on the machine's
+  screen, with the background around it.
+- In a browser without WebGL, the colors at a picture's semi-transparent
+  edges may be off by one after the background is put under them.
 - One result at a time. Keeping several and comparing them comes later.
 - No size limit, and no estimate of the time yet: a large picture takes
   a while (a 1024×1024 color picture a few seconds, in Firefox on the
@@ -197,4 +211,10 @@ What the specs can't reach, the browser itself, is checked by hand. After
    (`npm run generate-images` makes `samples/color-256x192.png` and
    `samples/color-320x200.png`), the machine's files come with buttons
    and open in an emulator; at any other size, the note, and the PNG only.
-10. The browser's console shows no errors.
+10. Fitting to the screen: a large picture is scaled down and cropped, a
+   small one centered on the background, each with a note saying so; the
+   fit stays on for the next picture, and unticking it brings the poster
+   back. A picture with transparency (a PNG icon) shows the background's
+   color picker, and a new color changes what's under the transparent
+   parts.
+11. The browser's console shows no errors.

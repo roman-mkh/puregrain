@@ -12,7 +12,11 @@ checklist in step.
 
 - **Modules:** `Puregrain.Web.Main` (the page's entry: mounts the app on
   the body), `Puregrain.Web.App` (the component), `Puregrain.Web.Picture`
-  (decoding and reading a picture, drawing pixels; FFI in `Picture.js`),
+  (decoding and reading a picture with its transparency, exactly, drawing
+  pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
+  background and the fit, decisions 22 and 27: the rules pure, the loops
+  over a whole picture in `Prepare.js`, pinned to the rules by
+  `PrepareSpec`),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
@@ -81,10 +85,25 @@ checklist in step.
   and copies `web/static/` and Pico's stylesheet next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 1: `app.js` 126.1 KB, 30.8 KB gzipped
+- **Sizes** after v2's phase 2: `app.js` 135.2 KB, 33.7 KB gzipped
   (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen);
   `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since v1's
   phase 3) and the machines' modules; Pico 11.7 KB gzipped.
+- **Preparing a picture** (v2's phase 2): the page keeps the picture as
+  read, and makes from it what's shown as the original and dithered: put
+  onto the background when it has transparency, fitted to a machine's
+  screen when asked. A new target, fit or background prepares it again
+  and restarts the run; the fit and the background stay for the next
+  picture. It runs on the page, not in a worker: measured in Node, the
+  fit takes 73 ms for a 12.6-megapixel picture and 158 ms for 48, the
+  flattening 68 and 220 ms (a lookup table per channel; computing every
+  pixel's mix took 326 ms).
+- **The fit's area averaging is exact:** each screen pixel's weights are
+  whole numbers (the overlaps, counted in units of 1/m of a picture
+  pixel along an axis of n pixels scaled to m), so every sum is a whole
+  number below 2^53, exact in a double whatever the order of adding, and
+  the mean rounded with `Math.round`. A later PureScript version, for
+  the CLI's `--fit`, gives the same bytes if it keeps these weights.
 
 ## Building
 
@@ -168,15 +187,35 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   doesn't convert colors, so the stored values are dithered, as in the
   CLI. EXIF orientation is applied by default (`imageOrientation:
   "from-image"`), so phone photos come out upright.
-- **Transparency:** a canvas keeps colors premultiplied by alpha, so fully
-  transparent pixels lose theirs and read back black. Fill the canvas
-  white first, then `drawImage`, then `getImageData` (decision 9).
+- **Transparency:** a 2D canvas keeps colors premultiplied by alpha, so
+  fully transparent pixels lose theirs and semi-transparent ones come
+  back rounded: measured in Firefox (v2's phase 2) on a picture with
+  every alpha for every value, 97,155 of 195,840 color values were off,
+  by up to 254 at low alpha. The page reads such a picture through
+  WebGL: `createImageBitmap` with `premultiplyAlpha: "none"`, a texture
+  with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` false and no color conversion,
+  attached to a framebuffer and read with `readPixels`: every value
+  exact (WebGL 1 and 2; textures up to 16,384 on a side here). Without
+  WebGL (`webgl.disabled`, checked) it falls back to the canvas, and
+  the flattened values are off by 1 in 37% of them. An opaque picture is
+  read from the canvas, exactly.
+- **The browser's own compositing isn't the formula:** filling a canvas
+  with a color and drawing a semi-transparent picture over it gave
+  values off by 1 or 2 from color × alpha + background × (1 − alpha),
+  rounded, in a third to a half of them (Firefox). v1's check, "exact to
+  the value", had tried one sample. So the page flattens with its own
+  formula (decision 27).
+- **The browser's scaling aliases:** `drawImage` scaling a 2048 × 1536
+  zone plate to 256 × 192 shows strong moiré at every smoothing quality
+  in Firefox; `createImageBitmap`'s `resizeQuality: "high"` is clean,
+  but each browser has its own filter. The page scales with its own area
+  averaging (decision 22).
 - **Checked in phase 2** (Firefox 157, ratios 1 and 1.5): a plain PNG
   reads back exactly; a PNG with a gAMA chunk (gamma 1.0) too, while the
   same file through an `<img>` element comes back converted (137,447 of
   192,000 channel values changed), so `colorSpaceConversion: "none"` is
-  in effect; transparent parts become white, half-transparent ones blend
-  onto white, exact to the value.
+  in effect; transparent parts became white (v1 then let the browser
+  flatten them; see "Transparency" for why v2 doesn't).
 - **A canvas's `width` or `height` set clears it.** Halogen's virtual DOM
   sets only the properties that changed, so a zoom change (a new CSS
   size) keeps the picture; a new picture gets a new canvas, drawn after
@@ -253,6 +292,21 @@ check loaded the page and read "The worker answered: ping" from it.
   CLI's poster, with the size note and the PNG button only. The target's
   menus, the hint and the return to any screen work as decision 21
   says.
+- **Checked in v2's phase 2:** a picture with every alpha for every
+  value, put onto white and onto #2a5ac8, equals the formula on the
+  file's own values, all 196,608 channel values, and dithered with 4
+  levels equals the CLI's result on that flattened picture. A 2048 ×
+  1536 picture fitted to the ZX Spectrum's screen equals the area
+  averaging worked out independently in Node; dithered with the 8×8 map,
+  it's the CLI's result on that fitted picture, and the `.scr` and
+  `.tap` are the CLI's, byte for byte. A 2400 × 1600 picture comes out
+  288 × 192, cropped, and a 100 × 80 icon centered on black, each equal
+  to the reference, each with its note; the fit and the background stay
+  for the next picture, and the names carry `fit` and `bg-`.
+- **`WebDriver:Navigate` reloads the page,** and with it every setting:
+  a check that loads one picture after another with the same settings
+  must choose the next file in the same page, by sending it to the file
+  input again.
 - **Downloads** go straight into a folder with these in the profile's
   `user.js`: `browser.download.folderList` 2, `browser.download.dir`,
   `browser.download.useDownloadDir` true and

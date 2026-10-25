@@ -15,6 +15,7 @@ import Data.String.Common (joinWith)
 import Data.String.Pattern (Pattern(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
+import Puregrain.Web.Prepare (Background, backgroundHex)
 import Puregrain.Web.Settings (Colors(..), KernelName(..), MachinePaletteName(..), Settings, Target(..), kernelId, machineId, machinePaletteId, paletteId)
 import Web.HTML.HTMLElement (HTMLElement)
 
@@ -23,18 +24,23 @@ import Web.HTML.HTMLElement (HTMLElement)
 -- | name), then the settings in the form's order, with the CLI's names,
 -- | and the format's extension. A machine's palette appears unless it's
 -- | the full one; a setting at none is left out; colors at none, with
--- | nothing to save, give `original`.
+-- | nothing to save, give `original`. Of the picture's preparation, the
+-- | caller says whether it was fitted (`fit`), and the background color
+-- | when it shows and isn't white (`bg-` and its hex digits).
 -- |
 -- | ```purescript
--- | fileName "photo.jpg" (initial { colors = Levels 4, kernel = Atkinson, bayer = Just 8 }) "png"
+-- | fileName "photo.jpg" (initial { colors = Levels 4, kernel = Atkinson, bayer = Just 8 }) { fitted: false, background: Nothing } "png"
 -- |   == "photo-levels4-atkinson-bayer8.png"
 -- | ```
-fileName :: String -> Settings -> String -> String
-fileName name s extension = joinWith "-" ([ stem name ] <> target <> colors <> kernel <> bayer <> gray) <> "." <> extension
+fileName :: String -> Settings -> { fitted :: Boolean, background :: Maybe Background } -> String -> String
+fileName name s prepared extension =
+  joinWith "-" ([ stem name ] <> target <> fit <> background <> colors <> kernel <> bayer <> gray) <> "." <> extension
   where
   target = case s.target of
     AnyScreen -> []
     Machine machine -> [ machineId machine ]
+  fit = if prepared.fitted then [ "fit" ] else []
+  background = maybe [] (\c -> [ "bg-" <> backgroundHex c ]) prepared.background
   colors = case s.colors of
     Original -> [ "original" ]
     Threshold t -> [ "threshold" <> show t ]

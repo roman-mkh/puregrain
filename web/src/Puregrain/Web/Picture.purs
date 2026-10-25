@@ -1,8 +1,10 @@
 -- | Loading a picture in the browser: the browser decodes the file, and
--- | its pixels are read back from a canvas. It decodes without color
--- | conversion, so the stored values are the ones dithered, as in the CLI,
--- | and transparent parts are put onto white (decision 9 in
--- | web/ROADMAP.md).
+-- | its pixels are read back. It decodes without color conversion, so the
+-- | stored values are the ones dithered, as in the CLI (decision 9 in
+-- | web/ROADMAP.md). The pixels are read with their transparency, exactly
+-- | (decision 27): a 2D canvas gives an opaque picture's values exactly,
+-- | but keeps colors premultiplied by alpha, which rounds semi-transparent
+-- | ones, so a picture with transparency is read again through WebGL.
 module Puregrain.Web.Picture
   ( Picture
   , load
@@ -12,20 +14,31 @@ module Puregrain.Web.Picture
 import Prelude
 
 import Control.Promise (Promise, toAffE)
+import Data.ArrayBuffer.Types (Uint8ClampedArray)
 import Data.Int (toNumber)
+import Data.Maybe (Maybe(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Effect.Class (liftEffect)
-import Graphics.Canvas (CanvasElement, CanvasImageSource, ImageData, drawImage, fillRect, getContext2D, getImageData, putImageData, setCanvasHeight, setCanvasWidth, setFillStyle)
+import Graphics.Canvas (CanvasElement, CanvasImageSource, ImageData, drawImage, getContext2D, getImageData, imageDataBuffer, putImageData, setCanvasHeight, setCanvasWidth)
+import Puregrain.Web.Prepare (hasTransparency)
 import Unsafe.Coerce (unsafeCoerce)
 import Web.File.File (File)
 import Web.File.File as File
 import Web.HTML.HTMLElement (HTMLElement)
 
--- | A loaded picture: the file's name, its size in pixels, and the pixels
--- | themselves as the canvas holds them, RGBA with alpha 255 everywhere
--- | after the flattening onto white.
-type Picture = { name :: String, width :: Int, height :: Int, pixels :: ImageData }
+-- | A loaded picture: the file's name, its size in pixels, and its RGBA
+-- | bytes as stored. `transparent` when some pixel isn't fully opaque;
+-- | `exact` unless such a picture had to be read from a 2D canvas, without
+-- | WebGL, which rounds its semi-transparent colors.
+type Picture =
+  { name :: String
+  , width :: Int
+  , height :: Int
+  , pixels :: Uint8ClampedArray
+  , transparent :: Boolean
+  , exact :: Boolean
+  }
 
 foreign import data ImageBitmap :: Type
 
@@ -34,6 +47,11 @@ foreign import bitmapWidth :: ImageBitmap -> Int
 foreign import bitmapHeight :: ImageBitmap -> Int
 foreign import closeBitmap :: ImageBitmap -> Effect Unit
 foreign import newCanvas :: Effect CanvasElement
+foreign import exactRgbaImpl
+  :: (Uint8ClampedArray -> Maybe Uint8ClampedArray)
+  -> Maybe Uint8ClampedArray
+  -> ImageBitmap
+  -> Effect (Maybe Uint8ClampedArray)
 
 -- | Decodes the file and reads its pixels. Fails, in `Aff`, when the
 -- | browser can't decode the file as a picture.
@@ -48,13 +66,14 @@ load file = do
     setCanvasWidth canvas (toNumber width)
     setCanvasHeight canvas (toNumber height)
     ctx <- getContext2D canvas
-    -- White first: a canvas loses the colors of fully transparent pixels.
-    setFillStyle ctx "white"
-    fillRect ctx { x: 0.0, y: 0.0, width: toNumber width, height: toNumber height }
     drawImage ctx (asImageSource bitmap) 0.0 0.0
-    pixels <- getImageData ctx 0.0 0.0 (toNumber width) (toNumber height)
+    fromCanvas <- imageDataBuffer <$> getImageData ctx 0.0 0.0 (toNumber width) (toNumber height)
+    transparent <- hasTransparency fromCanvas
+    exactly <- if transparent then exactRgbaImpl Just Nothing bitmap else pure Nothing
     closeBitmap bitmap
-    pure { name: File.name file, width, height, pixels }
+    pure case exactly of
+      Just pixels -> { name: File.name file, width, height, pixels, transparent, exact: true }
+      Nothing -> { name: File.name file, width, height, pixels: fromCanvas, transparent, exact: not transparent }
 
 -- | Puts the pixels onto a canvas element of their size.
 draw :: HTMLElement -> ImageData -> Effect Unit

@@ -13,7 +13,8 @@ import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Int as Int
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
+import Effect (Effect)
 import Effect.Aff (try)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
@@ -30,6 +31,7 @@ import Puregrain.Web.Message (FileBytes, Reply(..), describe, jobMessage, readRe
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
+import Puregrain.Web.Prepare (Background, Placement, backgroundFromHex, backgroundHex, backgroundShows, fitOnto, flatten, placementOn, screenToFit, white)
 import Puregrain.Web.Save (fileName, saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, flatCells, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
@@ -50,12 +52,24 @@ import Web.Worker.MessageEvent (data_)
 import Web.Worker.Worker (Worker)
 import Web.Worker.Worker as Worker
 
--- | The picture: none yet, being loaded, failed to load, or loaded.
+-- | The picture: none yet, being loaded, failed to load, or loaded, with
+-- | the picture as it's shown and dithered.
 data Load
   = NoPicture
   | Loading String
   | Failed { name :: String, reason :: String }
-  | Loaded Picture
+  | Loaded { picture :: Picture, prepared :: Prepared }
+
+-- | The picture put onto the background, and for a machine's screen,
+-- | when asked, fitted to it (decisions 22 and 27); `fitted` says where it
+-- | went on the screen. This is what's shown as the original, and
+-- | dithered.
+type Prepared =
+  { width :: Int
+  , height :: Int
+  , image :: ImageData
+  , fitted :: Maybe { screen :: { width :: Int, height :: Int }, placement :: Placement }
+  }
 
 -- | The dithering: none, running (rows done of all), finished with the
 -- | result, a machine's files, and whether saving the PNG failed;
@@ -71,13 +85,16 @@ data Run
 -- | slow load's result, or an answer from a worker already ended, is
 -- | dropped. `typed` keeps the threshold and the number of levels last
 -- | typed, for when those colors are chosen again. `split` is the
--- | picture's columns that show the original, left of the result.
+-- | picture's columns that show the original, left of the result. `fit`
+-- | and `background` prepare every picture loaded.
 type State =
   { load :: Load
   , loads :: Int
   , zoom :: Int
   , pixelRatio :: Number
   , split :: Int
+  , fit :: Boolean
+  , background :: Background
   , settings :: Settings
   , typed :: { threshold :: Int, levels :: Int }
   , run :: Run
@@ -94,6 +111,8 @@ data Action
   | Dropped DragEvent
   | ZoomChosen String
   | TargetChosen String
+  | FitChosen Boolean
+  | BackgroundChosen String
   | ColorsChosen String
   | ThresholdTyped String
   | LevelsTyped String
@@ -120,6 +139,8 @@ component = H.mkComponent
       , zoom: 1
       , pixelRatio: 1.0
       , split: 0
+      , fit: false
+      , background: white
       , settings: initial
       , typed: { threshold: 128, levels: 2 }
       , run: Idle
@@ -147,13 +168,13 @@ picture state = case state.load of
   NoPicture -> []
   Loading name -> [ HH.p_ [ HH.text (texts.loading name) ] ]
   Failed failure -> [ HH.p_ [ HH.text (texts.failed failure) ] ]
-  Loaded p ->
+  Loaded { picture: p, prepared } ->
     let
-      size = cssSize state.pixelRatio state.zoom { width: p.width, height: p.height }
+      size = cssSize state.pixelRatio state.zoom { width: prepared.width, height: prepared.height }
       sizeStyle = "width: " <> show size.width <> "px; height: " <> show size.height <> "px"
       -- The result's left edge is cut at the split, so the original shows
       -- on its left: at whole picture columns, so at whole screen pixels.
-      cut = "clip-path: inset(0 0 0 " <> show (toNumber state.split * 100.0 / toNumber p.width) <> "%)"
+      cut = "clip-path: inset(0 0 0 " <> show (toNumber state.split * 100.0 / toNumber prepared.width) <> "%)"
       finished = isFinished state.run
     in
       -- The parts whose elements come and go sit in fixed containers, so
@@ -161,7 +182,10 @@ picture state = case state.load of
       -- matches unkeyed children by position, and would otherwise rebuild
       -- a canvas, blank, whenever the progress bar appears or goes.
       [ HH.p_ [ HH.text (texts.loaded { name: p.name, width: p.width, height: p.height }) ]
-      , HH.div [ HP.class_ (H.ClassName "settings") ] (settingsForm state.settings { width: p.width, height: p.height })
+      , HH.div [ HP.class_ (H.ClassName "settings") ]
+          ( settingsForm state.settings
+              { size: { width: p.width, height: p.height }, transparent: p.transparent, fit: state.fit, fitted: prepared.fitted, background: state.background }
+          )
       , HH.div [ HP.class_ (H.ClassName "status") ] (runStatus state.run)
       , HH.label_
           [ HH.text texts.zoom
@@ -173,7 +197,7 @@ picture state = case state.load of
           , HH.input
               [ HP.type_ HP.InputRange
               , HP.min 0.0
-              , HP.max (toNumber p.width)
+              , HP.max (toNumber prepared.width)
               , HP.value (show state.split)
               , HP.disabled (not finished)
               , HE.onValueInput SplitMoved
@@ -187,15 +211,15 @@ picture state = case state.load of
               [ HH.canvas
                   [ HP.ref originalRef
                   , HP.class_ (H.ClassName "picture")
-                  , HP.width p.width
-                  , HP.height p.height
+                  , HP.width prepared.width
+                  , HP.height prepared.height
                   , HP.style sizeStyle
                   ]
               , HH.canvas
                   [ HP.ref resultRef
                   , HP.classes [ H.ClassName "picture", H.ClassName "result" ]
-                  , HP.width p.width
-                  , HP.height p.height
+                  , HP.width prepared.width
+                  , HP.height prepared.height
                   , HP.style (sizeStyle <> "; " <> cut)
                   , HP.prop (H.PropName "hidden") (not finished)
                   ]
@@ -203,8 +227,18 @@ picture state = case state.load of
           ]
       ]
 
-settingsForm :: forall m. Settings -> { width :: Int, height :: Int } -> Array (H.ComponentHTML Action () m)
-settingsForm s size =
+-- | The picture's side of the form: its size and transparency, the fit
+-- | asked for and where it went, and the background color.
+type PictureForm =
+  { size :: { width :: Int, height :: Int }
+  , transparent :: Boolean
+  , fit :: Boolean
+  , fitted :: Maybe { screen :: { width :: Int, height :: Int }, placement :: Placement }
+  , background :: Background
+  }
+
+settingsForm :: forall m. Settings -> PictureForm -> Array (H.ComponentHTML Action () m)
+settingsForm s pic =
   [ HH.label_
       [ HH.text texts.target
       , HH.select [ HE.onValueChange TargetChosen ]
@@ -212,12 +246,16 @@ settingsForm s size =
               <> map (\m -> option (machineId m) (texts.targetName (Machine m)) (s.target == Machine m)) allMachines
           )
       ]
-  , HH.label_
-      [ HH.text texts.colors
-      , HH.select [ HE.onValueChange ColorsChosen ]
-          ([ option "original" texts.colorsOriginal (s.colors == Original) ] <> colorsOf s.target)
-      ]
   ]
+    <> fitting s.target
+    <> background
+    <>
+      [ HH.label_
+          [ HH.text texts.colors
+          , HH.select [ HE.onValueChange ColorsChosen ]
+              ([ option "original" texts.colorsOriginal (s.colors == Original) ] <> colorsOf s.target)
+          ]
+      ]
     <> amount s.colors
     <>
       [ HH.label_
@@ -241,8 +279,34 @@ settingsForm s size =
           , HH.text texts.gray
           ]
       ]
-    <> sizeNote s.target
   where
+  -- For a machine and a picture of another size: what happens to it, and
+  -- the choice to fit it to the screen (decision 22).
+  fitting = case _ of
+    Machine m | screenSizeOf m /= pic.size ->
+      [ HH.p_
+          [ HH.small_
+              [ HH.text case pic.fitted of
+                  Just f -> texts.fitted m { picture: pic.size, placement: f.placement }
+                  Nothing -> texts.sizeNote m pic.size
+              ]
+          ]
+      , HH.label_
+          [ HH.input [ HP.type_ HP.InputCheckbox, HP.checked pic.fit, HE.onChecked FitChosen ]
+          , HH.text texts.fitChoice
+          ]
+      ]
+    _ -> []
+  -- Whenever the background shows in the result (decision 27).
+  background =
+    if backgroundShows pic.transparent pic.fitted then
+      [ HH.label_
+          [ HH.text texts.background
+          , HH.input [ HP.type_ HP.InputColor, HP.value ("#" <> backgroundHex pic.background), HE.onValueChange BackgroundChosen ]
+          ]
+      ]
+        <> (if pic.transparent then [ HH.small_ [ HH.text texts.transparentParts ] ] else [])
+    else []
   colorsOf = case _ of
     AnyScreen ->
       [ option "threshold" texts.colorsThreshold (isThreshold s.colors)
@@ -250,9 +314,6 @@ settingsForm s size =
       ]
         <> map (\p -> option (paletteId p) (texts.palette p) (s.colors == Palette p)) allPalettes
     Machine m -> map (\p -> option (machinePaletteId p) (texts.machinePalette m p) (s.colors == MachineColors p)) (machinePalettesOf m)
-  sizeNote = case _ of
-    Machine m | screenSizeOf m /= size -> [ HH.p_ [ HH.small_ [ HH.text (texts.sizeNote m size) ] ] ]
-    _ -> []
   isThreshold = case _ of
     Threshold _ -> true
     _ -> false
@@ -326,6 +387,17 @@ handleAction = case _ of
         if value == "any" then Just AnyScreen
         else Machine <$> Array.find (\m -> machineId m == value) allMachines
     for_ target \t -> change (chooseTarget t)
+  FitChosen fit -> do
+    old <- H.gets _.fit
+    when (fit /= old) do
+      H.modify_ _ { fit = fit }
+      refresh
+  BackgroundChosen value ->
+    for_ (backgroundFromHex value) \c -> do
+      old <- H.gets _.background
+      when (c /= old) do
+        H.modify_ _ { background = c }
+        refresh
   ColorsChosen value -> do
     s <- H.get
     let
@@ -362,8 +434,8 @@ handleAction = case _ of
         Right (Progress p) -> H.modify_ _ { run = Running p }
         Right (Failure reason) -> finish (RunFailed reason)
         Right (Done result) -> case s.load of
-          Loaded p -> do
-            image <- liftEffect (toImageData result.pixels p.width p.height)
+          Loaded { prepared } -> do
+            image <- liftEffect (toImageData result.pixels prepared.width prepared.height)
             -- Drawn while its canvas is still hidden, then shown.
             canvas <- H.getHTMLElementRef resultRef
             for_ canvas \element -> liftEffect (Picture.draw element image)
@@ -372,14 +444,14 @@ handleAction = case _ of
   SplitMoved value -> do
     s <- H.get
     case s.load, Int.fromString value of
-      Loaded p, Just split -> H.modify_ _ { split = clamp 0 p.width split }
+      Loaded { prepared }, Just split -> H.modify_ _ { split = clamp 0 prepared.width split }
       _, _ -> pure unit
   Save -> do
     s <- H.get
     canvas <- H.getHTMLElementRef resultRef
     case s.load, s.run, canvas of
-      Loaded p, Finished _, Just element -> do
-        saved <- liftAff (savePng element (fileName p.name s.settings "png"))
+      Loaded l, Finished _, Just element -> do
+        saved <- liftAff (savePng element (fileName l.picture.name s.settings (nameParts s l) "png"))
         -- Unless another run has started meanwhile (`runs` counts on).
         H.modify_ \now -> case now.run of
           Finished r | now.runs == s.runs -> now { run = Finished r { saveFailed = not saved } }
@@ -388,9 +460,9 @@ handleAction = case _ of
   SaveFile format -> do
     s <- H.get
     case s.load, s.run of
-      Loaded p, Finished r ->
+      Loaded l, Finished r ->
         for_ (Array.find (\f -> f.format == format) r.files) \f ->
-          liftEffect (saveBytes f.bytes (fileName p.name s.settings format))
+          liftEffect (saveBytes f.bytes (fileName l.picture.name s.settings (nameParts s l) format))
       _, _ -> pure unit
   where
   readPixelRatio = do
@@ -400,14 +472,65 @@ handleAction = case _ of
     stopWorker
     H.modify_ _ { run = run }
 
--- | A change of the settings; a real change restarts the dithering.
+-- | What a download's name says about the preparation: `fit` when the
+-- | picture was fitted, and the background when it shows and isn't white.
+nameParts :: State -> { picture :: Picture, prepared :: Prepared } -> { fitted :: Boolean, background :: Maybe Background }
+nameParts s l =
+  { fitted: isJust l.prepared.fitted
+  , background:
+      if backgroundShows l.picture.transparent l.prepared.fitted && s.background /= white then Just s.background
+      else Nothing
+  }
+
+-- | A change of the settings; a real change restarts the dithering, and
+-- | a new target prepares the picture again, as it may fit it.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
 change f = do
   old <- H.gets _.settings
   let new = f old
   when (new /= old) do
     H.modify_ _ { settings = new }
-    restart
+    if new.target /= old.target then refresh else restart
+
+-- | The picture as it's shown and dithered (decisions 22 and 27): put
+-- | onto the background, if it has transparency, and fitted to a
+-- | machine's screen, if asked.
+prepare :: Picture -> Target -> Boolean -> Background -> Effect Prepared
+prepare p target fit background = do
+  opaque <- if p.transparent then flatten p.pixels background else pure p.pixels
+  case screenToFit target fit size of
+    Just screen -> do
+      pixels <- fitOnto opaque size screen background
+      image <- toImageData pixels screen.width screen.height
+      pure { width: screen.width, height: screen.height, image, fitted: Just { screen, placement: placementOn screen size } }
+    Nothing -> do
+      image <- toImageData opaque p.width p.height
+      pure { width: p.width, height: p.height, image, fitted: Nothing }
+  where
+  size = { width: p.width, height: p.height }
+
+-- | Prepares the loaded picture again, for a new target, fit or
+-- | background: shows it as the original (the split back in the middle
+-- | when its size changed), and dithers it afresh.
+refresh :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
+refresh = do
+  s <- H.get
+  case s.load of
+    Loaded l -> do
+      stopWorker
+      prepared <- liftEffect (prepare l.picture s.settings.target s.fit s.background)
+      let resized = prepared.width /= l.prepared.width || prepared.height /= l.prepared.height
+      H.modify_ _ { load = Loaded { picture: l.picture, prepared }, split = if resized then prepared.width / 2 else s.split, run = Idle }
+      drawOriginal prepared
+      restart
+    _ -> pure unit
+
+-- | Draws the prepared picture onto the original's canvas, once the state
+-- | change has rendered it at its size.
+drawOriginal :: forall o m. MonadAff m => Prepared -> H.HalogenM State Action () o m Unit
+drawOriginal prepared = do
+  canvas <- H.getHTMLElementRef originalRef
+  for_ canvas \element -> liftEffect (Picture.draw element prepared.image)
 
 -- | Ends the run, if any, and starts a new one for the picture and the
 -- | settings, unless there's nothing to dither.
@@ -416,22 +539,23 @@ restart = do
   stopWorker
   s <- H.get
   case s.load of
-    Loaded p | not (isOriginal s.settings) -> startRun p s.settings
+    Loaded l | not (isOriginal s.settings) -> startRun l s.settings
     _ -> H.modify_ _ { run = Idle }
 
--- | A new worker, given the settings, the size and a copy of the picture's
--- | pixels; its answers come back as `FromWorker`, with this run's number.
-startRun :: forall o m. MonadAff m => Picture -> Settings -> H.HalogenM State Action () o m Unit
-startRun p settings = do
+-- | A new worker, given the settings, the size and a copy of the prepared
+-- | picture's pixels; its answers come back as `FromWorker`, with this
+-- | run's number.
+startRun :: forall o m. MonadAff m => { picture :: Picture, prepared :: Prepared } -> Settings -> H.HalogenM State Action () o m Unit
+startRun { picture: p, prepared } settings = do
   s <- H.get
   for_ s.listener \listener -> do
     let id = s.runs
     worker <- liftEffect (Worker.new "worker.js" Worker.defaultWorkerOptions)
     liftEffect (Worker.onMessage (\event -> HS.notify listener (FromWorker id (data_ event))) worker)
-    copy <- liftEffect (copyPixels (imageDataBuffer p.pixels))
-    let job = { settings, width: p.width, height: p.height, pixels: copy, tapeName: tapeName p.name }
+    copy <- liftEffect (copyPixels (imageDataBuffer prepared.image))
+    let job = { settings, width: prepared.width, height: prepared.height, pixels: copy, tapeName: tapeName p.name }
     liftEffect (Worker.postMessage' (jobMessage job) [ transferable copy ] worker)
-    H.modify_ _ { worker = Just worker, run = Running { done: 0, total: p.height } }
+    H.modify_ _ { worker = Just worker, run = Running { done: 0, total: prepared.height } }
 
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
 -- | it had already sent is dropped.
@@ -452,8 +576,9 @@ loadFile file = do
     case result of
       Left err -> H.modify_ _ { load = Failed { name: File.name file, reason: message err } }
       Right p -> do
-        H.modify_ _ { load = Loaded p, split = p.width / 2 }
+        s <- H.get
+        prepared <- liftEffect (prepare p s.settings.target s.fit s.background)
+        H.modify_ _ { load = Loaded { picture: p, prepared }, split = prepared.width / 2 }
         -- The state change rendered the canvases; draw, and dither.
-        canvas <- H.getHTMLElementRef originalRef
-        for_ canvas \element -> liftEffect (Picture.draw element p.pixels)
+        drawOriginal prepared
         restart

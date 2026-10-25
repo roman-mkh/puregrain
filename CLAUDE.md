@@ -712,6 +712,11 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   = h where g = …` fails with "Unknown value g" in the first guard.
   Use `if`/`case` instead, or put the shared bindings in a `where` of an
   unguarded equation (as in `Puregrain.Ordered.bayerMatrix`).
+- **A pattern binding in a `where` or `let` sees only the bindings above
+  it**: `{ width, height } = … roundedRatio …` with `roundedRatio`
+  defined further down fails with "Unknown value roundedRatio" (seen in
+  `Puregrain.Web.Prepare`, 2026-10-25). Define the helper first, or at
+  the top level.
 
 - **`(..)` is NOT empty when reversed**: `1 .. 0` evaluates to `[1, 0]`
   (descending), NOT `[]` like Haskell's `[1..0]`. This caused a real,
