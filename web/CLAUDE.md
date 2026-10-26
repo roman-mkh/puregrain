@@ -35,7 +35,9 @@ checklist in step.
   through the `Puregrain` facade, and the specialty modules outside it
   (`Puregrain.Cells`, `Puregrain.Machine.*`) directly, as the CLI does;
   only the worker's bundle holds those. `web/static/` holds
-  `index.html`, which loads `pico.min.css`, `app.css` and `app.js`.
+  `index.html`, which loads `pico.min.css`, `app.css` and `app.js`, and
+  links the icons, which the build copies from `logo/`: they're under the
+  logo's own terms, not MIT, so none of them lives in `web/static/`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
   (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `SaveSpec`,
   `ZoomSpec`), run by `spago test` with the other suites, in Node, so
@@ -83,7 +85,8 @@ checklist in step.
   `resize`, which the app listens to.
 - **Build:** `npm run web:build` (`web/build.mjs`) bundles the page into
   `web/dist/app.js` and the worker into `web/dist/worker.js`, minified,
-  and copies `web/static/` and Pico's stylesheet next to them.
+  and copies `web/static/`, Pico's stylesheet and the logo's three icons
+  next to them.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
 - **Sizes** after v2's phase 3: `app.js` 137.0 KB, 34.2 KB gzipped
@@ -250,6 +253,17 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   source). The pixels are exact; only the file's bytes vary.
 - **Workers:** classic workers and `terminate` everywhere; a message's
   `ArrayBuffer` can be transferred instead of copied.
+- **Icons:** linked as Evil Martians' "How to Favicon" recommends: the
+  ICO with `sizes="32x32"`, since Chrome otherwise takes it over the SVG,
+  then `icon.svg`, then the 180 × 180 `apple-touch-icon.png`, with
+  relative paths, since Pages serves the site below `/puregrain/`.
+  Every target browser takes the SVG for the tab (caniuse, 2026-10-26:
+  Chrome and Edge since 80, Firefox since 41, Safari since 26; served as
+  `image/svg+xml`, which caniuse notes is required), so the ICO serves
+  older browsers and tools that read only `favicon.ico`. Firefox's tab
+  takes the SVG (checked in v2's phase 4). An `<img>` of the ICO shows
+  its largest entry, and `#-moz-resolution` doesn't choose another
+  there.
 
 ## Checking in a real browser
 
@@ -309,6 +323,18 @@ check loaded the page and read "The worker answered: ping" from it.
   from 2.2 s ("about 30 s left", 29 s actually left), stayed to the end,
   and was within 20% of the time actually left whenever more than 10 s
   were. A 320 × 200 picture showed none.
+- **Checked in v2's phase 4:** the page links the three icons and serves
+  them as in `logo/`; Firefox draws each of the logo's SVGs exactly as
+  its PNG, at 1 and 4 times (`icon.svg` as the ICO's 16, at 1 and 2
+  times), decodes each of the ICO's three bitmaps exactly (each served as
+  an ICO of its own), and its tab takes `icon.svg`.
+- **The browser's own UI** (a tab's icon, say) is Marionette's chrome
+  context (`Marionette:SetContext`), which needs Firefox started with
+  `-remote-allow-system-access`.
+- **Start the check's Firefox from the check script** (Node's `spawn`)
+  and end that process: `pkill -f` with the profile's path also matched
+  the shell running it, whose command line holds the same path, and
+  ended it mid-check (phase 4).
 - **`WebDriver:Navigate` reloads the page,** and with it every setting:
   a check that loads one picture after another with the same settings
   must choose the next file in the same page, by sending it to the file

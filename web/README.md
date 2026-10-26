@@ -180,7 +180,7 @@ Firefox.
     few lines of JavaScript each.
 - `web/build.mjs` (`npm run web:build`) bundles the page and the worker
   with spago and esbuild into `web/dist/` (not committed), and copies
-  `web/static/` and Pico CSS there.
+  `web/static/`, Pico CSS and the logo's icons (from `logo/`) there.
 - `npm test` runs the package's specs with the other suites: the
   settings' rules, the worker's dithering and a machine's files against
   the command-line tool's path, the messages, the names and the zoom.
@@ -222,4 +222,5 @@ What the specs can't reach, the browser itself, is checked by hand. After
 11. A run of more than 10 seconds (a picture of 10 megapixels or more)
    shows the time left after a few seconds, counting down in steps, and
    keeps it to the end; a short run shows none.
-12. The browser's console shows no errors.
+12. The browser's tab shows the puregrain icon, "Pg" in red and green.
+13. The browser's console shows no errors.

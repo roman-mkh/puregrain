@@ -162,6 +162,7 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
 | `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
+| `logo/` | The logo, and the script that makes it with puregrain; under its own terms (see [License](#license)) |
 
 The three packages live in one [spago](https://github.com/purescript/spago)
 workspace and are built together.
@@ -187,3 +188,8 @@ workspace and are built together.
 
 MIT: use it in any project, open or closed, free or commercial; keep the
 copyright and license notice. See [LICENSE](LICENSE).
+
+The logo is the exception. It was dithered by puregrain itself, in the
+colors of the ZX Spectrum and the Commodore 64, but it isn't under MIT:
+its own terms let you use it to refer to puregrain, not as your own
+project's logo. See [logo/LICENSE.md](logo/LICENSE.md).

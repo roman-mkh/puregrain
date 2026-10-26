@@ -16,7 +16,8 @@ from the code alone.
   stay exact: keep `spago build --pedantic-packages` clean, keep
   test-only packages under `test.dependencies`, and never add
   Node-only or app packages here. MIT-licensed (`LICENSE` at the root
-  covers the library and the CLI); `package.publish` in `spago.yaml`
+  covers the library and the CLI; the logo in `logo/` has terms of its
+  own, see below); `package.publish` in `spago.yaml`
   holds the license and the current version (0.2.0), and
   `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
@@ -138,6 +139,28 @@ from the code alone.
   `npm run check` and CI. Version 1 (functional, not styled) was done on
   2026-10-21: loading, the settings, dithering in a worker with progress
   and cancelling, the split view, the PNG download.
+- **`logo/`** (2026-10-26, on `web-ui`; decision 28 in `web/ROADMAP.md`)
+  — the project's logo, made by puregrain: `make-logo.mjs` draws the
+  shapes, dithers gray gradients through the CLI, and writes SVG and PNG
+  per color set (`zx/` and `c64/`, equal, chosen by what fits around
+  them; `logo/README.md` recommends the ZX set on dark backgrounds, from
+  the colors' contrast), and the favicons and the social preview in the
+  ZX set, since they must work on any background; the web build copies
+  the three icons into the page. `npm run logo`, after `npm run build`. Every CLI setting is given
+  (`--levels 2 --bayer N --kernel none --gray`), so a change of the CLI's
+  defaults can't change the logo: **when dithering in linear light
+  becomes the default, add its opt-out to the script's CLI call**; then
+  `npm run logo` must report every file unchanged. It writes a file only
+  when its pixels changed, since zlib may compress the same pixels to
+  other bytes on another Node. **Not MIT:** the whole folder, the script
+  included (it holds the design), is under `logo/LICENSE.md` (decided
+  with the user 2026-10-26: unchanged, to refer to puregrain or show
+  it's used, and in copies of the repository for working on it; not as
+  the logo of a modified version or of anything else). The root
+  `LICENSE` stays plain MIT, so GitHub keeps showing "MIT" (its license
+  detection, Licensee, reads only the root and a top-level `LICENSES/`);
+  the README's License section names the exception. User docs:
+  `logo/README.md`.
 - **`.purs-repl`** (the REPL's startup file, at the workspace root) is
   committed, through an exception in `.gitignore` (since 2026-10-08;
   spago's own template ignores `.purs*` and treats it as personal, and
@@ -198,6 +221,8 @@ from the code alone.
 - `web/README.md` — the web UI's user docs: running it, using it, its
   settings as CLI options, and the manual checklist (on the `web-ui`
   branch until the merge).
+- `logo/README.md` — the logo's files, their use, and how it's made and
+  made again; `logo/LICENSE.md`, its terms (on `web-ui` until the merge).
 
 ## Core architecture
 

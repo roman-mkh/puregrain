@@ -37,7 +37,7 @@ users is a separate task, see TODO.md.)
   2026-10-21; its user docs are in `README.md`.
 - **v2:** the machines, with their files as downloads; fitting a picture
   to the machine's screen; an estimate of the time left; the project's
-  logo ([logo-ideas.md](logo-ideas.md)); the design, the look and feel;
+  logo (decision 28); the design, the look and feel;
   at its end the merge into `master` and the hosting. Planned on
   2026-10-22: decisions 20 to 26, and the phases below.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
@@ -252,6 +252,56 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     the library's helper, as planned for `luma`. Until then the clients
     differ on a picture with transparency: the CLI dithers the colors
     stored under transparent parts.
+28. **The logo** (2026-10-25 and 26, phase 4, the user's choices from
+    five rounds of candidates): made by puregrain itself, in `logo/` at
+    the repository's root, with its own README.
+    - **The shapes:** the mark, "Pg" in a pixel font, the capital P at the
+      top left and the g at the bottom right sharing a corner (the bottom
+      bar of the P's head runs into the g's top bar); the wordmark,
+      "puregrain" in a 5 × 9 pixel font; the lockup, the mark beside the
+      wordmark; and the swash, the P's stem sweeping into the g's tail, an
+      extra for special and fun uses (the user's "anniversary addition").
+      A dithered sphere and a grain were tried first: in color they looked
+      like a basketball and a baseball (the user).
+    - **Two equal color sets:** the ZX Spectrum's red to green with the
+      4 × 4 Bayer map, and the C64's orange to blue with the 8 × 8 one. A
+      gray gradient dithered by the CLI to two levels gives the dots: the
+      dark ones take the first color, the light ones the second. First
+      called primary and secondary, made equal on 2026-10-26 (the user's
+      proposal): chosen by what fits the colors and style around them,
+      with a recommendation, not a rule, from the colors' contrast: on
+      dark backgrounds the ZX set, since the outline disappears there and
+      the C64's blue fades (1.92 on GitHub's dark page, the ZX green 9.75;
+      the table is in `logo/README.md`). The web icons and the social
+      preview, which must work on any background, use the ZX set.
+    - **A black outline around everything,** the holes included, so the
+      logo stands on white, dark and transparent backgrounds (round 4;
+      round 5's outline around the outside only was the alternative).
+    - **The files:** SVG (a rectangle per run of a color: Firefox draws
+      each exactly as its PNG, at 1 and 4 times), PNG at 1 and 4 times.
+      For the web, in the ZX set: `favicon.ico` with 16, 32 and 48
+      pixels (at 16 the strokes are 1 pixel wide and the gradient turned
+      into noise, so the P and the g are flat red and green), `icon.svg`
+      (the 16), a 180 × 180 `apple-touch-icon.png`, and the 1280 × 640
+      `social-preview.png`, GitHub's link preview, which the user uploads
+      in the repository's settings once the logo is on `master`. The page
+      links the icons as Evil Martians' "How to Favicon" recommends;
+      every target browser's tab takes the SVG (Safari since 26), so the
+      ICO serves older browsers and tools.
+    - **Its own terms, not MIT** (`logo/LICENSE.md`, the user's wish): the
+      logo may be used unchanged to refer to puregrain, to show that a
+      product uses it ("powered by puregrain"), and in copies of the
+      repository used to work on it; not as the logo of a modified
+      version, of a fork published as its own project, or of anything
+      else. MIT would allow exactly those uses. The terms cover the whole
+      folder, the script included, since it holds the design; the name
+      stays out of them (the registries keep it unique). The root
+      `LICENSE` stays plain MIT, so GitHub still shows "MIT" (it reads
+      only the root); the README's License section names the exception.
+    - **`npm run logo`** makes it again: the script gives every setting of
+      the CLI, so a change of the defaults can't change the logo (for
+      dithering in linear light, its opt-out goes into the script once
+      the CLI has it), and it writes a file only when its pixels changed.
 
 ## v1 in detail
 
@@ -398,7 +448,13 @@ package facts are in `web/CLAUDE.md`.
 
 Each is settled before its phase of v2:
 
-- **Phase 7:** the smoke test's tool, and CI (decision 25).
+- **Phase 7:** the smoke test's tool, and CI (decision 25). The logo in
+  the root README: Pursuit shows the README too, where an image with a
+  relative path probably breaks, so it may need an absolute URL. To
+  check. And which set it shows: the ZX set, or the one that fits the
+  reader's theme (the C64 set in light mode, the ZX set in dark), with
+  `<picture>` and `prefers-color-scheme`, which GitHub supports
+  (decision 28).
 
 ## Later ideas
 
@@ -464,9 +520,8 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
    (decision 27).
 3. **The time estimate** (small): decision 23.
 4. **The logo** (medium): its concept and colors, the script that makes
-   it with puregrain, SVG and PNG, the favicon
-   ([logo-ideas.md](logo-ideas.md)); before the page's design (decision
-   24).
+   it with puregrain, SVG and PNG, the favicon (decision 28, `logo/`);
+   before the page's design (decision 24).
 5. **Design review** (medium, mostly discussion): the screen's areas in
    text, sketches, components, the technical choices (decision 24).
 6. **Design** (large): the look; the split handle dragged on the picture
@@ -483,7 +538,7 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 1. Machine screens: the target menu, both machines with their palettes, the band loop with progress, the four files; the screens and files equal the CLI's, byte for byte
 - [x] 2. Preparing the picture: the background under transparent parts, read exactly through WebGL, and the fit by our own area averaging; both equal independent references, and the dithered results the CLI's
 - [x] 3. The time estimate: shown for runs predicted over 10 s, rounded in steps, kept to the end; within 20% of the time actually left in Firefox
-- [ ] 4. The logo
+- [x] 4. The logo: the mark, the wordmark, the lockup and the swash in two color sets, dithered by puregrain; SVG, PNG, the favicons and the social preview; its own terms; the SVGs and the icons checked in Firefox
 - [ ] 5. Design review
 - [ ] 6. Design
 - [ ] 7. Delivery

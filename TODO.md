@@ -86,6 +86,16 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Dithering in linear light:** today error is diffused on the stored, gamma-encoded sRGB values, which
       skews mid-tones slightly; convert to linear light first (cli/README.md, "Limitations": "fixing this is
       planned").
+- [ ] **Ordered dithering along a color ramp** (an idea, 2026-10-26; after linear light): a palette of colors in
+      a row, two or more (red to green, say, or four greens like the Game Boy Camera's pictures). The pixel's
+      gray value picks a point on the row, and a Bayer map chooses between the two colors on either side, as
+      `Puregrain.Ordered` chooses between two levels. That's ordered dithering with a palette where it's well
+      defined: a ramp has the order a general palette lacks (see "Ordered dithering against a palette" in
+      Future directions). For retro looks, the project's niche, and for logos and banners: the logo is made
+      this way, in two steps, since the CLI can't use a Bayer map with a palette (`logo/make-logo.mjs`: a gray
+      gradient dithered to black and white, then the dots painted in the two colors). The library can do it in
+      a few lines today (`ordered` on gray, then a `map` to the colors); the value would be in the CLI and the
+      web UI, as an option, perhaps with a preset or two.
 
 ## Application
 

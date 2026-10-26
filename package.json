@@ -26,6 +26,7 @@
     "clean:bench": "rm -f samples/bench/*.png",
     "generate-images": "node scripts/generate-images.mjs && node scripts/generate-images.mjs --pattern color --size 256x192 && node scripts/generate-images.mjs --pattern color --size 320x200",
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images",
+    "logo": "node logo/make-logo.mjs",
     "web:build": "node web/build.mjs",
     "web:serve": "esbuild --serve=localhost:8000 --servedir=web/dist"
   },
