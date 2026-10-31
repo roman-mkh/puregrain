@@ -38,6 +38,7 @@ texts
      , useBayer8 :: String
      , hideSettings :: String
      , showSettings :: String
+     , apply :: String
      , dropTitle :: String
      , dropOr :: String
      , formats :: String
@@ -130,6 +131,8 @@ texts =
   , useBayer8: "Use 8×8"
   , hideSettings: "Hide the settings"
   , showSettings: "Show the settings"
+  -- The phone's settings panel closes with it, and dithers then.
+  , apply: "Apply"
   -- The empty picture area (decisions 29 and 30): the drop zone, how to
   -- start, and the promises.
   , dropTitle: "Drop a picture here"

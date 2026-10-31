@@ -2,6 +2,8 @@
 -- | Picture, 2 Target, 3 Colors, 4 Method, and 5 Background when the
 -- | background shows. On the empty page the steps after the first are
 -- | there, disabled (decision 30), so nothing jumps when a picture comes.
+-- | On phones the column is a panel over the page, with Apply at its
+-- | bottom; the stylesheet shows Apply there only.
 -- |
 -- | Each step's parts keep their places when notes come and go after
 -- | them: Halogen matches unkeyed children by position, so a control with
@@ -27,12 +29,19 @@ type Loaded = { picture :: Picture, prepared :: Prepared }
 
 column :: forall w. State -> Array (HH.HTML w Action)
 column state =
-  [ step 1 texts.picture false (pictureStep loaded)
-  , step 2 texts.target off (targetStep s loaded state.fit)
-  , step 3 texts.colors off (colorsStep s state.typed.threshold)
-  , step 4 texts.method off (methodStep s)
+  -- The steps in a box of their own, so Apply keeps its place when the
+  -- fifth comes and goes.
+  [ HH.div [ HP.class_ (H.ClassName "steps") ]
+      ( [ step 1 texts.picture false (pictureStep loaded)
+        , step 2 texts.target off (targetStep s loaded state.fit)
+        , step 3 texts.colors off (colorsStep s state.typed.threshold)
+        , step 4 texts.method off (methodStep s)
+        ]
+          <> backgroundStep
+      )
+  , HH.div [ HP.class_ (H.ClassName "apply") ]
+      [ HH.button [ HP.type_ HP.ButtonButton, HP.class_ (H.ClassName "primary"), HE.onClick (const PanelClosed) ] [ HH.text texts.apply ] ]
   ]
-    <> backgroundStep
   where
   s = state.settings
   loaded = case state.load of

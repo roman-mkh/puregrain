@@ -9,6 +9,7 @@ module Puregrain.Web.App (component) where
 import Prelude
 
 import Control.Monad.Except (runExcept)
+import Foreign (unsafeToForeign)
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
@@ -31,7 +32,7 @@ import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
 import Puregrain.Web.Keys (Shortcut(..), shortcut, zoomStep)
 import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
-import Puregrain.Web.Page (setTheme)
+import Puregrain.Web.Page (narrowScreen, setTheme)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
@@ -41,14 +42,15 @@ import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
-import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, resultRef)
-import Puregrain.Web.Status (Run(..), progressDelay, resultShows)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, panelRef, resultRef, settingsButtonRef)
+import Puregrain.Web.Status (Run(..), held, progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
 import Puregrain.Web.View.Column (column)
 import Puregrain.Web.View.Footer (footer)
 import Puregrain.Web.View.Header (header)
 import Puregrain.Web.View.Icon as Icon
+import Puregrain.Web.View.Parts (inert)
 import Puregrain.Web.View.Stage (stage)
 import Puregrain.Web.Zoom (stepped)
 import Web.DOM.Node as Node
@@ -62,6 +64,8 @@ import Web.HTML.Event.DataTransfer as DataTransfer
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement as HTMLInputElement
+import Web.HTML.History as History
+import Web.HTML.Location as Location
 import Web.HTML.Window as Window
 import Web.UIEvent.KeyboardEvent as KE
 import Web.Worker.MessageEvent (data_)
@@ -92,26 +96,29 @@ component = H.mkComponent
       , theme: input.theme
       , libraryVersion: input.libraryVersion
       , columnHidden: false
+      , panelOpen: false
       }
   , render
   , eval: H.mkEval H.defaultEval { handleAction = handleAction, initialize = Just Initialize }
   }
 
 -- | The page (decision 29): the header, the settings' column beside the
--- | picture and its bar, the footer.
+-- | picture and its bar, the footer. On phones the column is a panel over
+-- | the page, opened by the header's settings button; while it's open,
+-- | the rest of the page is `inert`, and the panel a modal dialog.
 render :: forall m. State -> H.ComponentHTML Action () m
 render state =
   -- The whole page takes a dropped file, so that a drop beside the
   -- picture doesn't make the browser open the file instead; and it
   -- counts what a drag of files enters and leaves, for the overlay.
   HH.div
-    [ HP.class_ (H.ClassName "app")
+    [ HP.classes ([ H.ClassName "app" ] <> (if state.panelOpen then [ H.ClassName "panel-open" ] else []))
     , HE.onDragEnter DragEntered
     , HE.onDragLeave DragLeft
     , HE.onDragOver DragOver
     , HE.onDrop Dropped
     ]
-    [ header state.theme
+    [ header { theme: state.theme, settings: loaded, panelOpen: state.panelOpen }
     , HH.div [ HP.classes ([ H.ClassName "work" ] <> (if state.columnHidden then [ H.ClassName "column-hidden" ] else [])) ]
         -- The « / » tab on the column's edge (decision 29): it says
         -- whether the column is open, and which column it opens.
@@ -122,15 +129,29 @@ render state =
             , HP.attr (H.AttrName "aria-controls") "settings"
             , HP.title (if state.columnHidden then texts.showSettings else texts.hideSettings)
             , HE.onClick (const ColumnToggled)
+            , inert state.panelOpen
             ]
             [ if state.columnHidden then Icon.chevronsRight else Icon.chevronsLeft
             , HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.settingsLabel ]
             ]
-        , HH.aside [ HP.id "settings", HP.class_ (H.ClassName "column"), HP.attr (H.AttrName "aria-label") texts.settingsLabel ] (column state)
-        , HH.main [ HP.class_ (H.ClassName "stage"), HP.attr (H.AttrName "aria-label") texts.pictureLabel ] (stage state)
+        , HH.aside
+            ( [ HP.ref panelRef
+              , HP.id "settings"
+              , HP.class_ (H.ClassName "column")
+              , HP.attr (H.AttrName "aria-label") texts.settingsLabel
+              , HP.tabIndex (-1)
+              ]
+                <> (if state.panelOpen then [ HP.attr (H.AttrName "role") "dialog", HP.attr (H.AttrName "aria-modal") "true" ] else [])
+            )
+            (column state)
+        , HH.main [ HP.class_ (H.ClassName "stage"), HP.attr (H.AttrName "aria-label") texts.pictureLabel, inert state.panelOpen ] (stage state)
         ]
-    , footer state.libraryVersion
+    , footer state.libraryVersion state.panelOpen
     ]
+  where
+  loaded = case state.load of
+    Loaded _ -> true
+    NoPicture -> false
 
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
@@ -146,12 +167,34 @@ handleAction = case _ of
     -- list of formats closes it.
     void (H.subscribe (eventListener (EventType "keydown") (Window.toEventTarget win) (map PageKey <<< KE.fromEvent)))
     void (H.subscribe (eventListener (EventType "click") (Window.toEventTarget win) (Just <<< PageClicked)))
-  Resized -> readPixelRatio
+    -- Back, while the phone's panel is open, closes it (decision 34).
+    void (H.subscribe (eventListener (EventType "popstate") (Window.toEventTarget win) (const (Just HistoryPopped))))
+  Resized -> do
+    readPixelRatio
+    -- A phone turned sideways, a window widened: no panel any more.
+    narrow <- liftEffect narrowScreen
+    open <- H.gets _.panelOpen
+    when (open && not narrow) (closePanel false)
   ThemeToggled -> do
     theme <- H.gets (toggled <<< _.theme)
     liftEffect (setTheme (themeName theme))
     H.modify_ _ { theme = theme }
   ColumnToggled -> H.modify_ \s -> s { columnHidden = not s.columnHidden }
+  -- The phone's settings panel (decisions 29 and 34): it takes the focus,
+  -- and adds a step to the browser's history, so that the back gesture
+  -- closes it instead of leaving the page.
+  PanelOpened -> do
+    H.modify_ _ { panelOpen = true, formatsOpen = false }
+    liftEffect do
+      win <- window
+      href <- Location.href =<< Window.location win
+      History.pushState (unsafeToForeign { panel: true }) (History.DocumentTitle "") (History.URL href) =<< Window.history win
+    panel <- H.getHTMLElementRef panelRef
+    for_ panel (liftEffect <<< HTMLElement.focus)
+  PanelClosed -> closePanel false
+  HistoryPopped -> do
+    open <- H.gets _.panelOpen
+    when open (closePanel true)
   -- The shortcuts (decision 33, `Puregrain.Web.Keys`): Ctrl+O and Ctrl+S
   -- are taken over from the browser, Ctrl+S even with nothing to
   -- download yet, so that "Save page as" doesn't open over the page.
@@ -165,10 +208,13 @@ handleAction = case _ of
       H.modify_ _ { formatsOpen = false }
       s <- H.get
       download (buttonFormat s.format (choicesOf s))
-    -- The list of formats first, if it's open, then the run.
+    -- The phone's panel first, then the list of formats, then the run.
     Escape -> do
       s <- H.get
-      if s.formatsOpen then do
+      if s.panelOpen then do
+        liftEffect (Event.preventDefault (KE.toEvent event))
+        closePanel false
+      else if s.formatsOpen then do
         liftEffect (Event.preventDefault (KE.toEvent event))
         closeFormats
       else case s.run of
@@ -425,17 +471,36 @@ drawOriginal prepared = do
   canvas <- H.getHTMLElementRef originalRef
   for_ canvas \element -> liftEffect (Picture.draw element prepared.image)
 
+-- | Closes the phone's settings panel, which applies its changes: a run
+-- | held meanwhile starts. The focus goes back to the settings button.
+-- | Unless the browser's back closed it (`fromHistory`), the step it
+-- | added to the history goes too.
+closePanel :: forall o m. MonadAff m => Boolean -> H.HalogenM State Action () o m Unit
+closePanel fromHistory = do
+  H.modify_ _ { panelOpen = false }
+  unless fromHistory (liftEffect (History.back =<< Window.history =<< window))
+  s <- H.get
+  case s.run of
+    Held _ -> restart
+    _ -> pure unit
+  button <- H.getHTMLElementRef settingsButtonRef
+  for_ button (liftEffect <<< HTMLElement.focus)
+
 -- | Ends the run, if any, and starts a new one for the picture and the
 -- | settings, unless there's nothing to dither. A note on a file that
 -- | wasn't a picture goes: this is the next action (decision 30 A). The
 -- | list of formats closes, as its download waits for the new result.
+-- | While the phone's panel is open, the run is held until it closes
+-- | (decision 29).
 restart :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 restart = do
   stopWorker
   H.modify_ _ { notAPicture = Nothing, formatsOpen = false }
   s <- H.get
   case s.load of
-    Loaded l | not (isOriginal s.settings) -> startRun l s.settings
+    Loaded l | not (isOriginal s.settings) ->
+      if s.panelOpen then H.modify_ _ { run = held s.run }
+      else startRun l s.settings
     _ -> H.modify_ _ { run = Idle }
 
 -- | A new worker, given the settings, the size and a copy of the prepared

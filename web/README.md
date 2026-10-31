@@ -103,9 +103,14 @@ the dithering, for a page opened as a file. After changing a source, run
    makes it from its output's: without the extension, printable ASCII
    only, at most 10 characters (`puregrain` when nothing is left).
 
+**On a phone,** the settings open from the sliders button in the
+header, once a picture is loaded, over the whole screen. Changes made
+there wait: Apply closes the settings and dithers with them, and so do
+the back gesture and Esc.
+
 **Keys:** Ctrl+O chooses a picture and Ctrl+S downloads in the button's
-format (Cmd works as Ctrl, on a Mac and elsewhere); Esc closes the list of
-formats, or cancels a run. While the picture area has the focus (Tab, or
+format (Cmd works as Ctrl, on a Mac and elsewhere); Esc closes the
+phone's settings or the list of formats, or cancels a run. While the picture area has the focus (Tab, or
 a click on it), + and − zoom; while the split's handle has it, ← and →
 move it a column (ten with Shift), Home and End to the edges. The
 tooltips show the keys.
@@ -259,5 +264,9 @@ What the specs can't reach, the browser itself, is checked by hand. After
 12. Ctrl+O opens the file chooser and Ctrl+S downloads (Cmd on a Mac),
    without the browser's own dialogs, in Chrome and Safari too (checked
    in Firefox by the development checks); Esc cancels a run.
-13. The browser's tab shows the puregrain icon, "Pg" in red and green.
-14. The browser's console shows no errors.
+13. On a phone (Chrome on Android, Safari on an iPhone): the sliders
+   button opens the settings over the whole screen, sliding in; changes
+   start nothing until Apply, which closes them and dithers; the back
+   gesture does the same and stays on the page.
+14. The browser's tab shows the puregrain icon, "Pg" in red and green.
+15. The browser's console shows no errors.

@@ -18,10 +18,12 @@ checklist in step.
   page's parts, decision 29), `.Controls` (the settings' controls,
   decision 31: a numbered step, cards and segments, a stepper, a toggle
   switch, a note, a file chooser like a button), `.Parts` (a menu's
-  option, the project's links) and `.Icon` (inline SVG icons),
+  option, the `inert` property, the project's links) and `.Icon`
+  (inline SVG icons),
   `Puregrain.Web.Theme` (pure: the
   two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
-  root's `data-theme`, the version's meta element; FFI),
+  root's `data-theme`, the version's meta element, whether the layout
+  is a phone's; FFI),
   `Puregrain.Web.Picture`
   (decoding and reading a picture with its transparency, exactly, drawing
   pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
@@ -183,12 +185,12 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6, step 4: `app.js` 164.7 KB, 41.4 KB
+- **Sizes** after v2's phase 6, step 5: `app.js` 167.9 KB, 42.0 KB
   gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
   137.0 KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's
   phase 6, step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the
   library (since v1's phase 3) and the machines' modules; `app.css`
-  19.3 KB, 5.4 KB gzipped, in place of Pico's 11.7 KB. Gzipped at gzip's
+  20.6 KB, 5.7 KB gzipped, in place of Pico's 11.7 KB. Gzipped at gzip's
   default level (`gzip -c`); the worker's 18.6 KB noted before was at
   level 9. PureScript's output is wordy before minifying: a module of a
   few lines, `Download`, is 3.5 KB in an unminified bundle; `spago
@@ -199,8 +201,26 @@ checklist in step.
   nothing (`grid-template-columns` animates in Chrome 107, Firefox 66,
   Safari 16), so it slides out; after the 200 ms it's `visibility:
   hidden`, which takes it out of the Tab order and from screen readers.
-  The tab is placed absolutely, out of the grid. The phone's layout
-  undoes all of it, until step 5's panel.
+  The tab is placed absolutely, out of the grid. On a phone's width the
+  column is the settings' panel, which slides in and out the same way.
+- **The phone's panel** (decisions 29 and 34): the settings' column
+  itself, under 760 pixels a fixed box over the whole screen, opened by
+  the header's settings button (shown on phones, with a picture). Closed,
+  it's off the screen and `visibility: hidden`, as the desktop's hidden
+  column. Open (`.app.panel-open`), it's a modal dialog (`role`,
+  `aria-modal`, and `tabindex="-1"` to take the focus), and the header,
+  the picture area, the footer and the column's tab are `inert`. Apply
+  sits in a sticky bar at its bottom, shown on phones only. Opening it
+  pushes a step onto the history; the browser's back (`popstate`) closes
+  it, and the other ways of closing (Apply, Esc, the window growing past
+  760 pixels, read by `matchMedia` at each `resize`) go back a step
+  themselves, `popstate` then finding it closed. Every close applies:
+  while it's open, `restart` holds the run (`Held`, which keeps
+  showing what the run before it showed, `Puregrain.Web.Status.held`),
+  stopping a running worker; the held run starts when it closes. The
+  focus goes into the panel and back to the settings button. A known
+  edge: reopening it in the moment between Apply and the history's step
+  going back would close it again.
 - **The threshold's slider** shows its value while dragged (`input`,
   `ThresholdDragged`: the number follows) and starts a run only when
   released (`change`, `ThresholdTyped`; decision 31).
@@ -463,11 +483,15 @@ check loaded the page and read "The worker answered: ping" from it.
   own path: a mouse's moves, presses and releases (the page gets
   pointer events with a real `pointerId`, so capturing works), and keys
   (`\uE014` for →, `\uE008` for Shift, `\uE010` End, `\uE011` Home);
-  `WebDriver:ReleaseActions` afterwards. A file for a synthetic drop can
-  be fetched in the page (`WebDriver:ExecuteAsyncScript`) from the
-  check's own server. A hidden element's `innerText` is its
-  `textContent`, hidden parts included, so a check reads it only from
-  shown elements. With `devtools.console.stdout.content` in `user.js`,
+  `WebDriver:ReleaseActions` afterwards. `WebDriver:Back` goes back in
+  the history as the browser's button does, `popstate` included. A file
+  for a synthetic drop can be fetched in the page
+  (`WebDriver:ExecuteAsyncScript`) from the check's own server. A hidden
+  element's `innerText` is its `textContent`, hidden parts included,
+  while text under `visibility: hidden` (the closed phone panel's) is
+  left out of a shown element's `innerText`: a check reads such text
+  with `textContent`. A check can count the runs by wrapping
+  `window.Worker`, which the page calls for each. With `devtools.console.stdout.content` in `user.js`,
   Firefox writes the page's console to its standard output, where the
   check script can read it (a file chooser refused for lack of a user
   action says "picker was blocked").
@@ -577,6 +601,19 @@ check loaded the page and read "The worker answered: ping" from it.
   = and − in the picture area, at its ends and through the handle; the
   tooltips; at ratio 1.5, the list and a `.scr`; on a phone's width, the
   list within the screen.
+- **Checked in v2's phase 6, step 5** (`step65_check.mjs`, at a phone's
+  width): no settings button on the empty page, the panel off the
+  screen, the short tagline; with a picture, the button ("Settings",
+  `aria-expanded`); the panel over the whole screen, a modal dialog with
+  the focus, the rest inert (the theme switch can't take the focus), a
+  step in the history, Apply at the screen's bottom; changes starting no
+  run (no worker made) until Apply, then one, the CLI's pixels, the focus
+  back on the button and the history's step gone; Esc and Back closing it
+  the same way, the result before shown meanwhile, the page staying; no
+  run without a change; another picture chosen in the panel, its run
+  held; the window widened while open: the panel closed, the held run
+  started, the column beside the picture; at a desktop's width a change
+  running at once; with animations off, no slide.
 - **A headless Firefox window is at least 500 pixels wide:** asked for
   390, it gave 500, still a phone's layout here (under 760). In a
   profile's `user.js`, `layout.css.prefers-color-scheme.content-override`

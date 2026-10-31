@@ -14,6 +14,8 @@ module Puregrain.Web.State
   , chooserRef
   , downloadsRef
   , formatsRef
+  , panelRef
+  , settingsButtonRef
   ) where
 
 import Prelude
@@ -70,7 +72,8 @@ type Prepared =
 -- | drag of files has entered (`Puregrain.Web.Drag`). `format` is the
 -- | download's format chosen last, and `formatsOpen` whether the list of
 -- | formats shows (`Puregrain.Web.Download`). `columnHidden` is the
--- | settings' column slid away (decision 29).
+-- | settings' column slid away (decision 29), and `panelOpen` the
+-- | phone's settings panel open, which holds the runs until it closes.
 type State =
   { load :: Load
   , loads :: Int
@@ -94,6 +97,7 @@ type State =
   , theme :: Theme
   , libraryVersion :: String
   , columnHidden :: Boolean
+  , panelOpen :: Boolean
   }
 
 data Action
@@ -101,6 +105,9 @@ data Action
   | Resized
   | ThemeToggled
   | ColumnToggled
+  | PanelOpened
+  | PanelClosed
+  | HistoryPopped
   | PageKey KeyboardEvent
   | PageClicked Event
   | FileChosen Event
@@ -168,3 +175,11 @@ downloadsRef = H.RefLabel "downloads"
 
 formatsRef :: H.RefLabel
 formatsRef = H.RefLabel "formats"
+
+-- | The settings' column, which is the phone's panel, and the header's
+-- | button that opens the panel.
+panelRef :: H.RefLabel
+panelRef = H.RefLabel "panel"
+
+settingsButtonRef :: H.RefLabel
+settingsButtonRef = H.RefLabel "settings-button"

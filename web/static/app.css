@@ -134,7 +134,11 @@ input[type="color"] {
 .links a { color: var(--text); text-decoration: none; }
 .links a:hover { color: var(--accent); text-decoration: underline; }
 
-.theme { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
+.theme, .settings-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
+
+/* The button that opens the settings' panel, and the panel's Apply: on
+   phones only (see the end). */
+.settings-button, .apply { display: none; }
 
 .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); }
 
@@ -387,8 +391,12 @@ input[type="color"] {
 }
 .foot a { color: inherit; }
 
-/* ---- Phones: stacked, the picture first, until phase 6's step 5 gives
-   them the settings' panel. ---------------------------------------------- */
+/* ---- Phones (decisions 29 and 34) ---------------------------------------
+   The picture and its bar; the settings in a panel over the whole screen,
+   opened by the header's settings button and closed with Apply, sliding
+   in and out as the desktop column does. Closed, the panel is off the
+   screen and invisible, out of the keyboard's and screen readers' reach.
+   app.js reads the same limit, 760 pixels (Puregrain.Web.Page). */
 @media (max-width: 760px) {
   .app { height: auto; min-height: 100vh; }
   .top { flex-wrap: wrap; gap: 6px 8px; padding: 10px 14px; }
@@ -398,9 +406,23 @@ input[type="color"] {
   .tagline .short { display: inline; }
   .links a { display: none; }
   .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
-  .stage { order: -1; }
-  .column, .work.column-hidden .column { width: auto; transform: none; visibility: visible; border-right: 0; border-top: 1px solid var(--line); }
   .column-tab { display: none; }
+  .settings-button { display: grid; }
+  .column, .work.column-hidden .column {
+    position: fixed; inset: 0; z-index: 20; width: auto; padding: 18px 20px 0;
+    display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; border-right: 0;
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform 200ms ease, visibility 0s linear 200ms;
+  }
+  .app.panel-open .column { transform: none; visibility: visible; transition: transform 200ms ease, visibility 0s; }
+  /* Apply at the bottom: of the screen while the steps are shorter, of
+     the visible part while they scroll. */
+  .steps { flex: 1 0 auto; }
+  .apply {
+    display: block; position: sticky; bottom: 0; margin: 0 -20px; padding: 12px 20px;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .apply button { width: 100%; padding: 10px; font-size: 15px; }
   .area { min-height: 240px; max-height: 70vh; }
   .view { padding: 40px 14px 14px; }
   .view.empty { padding: 14px; }
@@ -412,4 +434,8 @@ input[type="color"] {
   /* A finger's size (decision 33). */
   .handle { width: 44px; }
   .knob { width: 40px; height: 40px; top: calc(50% - 20px); bottom: calc(50% - 20px); }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .column, .work.column-hidden .column, .app.panel-open .column { transition: none; }
 }

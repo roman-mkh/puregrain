@@ -3,7 +3,7 @@ module Test.Puregrain.Web.StatusSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Status (Run(..), RunNote(..), progressDelay, resultShows, runNote)
+import Puregrain.Web.Status (Run(..), RunNote(..), held, progressDelay, resultShows, runNote)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -33,6 +33,20 @@ spec = describe "Puregrain.Web.Status" do
     progressDelay `shouldEqual` 1000.0
     runNote (running { progressShown: false, keepsPrevious: true }) `shouldEqual` Nothing
     runNote (running { progressShown: true, keepsPrevious: true }) `shouldEqual` Just (Progress { done: 10, total: 200, left: Nothing })
+
+  it "holds a run while the phone's panel is open, showing what the run before it showed" do
+    -- A change in the panel: the result shown stays, the original stays.
+    resultShows (held finished) `shouldEqual` true
+    resultShows (held (running { progressShown: true, keepsPrevious: true })) `shouldEqual` true
+    resultShows (held (running { progressShown: true, keepsPrevious: false })) `shouldEqual` false
+    resultShows (held Idle) `shouldEqual` false
+    resultShows (held Cancelled) `shouldEqual` false
+    -- Held again by a further change: unchanged.
+    resultShows (held (held finished)) `shouldEqual` true
+    -- The run that starts at the panel's closing keeps it on show too.
+    resultShows (running { progressShown: false, keepsPrevious: resultShows (held finished) }) `shouldEqual` true
+    -- Nothing to say about it, behind the panel.
+    runNote (held finished) `shouldEqual` Nothing
 
   it "says what the bar says in each state" do
     runNote Idle `shouldEqual` Just OriginalShown
