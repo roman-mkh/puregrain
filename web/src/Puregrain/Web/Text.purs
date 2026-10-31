@@ -37,10 +37,17 @@ texts
      , useBayer8 :: String
      , hideSettings :: String
      , showSettings :: String
-     , choose :: String
+     , dropTitle :: String
+     , dropOr :: String
+     , formats :: String
+     , description :: String
+     , promises :: String
      , loading :: String -> String
-     , failed :: { name :: String, reason :: String } -> String
-     , loaded :: { name :: String, width :: Int, height :: Int } -> String
+     , notAPicture :: String -> String
+     , notAPictureKept :: String -> String
+     , dropToLoad :: String
+     , original :: String
+     , result :: String
      , zoom :: String
      , zoomLevel :: Int -> String
      , target :: String
@@ -66,12 +73,15 @@ texts
      , bayerNeedsLevels :: String
      , flatCells :: String
      , gray :: String
+     , originalShown :: String
      , dithering :: { done :: Int, total :: Int } -> String
+     , ditheringLabel :: String
      , timeLeft :: TimeLeft -> String
      , cancel :: String
      , cancelled :: String
      , ditherFailed :: String -> String
      , split :: String
+     , splitValue :: Int -> Int -> String
      , save :: String
      , saveFile :: String -> String
      , saveFailed :: String
@@ -113,10 +123,20 @@ texts =
   , useBayer8: "Use 8×8"
   , hideSettings: "Hide the settings"
   , showSettings: "Show the settings"
-  , choose: "Choose a picture, or drop one onto this page."
-  , loading: \name -> "Loading " <> name <> "..."
-  , failed: \f -> f.name <> " couldn't be read as a picture (" <> f.reason <> ")."
-  , loaded: \p -> p.name <> ": " <> show p.width <> " × " <> show p.height <> " pixels"
+  -- The empty picture area (decisions 29 and 30): the drop zone, how to
+  -- start, and the promises.
+  , dropTitle: "Drop a picture here"
+  , dropOr: "or"
+  , formats: "PNG, JPEG, GIF, WebP or BMP."
+  , description: "Choose a target, colors and a method in the settings: the result shows beside the original, to compare, and saves as a PNG, or as a ZX Spectrum's or a C64's own files."
+  , promises: "Everything runs in your browser: your pictures are never uploaded. No ads, no registration, no tracking, and it's free."
+  , loading: \name -> "Loading " <> name <> "…"
+  , notAPicture: \name -> name <> " isn't a picture."
+  , notAPictureKept: \name -> name <> " isn't a picture; the current one stays."
+  , dropToLoad: "Drop to load the picture"
+  -- Above the picture's corners, either side of the split.
+  , original: "Original"
+  , result: "Result"
   , zoom: "Zoom"
   , zoomLevel: \zoom -> show zoom <> "×"
   , target: "Target"
@@ -174,7 +194,9 @@ texts =
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
   , gray: "Turn the picture gray first"
+  , originalShown: "The original is shown. Choose colors or a method to dither it."
   , dithering: \p -> "Dithering: " <> show p.done <> " of " <> show p.total <> " rows"
+  , ditheringLabel: "Dithering"
   , timeLeft: \t ->
       if t.minutes == 0 && t.seconds == 0 then "a few seconds left"
       else
@@ -187,6 +209,7 @@ texts =
   , cancelled: "Cancelled; the original is shown."
   , ditherFailed: \reason -> "The dithering failed: " <> reason
   , split: "Split: the original on the left, the result on the right"
+  , splitValue: \split width -> "column " <> show split <> " of " <> show width
   , save: "Download as PNG"
   , saveFile: \format -> "Download ." <> format
   , saveFailed: "The browser couldn't make the PNG."

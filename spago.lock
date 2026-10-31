@@ -127,7 +127,6 @@
             "datetime",
             "effect",
             "either",
-            "exceptions",
             "foldable-traversable",
             "foreign",
             "halogen",
@@ -148,6 +147,7 @@
             "web-events",
             "web-file",
             "web-html",
+            "web-uievents",
             "web-workers"
           ]
         },

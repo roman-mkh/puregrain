@@ -30,9 +30,10 @@ the dithering, for a page opened as a file. After changing a source, run
 
 ## Using it
 
-1. **Choose a picture,** with the file chooser or by dropping it onto the
-   page. Any picture the browser can read works: PNG, JPEG, GIF, WebP,
-   BMP and more. The colors are read as the file stores them, without its
+1. **Choose a picture,** with the file chooser or by dropping it anywhere
+   on the page. Any picture the browser can read works: PNG, JPEG, GIF,
+   WebP, BMP and more. A file that isn't a picture leaves the one shown as
+   it was, and the bar under the picture says so. The colors are read as the file stores them, without its
    color profile, as the command-line tool reads them. Transparent parts
    go onto a background color, white unless you choose another: the page
    offers a color picker for a picture with transparency.
@@ -60,13 +61,17 @@ the dithering, for a page opened as a file. After changing a source, run
    With a machine and no method, each pixel just takes the nearer of its
    cell's colors, and the page recommends ordered dithering, 8×8.
 3. **Dithering starts by itself** with each change, in the background, so
-   the page keeps responding. A progress bar shows the rows done, and
-   Cancel stops it; a change during a run starts it over. A run that
-   looks like it will take over 10 seconds also shows the time left,
-   from the pace so far: "about 45 s left", "about 2 min 30 s left".
-   Until the result is there, the original is shown.
+   the page keeps responding. A run that takes more than a second shows a
+   progress bar with the rows done, and Cancel; a change during a run
+   starts it over. A run that looks like it will take over 10 seconds
+   also shows the time left, from the pace so far: "about 45 s left",
+   "about 2 min 30 s left". Meanwhile the result before it stays on show;
+   the original shows until a picture's first result is there, again
+   after a new target, fit or background, and after Cancel.
 4. **Compare.** The original shows left of the split and the result right
-   of it; the slider moves the split. The zoom, 1× to 4×, makes each
+   of it, as the labels above the picture's corners say. Drag the split's
+   handle, or give it the focus (Tab) and move it with ← and → (ten
+   columns with Shift), Home and End. The zoom, 1× to 4×, makes each
    picture pixel exactly 1 to 4 screen pixels wide, whatever the screen's
    density, so the dither pattern stays sharp: at any other scale it
    would blur or form moiré. A large picture scrolls in its box.
@@ -170,21 +175,24 @@ Firefox.
     every text it shows.
   - `Settings.purs` (the choices and their rules), `Dither.purs` (the
     settings as library values, as the command-line tool builds them),
-    `Save.purs` (the files' names and the tape's) and `Zoom.purs` are
-    pure, and tested.
+    `Save.purs` (the files' names and the tape's), `Status.purs` (what
+    the picture area and the bar show for a run), `Split.purs` (the split
+    handle's drag and keys), `Drag.purs` (a drag of files over the page)
+    and `Zoom.purs` are pure, and tested.
   - `Worker.purs` is the worker's entry; `Run.purs` dithers row by row
     with the library's stepper, or a machine's screen band by band, a row
     of cells at a time, reports progress, and makes the machine's files;
     `Message.purs` holds the messages between the page and the worker.
-  - `Picture`, `Pixels`, `Save` and `Screen` reach the browser through a
-    few lines of JavaScript each.
+  - `Page`, `Picture`, `Pixels`, `Pointer`, `Prepare`, `Save` and
+    `Screen` reach the browser through a few lines of JavaScript each.
 - `web/build.mjs` (`npm run web:build`) bundles the page and the worker
   with spago and esbuild into `web/dist/` (not committed), and copies
-  `web/static/` (the page and its stylesheet) and the logo's icons and
-  lockups (from `logo/`) there.
+  `web/static/` (the page and its stylesheet) and the logo's icons,
+  lockups and marks (from `logo/`) there.
 - `npm test` runs the package's specs with the other suites: the
   settings' rules, the worker's dithering and a machine's files against
-  the command-line tool's path, the messages, the names and the zoom.
+  the command-line tool's path, the messages, the names, the zoom, what
+  the bar says, the split handle's keys and the drag's count.
 - The plan, the decisions and their reasons: [ROADMAP.md](ROADMAP.md).
   Architecture and gotchas: [CLAUDE.md](CLAUDE.md), notes kept for the
   AI assistant used in development.
@@ -195,17 +203,25 @@ What the specs can't reach, the browser itself, is checked by hand. After
 `npm run web:build` and a reload, ideally in each of the browsers above:
 
 1. A PNG chosen with the file chooser and a JPEG dropped onto the page
-   both show; a file that isn't a picture gives a message.
+   both show. While a file is dragged over the page, the empty page's
+   drop zone lights up, or "Drop to load the picture" covers a picture.
+   A file that isn't a picture gives a message, and a picture shown
+   stays.
 2. A picture with transparent parts shows them white.
 3. Each zoom keeps the pixels sharp; a large picture scrolls.
 4. The settings start at "none", showing the original. A kernel brings a
    threshold at 128, a Bayer map 2 levels; the Bayer map is unavailable
    with a threshold or a palette.
-5. A large picture (a photo of a few megapixels) shows the progress rising,
-   the page keeps responding, and Cancel brings back the original. A
-   change during a run starts a new one.
+5. A large picture (a photo of a few megapixels) shows the progress after
+   a second, rising, the page keeps responding, and Cancel brings back
+   the original. A change during a run starts a new one, the result
+   before it staying until the new one is there.
 6. The split shows the original on the left and the result on the right,
-   and stays where it is when a setting changes.
+   and stays where it is when a setting changes. Its handle follows the
+   mouse, and a finger on a touch screen, where the picture still
+   scrolls when touched elsewhere; with the focus, the arrow keys, Home
+   and End move it. On a picture taller than its area, the handle's knob
+   stays in sight while it scrolls.
 7. The downloaded file has the settings in its name and shows the result.
 8. A result looks like the command-line tool's with the same settings
    (the table above), both viewed at 100%.

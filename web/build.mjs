@@ -1,8 +1,8 @@
 // Builds the web UI into web/dist/: the page's and the worker's scripts,
 // each bundled by spago and esbuild into a self-running script, and the
-// static files, the logo's icons and lockups included, with the library's
-// version written into the page. Everything comes from our own build,
-// nothing from a CDN (decision 19 in web/ROADMAP.md).
+// static files, the logo's icons, lockups and marks included, with the
+// library's version written into the page. Everything comes from our own
+// build, nothing from a CDN (decision 19 in web/ROADMAP.md).
 //
 // Run from the repository's root: npm run web:build.
 import { execFileSync } from 'node:child_process';
@@ -33,7 +33,9 @@ for (const icon of ['favicon.ico', 'icon.svg', 'apple-touch-icon.png']) {
 }
 for (const set of ['zx', 'c64']) {
   mkdirSync(`${dist}/logo/${set}`, { recursive: true });
-  copyFileSync(`logo/${set}/lockup.png`, `${dist}/logo/${set}/lockup.png`);
+  for (const part of ['lockup.png', 'mark.png']) {
+    copyFileSync(`logo/${set}/${part}`, `${dist}/logo/${set}/${part}`);
+  }
 }
 
 // The library's version, from its spago.yaml, for the page's footer.

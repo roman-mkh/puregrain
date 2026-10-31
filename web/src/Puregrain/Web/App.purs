@@ -1,7 +1,7 @@
 -- | The web UI's component (web/ROADMAP.md): choose a picture or drop
 -- | one, choose the settings, for any screen or a machine's, see the
 -- | result, dithered in a worker with progress and cancelling, over the
--- | original at whole-number zoom, split by a slider, and save it as a
+-- | original at whole-number zoom, split by a handle, and save it as a
 -- | PNG, or as the machine's own files. Its state and actions are in
 -- | `Puregrain.Web.State`; its parts are drawn by `Puregrain.Web.View.*`.
 module Puregrain.Web.App (component) where
@@ -14,11 +14,11 @@ import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int as Int
 import Data.Maybe (Maybe(..), isJust)
+import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Aff (try)
+import Effect.Aff (delay, try)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
-import Effect.Exception (message)
 import Graphics.Canvas (imageDataBuffer)
 import Halogen as H
 import Halogen.HTML as HH
@@ -26,17 +26,21 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
+import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
 import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Page (setTheme)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
+import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
 import Puregrain.Web.Prepare (Background, backgroundFromHex, backgroundShows, fitOnto, flatten, placementOn, screenToFit, white)
 import Puregrain.Web.Save (fileName, saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
-import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Run(..), State, originalRef, resultRef)
+import Puregrain.Web.Split (columnAt, grabAt, keyed)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, handleRef, layersRef, originalRef, resultRef)
+import Puregrain.Web.Status (Run(..), progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
 import Puregrain.Web.View.Column (column)
@@ -54,6 +58,7 @@ import Web.HTML.Event.DataTransfer as DataTransfer
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.HTML.Window as Window
+import Web.UIEvent.KeyboardEvent as KE
 import Web.Worker.MessageEvent (data_)
 import Web.Worker.Worker as Worker
 
@@ -62,9 +67,12 @@ component = H.mkComponent
   { initialState: \input ->
       { load: NoPicture
       , loads: 0
+      , loading: Nothing
+      , notAPicture: Nothing
       , zoom: 1
       , pixelRatio: 1.0
       , split: 0
+      , splitDrag: Nothing
       , fit: false
       , background: white
       , settings: initial
@@ -73,6 +81,7 @@ component = H.mkComponent
       , runs: 0
       , worker: Nothing
       , listener: Nothing
+      , dragged: 0
       , theme: input.theme
       , libraryVersion: input.libraryVersion
       , columnHidden: false
@@ -86,8 +95,15 @@ component = H.mkComponent
 render :: forall m. State -> H.ComponentHTML Action () m
 render state =
   -- The whole page takes a dropped file, so that a drop beside the
-  -- picture doesn't make the browser open the file instead.
-  HH.div [ HP.class_ (H.ClassName "app"), HE.onDragOver DragOver, HE.onDrop Dropped ]
+  -- picture doesn't make the browser open the file instead; and it
+  -- counts what a drag of files enters and leaves, for the overlay.
+  HH.div
+    [ HP.class_ (H.ClassName "app")
+    , HE.onDragEnter DragEntered
+    , HE.onDragLeave DragLeft
+    , HE.onDragOver DragOver
+    , HE.onDrop Dropped
+    ]
     [ header state.theme
     , HH.div [ HP.classes ([ H.ClassName "work" ] <> (if state.columnHidden then [ H.ClassName "column-hidden" ] else [])) ]
         -- The « / » tab on the column's edge (decision 29): it says
@@ -129,11 +145,14 @@ handleAction = case _ of
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
       for_ (files >>= FileList.item 0) loadFile
+  DragEntered event -> dragStep event Enter
+  DragLeft event -> dragStep event Leave
   DragOver event ->
     -- Without this, the browser doesn't let a file be dropped here.
     liftEffect (Event.preventDefault (DragEvent.toEvent event))
   Dropped event -> do
     liftEffect (Event.preventDefault (DragEvent.toEvent event))
+    H.modify_ \s -> s { dragged = counted s.dragged Drop }
     for_ (DataTransfer.files (DragEvent.dataTransfer event) >>= FileList.item 0) loadFile
   ZoomChosen value -> for_ (Int.fromString value) \zoom -> H.modify_ _ { zoom = zoom }
   TargetChosen value -> do
@@ -200,16 +219,50 @@ handleAction = case _ of
         Right (Done result) -> case s.load of
           Loaded { prepared } -> do
             image <- liftEffect (toImageData result.pixels prepared.width prepared.height)
-            -- Drawn while its canvas is still hidden, then shown.
+            -- Drawn over the result before it, or while its canvas is
+            -- still hidden, then shown.
             canvas <- H.getHTMLElementRef resultRef
             for_ canvas \element -> liftEffect (Picture.draw element image)
-            finish (Finished { image, files: result.files, saveFailed: false })
+            finish (Finished { files: result.files, saveFailed: false })
           _ -> pure unit
-  SplitMoved value -> do
+  -- The handle (decision 31): it follows the pointer that took hold of
+  -- it, captured, so also outside it, until the pointer is released.
+  SplitPressed event -> when (mainButton event) do
     s <- H.get
-    case s.load, Int.fromString value of
-      Loaded { prepared }, Just split -> H.modify_ _ { split = clamp 0 prepared.width split }
+    layers <- H.getHTMLElementRef layersRef
+    handle <- H.getHTMLElementRef handleRef
+    case s.load, layers, handle of
+      Loaded { prepared }, Just box, Just h -> do
+        at <- liftEffect (across event box)
+        liftEffect (capture h (pointerId event))
+        H.modify_ _ { splitDrag = Just { pointer: pointerId event, grab: grabAt at s.split prepared.width } }
+      _, _, _ -> pure unit
+  SplitDragged event -> do
+    s <- H.get
+    case s.splitDrag, s.load of
+      Just drag, Loaded { prepared } | drag.pointer == pointerId event ->
+        -- A drag whose release went elsewhere ends at the next move.
+        if not (pressed event) then H.modify_ _ { splitDrag = Nothing }
+        else do
+          layers <- H.getHTMLElementRef layersRef
+          for_ layers \box -> do
+            at <- liftEffect (across event box)
+            let split = columnAt (at - drag.grab) prepared.width
+            when (split /= s.split) (H.modify_ _ { split = split })
       _, _ -> pure unit
+  SplitReleased event -> do
+    drag <- H.gets _.splitDrag
+    for_ drag \d -> when (d.pointer == pointerId event) (H.modify_ _ { splitDrag = Nothing })
+  SplitKey event -> do
+    s <- H.get
+    case s.load of
+      Loaded { prepared } -> do
+        let key = { key: KE.key event, shift: KE.shiftKey event, modified: KE.ctrlKey event || KE.altKey event || KE.metaKey event }
+        for_ (keyed key s.split prepared.width) \split -> do
+          -- The key moves the handle only, without scrolling the page.
+          liftEffect (Event.preventDefault (KE.toEvent event))
+          H.modify_ _ { split = split }
+      _ -> pure unit
   Save -> do
     s <- H.get
     canvas <- H.getHTMLElementRef resultRef
@@ -235,6 +288,10 @@ handleAction = case _ of
   finish run = do
     stopWorker
     H.modify_ _ { run = run }
+  -- Only drags that hold files count (`Puregrain.Web.Drag`).
+  dragStep event step =
+    when (holdsFiles (DataTransfer.types (DragEvent.dataTransfer event))) do
+      H.modify_ \s -> s { dragged = counted s.dragged step }
 
 -- | What a download's name says about the preparation: `fit` when the
 -- | picture was fitted, and the background when it shows and isn't white.
@@ -284,7 +341,7 @@ refresh = do
       stopWorker
       prepared <- liftEffect (prepare l.picture s.settings.target s.fit s.background)
       let resized = prepared.width /= l.prepared.width || prepared.height /= l.prepared.height
-      H.modify_ _ { load = Loaded { picture: l.picture, prepared }, split = if resized then prepared.width / 2 else s.split, run = Idle }
+      H.modify_ _ { load = Loaded { picture: l.picture, prepared }, split = if resized then prepared.width / 2 else s.split, splitDrag = Nothing, run = Idle }
       drawOriginal prepared
       restart
     _ -> pure unit
@@ -297,10 +354,12 @@ drawOriginal prepared = do
   for_ canvas \element -> liftEffect (Picture.draw element prepared.image)
 
 -- | Ends the run, if any, and starts a new one for the picture and the
--- | settings, unless there's nothing to dither.
+-- | settings, unless there's nothing to dither. A note on a file that
+-- | wasn't a picture goes: this is the next action (decision 30 A).
 restart :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 restart = do
   stopWorker
+  H.modify_ _ { notAPicture = Nothing }
   s <- H.get
   case s.load of
     Loaded l | not (isOriginal s.settings) -> startRun l s.settings
@@ -308,7 +367,9 @@ restart = do
 
 -- | A new worker, given the settings, the size and a copy of the prepared
 -- | picture's pixels; its answers come back as `FromWorker`, with this
--- | run's number.
+-- | run's number. The result before it stays on show, if it shows
+-- | (`resultShows`); the progress shows after `progressDelay`, unless
+-- | the run is over by then (decision 30 B).
 startRun :: forall o m. MonadAff m => { picture :: Picture, prepared :: Prepared } -> Settings -> H.HalogenM State Action () o m Unit
 startRun { picture: p, prepared } settings = do
   s <- H.get
@@ -320,7 +381,16 @@ startRun { picture: p, prepared } settings = do
     let job = { settings, width: prepared.width, height: prepared.height, pixels: copy, tapeName: tapeName p.name }
     started <- liftEffect clock
     liftEffect (Worker.postMessage' (jobMessage job) [ transferable copy ] worker)
-    H.modify_ _ { worker = Just worker, run = Running { done: 0, total: prepared.height, started, left: Nothing } }
+    H.modify_ _
+      { worker = Just worker
+      , run = Running { done: 0, total: prepared.height, started, left: Nothing, progressShown: false, keepsPrevious: resultShows s.run }
+      }
+    void $ H.fork do
+      liftAff (delay (Milliseconds progressDelay))
+      now <- H.get
+      case now.run of
+        Running r | now.runs == id -> H.modify_ _ { run = Running r { progressShown = true } }
+        _ -> pure unit
 
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
 -- | it had already sent is dropped.
@@ -330,19 +400,22 @@ stopWorker = do
   for_ s.worker (liftEffect <<< Worker.terminate)
   H.modify_ _ { worker = Nothing, runs = s.runs + 1 }
 
+-- | Loads a file chosen or dropped. The picture shown and its run stay
+-- | until the new one has decoded, and stay for good if it can't be
+-- | (decision 30 C); then a note says so, until the next action.
 loadFile :: forall o m. MonadAff m => File -> H.HalogenM State Action () o m Unit
 loadFile file = do
-  stopWorker
-  started <- H.modify \s -> s { load = Loading (File.name file), loads = s.loads + 1, run = Idle }
+  started <- H.modify \s -> s { loading = Just (File.name file), notAPicture = Nothing, loads = s.loads + 1 }
   result <- liftAff (try (Picture.load file))
   latest <- H.gets _.loads
   when (latest == started.loads) do
     case result of
-      Left err -> H.modify_ _ { load = Failed { name: File.name file, reason: message err } }
+      Left _ -> H.modify_ _ { loading = Nothing, notAPicture = Just (File.name file) }
       Right p -> do
+        stopWorker
         s <- H.get
         prepared <- liftEffect (prepare p s.settings.target s.fit s.background)
-        H.modify_ _ { load = Loaded { picture: p, prepared }, split = prepared.width / 2 }
+        H.modify_ _ { load = Loaded { picture: p, prepared }, loading = Nothing, split = prepared.width / 2, splitDrag = Nothing, run = Idle }
         -- The state change rendered the canvases; draw, and dither.
         drawOriginal prepared
         restart

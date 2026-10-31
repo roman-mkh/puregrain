@@ -9,7 +9,6 @@ package:
     - datetime
     - effect
     - either
-    - exceptions
     - foldable-traversable
     - foreign
     - halogen
@@ -30,6 +29,7 @@ package:
     - web-events
     - web-file
     - web-html
+    - web-uievents
     - web-workers
   test:
     main: Test.Puregrain.Web.Main

@@ -29,6 +29,12 @@ checklist in step.
   over a whole picture in `Prepare.js`, pinned to the rules by
   `PrepareSpec`), `Puregrain.Web.Estimate` (the time left, decision 23:
   pure, with the page's clock, `Effect.Now`),
+  `Puregrain.Web.Status` (pure: the run's states, which picture shows,
+  when the progress shows, the bar's note on the run; decision 30),
+  `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
+  decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
+  the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
+  events for the handle; FFI),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
@@ -52,8 +58,9 @@ checklist in step.
   copied by the build: they're under the logo's own terms, not MIT, so
   none of them lives in `web/static/`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
-  (`SettingsSpec`, `DitherSpec`, `EstimateSpec`, `MessageSpec`,
-  `PrepareSpec`, `RunSpec`, `SaveSpec`, `ThemeSpec`, `ZoomSpec`), run by
+  (`SettingsSpec`, `DitherSpec`, `DragSpec`, `EstimateSpec`,
+  `MessageSpec`, `PrepareSpec`, `RunSpec`, `SaveSpec`, `SplitSpec`,
+  `StatusSpec`, `ThemeSpec`, `ZoomSpec`), run by
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
@@ -72,7 +79,22 @@ checklist in step.
   a machine's cells, then the result's pixels and, for a machine's screen
   of the screen's size, its files (all transferred). `runs` counts the
   runs, ended ones included, so an answer from an ended worker is
-  dropped. While a run goes, the view shows the original.
+  dropped. While a run goes, the result before it stays on show
+  (`keepsPrevious`, which is `resultShows` of the run it replaces;
+  decision 30 B); the original shows for a picture's first run, after
+  Cancel or a failure, and when the picture is prepared again (a new
+  picture, target, fit or background). The progress shows once the run
+  has gone on for a second (`progressDelay`), by a timer the run starts
+  (`H.fork` with `delay`, dropped when `runs` has moved on), not at the
+  next progress report: a large picture's first hundredth of the rows
+  can take longer.
+- **Loading** (decision 30 C): `loading` holds the file's name while it
+  decodes, `notAPicture` the name of one that couldn't be, until the next
+  load or setting (`restart` clears it). The picture shown and its run
+  go on meanwhile, and stay for good if the file isn't a picture. The
+  bar's middle has two fixed boxes, the file's note and the run's, so
+  both can show at once: a bad file during a run keeps the progress and
+  Cancel in sight.
 - **A lazy list keeps every cell it has computed, for whatever holds its
   first cell.** The band loop reads rows through a lazy list and gets
   the bands as one, so a variable holding either list's start would
@@ -83,12 +105,35 @@ checklist in step.
   them: the heap stays within about 1 MB of the start.
 - **The view:** two canvases stacked in `.layers`, the original below,
   drawn once per picture, and the result on top, drawn when a run
-  finishes, before it's shown. Without a result it's hidden (the
-  `hidden` property; see "`[hidden]` and our styles"), and the slider
-  and the download are unavailable. The result's `clip-path: inset(0 0 0
-  X%)` cuts off its left part: X is the split, the range input's value
-  in picture columns (0 to the width) as a share of the width, so the
-  cut falls between screen pixels at every zoom and pixel ratio.
+  finishes, before it's shown (over the result before it, if that one
+  shows). Without a result to show it's hidden (the `hidden` property;
+  see "`[hidden]` and our styles"), with the handle and the labels, and
+  the download is unavailable. The result's `clip-path: inset(0 0 0
+  X%)` cuts off its left part: X is the split in picture columns (0 to
+  the width) as a share of the width, so the cut falls between screen
+  pixels at every zoom and pixel ratio; the handle's `left` is the same
+  X%, its 2-pixel line centered on the cut.
+- **The split's handle** (decision 31; `Puregrain.Web.Split`): Halogen
+  7.0.0 has no pointer events, so the handle takes `pointerdown`,
+  `pointermove`, `pointerup` and `pointercancel` as plain events
+  (`HE.handler (EventType …)`) and reads them through
+  `Puregrain.Web.Pointer`'s few lines of JavaScript. A press of the main
+  button captures the pointer (`setPointerCapture` on the handle, so the
+  moves come also from outside it) and notes where it took hold,
+  relative to the line, so the line doesn't jump to the pointer; each
+  move puts the split on the nearest column boundary. A move with no
+  button held ends a drag whose release went elsewhere. Only the handle
+  has `touch-action: none`: a touch elsewhere still scrolls the picture.
+  The keys come through `HE.onKeyDown` (`web-uievents`), and a key the
+  handle uses is `preventDefault`ed, so End doesn't also scroll; ↑ and ↓
+  and the keys with Ctrl, Alt or Meta stay the browser's. A
+  `role="slider"` with `aria-valuetext` "column 160 of 320".
+- **The knob is sticky** (`position: sticky; top: calc(50% - 16px);
+  bottom: calc(50% - 16px)` inside the handle, as tall as the picture),
+  and sticky positions count from inside the scroll container's padding:
+  with the view's 46 pixels above and 32 below, the knob sits 7 pixels
+  below the middle of the visible area, which is where a picture that
+  fits has its middle (it's centered in the same box).
 - **Zoom in screen pixels:** the canvas's CSS size is the picture's size
   × zoom ÷ `devicePixelRatio`, so each picture pixel is exactly zoom ×
   zoom screen pixels, also at fractional ratios (1.25, 1.5 on many
@@ -100,18 +145,19 @@ checklist in step.
 - **Build:** `npm run web:build` (`web/build.mjs`) clears `web/dist/`,
   bundles the page into `web/dist/app.js` and the worker into
   `web/dist/worker.js`, minified, copies `web/static/`, the logo's three
-  icons and its two lockups (`logo/zx/`, `logo/c64/`) next to them, and
+  icons, its two lockups and its two marks (`logo/zx/`, `logo/c64/`)
+  next to them, and
   writes the library's version, read from the root `spago.yaml`
   (`publish.version`), into `index.html`'s meta element, for the
   footer; a version written there keeps `npm run check` independent of
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6, step 2: `app.js` 147.0 KB, 36.9 KB
+- **Sizes** after v2's phase 6, step 3: `app.js` 155.5 KB, 39.3 KB
   gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
   137.0 KB, 34.2 KB after v2's phase 3); `worker.js` 71.2 KB, 18.6 KB
   gzipped, with the library (since v1's phase 3) and the machines'
-  modules; `app.css` 13.1 KB, 3.9 KB gzipped, in place of Pico's
+  modules; `app.css` 17.4 KB, 5.0 KB gzipped, in place of Pico's
   11.7 KB.
 - **The column's slide** (decision 29): the column keeps its 340 pixels
   and moves left by them (`transform`) while its grid track narrows to
@@ -273,15 +319,30 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   size) keeps the picture; a new picture gets a new canvas, drawn after
   the state change rendered it (`getHTMLElementRef`, then
   `putImageData`).
-- **Drops:** the whole `main` takes them, so that a drop beside the input
-  doesn't make the browser open the file; `dragover` must call
-  `preventDefault`, or the browser refuses the drop.
+- **Drops:** the whole page (`.app`) takes them, so that a drop beside
+  the picture doesn't make the browser open the file; `dragover` must
+  call `preventDefault`, or the browser refuses the drop. For the drop
+  zone's light and the overlay (decision 30 D), the page counts the
+  `dragenter` and `dragleave` of drags whose `types` hold "Files"
+  (readable while the drag goes on, unlike the files); a drop sets the
+  count to 0 (`Puregrain.Web.Drag`). The overlay has `pointer-events:
+  none`, so the drag's events reach the elements under it, and the
+  picture area is a stacking context of its own (`isolation: isolate`),
+  so the overlay stays under the column's tab.
+- **An element removed while a drag is over it** gets its `dragleave`
+  detached from the page, so the event never reaches the page's
+  listener, and the count would stay up, the overlay with it, until the
+  next drop. So the parts that change under a pointer are hidden rather
+  than removed: the canvases, the handle, the labels, the overlay, and
+  the bar's notes, progress and Cancel, which go when a run ends. The
+  empty area does go when the first picture loads, after its drop.
 - **Halogen matches unkeyed children by position.** When an element
   before the canvas comes or goes (the progress bar, say), the canvas is
   rebuilt as a new, blank element, and drawing through the old reference
   misses it: phase 3's first browser check read a blank canvas. Parts
-  whose elements come and go sit in fixed containers (`.settings`,
-  `.status`), so the canvas keeps its place.
+  whose elements come and go are hidden rather than removed, or sit in
+  fixed containers (the bar's `.bar-file` and `.bar-run`), so the
+  canvas keeps its place.
 - **`web-workers` 2.0.0 can't send a record as such:** its `IsSendable`
   instance for records needs `IsSendableRowList`, which it doesn't
   export ("the class was not in scope"). Each message is sent wrapped
@@ -363,6 +424,15 @@ check loaded the page and read "The worker answered: ping" from it.
   readable by the snap); a synthetic drop works as
   `new DragEvent("drop", { dataTransfer })` with `new DataTransfer()`
   holding a `File`; `WebDriver:TakeScreenshot` gives screen pixels.
+  `WebDriver:PerformActions` sends real input, through the browser's
+  own path: a mouse's moves, presses and releases (the page gets
+  pointer events with a real `pointerId`, so capturing works), and keys
+  (`\uE014` for →, `\uE008` for Shift, `\uE010` End, `\uE011` Home);
+  `WebDriver:ReleaseActions` afterwards. A file for a synthetic drop can
+  be fetched in the page (`WebDriver:ExecuteAsyncScript`) from the
+  check's own server. A hidden element's `innerText` is its
+  `textContent`, hidden parts included, so a check reads it only from
+  shown elements.
 - **Checked in phase 3:** for 7 settings (a threshold, levels with
   Atkinson, a palette with JJN, pure Bayer, the hybrid, a palette after
   "gray first", 3 levels), the page's result on the color composite at
@@ -428,6 +498,30 @@ check loaded the page and read "The worker answered: ping" from it.
   system's animations off (`ui.prefersReducedMotion` 1 in `user.js`),
   no transition and the column hidden at once; on a phone's width, no
   tab and the settings shown.
+- **Checked in v2's phase 6, step 3** (`step63_check.mjs`): the empty
+  area (the drop zone, the mark in each theme's set, both "Choose a
+  picture…", the texts); a file that isn't a picture, above the drop
+  zone, and with a picture shown, in the bar, the picture and its result
+  kept (also during a run, the progress going on); "Loading plain.png…"
+  on the way; a drag of files lighting the drop zone and, over a
+  picture, the overlay, counted through a child, not for a drag of
+  text, the column's tab above it (0 of its 612 screen pixels changed;
+  306 without the stacking context), and a drop that loads; the handle
+  dragged by the mouse (taken hold 6 pixels off the line: no jump; out
+  of the picture: captured, to 0 and to the width; a drag beside it
+  moves nothing), by the keys (← →, with Shift, Home, End, at the edges;
+  End, Home and → don't scroll, ↓ does), `role="slider"` with its value
+  text; the split exact to the screen pixel after it at ratio 1 (1× and
+  3×) and 1.5 (1× and 2×, a 40-pixel drag there 30 columns); the knob on
+  the line, at the middle of a picture that fits, and of the area inside
+  the view's margins on a tall one at every scroll position; the labels
+  above the corners,
+  side by side over a 96-pixel picture; a short run without progress, a
+  long one keeping the result before it, its progress after 1.06 s,
+  then Cancel showing the original, and the next run too; the zoom's
+  segments; the downloads the CLI's (a PNG, and a ZX Spectrum screen's
+  PNG and `.scr`, byte for byte); a phone's width without sideways
+  scrolling, the knob 40 pixels, the handle 44.
 - **A headless Firefox window is at least 500 pixels wide:** asked for
   390, it gave 500, still a phone's layout here (under 760). In a
   profile's `user.js`, `layout.css.prefers-color-scheme.content-override`
