@@ -107,6 +107,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       The CLI ships through npm too, not the PureScript registry (spago can't install pngjs): one JS file
       bundled with esbuild, pngjs as an npm dependency, a `bin` entry, so `npx puregrain …` works. It could
       come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
+      Then the web UI can show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 
 ## Future directions (not in scope now)

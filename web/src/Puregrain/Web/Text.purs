@@ -25,6 +25,18 @@ texts
      , logoLicense :: String
      , onGitHub :: String
      , picture :: String
+     , chooseFirst :: String
+     , chooseAnother :: String
+     , dropHint :: String
+     , pictureSize :: { width :: Int, height :: Int } -> String
+     , targetLine :: Target -> String
+     , palettesGroup :: String
+     , fewerLevels :: String
+     , moreLevels :: String
+     , method :: String
+     , useBayer8 :: String
+     , hideSettings :: String
+     , showSettings :: String
      , choose :: String
      , loading :: String -> String
      , failed :: { name :: String, reason :: String } -> String
@@ -82,6 +94,25 @@ texts =
   , logoLicense: "The logo: its own terms"
   , onGitHub: "puregrain on GitHub"
   , picture: "Picture"
+  -- The settings' column (decision 31): its numbered steps.
+  , chooseFirst: "Choose a picture…"
+  , chooseAnother: "Choose another…"
+  , dropHint: "Or drop one anywhere on this page."
+  , pictureSize: \p -> show p.width <> " × " <> show p.height <> " pixels"
+  , targetLine: case _ of
+      AnyScreen -> "any size, the colors you choose"
+      Machine m ->
+        let
+          s = screenSizeOf m
+        in
+          show s.width <> " × " <> show s.height <> ", 2 colors per 8×8 cell"
+  , palettesGroup: "Palettes"
+  , fewerLevels: "Fewer levels"
+  , moreLevels: "More levels"
+  , method: "Method"
+  , useBayer8: "Use 8×8"
+  , hideSettings: "Hide the settings"
+  , showSettings: "Show the settings"
   , choose: "Choose a picture, or drop one onto this page."
   , loading: \name -> "Loading " <> name <> "..."
   , failed: \f -> f.name <> " couldn't be read as a picture (" <> f.reason <> ")."
@@ -96,9 +127,10 @@ texts =
   , colorsOriginal: "None: the original"
   , colorsThreshold: "Gray, black and white at a threshold"
   , colorsLevels: "Levels per channel"
-  , palette: \p -> "Palette: " <> case p of
-      BlackWhite -> "black and white"
-      Websafe216 -> "web-safe, 216 colors"
+  -- Shown in the colors' menu under "Palettes".
+  , palette: case _ of
+      BlackWhite -> "Black and white"
+      Websafe216 -> "Web-safe, 216 colors"
       Cga16 -> "CGA, EGA, VGA, 16 colors"
       Ansi16 -> "ANSI terminal, 16 colors"
       Ansi256 -> "xterm, 256 colors"

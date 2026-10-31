@@ -64,7 +64,8 @@ data Run
 -- | dropped. `typed` keeps the threshold and the number of levels last
 -- | typed, for when those colors are chosen again. `split` is the
 -- | picture's columns that show the original, left of the result. `fit`
--- | and `background` prepare every picture loaded.
+-- | and `background` prepare every picture loaded. `columnHidden` is the
+-- | settings' column slid away (decision 29).
 type State =
   { load :: Load
   , loads :: Int
@@ -81,12 +82,14 @@ type State =
   , listener :: Maybe (HS.Listener Action)
   , theme :: Theme
   , libraryVersion :: String
+  , columnHidden :: Boolean
   }
 
 data Action
   = Initialize
   | Resized
   | ThemeToggled
+  | ColumnToggled
   | FileChosen Event
   | DragOver DragEvent
   | Dropped DragEvent
@@ -96,6 +99,7 @@ data Action
   | BackgroundChosen String
   | ColorsChosen String
   | ThresholdTyped String
+  | ThresholdDragged String
   | LevelsTyped String
   | KernelChosen String
   | BayerChosen String

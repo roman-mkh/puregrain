@@ -15,8 +15,11 @@ checklist in step.
   body), `Puregrain.Web.App` (the component: its actions and their
   effects), `Puregrain.Web.State` (the state and the actions),
   `Puregrain.Web.View.Header`, `.Column`, `.Stage` and `.Footer` (the
-  page's parts, decision 29), `.Parts` (a menu's option, the project's
-  links) and `.Icon` (inline SVG icons), `Puregrain.Web.Theme` (pure: the
+  page's parts, decision 29), `.Controls` (the settings' controls,
+  decision 31: a numbered step, cards and segments, a stepper, a toggle
+  switch, a note, a file chooser like a button), `.Parts` (a menu's
+  option, the project's links) and `.Icon` (inline SVG icons),
+  `Puregrain.Web.Theme` (pure: the
   two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
   root's `data-theme`, the version's meta element; FFI),
   `Puregrain.Web.Picture`
@@ -104,11 +107,25 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6, step 1: `app.js` 141.9 KB, 35.5 KB
+- **Sizes** after v2's phase 6, step 2: `app.js` 147.0 KB, 36.9 KB
   gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
   137.0 KB, 34.2 KB after v2's phase 3); `worker.js` 71.2 KB, 18.6 KB
   gzipped, with the library (since v1's phase 3) and the machines'
-  modules; `app.css` 7.2 KB, 2.5 KB gzipped, in place of Pico's 11.7 KB.
+  modules; `app.css` 13.1 KB, 3.9 KB gzipped, in place of Pico's
+  11.7 KB.
+- **The column's slide** (decision 29): the column keeps its 340 pixels
+  and moves left by them (`transform`) while its grid track narrows to
+  nothing (`grid-template-columns` animates in Chrome 107, Firefox 66,
+  Safari 16), so it slides out; after the 200 ms it's `visibility:
+  hidden`, which takes it out of the Tab order and from screen readers.
+  The tab is placed absolutely, out of the grid. The phone's layout
+  undoes all of it, until step 5's panel.
+- **The threshold's slider** shows its value while dragged (`input`,
+  `ThresholdDragged`: the number follows) and starts a run only when
+  released (`change`, `ThresholdTyped`; decision 31).
+- **A file chooser like a button:** a `<label>` around the file input,
+  which is visually hidden but keeps the focus and the keys; Marionette's
+  `ElementSendKeys` still chooses a file through it.
 - **The theme comes before the first render:** `Main` reads the
   system's setting and puts `data-theme` on the page's root, then passes
   the theme to the component as its input, because Halogen runs a
@@ -398,6 +415,19 @@ check loaded the page and read "The worker answered: ping" from it.
   from the system at load, dark and light, the switch, and the logo's
   set; only `app.css` loaded; the footer's versions; on a phone's width,
   the picture above the settings, without sideways scrolling.
+- **Checked in v2's phase 6, step 2,** through the column's new
+  controls: the empty page's steps after the first disabled; the levels'
+  stepper (− disabled at 2, + at 256); the threshold's slider (no run
+  while dragged, the number following, a run on release, the CLI's
+  pixels at 100); the toggle switch (`role="switch"`, the CLI's `--gray`);
+  the Bayer segments disabled with a palette, with the note; the ZX
+  Spectrum through its card and "Use 8×8", its screen and `.scr` the
+  CLI's; the fit's note on a 512 × 512 poster; the « / » tab (the
+  column hidden, a setting unable to take the focus, the picture's area
+  the window's width, the split still exact; open again); with the
+  system's animations off (`ui.prefersReducedMotion` 1 in `user.js`),
+  no transition and the column hidden at once; on a phone's width, no
+  tab and the settings shown.
 - **A headless Firefox window is at least 500 pixels wide:** asked for
   390, it gave 500, still a phone's layout here (under 760). In a
   profile's `user.js`, `layout.css.prefers-color-scheme.content-override`

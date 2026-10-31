@@ -134,20 +134,121 @@ input[type="color"] {
 
 .work { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); }
 
-/* ---- The settings' column (step 2 gives it its own controls) ---------- */
+/* ---- The settings' column: numbered steps (decision 31) --------------- */
 .column {
-  min-height: 0; overflow: auto; padding: 16px 20px 24px;
+  width: 340px; min-height: 0; overflow: auto; padding: 18px 20px 28px;
   background: var(--panel); border-right: 1px solid var(--line);
 }
 
-.column label { display: grid; gap: 4px; margin-bottom: 12px; font-size: 14px; }
-.column label:has(> input[type="checkbox"]) { display: flex; align-items: center; gap: 8px; }
+.step { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
+.step > legend {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0;
+  font-size: 12px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+}
+.step-number {
+  display: inline-grid; place-items: center; width: 18px; height: 18px;
+  font: 650 11px var(--mono); letter-spacing: 0; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 2px;
+}
+.step:disabled { opacity: .5; }
+
+.field { display: grid; gap: 5px; margin: 12px 0; }
+.label { font-size: 13.5px; font-weight: 550; }
 .column select { width: 100%; }
-.column small { display: block; margin: -4px 0 12px; font-size: 13px; color: var(--muted); }
-.column p { margin: 0 0 12px; }
-.choice { margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid var(--line); }
-.choice input[type="file"] { max-width: 100%; font-size: 13px; }
-.size { font-size: 13px; color: var(--muted); }
+
+.picture-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.picture-size { margin: 2px 0 10px; font: 13px var(--mono); color: var(--muted); }
+.hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.note { margin: 10px 0; padding: 4px 0 4px 10px; font-size: 13px; color: var(--muted); border-left: 2px solid var(--accent); }
+.note .link { padding: 0; font: inherit; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+
+/* A file chooser that looks like a button: a label around the hidden
+   input, which still takes the focus. */
+.file-button {
+  display: inline-flex; align-items: center; padding: 7px 12px; font-size: 14px; cursor: pointer;
+  color: var(--text); background: var(--field); border: 1px solid var(--control); border-radius: var(--radius);
+}
+.file-button:hover { border-color: var(--accent); }
+.file-button:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-button.primary { font-weight: 600; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+/* Cards: radio buttons with a line each. */
+.cards { display: grid; gap: 6px; }
+.card {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; cursor: pointer;
+  background: var(--field); border: 1px solid var(--control); border-radius: var(--radius);
+}
+.card input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent); }
+.card b { display: block; font-size: 14px; font-weight: 600; }
+.card small { display: block; font: 11.5px var(--mono); color: var(--muted); }
+.card:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--field)); }
+.step:disabled .card { cursor: default; }
+
+/* Segments: radio buttons in a row. */
+.segments { display: flex; overflow: hidden; background: var(--field); border: 1px solid var(--control); border-radius: var(--radius); }
+.segments label { position: relative; flex: 1; min-width: 0; }
+.segments input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.segments span { display: block; padding: 6px 2px; text-align: center; font-size: 13.5px; border-left: 1px solid var(--control); }
+.segments label:first-child span { border-left: 0; }
+.segments input:checked + span { font-weight: 600; color: var(--on-accent); background: var(--accent); }
+.segments input:focus-visible + span { outline: 2px solid var(--text); outline-offset: -4px; }
+.segments input:disabled { cursor: not-allowed; }
+.segments input:disabled + span { opacity: .45; }
+
+/* A number between − and +. */
+.stepper { display: inline-flex; }
+.stepper button { width: 36px; padding: 0; border-radius: 0; }
+.stepper button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.stepper button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.stepper input {
+  width: 64px; text-align: center; font-family: var(--mono);
+  border-radius: 0; border-left: 0; border-right: 0; appearance: textfield; -moz-appearance: textfield;
+}
+.stepper input::-webkit-inner-spin-button,
+.stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.row { display: flex; align-items: center; gap: 10px; }
+.row input[type="range"] { flex: 1; }
+.row input[type="number"] { width: 72px; font-family: var(--mono); }
+
+/* A toggle switch: the checkbox, invisible, over its track. */
+.switch { position: relative; display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; cursor: pointer; }
+.switch input { position: absolute; width: 40px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.track {
+  position: relative; flex: none; width: 40px; height: 24px; border-radius: 12px;
+  background: var(--field); border: 1px solid var(--control); transition: background .15s;
+}
+.track::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted); transition: transform .15s;
+}
+.switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.color { display: flex; align-items: center; gap: 10px; }
+.hex { font: 13px var(--mono); }
+
+/* ---- The « / » tab (decision 29) ---------------------------------------
+   The column keeps its width and moves left by it while its grid track
+   narrows to nothing; once hidden it's invisible, which also takes it out
+   of the keyboard's and the screen readers' reach. */
+.work { position: relative; transition: grid-template-columns 200ms ease; }
+.work.column-hidden { grid-template-columns: 0 minmax(0, 1fr); }
+.column { transition: transform 200ms ease, visibility 0s; }
+.work.column-hidden .column { transform: translateX(-100%); visibility: hidden; transition: transform 200ms ease, visibility 0s linear 200ms; }
+
+.column-tab {
+  position: absolute; z-index: 2; top: 14px; left: 340px; transform: translateX(-50%);
+  display: grid; place-items: center; width: 24px; height: 40px; padding: 0;
+  background: var(--panel); transition: left 200ms ease, transform 200ms ease;
+}
+.work.column-hidden .column-tab { left: 0; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .work, .column, .work.column-hidden .column, .column-tab, .track, .track::after { transition: none; }
+}
 
 /* ---- The picture and the bar under it --------------------------------- */
 .stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stage); }
@@ -191,8 +292,9 @@ input[type="color"] {
   .tagline .long { display: none; }
   .tagline .short { display: inline; }
   .links a { display: none; }
-  .work { grid-template-columns: minmax(0, 1fr); }
+  .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
   .stage { order: -1; }
-  .column { border-right: 0; border-top: 1px solid var(--line); }
+  .column, .work.column-hidden .column { width: auto; transform: none; visibility: visible; border-right: 0; border-top: 1px solid var(--line); }
+  .column-tab { display: none; }
   .view { padding: 14px; min-height: 240px; max-height: 70vh; }
 }

@@ -1,7 +1,7 @@
 -- | Small icons, inline SVG drawn in the text's color (decision 34): a
 -- | character such as ☾ or ☼ would look different from system to system,
 -- | and as emoji on some.
-module Puregrain.Web.View.Icon (sun, moon) where
+module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight) where
 
 import Prelude
 
@@ -20,6 +20,14 @@ sun = icon
 -- | A crescent moon: the dark theme.
 moon :: forall w i. HH.HTML w i
 moon = icon [ "M6.2 1.2A7 7 0 1 0 14.8 9.8A5.5 5.5 0 0 1 6.2 1.2z" ]
+
+-- | « : the settings' column slides away to the left.
+chevronsLeft :: forall w i. HH.HTML w i
+chevronsLeft = icon [ "M7 3 2 8l5 5 1.4-1.4L4.8 8l3.6-3.6zM13 3 8 8l5 5 1.4-1.4L10.8 8l3.6-3.6z" ]
+
+-- | » : the settings' column comes back.
+chevronsRight :: forall w i. HH.HTML w i
+chevronsRight = icon [ "M9 3l5 5-5 5-1.4-1.4L11.2 8 7.6 4.4zM3 3l5 5-5 5-1.4-1.4L5.2 8 1.6 4.4z" ]
 
 -- | 16 × 16, hidden from screen readers: the button it's in has a name.
 icon :: forall w i. Array String -> HH.HTML w i

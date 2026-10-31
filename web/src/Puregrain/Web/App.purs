@@ -42,6 +42,7 @@ import Puregrain.Web.Theme (themeName, toggled)
 import Puregrain.Web.View.Column (column)
 import Puregrain.Web.View.Footer (footer)
 import Puregrain.Web.View.Header (header)
+import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.View.Stage (stage)
 import Web.Event.Event (EventType(..))
 import Web.Event.Event as Event
@@ -74,6 +75,7 @@ component = H.mkComponent
       , listener: Nothing
       , theme: input.theme
       , libraryVersion: input.libraryVersion
+      , columnHidden: false
       }
   , render
   , eval: H.mkEval H.defaultEval { handleAction = handleAction, initialize = Just Initialize }
@@ -87,8 +89,21 @@ render state =
   -- picture doesn't make the browser open the file instead.
   HH.div [ HP.class_ (H.ClassName "app"), HE.onDragOver DragOver, HE.onDrop Dropped ]
     [ header state.theme
-    , HH.div [ HP.class_ (H.ClassName "work") ]
-        [ HH.aside [ HP.class_ (H.ClassName "column"), HP.attr (H.AttrName "aria-label") texts.settingsLabel ] (column state)
+    , HH.div [ HP.classes ([ H.ClassName "work" ] <> (if state.columnHidden then [ H.ClassName "column-hidden" ] else [])) ]
+        -- The « / » tab on the column's edge (decision 29): it says
+        -- whether the column is open, and which column it opens.
+        [ HH.button
+            [ HP.type_ HP.ButtonButton
+            , HP.class_ (H.ClassName "column-tab")
+            , HP.attr (H.AttrName "aria-expanded") (if state.columnHidden then "false" else "true")
+            , HP.attr (H.AttrName "aria-controls") "settings"
+            , HP.title (if state.columnHidden then texts.showSettings else texts.hideSettings)
+            , HE.onClick (const ColumnToggled)
+            ]
+            [ if state.columnHidden then Icon.chevronsRight else Icon.chevronsLeft
+            , HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.settingsLabel ]
+            ]
+        , HH.aside [ HP.id "settings", HP.class_ (H.ClassName "column"), HP.attr (H.AttrName "aria-label") texts.settingsLabel ] (column state)
         , HH.main [ HP.class_ (H.ClassName "stage"), HP.attr (H.AttrName "aria-label") texts.pictureLabel ] (stage state)
         ]
     , footer state.libraryVersion
@@ -109,6 +124,7 @@ handleAction = case _ of
     theme <- H.gets (toggled <<< _.theme)
     liftEffect (setTheme (themeName theme))
     H.modify_ _ { theme = theme }
+  ColumnToggled -> H.modify_ \s -> s { columnHidden = not s.columnHidden }
   FileChosen event ->
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
@@ -152,6 +168,11 @@ handleAction = case _ of
     for_ (Int.fromString value) \t -> when (t >= 0 && t <= 255) do
       H.modify_ \s -> s { typed = s.typed { threshold = t } }
       change (chooseColors (Threshold t))
+  -- While the slider is dragged its value shows, and only its release
+  -- starts a run (decision 31).
+  ThresholdDragged value ->
+    for_ (Int.fromString value) \t -> when (t >= 0 && t <= 255) do
+      H.modify_ \s -> s { typed = s.typed { threshold = t } }
   LevelsTyped value ->
     for_ (Int.fromString value) \n -> when (n >= 2 && n <= 256) do
       H.modify_ \s -> s { typed = s.typed { levels = n } }

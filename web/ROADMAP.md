@@ -436,9 +436,10 @@ these decisions are phase 6's reference (the user).
       is kept, not the fallback, for the visit (keeping it for the next
       visit: later, if ever). With any screen, PNG only: no ▾.
     - **The command line** (Claude's idea): the settings as the CLI's
-      command, with Copy, in the column; in v2 as `puregrain …`, with a
-      link to the CLI's instructions, until the npm package lets it run
-      without the repository.
+      command, with Copy, in the column. Postponed (2026-10-31, the
+      user): it comes with the npm package, once `npx puregrain …` runs
+      without the repository; until then the line couldn't be run as
+      shown (see "Later ideas").
     - **Split or side by side, and "Start over":** v3 (see "Versions").
 32. **The look** (2026-10-30 and 31):
     - **The themes,** as in Claude's design: dark with the ZX set of the
@@ -535,8 +536,9 @@ these decisions are phase 6's reference (the user).
     - **Icons:** small inline SVGs (sliders, sun and moon, chevrons, the
       knob's arrows), not characters such as ☾ ☼ ◐, which render
       differently from system to system, as emoji on some.
-    - **Copy,** for the command line: the browser's clipboard, which
-      needs HTTPS or localhost: Pages and the dev server are.
+    - **Copy,** for the command line, once it comes (decision 31): the
+      browser's clipboard, which needs HTTPS or localhost: Pages and the
+      dev server are.
     - **Halogen stays** (the user asked): its cost is paid once, about 19
       KB gzipped of the page's 34; the heavy work runs in the worker, and
       the page's updates are small; it keeps one language with the
@@ -701,6 +703,9 @@ Each is settled before its phase of v2:
 
 ## Later ideas
 
+- The page's settings as the CLI's command, with Copy (decision 31),
+  once the CLI is on npm and `npx puregrain …` runs without the
+  repository (TODO.md, "npm package").
 - The background's default from the page's theme, in dark mode
   (decision 27 has white).
 - Translations of the UI's texts.
@@ -780,8 +785,8 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
    2. **The settings column:** the numbered steps, the Target cards, the
       colors' menu with the levels' stepper and the threshold's slider,
       the Bayer segments, the toggle switch, the background's swatch,
-      the notes beside their settings, "Use 8×8", the « / » tab, the
-      command line with Copy and its link.
+      the notes beside their settings, "Use 8×8", the « / » tab, and
+      the column disabled on the empty page.
    3. **The picture area and the bar:** the drop zone with the
       description and the promises, "Loading…", a bad file keeping the
       picture, the drag overlay; the split handle (pointer, keys, the
@@ -820,5 +825,5 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 3. The time estimate: shown for runs predicted over 10 s, rounded in steps, kept to the end; within 20% of the time actually left in Firefox
 - [x] 4. The logo: the mark, the wordmark, the lockup and the swash in two color sets, dithered by puregrain; SVG, PNG, the favicons and the social preview; its own terms; the SVGs and the icons checked in Firefox
 - [x] 5. Design review: two designs made separately, compared goal by goal; decisions 29 to 34, and phase 6's plan
-- [ ] 6. Design: step 1 done (our own stylesheet in place of Pico, the two themes, the page's skeleton, `App.purs` split into views)
+- [ ] 6. Design: steps 1 and 2 done (our own stylesheet in place of Pico, the two themes, the page's skeleton, `App.purs` split into views; the settings' column as numbered steps, with the « / » tab)
 - [ ] 7. Delivery
