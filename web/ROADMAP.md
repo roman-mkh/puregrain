@@ -44,7 +44,13 @@ users is a separate task, see TODO.md.)
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.
 - **v3:** several results kept and compared; magnifying with synchronized
-  pan; side by side. On a new branch from `master` (decision 20).
+  pan; side by side. On a new branch from `master` (decision 20). From
+  v2's design review (decisions 29 to 34): the gallery in a strip under
+  the bar; "Start over" (back to the empty page, every setting at
+  "none"), which clears the gallery, asking first when results aren't
+  saved; an (i) next to each setting, opening a short description of it
+  (the user's idea); a high-contrast theme (the user's idea); the zoom
+  as a menu once there are more values.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is ready to present: functional, styled and hosted on GitHub (decision
   13; the hosting is the user's decision, since it publishes).
@@ -74,7 +80,8 @@ users is a separate task, see TODO.md.)
    Bayer map with a palette or a threshold; gray processing for an
    all-neutral picture or when asked for.
 8. **Pico CSS for v1** (Q2): no JavaScript, no build step, plain HTML
-   controls styled. The frameworks for v2 are reviewed later.
+   controls styled. The frameworks for v2 are reviewed later. In v2, our
+   own stylesheet takes its place (decision 34).
 9. **The input** (Q3): the browser decodes the picture (PNG, JPEG, GIF,
    WebP, BMP); its color-profile conversion is turned off, so the stored
    values are dithered, as in the CLI. Transparent parts are put onto
@@ -110,7 +117,9 @@ users is a separate task, see TODO.md.)
 15. **The split slider is our own** (Q9): two canvases stacked in one
     box, the top one cut at the slider's position with CSS; in v1 a
     plain range input sets the position. A handle dragged on the picture,
-    or components from Web Awesome, belong to v2's design review.
+    or components from Web Awesome, belong to v2's design review: there,
+    a handle of our own, dragged on the picture (decision 31), and no
+    component library (decision 34).
 16. **Dithering starts by itself** (Q10, the user's design): after a
     picture is loaded, every setting starts at a "none" value, labelled
     as such, and the page shows the original. The first change of a
@@ -122,7 +131,10 @@ users is a separate task, see TODO.md.)
     map is chosen (the CLI's `--bayer` alone), so there's something to
     dither with. "No Bayer map" and "gray first" aren't methods: with no
     colors, they leave the original. While a run goes, the original is
-    shown; the result replaces it when it's done.
+    shown; the result replaces it when it's done. Changed in v2: a new
+    run keeps the previous result until the new one is ready (decision
+    30, B), and on a phone a run starts when the settings close
+    (decision 29).
 17. **Browsers** (Q11): current desktop versions of Chrome, Firefox,
     Safari and Edge; phones on a best-effort basis.
 18. **A `CLAUDE.md` in `web/`** (Q12, 2026-10-19): Claude Code reads a
@@ -208,6 +220,7 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     accessible (keyboard, labels, contrast), light and dark: today's
     standard. With a machine there are several downloads: a format menu
     next to the download button (the user's idea), settled in the design.
+    Done in phase 5: decisions 29 to 34.
 25. **A browser smoke test in v2** (v2's Q6): `npm run check:web`
     automates the checklist's exact parts: the CLI's pixels, the split,
     the downloads. Its tool, and CI, are settled before the delivery
@@ -302,6 +315,236 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
       the CLI, so a change of the defaults can't change the logo (for
       dithering in linear light, its opt-out goes into the script once
       the CLI has it), and it writes a file only when its pixels changed.
+
+Decisions of the design review (v2's phase 5, 2026-10-29 to 31): the
+user's design (sketches and a concept) and Claude's (a concept and an
+HTML mockup) were made separately, then compared goal by goal. Both stay
+outside the repository (`samples/design-ram/`, `samples/design-claude/`);
+these decisions are phase 6's reference (the user).
+
+29. **The layout** (2026-10-30):
+    - **Desktop:** the settings in a column left of the picture. A tab
+      with a chevron on the column's right edge hides it («) and brings
+      it back (»), so that the picture can take the whole width: for a
+      large picture now, for side by side in v3. The tab doesn't look
+      like the split handle; the column slides, except for those who
+      turn animations off in their system.
+    - **The header, in one line:** the lockup, the page's name after it,
+      and a tagline; Help, Source and the light/dark switch on the
+      right. The page is **puregrain lab**, the library stays puregrain
+      (the user's choice: a place to try settings and compare results;
+      "studio" would promise a full editor; and a photo lab is where
+      grain is developed). The tagline puts the library and privacy at
+      the top: "The puregrain library, at work in your browser: your
+      pictures are never uploaded."; on phones, shorter: "Runs in your
+      browser: nothing is uploaded." No second logo box: the logo stays
+      modest.
+    - **The empty picture area** holds the description (how to start)
+      and the privacy promises: nothing uploaded, no ads, no
+      registration, no tracking, free.
+    - **One bar under the picture:** the zoom on the left; the run's
+      state in the middle (the hint before dithering, the progress with
+      the time left and Cancel, "Cancelled", an error); the actions on
+      the right. The notes on settings stay in the column, next to their
+      settings.
+    - **The gallery** (v3) gets a strip under the bar.
+    - **The footer:** the versions of the page and of the library
+      ("puregrain lab v2 · puregrain 0.2.0": the page's from this file,
+      the library's read from `spago.yaml` at build time), the licenses
+      (the code MIT, the logo its own terms), GitHub.
+    - **Phones:** the same column, hidden at first and opened over the
+      picture by a settings button. An Apply button at its bottom closes
+      it and starts the run; closing it any other way applies too.
+      Unlike decision 16's start at each change, on purpose: on a phone
+      the column covers the picture.
+30. **The flow and the states** (2026-10-30):
+
+    | State | Picture area | Bar under the picture | Settings column |
+    |---|---|---|---|
+    | Empty | drop zone, description, privacy promises | hidden | disabled; on phones no settings button |
+    | Loading a file | the drop zone says "Loading photo.jpg…" | hidden | disabled |
+    | Not a picture | a message above the drop zone | hidden | disabled |
+    | Loaded, all at "none" | the original | "The original is shown. Choose colors or a method to dither it."; zoom; Download disabled | enabled |
+    | Running | the previous result, or the original (B) | progress, the time left (decision 23), Cancel; Download disabled | enabled: a change restarts the run |
+    | Finished | the split: original left, result right, handle, labels | zoom; Download | enabled |
+    | Cancelled | the original | "Cancelled; the original is shown." | enabled |
+    | The run failed | the original | the error | enabled |
+
+    - **A. Errors stay in place** until the next action, not as toasts,
+      which can vanish before they're read; a toast at most for a brief
+      confirmation, such as "Copied".
+    - **B. No flicker:** a new run keeps the previous result until the
+      new one is ready; the original shows for the first run and after
+      Cancel, when no result matches the settings. The progress shows
+      only for a run of over 1 s: below that, no feedback is needed
+      (Jakob Nielsen's limits, as for decision 23). Changes decision
+      16's last sentence.
+    - **C. A file that isn't a picture** leaves the loaded picture and
+      its settings as they were, and the bar says so ("notes.txt isn't a
+      picture; the current one stays"); until v2 the picture gave way to
+      the error. Also right for several originals one day (the user).
+    - **D. A drop anywhere on the page** loads the picture, so the
+      browser never opens the file in place of the page. What's shown,
+      as soon as a file is dragged over the page: in the empty state the
+      drop zone lights up; with a picture, an overlay "Drop to load the
+      picture" covers the picture area (the user's targets).
+    - **E. Phones:** the settings button appears once a picture is
+      loaded, left of the light/dark switch: a sliders icon, "Settings"
+      for screen readers; not ☰, which means navigation.
+31. **The components** (2026-10-30 and 31):
+    - **The settings, as numbered steps:** 1 Picture, 2 Target, 3
+      Colors, 4 Method, and 5 Background when the background shows.
+    - **Picture:** its name and size, and "Choose another…", which keeps
+      the settings and dithers the new picture at once, as before.
+    - **Target:** three cards, each with a line on what it means ("any
+      size, the colors you choose"; "256 × 192, 2 colors per 8×8 cell";
+      "320 × 200, 2 colors per 8×8 cell").
+    - **Colors:** a menu, the palettes grouped; with a machine, its
+      palettes. The levels with − and + around their number; the
+      threshold with a slider and a number, the slider starting a run
+      when released, not at each step of a drag.
+    - **Error diffusion:** a menu.
+    - **Bayer map:** five segments, None, 2×2, 4×4, 8×8, 16×16; when it
+      can't apply, disabled, with the note beside it saying why.
+    - **Gray first:** a toggle switch, a native checkbox marked as a
+      switch for screen readers: by the usual convention a switch takes
+      effect at once, as every change on the page does (decision 16).
+    - **The machine's hint** has "Use 8×8": one click, and still the
+      user's choice (decision 16).
+    - **Plain controls,** each with its label, and its notes beside it:
+      the column and the phone's panel have the room. The user's idea of
+      compact controls that grow when focused was dropped (the user): a
+      native menu already shows its choices when opened, accessibly,
+      while growing controls would need pop-ups of our own.
+    - **Zoom:** four segments, 1× to 4×; 1× is the reset. A menu once
+      there are more values (v3's magnifying, perhaps); the keys + and −
+      (decision 33).
+    - **The split handle** (decision 15): moved only by dragging it; a
+      click on the picture doesn't move it, since on a touch screen
+      dragging the picture scrolls it, and v3's pan needs that drag too.
+      While it has focus, ← and → move it a column, with Shift ten, Home
+      and End to the edges, like any slider, without scrolling the page.
+      The knob stays in the visible part when the picture is taller than
+      its area. "Original" and "Result" above the picture's corners, in
+      the margin around it.
+    - **Download** (decision 24's format menu, the user's idea): a
+      button naming its format ("Download PNG"), with ▾ beside it when
+      there are more: a machine's files, each with the name it's saved
+      under, one that isn't possible disabled, with the reason. The
+      button takes the format last chosen, falling back to PNG when that
+      one isn't possible, its label always naming the format; the choice
+      is kept, not the fallback, for the visit (keeping it for the next
+      visit: later, if ever). With any screen, PNG only: no ▾.
+    - **The command line** (Claude's idea): the settings as the CLI's
+      command, with Copy, in the column; in v2 as `puregrain …`, with a
+      link to the CLI's instructions, until the npm package lets it run
+      without the repository.
+    - **Split or side by side, and "Start over":** v3 (see "Versions").
+32. **The look** (2026-10-30 and 31):
+    - **The themes,** as in Claude's design: dark with the ZX set of the
+      logo and its green as the accent, light with the C64 set and its
+      blue (the logo's own advice, from the colors' contrast). The logo
+      stays modest; if it looks too big on the built page, its size
+      changes then.
+    - **The switch between them:** two states, light and dark, set from
+      the system's setting at each load; the user's choice isn't kept, so
+      the next load starts from the system's again. A third state,
+      "Auto", would need explaining, and few would choose it.
+    - **The rest as in Claude's mockup:** neutral grays, and the accent
+      only on what's chosen or can be done (the selected card or
+      segment, the main button, the focus ring, the step numbers); the
+      picture's area darker than the column in the dark theme, a warm
+      light gray in the light one. The system's own font for reading, a
+      monospace font for numbers, sizes and file names; no web font, and
+      no pixel font for the headings: the logo is pixel enough. Retro in
+      a few details: the logo, the square step numbers, the drop zone's
+      frame and the progress bar's leading edge in 2-pixel dithered
+      dots, nearly square corners (3 px).
+    - **"lab"** after the lockup in plain text, in the page's font and a
+      muted color, so the logo stays as it is.
+33. **Accessibility** (2026-10-31):
+    - **Structure,** as in Claude's mockup: each step a group with its
+      heading; every control labelled; the cards and segments are radio
+      buttons, the switch a checkbox marked as a switch; the pictures
+      have text alternatives ("The original", "The result: 4 levels,
+      Atkinson").
+    - **The keyboard:** Tab goes in reading order (header, column,
+      picture, bar, footer). Two skip links appear on the first Tab,
+      "Skip to the settings" and "Skip to the picture" (WCAG's bypass
+      blocks), in place of a key for the controls. The phone's panel
+      takes the focus when it opens and gives it back to the settings
+      button when it closes; Escape closes it, and the download menu.
+    - **Shortcuts** (the user's idea): a single character only where its
+      control has focus, since otherwise it gets in the way of screen
+      readers and typing (WCAG 2.1.4); modifiers for the global ones.
+
+      | Action | Key |
+      |---|---|
+      | Choose a picture | Ctrl+O (Cmd+O on a Mac) |
+      | Download, in the button's format | Ctrl+S (Cmd+S) |
+      | Cancel the run | Esc, when no menu or panel is open |
+      | Zoom in, out | + and −, while the picture area has focus |
+      | Move the split | ← → (with Shift ten), Home, End, on the handle |
+
+      Ctrl+O and Ctrl+S are taken over from the browser, as web editors
+      do (checked in Firefox; Chrome and Safari on the manual
+      checklist). No key to hide the column, and none for a step: Ctrl+2
+      for Target was considered, but Ctrl or Cmd with a digit switches
+      the browser's tabs.
+    - **Contrast and focus:** text at least 4.5:1; the outlines of
+      controls at least 3:1 against their background (WCAG AA; Claude's
+      mockup had 1.4:1; about `#5d6677` in the dark theme, `#92958f` in
+      the light); the 2-pixel focus ring in the accent, never removed.
+    - **Screen readers** hear the run's milestones (start, done, Cancel,
+      errors), not each step of the progress; errors at once.
+    - **No motion** (the column's slide, the switch's) for those who turn
+      animations off; everything clicked or tapped at least 24 × 24
+      pixels (WCAG 2.2), the handle's knob 32, 40 on phones.
+34. **The technical choices** (2026-10-31; the facts, with their sources
+    and checks, in `CLAUDE.md`, "Facts for v2's design"):
+    - **Our own stylesheet instead of Pico** (decision 8): the mockup's
+      design styles are 3.1 KB gzipped, Pico 11.6 KB, and its defaults
+      would be overridden nearly everywhere. Pico leaves the
+      dependencies and the build.
+    - **CSS:** custom properties for the themes, media queries for the
+      layout, `:has()` for the cards, `color-mix()`: all in the current
+      Chrome, Edge, Firefox and Safari.
+    - **The phone's panel is the column itself,** the rest of the page
+      `inert` while it's open (checked), not `<dialog>`: one element
+      serves both layouts. Our code handles Escape and the focus;
+      opening it adds a step to the browser's history, so the back
+      gesture closes it instead of leaving the page.
+    - **The download menu:** a button that shows a list of buttons (the
+      disclosure pattern), not the ARIA menu pattern, which promises
+      arrow keys and type-ahead. Placed in its box, as in the mockup, not
+      with anchor positioning (`position-anchor` in full only since
+      Chrome 151, Firefox 151, Safari 27); Escape and a click outside
+      close it.
+    - **The split handle:** pointer events with capture (mouse, pen,
+      touch); touch dragging taken over only on the handle, so the
+      picture still scrolls by touch; the knob `position: sticky`
+      (checked); the slider's keys.
+    - **The drag overlay:** counting the drag events that enter and leave
+      elements (they fire for each child), shown only while files are
+      dragged; the counting a pure function with a spec.
+    - **The theme:** the system's setting read at each load, a theme
+      attribute on the page, `color-scheme` so the browser's own controls
+      follow; the logo as the 1× PNGs with sharp pixels (2.9 and 4.6 KB,
+      against 33 KB SVGs), CSS showing the theme's set, copied from
+      `logo/` by the build, like the icons.
+    - **Icons:** small inline SVGs (sliders, sun and moon, chevrons, the
+      knob's arrows), not characters such as ☾ ☼ ◐, which render
+      differently from system to system, as emoji on some.
+    - **Copy,** for the command line: the browser's clipboard, which
+      needs HTTPS or localhost: Pages and the dev server are.
+    - **Halogen stays** (the user asked): its cost is paid once, about 19
+      KB gzipped of the page's 34; the heavy work runs in the worker, and
+      the page's updates are small; it keeps one language with the
+      library, typed state, and the rules as pure functions tested in
+      Node, and makes the page the library's second client. In phase 6,
+      `App.purs` gets its rendering split into modules (header, column,
+      picture area, bar), one component unless a part needs its own
+      state.
 
 ## v1 in detail
 
@@ -524,9 +767,46 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
    before the page's design (decision 24).
 5. **Design review** (medium, mostly discussion): the screen's areas in
    text, sketches, components, the technical choices (decision 24).
-6. **Design** (large): the look; the split handle dragged on the picture
-   (decision 15); responsive, accessible, light and dark; the download
-   button with its format menu.
+   Done: decisions 29 to 34.
+6. **Design** (large): decisions 29 to 34, in six steps. Each ends with
+   the specs and `npm run check` green, its checks in headless Firefox,
+   screenshots for the user, and the user's commit.
+   1. **Foundations:** our own stylesheet in place of Pico; the two
+      themes (the system's setting at load, the toggle switch, the
+      logo's PNGs copied from `logo/`); the skeleton: header, column,
+      picture area, bar, footer with the versions; `App.purs`'s
+      rendering split into modules. Everything the page does today works
+      in its new place; phones get a simple stacked layout until step 5.
+   2. **The settings column:** the numbered steps, the Target cards, the
+      colors' menu with the levels' stepper and the threshold's slider,
+      the Bayer segments, the toggle switch, the background's swatch,
+      the notes beside their settings, "Use 8×8", the « / » tab, the
+      command line with Copy and its link.
+   3. **The picture area and the bar:** the drop zone with the
+      description and the promises, "Loading…", a bad file keeping the
+      picture, the drag overlay; the split handle (pointer, keys, the
+      sticky knob, labels); the previous result kept during a run, the
+      progress after 1 s; the bar's messages, the zoom's segments.
+   4. **Download and keys:** the button naming its format, with its list
+      of formats; the remembered format and its fallback; Ctrl/Cmd+S and
+      +O, Esc, + and −.
+   5. **Phones:** the column as a panel, opened by the settings button,
+      closed with Apply; the rest `inert`, the focus in and out, Escape,
+      the back gesture; the run when the panel closes; the short
+      tagline.
+   6. **Accessibility and docs:** skip links, the announcements, text
+      alternatives, reduced motion, 3:1 outlines, target sizes; a scan
+      with axe-core, run from Claude's scratchpad, not a dependency;
+      `README.md` (using it, the checklist), `CLAUDE.md`, this file.
+
+   The checks: specs for each new rule (the download's format and its
+   fallback, when the progress shows, which picture shows during a run,
+   the bar's message in each state, the drag counter, the panel holding
+   changes until it closes, a bad file keeping the picture); in headless
+   Firefox, the results still the CLI's, the split exact to the screen
+   pixel, the downloads byte for byte, the keyboard paths, both themes,
+   both widths, reduced motion; the manual checklist for what only
+   Chrome and Safari can show (Ctrl+S and +O there, phones).
 7. **Delivery of v2** (medium): user docs, the checklist and the
    CLAUDE.md notes; the smoke test (decision 25); the Pages workflow
    (decision 26); the pull request, with the logo in the root README and
@@ -539,6 +819,6 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 2. Preparing the picture: the background under transparent parts, read exactly through WebGL, and the fit by our own area averaging; both equal independent references, and the dithered results the CLI's
 - [x] 3. The time estimate: shown for runs predicted over 10 s, rounded in steps, kept to the end; within 20% of the time actually left in Firefox
 - [x] 4. The logo: the mark, the wordmark, the lockup and the swash in two color sets, dithered by puregrain; SVG, PNG, the favicons and the social preview; its own terms; the SVGs and the icons checked in Firefox
-- [ ] 5. Design review
+- [x] 5. Design review: two designs made separately, compared goal by goal; decisions 29 to 34, and phase 6's plan
 - [ ] 6. Design
 - [ ] 7. Delivery

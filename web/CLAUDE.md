@@ -265,6 +265,37 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   its largest entry, and `#-moz-resolution` doesn't choose another
   there.
 
+## Facts for v2's design (checked 2026-10-31)
+
+For the technical choices of v2's phase 5 (decision 34 in
+`ROADMAP.md`).
+
+- **Support,** from MDN's browser-compat-data 8.1.7 (2026-10-22), the
+  first full version in Chrome, Edge, Firefox, Safari: container queries
+  105, 105, 110, 16; `:has()` 105, 105, 121, 15.4; `color-mix()` 111,
+  111, 113, 16.2; `inert` 102, 102, 112, 15.5; `<dialog>` with
+  `showModal()` 37, 79, 98, 15.4; `popover` 114, 114, 125, 17;
+  `setPointerCapture` 55, 12, 59, 13; `position: sticky` 56, 16, 32, 13;
+  `prefers-color-scheme` 76, 79, 67, 12.1; `prefers-reduced-motion` 74,
+  79, 63, 10.1; `color-scheme` 81, 81, 96, 13; `:focus-visible` 86, 86,
+  85, 15.4; `navigator.clipboard.writeText` 66, 79, 63, 13.1. Recent in
+  Safari: `accent-color` and `scrollbar-color`, 26.2. Anchor
+  positioning: `anchor()` 125, 125, 147, 26, but `position-anchor` in
+  full only 151, 151, 151, 27. The current versions then: Chrome 156,
+  Edge 155, Firefox 158, Safari 27.
+- **Sizes:** the design mockup's styles 11.5 KB minified, 3.1 KB
+  gzipped; Pico CSS 83.3 KB, 11.6 KB gzipped. The logo's lockup 2.9 KB
+  (ZX) and 4.6 KB (C64) as PNG at 1×, 33 KB as SVG (6.2 KB gzipped).
+- **Checked in headless Firefox** (157):
+  - a knob with `position: sticky; top: calc(50% - 16px)` inside an
+    absolutely placed handle as tall as the picture stays in the middle
+    of the scrolling area's visible part at every scroll position, and at
+    the picture's middle when it fits;
+  - Ctrl+S and Ctrl+O reach the page, which can take them over:
+    `preventDefault` holds and the page stays;
+  - a button inside an `inert` part can't take the focus, and can once
+    `inert` is lifted.
+
 ## Checking in a real browser
 
 Without Playwright (decision 14): the system's Firefox, headless, driven
