@@ -11,6 +11,20 @@ import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteNa
 
 texts
   :: { title :: String
+     , labName :: String
+     , tagline :: String
+     , taglineShort :: String
+     , help :: String
+     , source :: String
+     , darkTheme :: String
+     , linksLabel :: String
+     , settingsLabel :: String
+     , pictureLabel :: String
+     , versions :: String -> String
+     , codeLicense :: String
+     , logoLicense :: String
+     , onGitHub :: String
+     , picture :: String
      , choose :: String
      , loading :: String -> String
      , failed :: { name :: String, reason :: String } -> String
@@ -52,6 +66,22 @@ texts
      }
 texts =
   { title: "puregrain"
+  -- The header and the footer (decisions 29 and 32): the page is
+  -- "puregrain lab", the library "puregrain".
+  , labName: "lab"
+  , tagline: "The puregrain library, at work in your browser: your pictures are never uploaded."
+  , taglineShort: "Runs in your browser: nothing is uploaded."
+  , help: "Help"
+  , source: "Source"
+  , darkTheme: "Dark theme"
+  , linksLabel: "Links"
+  , settingsLabel: "Settings"
+  , pictureLabel: "The picture"
+  , versions: \library -> "puregrain lab v2" <> (if library == "" then "" else " · puregrain " <> library)
+  , codeLicense: "The code: MIT"
+  , logoLicense: "The logo: its own terms"
+  , onGitHub: "puregrain on GitHub"
+  , picture: "Picture"
   , choose: "Choose a picture, or drop one onto this page."
   , loading: \name -> "Loading " <> name <> "..."
   , failed: \f -> f.name <> " couldn't be read as a picture (" <> f.reason <> ")."

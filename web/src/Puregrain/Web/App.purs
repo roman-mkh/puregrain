@@ -2,7 +2,8 @@
 -- | one, choose the settings, for any screen or a machine's, see the
 -- | result, dithered in a worker with progress and cancelling, over the
 -- | original at whole-number zoom, split by a slider, and save it as a
--- | PNG, or as the machine's own files.
+-- | PNG, or as the machine's own files. Its state and actions are in
+-- | `Puregrain.Web.State`; its parts are drawn by `Puregrain.Web.View.*`.
 module Puregrain.Web.App (component) where
 
 import Prelude
@@ -11,131 +12,53 @@ import Control.Monad.Except (runExcept)
 import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
-import Data.Int (toNumber)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), isJust, maybe)
+import Data.Maybe (Maybe(..), isJust)
 import Effect (Effect)
 import Effect.Aff (try)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Effect.Exception (message)
-import Foreign (Foreign)
-import Graphics.Canvas (ImageData, imageDataBuffer)
+import Graphics.Canvas (imageDataBuffer)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
-import Puregrain.Web.Estimate (clock, next, rounded)
-import Puregrain.Web.Message (FileBytes, Reply(..), describe, jobMessage, readReply)
+import Puregrain.Web.Estimate (clock, next)
+import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
+import Puregrain.Web.Page (setTheme)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
-import Puregrain.Web.Prepare (Background, Placement, backgroundFromHex, backgroundHex, backgroundShows, fitOnto, flatten, placementOn, screenToFit, white)
+import Puregrain.Web.Prepare (Background, backgroundFromHex, backgroundShows, fitOnto, flatten, placementOn, screenToFit, white)
 import Puregrain.Web.Save (fileName, saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, flatCells, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Run(..), State, originalRef, resultRef)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.Zoom (cssSize, zooms)
-import Web.Event.Event (Event, EventType(..))
+import Puregrain.Web.Theme (themeName, toggled)
+import Puregrain.Web.View.Column (column)
+import Puregrain.Web.View.Footer (footer)
+import Puregrain.Web.View.Header (header)
+import Puregrain.Web.View.Stage (stage)
+import Web.Event.Event (EventType(..))
 import Web.Event.Event as Event
 import Web.File.File (File)
 import Web.File.File as File
 import Web.File.FileList as FileList
 import Web.HTML (window)
 import Web.HTML.Event.DataTransfer as DataTransfer
-import Web.HTML.Event.DragEvent (DragEvent)
 import Web.HTML.Event.DragEvent as DragEvent
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.HTML.Window as Window
 import Web.Worker.MessageEvent (data_)
-import Web.Worker.Worker (Worker)
 import Web.Worker.Worker as Worker
 
--- | The picture: none yet, being loaded, failed to load, or loaded, with
--- | the picture as it's shown and dithered.
-data Load
-  = NoPicture
-  | Loading String
-  | Failed { name :: String, reason :: String }
-  | Loaded { picture :: Picture, prepared :: Prepared }
-
--- | The picture put onto the background, and for a machine's screen,
--- | when asked, fitted to it (decisions 22 and 27); `fitted` says where it
--- | went on the screen. This is what's shown as the original, and
--- | dithered.
-type Prepared =
-  { width :: Int
-  , height :: Int
-  , image :: ImageData
-  , fitted :: Maybe { screen :: { width :: Int, height :: Int }, placement :: Placement }
-  }
-
--- | The dithering: none, running (rows done of all, when it started, and
--- | the time left once it's worth showing, decision 23), finished with
--- | the result, a machine's files, and whether saving the PNG failed;
--- | cancelled, or failed.
-data Run
-  = Idle
-  | Running { done :: Int, total :: Int, started :: Number, left :: Maybe Number }
-  | Finished { image :: ImageData, files :: Array FileBytes, saveFailed :: Boolean }
-  | Cancelled
-  | RunFailed String
-
--- | `loads` and `runs` count the loads and the runs started, so that a
--- | slow load's result, or an answer from a worker already ended, is
--- | dropped. `typed` keeps the threshold and the number of levels last
--- | typed, for when those colors are chosen again. `split` is the
--- | picture's columns that show the original, left of the result. `fit`
--- | and `background` prepare every picture loaded.
-type State =
-  { load :: Load
-  , loads :: Int
-  , zoom :: Int
-  , pixelRatio :: Number
-  , split :: Int
-  , fit :: Boolean
-  , background :: Background
-  , settings :: Settings
-  , typed :: { threshold :: Int, levels :: Int }
-  , run :: Run
-  , runs :: Int
-  , worker :: Maybe Worker
-  , listener :: Maybe (HS.Listener Action)
-  }
-
-data Action
-  = Initialize
-  | Resized
-  | FileChosen Event
-  | DragOver DragEvent
-  | Dropped DragEvent
-  | ZoomChosen String
-  | TargetChosen String
-  | FitChosen Boolean
-  | BackgroundChosen String
-  | ColorsChosen String
-  | ThresholdTyped String
-  | LevelsTyped String
-  | KernelChosen String
-  | BayerChosen String
-  | GrayChosen Boolean
-  | Cancel
-  | FromWorker Int Foreign
-  | SplitMoved String
-  | Save
-  | SaveFile String
-
-originalRef :: H.RefLabel
-originalRef = H.RefLabel "original"
-
-resultRef :: H.RefLabel
-resultRef = H.RefLabel "result"
-
-component :: forall q i o m. MonadAff m => H.Component q i o m
+component :: forall q o m. MonadAff m => H.Component q Input o m
 component = H.mkComponent
-  { initialState: const
+  { initialState: \input ->
       { load: NoPicture
       , loads: 0
       , zoom: 1
@@ -149,217 +72,27 @@ component = H.mkComponent
       , runs: 0
       , worker: Nothing
       , listener: Nothing
+      , theme: input.theme
+      , libraryVersion: input.libraryVersion
       }
   , render
   , eval: H.mkEval H.defaultEval { handleAction = handleAction, initialize = Just Initialize }
   }
 
+-- | The page (decision 29): the header, the settings' column beside the
+-- | picture and its bar, the footer.
 render :: forall m. State -> H.ComponentHTML Action () m
 render state =
-  -- The whole page takes a dropped file, so that a drop beside the input
-  -- doesn't make the browser open the file instead.
-  HH.main [ HP.class_ (H.ClassName "container"), HE.onDragOver DragOver, HE.onDrop Dropped ]
-    ( [ HH.h1_ [ HH.text texts.title ]
-      , HH.p_ [ HH.text texts.choose ]
-      , HH.input [ HP.type_ HP.InputFile, HP.attr (H.AttrName "accept") "image/*", HE.onChange FileChosen ]
-      ] <> picture state
-    )
-
-picture :: forall m. State -> Array (H.ComponentHTML Action () m)
-picture state = case state.load of
-  NoPicture -> []
-  Loading name -> [ HH.p_ [ HH.text (texts.loading name) ] ]
-  Failed failure -> [ HH.p_ [ HH.text (texts.failed failure) ] ]
-  Loaded { picture: p, prepared } ->
-    let
-      size = cssSize state.pixelRatio state.zoom { width: prepared.width, height: prepared.height }
-      sizeStyle = "width: " <> show size.width <> "px; height: " <> show size.height <> "px"
-      -- The result's left edge is cut at the split, so the original shows
-      -- on its left: at whole picture columns, so at whole screen pixels.
-      cut = "clip-path: inset(0 0 0 " <> show (toNumber state.split * 100.0 / toNumber prepared.width) <> "%)"
-      finished = isFinished state.run
-    in
-      -- The parts whose elements come and go sit in fixed containers, so
-      -- the canvases keep their places among their siblings: Halogen
-      -- matches unkeyed children by position, and would otherwise rebuild
-      -- a canvas, blank, whenever the progress bar appears or goes.
-      [ HH.p_ [ HH.text (texts.loaded { name: p.name, width: p.width, height: p.height }) ]
-      , HH.div [ HP.class_ (H.ClassName "settings") ]
-          ( settingsForm state.settings
-              { size: { width: p.width, height: p.height }, transparent: p.transparent, fit: state.fit, fitted: prepared.fitted, background: state.background }
-          )
-      , HH.div [ HP.class_ (H.ClassName "status") ] (runStatus state.run)
-      , HH.label_
-          [ HH.text texts.zoom
-          , HH.select [ HE.onValueChange ZoomChosen ]
-              (map (\z -> option (show z) (texts.zoomLevel z) (z == state.zoom)) zooms)
-          ]
-      , HH.label_
-          [ HH.text texts.split
-          , HH.input
-              [ HP.type_ HP.InputRange
-              , HP.min 0.0
-              , HP.max (toNumber prepared.width)
-              , HP.value (show state.split)
-              , HP.disabled (not finished)
-              , HE.onValueInput SplitMoved
-              ]
-          ]
-      -- The original and the result stacked in one box (decision 15), so
-      -- they share its zoom and scrolling; the result only once there is
-      -- one.
-      , HH.div [ HP.class_ (H.ClassName "view") ]
-          [ HH.div [ HP.class_ (H.ClassName "layers") ]
-              [ HH.canvas
-                  [ HP.ref originalRef
-                  , HP.class_ (H.ClassName "picture")
-                  , HP.width prepared.width
-                  , HP.height prepared.height
-                  , HP.style sizeStyle
-                  ]
-              , HH.canvas
-                  [ HP.ref resultRef
-                  , HP.classes [ H.ClassName "picture", H.ClassName "result" ]
-                  , HP.width prepared.width
-                  , HP.height prepared.height
-                  , HP.style (sizeStyle <> "; " <> cut)
-                  , HP.prop (H.PropName "hidden") (not finished)
-                  ]
-              ]
-          ]
-      ]
-
--- | The picture's side of the form: its size and transparency, the fit
--- | asked for and where it went, and the background color.
-type PictureForm =
-  { size :: { width :: Int, height :: Int }
-  , transparent :: Boolean
-  , fit :: Boolean
-  , fitted :: Maybe { screen :: { width :: Int, height :: Int }, placement :: Placement }
-  , background :: Background
-  }
-
-settingsForm :: forall m. Settings -> PictureForm -> Array (H.ComponentHTML Action () m)
-settingsForm s pic =
-  [ HH.label_
-      [ HH.text texts.target
-      , HH.select [ HE.onValueChange TargetChosen ]
-          ( [ option "any" (texts.targetName AnyScreen) (s.target == AnyScreen) ]
-              <> map (\m -> option (machineId m) (texts.targetName (Machine m)) (s.target == Machine m)) allMachines
-          )
-      ]
-  ]
-    <> fitting s.target
-    <> background
-    <>
-      [ HH.label_
-          [ HH.text texts.colors
-          , HH.select [ HE.onValueChange ColorsChosen ]
-              ([ option "original" texts.colorsOriginal (s.colors == Original) ] <> colorsOf s.target)
-          ]
-      ]
-    <> amount s.colors
-    <>
-      [ HH.label_
-          [ HH.text texts.kernel
-          , HH.select [ HE.onValueChange KernelChosen ]
-              (map (\k -> option (kernelId k) (texts.kernelName k) (k == s.kernel)) allKernels)
-          ]
-      , HH.label_
-          [ HH.text texts.bayer
-          , HH.select [ HE.onValueChange BayerChosen, HP.disabled (not (bayerAllowed s.colors)) ]
-              ( [ option "none" texts.bayerOff (s.bayer == Nothing) ]
-                  <> map (\side -> option (show side) (texts.bayerSide side) (s.bayer == Just side)) bayerSides
-              )
-          ]
-      ]
-    <> (if bayerAllowed s.colors then [] else [ HH.small_ [ HH.text texts.bayerNeedsLevels ] ])
-    <> (if flatCells s then [ HH.small_ [ HH.text texts.flatCells ] ] else [])
-    <>
-      [ HH.label_
-          [ HH.input [ HP.type_ HP.InputCheckbox, HP.checked s.gray, HE.onChecked GrayChosen ]
-          , HH.text texts.gray
-          ]
-      ]
-  where
-  -- For a machine and a picture of another size: what happens to it, and
-  -- the choice to fit it to the screen (decision 22).
-  fitting = case _ of
-    Machine m | screenSizeOf m /= pic.size ->
-      [ HH.p_
-          [ HH.small_
-              [ HH.text case pic.fitted of
-                  Just f -> texts.fitted m { picture: pic.size, placement: f.placement }
-                  Nothing -> texts.sizeNote m pic.size
-              ]
-          ]
-      , HH.label_
-          [ HH.input [ HP.type_ HP.InputCheckbox, HP.checked pic.fit, HE.onChecked FitChosen ]
-          , HH.text texts.fitChoice
-          ]
-      ]
-    _ -> []
-  -- Whenever the background shows in the result (decision 27).
-  background =
-    if backgroundShows pic.transparent pic.fitted then
-      [ HH.label_
-          [ HH.text texts.background
-          , HH.input [ HP.type_ HP.InputColor, HP.value ("#" <> backgroundHex pic.background), HE.onValueChange BackgroundChosen ]
-          ]
-      ]
-        <> (if pic.transparent then [ HH.small_ [ HH.text texts.transparentParts ] ] else [])
-    else []
-  colorsOf = case _ of
-    AnyScreen ->
-      [ option "threshold" texts.colorsThreshold (isThreshold s.colors)
-      , option "levels" texts.colorsLevels (isLevels s.colors)
-      ]
-        <> map (\p -> option (paletteId p) (texts.palette p) (s.colors == Palette p)) allPalettes
-    Machine m -> map (\p -> option (machinePaletteId p) (texts.machinePalette m p) (s.colors == MachineColors p)) (machinePalettesOf m)
-  isThreshold = case _ of
-    Threshold _ -> true
-    _ -> false
-  isLevels = case _ of
-    Levels _ -> true
-    _ -> false
-  amount = case _ of
-    Threshold t -> [ number texts.thresholdValue 0 255 t ThresholdTyped ]
-    Levels n -> [ number texts.levelsValue 2 256 n LevelsTyped ]
-    _ -> []
-  number label low high value action =
-    HH.label_
-      [ HH.text label
-      , HH.input
-          [ HP.type_ HP.InputNumber
-          , HP.min (toNumber low)
-          , HP.max (toNumber high)
-          , HP.value (show value)
-          , HE.onValueInput action
-          ]
-      ]
-
-runStatus :: forall m. Run -> Array (H.ComponentHTML Action () m)
-runStatus = case _ of
-  Idle -> []
-  Running r ->
-    [ HH.p_ [ HH.text (texts.dithering { done: r.done, total: r.total } <> maybe "" (\ms -> ", " <> texts.timeLeft (rounded ms)) r.left) ]
-    , HH.progress [ HP.max (toNumber r.total), HP.value (toNumber r.done) ] []
-    , HH.button [ HE.onClick (const Cancel) ] [ HH.text texts.cancel ]
+  -- The whole page takes a dropped file, so that a drop beside the
+  -- picture doesn't make the browser open the file instead.
+  HH.div [ HP.class_ (H.ClassName "app"), HE.onDragOver DragOver, HE.onDrop Dropped ]
+    [ header state.theme
+    , HH.div [ HP.class_ (H.ClassName "work") ]
+        [ HH.aside [ HP.class_ (H.ClassName "column"), HP.attr (H.AttrName "aria-label") texts.settingsLabel ] (column state)
+        , HH.main [ HP.class_ (H.ClassName "stage"), HP.attr (H.AttrName "aria-label") texts.pictureLabel ] (stage state)
+        ]
+    , footer state.libraryVersion
     ]
-  Finished r ->
-    [ HH.button [ HE.onClick (const Save) ] [ HH.text texts.save ] ]
-      <> map (\f -> HH.button [ HE.onClick (const (SaveFile f.format)) ] [ HH.text (texts.saveFile f.format) ]) r.files
-      <> (if r.saveFailed then [ HH.p_ [ HH.text texts.saveFailed ] ] else [])
-  Cancelled -> [ HH.p_ [ HH.text texts.cancelled ] ]
-  RunFailed reason -> [ HH.p_ [ HH.text (texts.ditherFailed reason) ] ]
-
-option :: forall m. String -> String -> Boolean -> H.ComponentHTML Action () m
-option value label selected = HH.option [ HP.value value, HP.selected selected ] [ HH.text label ]
-
-isFinished :: Run -> Boolean
-isFinished = case _ of
-  Finished _ -> true
-  _ -> false
 
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
@@ -372,6 +105,10 @@ handleAction = case _ of
     win <- liftEffect window
     void (H.subscribe (eventListener (EventType "resize") (Window.toEventTarget win) (const (Just Resized))))
   Resized -> readPixelRatio
+  ThemeToggled -> do
+    theme <- H.gets (toggled <<< _.theme)
+    liftEffect (setTheme (themeName theme))
+    H.modify_ _ { theme = theme }
   FileChosen event ->
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
@@ -571,7 +308,6 @@ stopWorker = do
   s <- H.get
   for_ s.worker (liftEffect <<< Worker.terminate)
   H.modify_ _ { worker = Nothing, runs = s.runs + 1 }
-
 
 loadFile :: forall o m. MonadAff m => File -> H.HalogenM State Action () o m Unit
 loadFile file = do

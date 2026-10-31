@@ -18,7 +18,7 @@ own files. The same settings give the same pixels and files as the
 From the repository root (needs Node.js):
 
 ```bash
-npm install         # once: the PureScript toolchain, esbuild, Pico CSS
+npm install         # once: the PureScript toolchain and esbuild
 npm run web:build   # compiles and bundles the page into web/dist/
 npm run web:serve   # serves web/dist/ on http://localhost:8000
 ```
@@ -180,7 +180,8 @@ Firefox.
     few lines of JavaScript each.
 - `web/build.mjs` (`npm run web:build`) bundles the page and the worker
   with spago and esbuild into `web/dist/` (not committed), and copies
-  `web/static/`, Pico CSS and the logo's icons (from `logo/`) there.
+  `web/static/` (the page and its stylesheet) and the logo's icons and
+  lockups (from `logo/`) there.
 - `npm test` runs the package's specs with the other suites: the
   settings' rules, the worker's dithering and a machine's files against
   the command-line tool's path, the messages, the names and the zoom.

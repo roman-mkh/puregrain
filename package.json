@@ -34,7 +34,6 @@
     "pngjs": "^7.0.0"
   },
   "devDependencies": {
-    "@picocss/pico": "^2.1.1",
     "esbuild": "^0.28.2",
     "purescript": "^0.15.16",
     "purs-backend-es": "^1.4.3",

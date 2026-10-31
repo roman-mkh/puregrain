@@ -10,8 +10,16 @@ checklist in step.
 
 ## The package
 
-- **Modules:** `Puregrain.Web.Main` (the page's entry: mounts the app on
-  the body), `Puregrain.Web.App` (the component), `Puregrain.Web.Picture`
+- **Modules:** `Puregrain.Web.Main` (the page's entry: reads the theme
+  from the system and the library's version, then mounts the app on the
+  body), `Puregrain.Web.App` (the component: its actions and their
+  effects), `Puregrain.Web.State` (the state and the actions),
+  `Puregrain.Web.View.Header`, `.Column`, `.Stage` and `.Footer` (the
+  page's parts, decision 29), `.Parts` (a menu's option, the project's
+  links) and `.Icon` (inline SVG icons), `Puregrain.Web.Theme` (pure: the
+  two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
+  root's `data-theme`, the version's meta element; FFI),
+  `Puregrain.Web.Picture`
   (decoding and reading a picture with its transparency, exactly, drawing
   pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
   background and the fit, decisions 22 and 27: the rules pure, the loops
@@ -34,13 +42,16 @@ checklist in step.
   entry: only its messaging). The page and the worker import the library
   through the `Puregrain` facade, and the specialty modules outside it
   (`Puregrain.Cells`, `Puregrain.Machine.*`) directly, as the CLI does;
-  only the worker's bundle holds those. `web/static/` holds
-  `index.html`, which loads `pico.min.css`, `app.css` and `app.js`, and
-  links the icons, which the build copies from `logo/`: they're under the
-  logo's own terms, not MIT, so none of them lives in `web/static/`.
+  only the worker's bundle holds those. `web/static/` holds `index.html`
+  and `app.css`, our own stylesheet (decision 34): the page loads it and
+  `app.js`, links the icons, and has a `puregrain-version` meta element
+  that the build fills in. The icons and the lockups come from `logo/`,
+  copied by the build: they're under the logo's own terms, not MIT, so
+  none of them lives in `web/static/`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
-  (`SettingsSpec`, `DitherSpec`, `MessageSpec`, `RunSpec`, `SaveSpec`,
-  `ZoomSpec`), run by `spago test` with the other suites, in Node, so
+  (`SettingsSpec`, `DitherSpec`, `EstimateSpec`, `MessageSpec`,
+  `PrepareSpec`, `RunSpec`, `SaveSpec`, `ThemeSpec`, `ZoomSpec`), run by
+  `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
   to the CLI's path: the same bytes as `ditherImage` on the whole
@@ -70,7 +81,7 @@ checklist in step.
 - **The view:** two canvases stacked in `.layers`, the original below,
   drawn once per picture, and the result on top, drawn when a run
   finishes, before it's shown. Without a result it's hidden (the
-  `hidden` property, which Pico makes `display: none`), and the slider
+  `hidden` property; see "`[hidden]` and our styles"), and the slider
   and the download are unavailable. The result's `clip-path: inset(0 0 0
   X%)` cuts off its left part: X is the split, the range input's value
   in picture columns (0 to the width) as a share of the width, so the
@@ -83,16 +94,35 @@ checklist in step.
   screen-pixel screenshot (squares exactly 1 and 2 screen pixels at 1×
   and 2×, phase 2). The browser's zoom changes the ratio and fires
   `resize`, which the app listens to.
-- **Build:** `npm run web:build` (`web/build.mjs`) bundles the page into
-  `web/dist/app.js` and the worker into `web/dist/worker.js`, minified,
-  and copies `web/static/`, Pico's stylesheet and the logo's three icons
-  next to them.
+- **Build:** `npm run web:build` (`web/build.mjs`) clears `web/dist/`,
+  bundles the page into `web/dist/app.js` and the worker into
+  `web/dist/worker.js`, minified, copies `web/static/`, the logo's three
+  icons and its two lockups (`logo/zx/`, `logo/c64/`) next to them, and
+  writes the library's version, read from the root `spago.yaml`
+  (`publish.version`), into `index.html`'s meta element, for the
+  footer; a version written there keeps `npm run check` independent of
+  the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 3: `app.js` 137.0 KB, 34.2 KB gzipped
-  (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen);
-  `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since v1's
-  phase 3) and the machines' modules; Pico 11.7 KB gzipped.
+- **Sizes** after v2's phase 6, step 1: `app.js` 141.9 KB, 35.5 KB
+  gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
+  137.0 KB, 34.2 KB after v2's phase 3); `worker.js` 71.2 KB, 18.6 KB
+  gzipped, with the library (since v1's phase 3) and the machines'
+  modules; `app.css` 7.2 KB, 2.5 KB gzipped, in place of Pico's 11.7 KB.
+- **The theme comes before the first render:** `Main` reads the
+  system's setting and puts `data-theme` on the page's root, then passes
+  the theme to the component as its input, because Halogen runs a
+  component's initializer after its first render: read there, a dark
+  system would see the light theme's logo first. Before the app runs,
+  the stylesheet follows `prefers-color-scheme`, so the dark values are
+  written twice, in that media query and under `[data-theme="dark"]`.
+- **`[hidden]` and our styles:** a browser hides `[hidden]` elements by
+  its own stylesheet only, and any `display` of ours wins over it: the
+  canvases' `display: block` would show the hidden result. `app.css` has
+  `[hidden] { display: none !important; }` (Pico had it before).
+- **SVG in Halogen** (7.0.0): `HH.elementNS (HH.Namespace
+  "http://www.w3.org/2000/svg") (HH.ElemName "svg")`, its attributes with
+  `HP.attr (HH.AttrName "viewBox")`; see `View.Icon`.
 - **Preparing a picture** (v2's phase 2): the page keeps the picture as
   read, and makes from it what's shown as the original and dithered: put
   onto the background when it has transparency, fitted to a machine's
@@ -140,8 +170,9 @@ checklist in step.
 - **Everything from our build** (decision 19, a self-contained static
   site): no CDN. JavaScript, ours and third-party, is bundled by esbuild;
   stylesheets and fonts are copied from their npm packages at build time.
-- **Pico CSS** is `@picocss/pico` 2.1.1: MIT, no install script;
-  `css/pico.min.css` is 83 KB, 11.7 KB gzipped.
+- **Pico CSS** (`@picocss/pico` 2.1.1, MIT, 83 KB, 11.7 KB gzipped)
+  styled v1 and v2's phases 1 to 4; our own stylesheet replaced it in v2's
+  phase 6, step 1 (decision 34), and it left the dependencies.
 
 ## PureScript packages (package set 81.9.0)
 
@@ -359,6 +390,19 @@ check loaded the page and read "The worker answered: ping" from it.
   its PNG, at 1 and 4 times (`icon.svg` as the ICO's 16, at 1 and 2
   times), decodes each of the ICO's three bitmaps exactly (each served as
   an ICO of its own), and its tab takes `icon.svg`.
+- **Checked in v2's phase 6, step 1,** on the new skeleton: the split
+  exact to the screen pixel at ratio 1 (1× at splits 160, 0, 320, 1, 37
+  and 319; 3×) and 1.5 (1× and 2×), the picture centered in its area (at
+  x = 863.33 CSS pixels at 1.5); the downloads the CLI's (two PNGs, and a
+  ZX Spectrum screen's PNG and `.scr`, byte for byte); Cancel; the theme
+  from the system at load, dark and light, the switch, and the logo's
+  set; only `app.css` loaded; the footer's versions; on a phone's width,
+  the picture above the settings, without sideways scrolling.
+- **A headless Firefox window is at least 500 pixels wide:** asked for
+  390, it gave 500, still a phone's layout here (under 760). In a
+  profile's `user.js`, `layout.css.prefers-color-scheme.content-override`
+  0 or 1 (with `ui.systemUsesDarkTheme` 1 or 0) gives the page a dark or
+  a light system.
 - **The browser's own UI** (a tab's icon, say) is Marionette's chrome
   context (`Marionette:SetContext`), which needs Firefox started with
   `-remote-allow-system-access`.

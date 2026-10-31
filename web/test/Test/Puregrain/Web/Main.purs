@@ -10,6 +10,7 @@ import Test.Puregrain.Web.PrepareSpec as PrepareSpec
 import Test.Puregrain.Web.RunSpec as RunSpec
 import Test.Puregrain.Web.SaveSpec as SaveSpec
 import Test.Puregrain.Web.SettingsSpec as SettingsSpec
+import Test.Puregrain.Web.ThemeSpec as ThemeSpec
 import Test.Puregrain.Web.ZoomSpec as ZoomSpec
 import Test.Spec.Reporter.Console (consoleReporter)
 import Test.Spec.Runner.Node (runSpecAndExitProcess)
@@ -25,4 +26,5 @@ main = runSpecAndExitProcess [ consoleReporter ] do
   PrepareSpec.spec
   RunSpec.spec
   SaveSpec.spec
+  ThemeSpec.spec
   ZoomSpec.spec

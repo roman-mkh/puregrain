@@ -820,5 +820,5 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 3. The time estimate: shown for runs predicted over 10 s, rounded in steps, kept to the end; within 20% of the time actually left in Firefox
 - [x] 4. The logo: the mark, the wordmark, the lockup and the swash in two color sets, dithered by puregrain; SVG, PNG, the favicons and the social preview; its own terms; the SVGs and the icons checked in Firefox
 - [x] 5. Design review: two designs made separately, compared goal by goal; decisions 29 to 34, and phase 6's plan
-- [ ] 6. Design
+- [ ] 6. Design: step 1 done (our own stylesheet in place of Pico, the two themes, the page's skeleton, `App.purs` split into views)
 - [ ] 7. Delivery
