@@ -5,7 +5,7 @@ import Prelude
 import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Ord (abs)
-import Puregrain.Web.Zoom (cssSize, zooms)
+import Puregrain.Web.Zoom (cssSize, stepped, zooms)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -13,6 +13,13 @@ spec :: Spec Unit
 spec = describe "Puregrain.Web.Zoom" do
   it "offers 1x to 4x" do
     zooms `shouldEqual` [ 1, 2, 3, 4 ]
+
+  it "steps up and down within them" do
+    stepped 1 1 `shouldEqual` 2
+    stepped 1 3 `shouldEqual` 4
+    stepped 1 4 `shouldEqual` 4
+    stepped (-1) 2 `shouldEqual` 1
+    stepped (-1) 1 `shouldEqual` 1
 
   it "gives each picture pixel exactly zoom x zoom screen pixels, at any pixel ratio" do
     for_ [ 1.0, 1.25, 1.5, 1.75, 2.0, 2.5, 3.0 ] \ratio -> for_ zooms \zoom -> do

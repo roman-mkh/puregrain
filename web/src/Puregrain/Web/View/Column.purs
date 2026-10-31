@@ -18,7 +18,7 @@ import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
-import Puregrain.Web.State (Action(..), Load(..), Prepared, State)
+import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
 import Puregrain.Web.View.Parts (option)
@@ -61,16 +61,16 @@ column state =
         ]
     _ -> []
 
--- | The picture's name and size, and the file chooser.
+-- | The picture's name and size, and the file chooser, which Ctrl+O opens.
 pictureStep :: forall w. Maybe Loaded -> Array (HH.HTML w Action)
 pictureStep = case _ of
   Just { picture: p } ->
     [ HH.p [ HP.class_ (H.ClassName "picture-name") ] [ HH.text p.name ]
     , HH.p [ HP.class_ (H.ClassName "picture-size") ] [ HH.text (texts.pictureSize { width: p.width, height: p.height }) ]
-    , fileButton { label: texts.chooseAnother, primary: false, chosen: FileChosen }
+    , fileButton { label: texts.chooseAnother, title: texts.withKeys texts.chooseAnother texts.chooseKeys, primary: false, ref: Just chooserRef, chosen: FileChosen }
     ]
   Nothing ->
-    [ fileButton { label: texts.chooseFirst, primary: true, chosen: FileChosen }
+    [ fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Just chooserRef, chosen: FileChosen }
     , HH.p [ HP.class_ (H.ClassName "hint") ] [ HH.text texts.dropHint ]
     ]
 

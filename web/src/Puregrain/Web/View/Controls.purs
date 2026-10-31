@@ -16,6 +16,7 @@ module Puregrain.Web.View.Controls
 import Prelude
 
 import Data.Int (toNumber)
+import Data.Maybe (Maybe, maybe)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
@@ -130,15 +131,22 @@ note :: forall w i. Array (HH.HTML w i) -> HH.HTML w i
 note = HH.p [ HP.class_ (H.ClassName "note") ]
 
 -- | A file chooser that looks like a button: a label around the file
--- | input, which is hidden but still takes the focus and the keys.
-fileButton :: forall w i. { label :: String, primary :: Boolean, chosen :: Event -> i } -> HH.HTML w i
+-- | input, which is hidden but still takes the focus and the keys. The
+-- | `title` shows as its tooltip; `ref` names the input, for opening it
+-- | from code.
+fileButton
+  :: forall w i
+   . { label :: String, title :: String, primary :: Boolean, ref :: Maybe H.RefLabel, chosen :: Event -> i }
+  -> HH.HTML w i
 fileButton f =
-  HH.label [ HP.classes ([ H.ClassName "file-button" ] <> (if f.primary then [ H.ClassName "primary" ] else [])) ]
+  HH.label [ HP.classes ([ H.ClassName "file-button" ] <> (if f.primary then [ H.ClassName "primary" ] else [])), HP.title f.title ]
     [ HH.input
-        [ HP.type_ HP.InputFile
-        , HP.class_ (H.ClassName "sr-only")
-        , HP.attr (H.AttrName "accept") "image/*"
-        , HE.onChange f.chosen
-        ]
+        ( [ HP.type_ HP.InputFile
+          , HP.class_ (H.ClassName "sr-only")
+          , HP.attr (H.AttrName "accept") "image/*"
+          , HE.onChange f.chosen
+          ]
+            <> maybe [] (\r -> [ HP.ref r ]) f.ref
+        )
     , HH.text f.label
     ]

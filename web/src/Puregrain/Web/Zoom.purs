@@ -2,15 +2,22 @@
 -- | exactly `zoom` × `zoom` screen pixels, whatever the screen's pixel
 -- | density, so dither patterns stay sharp. At any other scale the browser
 -- | blurs them or forms moiré.
-module Puregrain.Web.Zoom (zooms, cssSize) where
+module Puregrain.Web.Zoom (zooms, stepped, cssSize) where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Int (toNumber)
+import Data.Maybe (fromMaybe)
 
 -- | The zoom levels offered, in screen pixels per picture pixel.
 zooms :: Array Int
 zooms = [ 1, 2, 3, 4 ]
+
+-- | The zoom one step up (1) or down (-1) from another, within the zoom
+-- | levels offered: + and − in the picture area (decision 33).
+stepped :: Int -> Int -> Int
+stepped step zoom = clamp (fromMaybe zoom (Array.head zooms)) (fromMaybe zoom (Array.last zooms)) (zoom + step)
 
 -- | The picture's size on the page in CSS pixels, at a zoom, on a screen
 -- | with this pixel ratio. The ratio is `window.devicePixelRatio`, screen

@@ -6,19 +6,27 @@ module Puregrain.Web.State
   , Prepared
   , State
   , Action(..)
+  , downloadName
   , originalRef
   , resultRef
   , layersRef
   , handleRef
+  , chooserRef
+  , downloadsRef
+  , formatsRef
   ) where
 
-import Data.Maybe (Maybe)
+import Prelude
+
+import Data.Maybe (Maybe(..), isJust)
 import Foreign (Foreign)
 import Graphics.Canvas (ImageData)
 import Halogen as H
 import Halogen.Subscription as HS
+import Puregrain.Web.Download (Format, extension)
 import Puregrain.Web.Picture (Picture)
-import Puregrain.Web.Prepare (Background, Placement)
+import Puregrain.Web.Prepare (Background, Placement, backgroundShows, white)
+import Puregrain.Web.Save (fileName)
 import Puregrain.Web.Settings (Settings)
 import Puregrain.Web.Status (Run)
 import Puregrain.Web.Theme (Theme)
@@ -59,8 +67,10 @@ type Prepared =
 -- | original, left of the result; `splitDrag` the pointer dragging its
 -- | handle, and where it took hold (`Puregrain.Web.Split`). `fit` and
 -- | `background` prepare every picture loaded. `dragged` counts what a
--- | drag of files has entered (`Puregrain.Web.Drag`). `columnHidden` is
--- | the settings' column slid away (decision 29).
+-- | drag of files has entered (`Puregrain.Web.Drag`). `format` is the
+-- | download's format chosen last, and `formatsOpen` whether the list of
+-- | formats shows (`Puregrain.Web.Download`). `columnHidden` is the
+-- | settings' column slid away (decision 29).
 type State =
   { load :: Load
   , loads :: Int
@@ -79,6 +89,8 @@ type State =
   , worker :: Maybe Worker
   , listener :: Maybe (HS.Listener Action)
   , dragged :: Int
+  , format :: Format
+  , formatsOpen :: Boolean
   , theme :: Theme
   , libraryVersion :: String
   , columnHidden :: Boolean
@@ -89,12 +101,15 @@ data Action
   | Resized
   | ThemeToggled
   | ColumnToggled
+  | PageKey KeyboardEvent
+  | PageClicked Event
   | FileChosen Event
   | DragEntered DragEvent
   | DragLeft DragEvent
   | DragOver DragEvent
   | Dropped DragEvent
   | ZoomChosen String
+  | ViewKey KeyboardEvent
   | TargetChosen String
   | FitChosen Boolean
   | BackgroundChosen String
@@ -111,8 +126,23 @@ data Action
   | SplitDragged Event
   | SplitReleased Event
   | SplitKey KeyboardEvent
-  | Save
-  | SaveFile String
+  | DownloadClicked
+  | FormatsToggled
+  | FormatChosen Format
+
+-- | A download's name (`Puregrain.Web.Save.fileName`): the picture's
+-- | name and the settings; `fit` when the picture was fitted to a
+-- | machine's screen, and the background when it shows in the result and
+-- | isn't white; the format's extension.
+downloadName :: State -> { picture :: Picture, prepared :: Prepared } -> Format -> String
+downloadName s l format =
+  fileName l.picture.name s.settings
+    { fitted: isJust l.prepared.fitted
+    , background:
+        if backgroundShows l.picture.transparent l.prepared.fitted && s.background /= white then Just s.background
+        else Nothing
+    }
+    (extension format)
 
 -- | The canvases of the original and of the result, the box holding
 -- | them, and the split's handle.
@@ -127,3 +157,14 @@ layersRef = H.RefLabel "layers"
 
 handleRef :: H.RefLabel
 handleRef = H.RefLabel "handle"
+
+-- | The settings' file chooser, which Ctrl+O opens.
+chooserRef :: H.RefLabel
+chooserRef = H.RefLabel "chooser"
+
+-- | The download's box, and its ▾ button, which shows the list of formats.
+downloadsRef :: H.RefLabel
+downloadsRef = H.RefLabel "downloads"
+
+formatsRef :: H.RefLabel
+formatsRef = H.RefLabel "formats"

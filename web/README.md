@@ -80,6 +80,11 @@ the dithering, for a page opened as a file. After changing a source, run
    that loads it (`.tap`), or a C64 program that shows the picture
    (`.prg`) and an Art Studio picture (`.art`)
    ([what they are, and how to open them](../docs/machine-screens/README.md)).
+   The button under the picture names its format, "Download PNG"; for a
+   machine, ▾ beside it lists the formats, each with the name it's saved
+   under. Choosing one saves it, and the button takes that format from
+   then on, falling back to PNG while it isn't possible (with another
+   target, say) and coming back to it after.
    The files need a picture of the screen's size, 256×192 or 320×200. For
    any other size the page says so, offers the PNG, a poster in the
    machine's style, and offers to **fit the picture to the screen**:
@@ -97,6 +102,13 @@ the dithering, for a page opened as a file. After changing a source, run
    The name on the tape is the picture's name, as the command-line tool
    makes it from its output's: without the extension, printable ASCII
    only, at most 10 characters (`puregrain` when nothing is left).
+
+**Keys:** Ctrl+O chooses a picture and Ctrl+S downloads in the button's
+format (Cmd works as Ctrl, on a Mac and elsewhere); Esc closes the list of
+formats, or cancels a run. While the picture area has the focus (Tab, or
+a click on it), + and − zoom; while the split's handle has it, ← and →
+move it a column (ten with Shift), Home and End to the edges. The
+tooltips show the keys.
 
 What each kernel, Bayer map and palette does, and how gray and color are
 chosen, is in the command-line tool's documentation:
@@ -177,8 +189,9 @@ Firefox.
     settings as library values, as the command-line tool builds them),
     `Save.purs` (the files' names and the tape's), `Status.purs` (what
     the picture area and the bar show for a run), `Split.purs` (the split
-    handle's drag and keys), `Drag.purs` (a drag of files over the page)
-    and `Zoom.purs` are pure, and tested.
+    handle's drag and keys), `Drag.purs` (a drag of files over the page),
+    `Download.purs` (the download's formats), `Keys.purs` (the
+    shortcuts) and `Zoom.purs` are pure, and tested.
   - `Worker.purs` is the worker's entry; `Run.purs` dithers row by row
     with the library's stepper, or a machine's screen band by band, a row
     of cells at a time, reports progress, and makes the machine's files;
@@ -192,7 +205,8 @@ Firefox.
 - `npm test` runs the package's specs with the other suites: the
   settings' rules, the worker's dithering and a machine's files against
   the command-line tool's path, the messages, the names, the zoom, what
-  the bar says, the split handle's keys and the drag's count.
+  the bar says, the split handle's keys, the drag's count, the download's
+  formats and the shortcuts.
 - The plan, the decisions and their reasons: [ROADMAP.md](ROADMAP.md).
   Architecture and gotchas: [CLAUDE.md](CLAUDE.md), notes kept for the
   AI assistant used in development.
@@ -223,13 +237,16 @@ What the specs can't reach, the browser itself, is checked by hand. After
    and End move it. On a picture taller than its area, the handle's knob
    stays in sight while it scrolls.
 7. The downloaded file has the settings in its name and shows the result.
+   For a machine, ▾ lists the formats; one chosen there becomes the
+   button's, and PNG takes its place while it isn't possible.
 8. A result looks like the command-line tool's with the same settings
    (the table above), both viewed at 100%.
 9. A machine as the target: its colors only, its screen dithered at
    once, with the hint until a method is chosen. At the screen's size
    (`npm run generate-images` makes `samples/color-256x192.png` and
-   `samples/color-320x200.png`), the machine's files come with buttons
-   and open in an emulator; at any other size, the note, and the PNG only.
+   `samples/color-320x200.png`), the machine's files are in the list of
+   formats and open in an emulator; at any other size, the note, and
+   only the PNG possible.
 10. Fitting to the screen: a large picture is scaled down and cropped, a
    small one centered on the background, each with a note saying so; the
    fit stays on for the next picture, and unticking it brings the poster
@@ -239,5 +256,8 @@ What the specs can't reach, the browser itself, is checked by hand. After
 11. A run of more than 10 seconds (a picture of 10 megapixels or more)
    shows the time left after a few seconds, counting down in steps, and
    keeps it to the end; a short run shows none.
-12. The browser's tab shows the puregrain icon, "Pg" in red and green.
-13. The browser's console shows no errors.
+12. Ctrl+O opens the file chooser and Ctrl+S downloads (Cmd on a Mac),
+   without the browser's own dialogs, in Chrome and Safari too (checked
+   in Firefox by the development checks); Esc cancels a run.
+13. The browser's tab shows the puregrain icon, "Pg" in red and green.
+14. The browser's console shows no errors.

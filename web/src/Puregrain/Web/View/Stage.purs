@@ -3,7 +3,7 @@
 -- | original and the result stacked in one box, at whole-number zoom,
 -- | split between them by a handle, and an overlay while files are
 -- | dragged over the page; under them the zoom, the notes on the file
--- | and the run, and the downloads.
+-- | and the run, and the download.
 -- |
 -- | Parts that come and go are hidden rather than removed, or sit in
 -- | fixed boxes: Halogen matches unkeyed children by position, and would
@@ -14,14 +14,18 @@ module Puregrain.Web.View.Stage (stage) where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), fromMaybe, isJust, isNothing, maybe)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Puregrain.Web.Download (buttonFormat, extension, formatsFor)
 import Puregrain.Web.Estimate (rounded)
-import Puregrain.Web.State (Action(..), Load(..), State, handleRef, layersRef, originalRef, resultRef)
+import Puregrain.Web.Picture (Picture)
+import Puregrain.Web.Settings (Target(..), screenSizeOf)
+import Puregrain.Web.State (Action(..), Load(..), Prepared, State, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, resultRef)
 import Puregrain.Web.Status (Run(..), RunNote(..), resultShows, runNote)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (fileButton, segments)
@@ -31,7 +35,7 @@ import Web.Event.Event (EventType(..))
 
 stage :: forall w. State -> Array (HH.HTML w Action)
 stage state = case state.load of
-  Loaded { prepared } ->
+  Loaded loaded@{ prepared } ->
     let
       size = cssSize state.pixelRatio state.zoom { width: prepared.width, height: prepared.height }
       sizeStyle = "width: " <> show size.width <> "px; height: " <> show size.height <> "px"
@@ -42,7 +46,8 @@ stage state = case state.load of
       shows = resultShows state.run
     in
       [ HH.div [ HP.class_ (H.ClassName "area") ]
-          [ HH.div [ HP.class_ (H.ClassName "view") ]
+          -- The picture area takes the focus, for + and − (decision 33).
+          [ HH.div [ HP.class_ (H.ClassName "view"), HP.tabIndex 0, HE.onKeyDown ViewKey ]
               [ HH.div [ HP.ref layersRef, HP.class_ (H.ClassName "layers") ]
                   [ HH.canvas
                       [ HP.ref originalRef
@@ -82,7 +87,7 @@ stage state = case state.load of
               [ fileNote state
               , runNotes state.run
               ]
-          , HH.div [ HP.class_ (H.ClassName "bar-actions") ] (downloads state.run)
+          , HH.div [ HP.class_ (H.ClassName "bar-actions") ] [ downloadBox state loaded ]
           ]
       ]
   NoPicture ->
@@ -135,7 +140,7 @@ dropZone state =
         , HH.p [ HP.class_ (H.ClassName "drop-title") ] [ HH.text (maybe texts.dropTitle texts.loading state.loading) ]
         , HH.p [ HP.class_ (H.ClassName "drop-choose") ]
             [ HH.text texts.dropOr
-            , fileButton { label: texts.chooseFirst, primary: true, chosen: FileChosen }
+            , fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Nothing, chosen: FileChosen }
             ]
         , HH.p [ HP.class_ (H.ClassName "hint") ] [ HH.text texts.formats ]
         , HH.p [ HP.class_ (H.ClassName "about") ] [ HH.text texts.description ]
@@ -187,7 +192,13 @@ runNotes run =
             ]
             []
         ]
-    , HH.button [ HP.type_ HP.ButtonButton, HE.onClick (const Cancel), hidden (not running) ] [ HH.text texts.cancel ]
+    , HH.button
+        [ HP.type_ HP.ButtonButton
+        , HP.title (texts.withKeys texts.cancel texts.cancelKeys)
+        , HE.onClick (const Cancel)
+        , hidden (not running)
+        ]
+        [ HH.text texts.cancel ]
     ]
   where
   note = runNote run
@@ -209,14 +220,66 @@ runNotes run =
     Just (DitherFailed reason) -> texts.ditherFailed reason
     Just SaveFailed -> texts.saveFailed
 
--- | The downloads, at the bar's right: the PNG, and a machine's files.
--- | Phase 6's step 4 makes them one button with a list of formats.
-downloads :: forall w. Run -> Array (HH.HTML w Action)
-downloads = case _ of
-  Finished r ->
-    [ HH.button [ HP.type_ HP.ButtonButton, HE.onClick (const Save) ] [ HH.text texts.save ] ]
-      <> map (\f -> HH.button [ HP.type_ HP.ButtonButton, HE.onClick (const (SaveFile f.format)) ] [ HH.text (texts.saveFile f.format) ]) r.files
-  _ -> []
+-- | The download, at the bar's right (decision 31): a button naming its
+-- | format, the one chosen last while it's possible, else PNG
+-- | (`Puregrain.Web.Download`). For a machine, ▾ beside it shows the
+-- | list of formats, each with the name it's saved under, or why it isn't
+-- | possible: a disclosure, a button showing a list of buttons (decision
+-- | 34). The impossible ones are only marked so (`aria-disabled`), so
+-- | that Tab still reaches them and their reason. Unavailable until
+-- | there's a result.
+downloadBox :: forall w. State -> { picture :: Picture, prepared :: Prepared } -> HH.HTML w Action
+downloadBox state loaded =
+  HH.div [ HP.ref downloadsRef, HP.class_ (H.ClassName "downloads") ]
+    ( [ HH.button
+          [ HP.type_ HP.ButtonButton
+          , HP.class_ (H.ClassName "primary")
+          , HP.disabled (not ready)
+          , HP.title (texts.withKeys (texts.downloadAs current) texts.downloadKeys)
+          , HE.onClick (const DownloadClicked)
+          ]
+          [ HH.text (texts.downloadAs current) ]
+      ]
+        <>
+          if Array.length choices < 2 then []
+          else
+            [ HH.button
+                [ HP.ref formatsRef
+                , HP.type_ HP.ButtonButton
+                , HP.classes [ H.ClassName "primary", H.ClassName "more" ]
+                , HP.disabled (not ready)
+                , HP.attr (H.AttrName "aria-expanded") (if open then "true" else "false")
+                , HP.attr (H.AttrName "aria-controls") "formats"
+                , HP.attr (H.AttrName "aria-label") texts.moreFormats
+                , HP.title texts.moreFormats
+                , HE.onClick (const FormatsToggled)
+                ]
+                [ Icon.caretDown ]
+            , HH.ul [ HP.id "formats", HP.class_ (H.ClassName "formats"), hidden (not open) ]
+                ( choices <#> \c ->
+                    HH.li_
+                      [ HH.button
+                          ( [ HP.type_ HP.ButtonButton, HE.onClick (const (FormatChosen c.format)) ]
+                              <> (if c.possible then [] else [ HP.attr (H.AttrName "aria-disabled") "true" ])
+                          )
+                          [ HH.span [ HP.class_ (H.ClassName "ext") ] [ HH.text ("." <> extension c.format) ]
+                          , HH.span_ [ HH.text (texts.formatName c.format) ]
+                          , HH.small_ [ HH.text (if c.possible then downloadName state loaded c.format else reason) ]
+                          ]
+                      ]
+                )
+            ]
+    )
+  where
+  choices = formatsFor state.settings.target { width: loaded.prepared.width, height: loaded.prepared.height }
+  current = buttonFormat state.format choices
+  ready = case state.run of
+    Finished _ -> true
+    _ -> false
+  open = state.formatsOpen && ready
+  reason = case state.settings.target of
+    Machine machine -> texts.needsScreen (screenSizeOf machine)
+    AnyScreen -> ""
 
 -- | The `hidden` property: the element stays in place, unseen.
 hidden :: forall r i. Boolean -> HP.IProp r i

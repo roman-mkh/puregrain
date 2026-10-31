@@ -4,8 +4,10 @@ import Prelude
 
 import Effect (Effect)
 import Test.Puregrain.Web.DitherSpec as DitherSpec
+import Test.Puregrain.Web.DownloadSpec as DownloadSpec
 import Test.Puregrain.Web.DragSpec as DragSpec
 import Test.Puregrain.Web.EstimateSpec as EstimateSpec
+import Test.Puregrain.Web.KeysSpec as KeysSpec
 import Test.Puregrain.Web.MessageSpec as MessageSpec
 import Test.Puregrain.Web.PrepareSpec as PrepareSpec
 import Test.Puregrain.Web.RunSpec as RunSpec
@@ -24,8 +26,10 @@ main :: Effect Unit
 main = runSpecAndExitProcess [ consoleReporter ] do
   SettingsSpec.spec
   DitherSpec.spec
+  DownloadSpec.spec
   DragSpec.spec
   EstimateSpec.spec
+  KeysSpec.spec
   MessageSpec.spec
   PrepareSpec.spec
   RunSpec.spec

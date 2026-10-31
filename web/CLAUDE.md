@@ -34,7 +34,10 @@ checklist in step.
   `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
   decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
   the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
-  events for the handle; FFI),
+  events for the handle; FFI), `Puregrain.Web.Download` (pure: the
+  download's formats per target and size, and the format the button
+  names; decision 31), `Puregrain.Web.Keys` (pure: the page's shortcuts
+  and the zoom's keys; decision 33),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
@@ -58,9 +61,9 @@ checklist in step.
   copied by the build: they're under the logo's own terms, not MIT, so
   none of them lives in `web/static/`.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
-  (`SettingsSpec`, `DitherSpec`, `DragSpec`, `EstimateSpec`,
-  `MessageSpec`, `PrepareSpec`, `RunSpec`, `SaveSpec`, `SplitSpec`,
-  `StatusSpec`, `ThemeSpec`, `ZoomSpec`), run by
+  (`SettingsSpec`, `DitherSpec`, `DownloadSpec`, `DragSpec`,
+  `EstimateSpec`, `KeysSpec`, `MessageSpec`, `PrepareSpec`, `RunSpec`,
+  `SaveSpec`, `SplitSpec`, `StatusSpec`, `ThemeSpec`, `ZoomSpec`), run by
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
@@ -128,6 +131,33 @@ checklist in step.
   handle uses is `preventDefault`ed, so End doesn't also scroll; ↑ and ↓
   and the keys with Ctrl, Alt or Meta stay the browser's. A
   `role="slider"` with `aria-valuetext` "column 160 of 320".
+- **The download** (decision 31; `Puregrain.Web.Download`): one button
+  naming its format, and for a machine ▾ beside it, which shows a list of
+  the formats (a disclosure, decision 34: `aria-expanded` and
+  `aria-controls`, a list of buttons). An impossible format is only
+  `aria-disabled`, so Tab still reaches it and its reason. Choosing one
+  downloads it and makes it the button's format (`format`, kept for the
+  visit); the button falls back to PNG while it isn't possible. Escape
+  and a click outside close the list, the focus going back to ▾; the
+  click is outside when the download's box doesn't `contains` its target
+  (`web-dom`'s `Node.contains`, through a click listener on the
+  window). A new run closes it (`restart`), so it can't come back open
+  over a later result. On a phone's width, the download has a line of its
+  own, and the list its width.
+- **The shortcuts** (decision 33; `Puregrain.Web.Keys`): a `keydown`
+  listener on the window. Ctrl or Cmd, on every system; the letter from
+  the key's character when it's Latin, else from its place (`code`), so
+  a Russian layout's Ctrl+щ is Ctrl+O. Ctrl+O clicks the column's file
+  input (`chooserRef`): a key press is a user action, so the browser
+  lets the page open its file chooser (checked in Firefox:
+  `navigator.userActivation.isActive` is true in that `keydown`, and the
+  console shows no "picker was blocked", also with the column hidden).
+  Ctrl+S is taken even with nothing to download, so "Save page as" never
+  opens over the page. Esc closes the list of formats if it's open, else
+  cancels a run. + (and =) and − zoom while the picture area has the
+  focus: `.view` has `tabindex="0"` and its own `keydown`, which the
+  handle's keys bubble to; its focus ring is drawn inside it
+  (`outline-offset: -2px`).
 - **The knob is sticky** (`position: sticky; top: calc(50% - 16px);
   bottom: calc(50% - 16px)` inside the handle, as tall as the picture),
   and sticky positions count from inside the scroll container's padding:
@@ -153,12 +183,17 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6, step 3: `app.js` 155.5 KB, 39.3 KB
+- **Sizes** after v2's phase 6, step 4: `app.js` 164.7 KB, 41.4 KB
   gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
-  137.0 KB, 34.2 KB after v2's phase 3); `worker.js` 71.2 KB, 18.6 KB
-  gzipped, with the library (since v1's phase 3) and the machines'
-  modules; `app.css` 17.4 KB, 5.0 KB gzipped, in place of Pico's
-  11.7 KB.
+  137.0 KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's
+  phase 6, step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the
+  library (since v1's phase 3) and the machines' modules; `app.css`
+  19.3 KB, 5.4 KB gzipped, in place of Pico's 11.7 KB. Gzipped at gzip's
+  default level (`gzip -c`); the worker's 18.6 KB noted before was at
+  level 9. PureScript's output is wordy before minifying: a module of a
+  few lines, `Download`, is 3.5 KB in an unminified bundle; `spago
+  bundle` without `--minify` marks each module (`// output/…`), which
+  shows where the bytes go.
 - **The column's slide** (decision 29): the column keeps its 340 pixels
   and moves left by them (`transform`) while its grid track narrows to
   nothing (`grid-template-columns` animates in Chrome 107, Firefox 66,
@@ -432,7 +467,10 @@ check loaded the page and read "The worker answered: ping" from it.
   be fetched in the page (`WebDriver:ExecuteAsyncScript`) from the
   check's own server. A hidden element's `innerText` is its
   `textContent`, hidden parts included, so a check reads it only from
-  shown elements.
+  shown elements. With `devtools.console.stdout.content` in `user.js`,
+  Firefox writes the page's console to its standard output, where the
+  check script can read it (a file chooser refused for lack of a user
+  action says "picker was blocked").
 - **Checked in phase 3:** for 7 settings (a threshold, levels with
   Atkinson, a palette with JJN, pure Bayer, the hybrid, a palette after
   "gray first", 3 levels), the page's result on the color composite at
@@ -515,13 +553,30 @@ check loaded the page and read "The worker answered: ping" from it.
   3×) and 1.5 (1× and 2×, a 40-pixel drag there 30 columns); the knob on
   the line, at the middle of a picture that fits, and of the area inside
   the view's margins on a tall one at every scroll position; the labels
-  above the corners,
-  side by side over a 96-pixel picture; a short run without progress, a
-  long one keeping the result before it, its progress after 1.06 s,
-  then Cancel showing the original, and the next run too; the zoom's
-  segments; the downloads the CLI's (a PNG, and a ZX Spectrum screen's
-  PNG and `.scr`, byte for byte); a phone's width without sideways
-  scrolling, the knob 40 pixels, the handle 44.
+  above the corners, side by side over a 96-pixel picture; a short run
+  without progress, a long one keeping the result before it, its
+  progress after 1.06 s, then Cancel showing the original, and the next
+  run too; the zoom's segments; the downloads the CLI's (a PNG, and a ZX
+  Spectrum screen's PNG and `.scr`, byte for byte); a phone's width
+  without sideways scrolling, the knob 40 pixels, the handle 44.
+- **Checked in v2's phase 6, step 4** (`step64_check.mjs`): the download
+  button, "Download PNG" with no ▾ for any screen, unavailable until a
+  result; for the ZX Spectrum and the C64, ▾ (`aria-expanded`,
+  "More formats") and the list, each entry with its file's name; every
+  format through the list, and the button's format through the button
+  and Ctrl+S, byte for byte the CLI's (`.scr`, `.tap`, `.prg`, `.art`)
+  or its pixels (the PNGs); the button taking the format chosen, PNG for
+  any screen, for a poster and for the other machine, and the format
+  again back on the screen's size; a poster's `.scr` and `.tap` saying
+  "needs a 256 × 192 picture", choosing one saving nothing; Esc closing
+  the list with the focus back on ▾ and the result kept, a click outside
+  and ▾ closing it; during a run the button unavailable and Ctrl+S
+  saving nothing, Esc cancelling, and Esc with nothing to cancel
+  changing nothing; Ctrl+O opening the file chooser from a user action,
+  on the empty page and with the column hidden, the page staying; + and
+  = and − in the picture area, at its ends and through the handle; the
+  tooltips; at ratio 1.5, the list and a `.scr`; on a phone's width, the
+  list within the screen.
 - **A headless Firefox window is at least 500 pixels wide:** asked for
   390, it gave 500, still a phone's layout here (under 760). In a
   profile's `user.js`, `layout.css.prefers-color-scheme.content-override`

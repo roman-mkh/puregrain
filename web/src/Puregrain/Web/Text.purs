@@ -5,6 +5,7 @@ module Puregrain.Web.Text (texts) where
 import Prelude
 
 import Data.String.Common (joinWith)
+import Puregrain.Web.Download (Format(..))
 import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
 import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), screenSizeOf)
@@ -82,9 +83,15 @@ texts
      , ditherFailed :: String -> String
      , split :: String
      , splitValue :: Int -> Int -> String
-     , save :: String
-     , saveFile :: String -> String
+     , downloadAs :: Format -> String
+     , formatName :: Format -> String
+     , needsScreen :: { width :: Int, height :: Int } -> String
+     , moreFormats :: String
      , saveFailed :: String
+     , withKeys :: String -> String -> String
+     , chooseKeys :: String
+     , downloadKeys :: String
+     , cancelKeys :: String
      }
 texts =
   { title: "puregrain"
@@ -210,9 +217,29 @@ texts =
   , ditherFailed: \reason -> "The dithering failed: " <> reason
   , split: "Split: the original on the left, the result on the right"
   , splitValue: \split width -> "column " <> show split <> " of " <> show width
-  , save: "Download as PNG"
-  , saveFile: \format -> "Download ." <> format
+  -- The download (decision 31): the button names its format, the list
+  -- of formats says what each file is.
+  , downloadAs: \format -> "Download " <> case format of
+      Png -> "PNG"
+      Scr -> "SCR"
+      Tap -> "TAP"
+      Prg -> "PRG"
+      Art -> "ART"
+  , formatName: case _ of
+      Png -> "Picture"
+      Scr -> "ZX Spectrum screen"
+      Tap -> "ZX Spectrum tape, loads by itself"
+      Prg -> "C64 program with a viewer"
+      Art -> "Art Studio picture"
+  , needsScreen: \screen -> "needs a " <> size screen <> " picture"
+  , moreFormats: "More formats"
   , saveFailed: "The browser couldn't make the PNG."
+  -- The shortcuts in the tooltips (decision 33), written the same way on
+  -- every system: Ctrl works on a Mac too, as does Cmd.
+  , withKeys: \label keys -> label <> " (" <> keys <> ")"
+  , chooseKeys: "Ctrl+O"
+  , downloadKeys: "Ctrl+S"
+  , cancelKeys: "Esc"
   }
   where
   size :: forall r. { width :: Int, height :: Int | r } -> String

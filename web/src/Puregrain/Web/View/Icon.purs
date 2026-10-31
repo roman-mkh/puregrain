@@ -1,7 +1,7 @@
 -- | Small icons, inline SVG drawn in the text's color (decision 34): a
 -- | character such as ☾ or ☼ would look different from system to system,
 -- | and as emoji on some.
-module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight) where
+module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight, caretDown) where
 
 import Prelude
 
@@ -32,6 +32,10 @@ chevronsRight = icon [ "M9 3l5 5-5 5-1.4-1.4L11.2 8 7.6 4.4zM3 3l5 5-5 5-1.4-1.4
 -- | ◂ ▸ : the split handle's knob, dragged sideways.
 leftRight :: forall w i. HH.HTML w i
 leftRight = icon [ "M6 3.5 1 8l5 4.5zM10 3.5l5 4.5-5 4.5z" ]
+
+-- | ▾ : a list opens from the button.
+caretDown :: forall w i. HH.HTML w i
+caretDown = icon [ "M3.5 6h9L8 11z" ]
 
 -- | 16 × 16, hidden from screen readers: the button it's in has a name.
 icon :: forall w i. Array String -> HH.HTML w i

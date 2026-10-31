@@ -100,6 +100,10 @@ button {
 }
 
 button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+/* The main button of an area, in the accent (decision 32). */
+button.primary { font-weight: 600; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
 
 input[type="checkbox"], input[type="range"], progress { accent-color: var(--accent); }
 
@@ -256,7 +260,8 @@ input[type="color"] {
 /* The area scrolls a large picture, with room above it for the labels of
    its sides; the drag's overlay covers it, under the column's tab. */
 .area { position: relative; isolation: isolate; flex: 1; min-height: 0; display: flex; }
-.view { flex: 1; min-width: 0; overflow: auto; display: flex; padding: 46px 32px 32px; }
+/* It takes the focus, for + and −: its focus ring inside its edges. */
+.view { flex: 1; min-width: 0; overflow: auto; display: flex; padding: 46px 32px 32px; outline-offset: -2px; }
 
 /* The original and the result stacked in one box (decision 15): the
    result on top, its left part cut off at the split by a clip-path that
@@ -344,6 +349,27 @@ input[type="color"] {
 .bar p { margin: 0; font-size: 14px; }
 .warning { color: var(--danger); }
 
+/* The download (decision 31): the button naming its format, and for a
+   machine ▾ beside it, joined; the list of formats opens above them. */
+.downloads { position: relative; display: inline-flex; }
+.downloads > button.more { display: grid; place-items: center; padding: 6px 7px; border-left-color: var(--on-accent); }
+.downloads > button:first-child:not(:last-child) { border-radius: var(--radius) 0 0 var(--radius); }
+.downloads > button.more { border-radius: 0 var(--radius) var(--radius) 0; }
+.formats {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 5;
+  width: max-content; min-width: 300px; max-width: min(460px, calc(100vw - 28px));
+  margin: 0; padding: 6px; list-style: none;
+  background: var(--panel); border: 1px solid var(--control); border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.formats button {
+  display: grid; grid-template-columns: 44px 1fr; gap: 1px 10px; width: 100%; padding: 7px 8px;
+  text-align: left; background: none; border: 0;
+}
+.formats button:hover:not([aria-disabled="true"]) { background: var(--field); }
+.formats button[aria-disabled="true"] { opacity: .55; cursor: default; }
+.formats .ext { font: 600 13px var(--mono); color: var(--accent); }
+.formats small { grid-column: 2; font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+
 /* The progress, its leading edge in dithered dots (decision 32). */
 .progress {
   position: relative; width: 10rem; height: 8px; overflow: hidden;
@@ -379,6 +405,10 @@ input[type="color"] {
   .view { padding: 40px 14px 14px; }
   .view.empty { padding: 14px; }
   .drop-inner { padding: 26px 16px 22px; }
+  /* The download on a line of its own, its list as wide as the line. */
+  .bar-actions { flex-basis: 100%; }
+  .downloads, .downloads > button:first-child { flex: 1; }
+  .formats { left: 0; width: auto; min-width: 0; max-width: none; }
   /* A finger's size (decision 33). */
   .handle { width: 44px; }
   .knob { width: 40px; height: 40px; top: calc(50% - 20px); bottom: calc(50% - 20px); }

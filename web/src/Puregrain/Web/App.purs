@@ -13,7 +13,7 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..))
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Effect.Aff (delay, try)
@@ -26,20 +26,22 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
+import Puregrain.Web.Download (Format(..), buttonFormat, extension, formatsFor)
 import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
+import Puregrain.Web.Keys (Shortcut(..), shortcut, zoomStep)
 import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Page (setTheme)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
 import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
-import Puregrain.Web.Prepare (Background, backgroundFromHex, backgroundShows, fitOnto, flatten, placementOn, screenToFit, white)
-import Puregrain.Web.Save (fileName, saveBytes, savePng, tapeName)
+import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, placementOn, screenToFit, white)
+import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
-import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, handleRef, layersRef, originalRef, resultRef)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, resultRef)
 import Puregrain.Web.Status (Run(..), progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
@@ -48,6 +50,8 @@ import Puregrain.Web.View.Footer (footer)
 import Puregrain.Web.View.Header (header)
 import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.View.Stage (stage)
+import Puregrain.Web.Zoom (stepped)
+import Web.DOM.Node as Node
 import Web.Event.Event (EventType(..))
 import Web.Event.Event as Event
 import Web.File.File (File)
@@ -56,6 +60,7 @@ import Web.File.FileList as FileList
 import Web.HTML (window)
 import Web.HTML.Event.DataTransfer as DataTransfer
 import Web.HTML.Event.DragEvent as DragEvent
+import Web.HTML.HTMLElement as HTMLElement
 import Web.HTML.HTMLInputElement as HTMLInputElement
 import Web.HTML.Window as Window
 import Web.UIEvent.KeyboardEvent as KE
@@ -82,6 +87,8 @@ component = H.mkComponent
       , worker: Nothing
       , listener: Nothing
       , dragged: 0
+      , format: Png
+      , formatsOpen: false
       , theme: input.theme
       , libraryVersion: input.libraryVersion
       , columnHidden: false
@@ -135,12 +142,48 @@ handleAction = case _ of
     -- The browser's own zoom changes the pixel ratio, and fires "resize".
     win <- liftEffect window
     void (H.subscribe (eventListener (EventType "resize") (Window.toEventTarget win) (const (Just Resized))))
+    -- The shortcuts work anywhere on the page, and a click outside the
+    -- list of formats closes it.
+    void (H.subscribe (eventListener (EventType "keydown") (Window.toEventTarget win) (map PageKey <<< KE.fromEvent)))
+    void (H.subscribe (eventListener (EventType "click") (Window.toEventTarget win) (Just <<< PageClicked)))
   Resized -> readPixelRatio
   ThemeToggled -> do
     theme <- H.gets (toggled <<< _.theme)
     liftEffect (setTheme (themeName theme))
     H.modify_ _ { theme = theme }
   ColumnToggled -> H.modify_ \s -> s { columnHidden = not s.columnHidden }
+  -- The shortcuts (decision 33, `Puregrain.Web.Keys`): Ctrl+O and Ctrl+S
+  -- are taken over from the browser, Ctrl+S even with nothing to
+  -- download yet, so that "Save page as" doesn't open over the page.
+  PageKey event -> for_ (shortcut (keyOf event)) case _ of
+    ChoosePicture -> do
+      liftEffect (Event.preventDefault (KE.toEvent event))
+      chooser <- H.getHTMLElementRef chooserRef
+      for_ chooser (liftEffect <<< HTMLElement.click)
+    DownloadNow -> do
+      liftEffect (Event.preventDefault (KE.toEvent event))
+      H.modify_ _ { formatsOpen = false }
+      s <- H.get
+      download (buttonFormat s.format (choicesOf s))
+    -- The list of formats first, if it's open, then the run.
+    Escape -> do
+      s <- H.get
+      if s.formatsOpen then do
+        liftEffect (Event.preventDefault (KE.toEvent event))
+        closeFormats
+      else case s.run of
+        Running _ -> do
+          liftEffect (Event.preventDefault (KE.toEvent event))
+          cancel
+        _ -> pure unit
+  PageClicked event -> do
+    open <- H.gets _.formatsOpen
+    when open do
+      box <- H.getHTMLElementRef downloadsRef
+      inside <- case box, Event.target event >>= Node.fromEventTarget of
+        Just b, Just node -> liftEffect (Node.contains (HTMLElement.toNode b) node)
+        _, _ -> pure false
+      unless inside (H.modify_ _ { formatsOpen = false })
   FileChosen event ->
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
@@ -155,6 +198,9 @@ handleAction = case _ of
     H.modify_ \s -> s { dragged = counted s.dragged Drop }
     for_ (DataTransfer.files (DragEvent.dataTransfer event) >>= FileList.item 0) loadFile
   ZoomChosen value -> for_ (Int.fromString value) \zoom -> H.modify_ _ { zoom = zoom }
+  ViewKey event -> for_ (zoomStep (keyOf event)) \step -> do
+    liftEffect (Event.preventDefault (KE.toEvent event))
+    H.modify_ \s -> s { zoom = stepped step s.zoom }
   TargetChosen value -> do
     let
       target =
@@ -202,9 +248,7 @@ handleAction = case _ of
     if value == "none" then change (chooseBayer Nothing)
     else for_ (Int.fromString value) \side -> change (chooseBayer (Just side))
   GrayChosen gray -> change (chooseGray gray)
-  Cancel -> do
-    stopWorker
-    H.modify_ _ { run = Cancelled }
+  Cancel -> cancel
   FromWorker id reply -> do
     s <- H.get
     when (id == s.runs) do
@@ -263,25 +307,36 @@ handleAction = case _ of
           liftEffect (Event.preventDefault (KE.toEvent event))
           H.modify_ _ { split = split }
       _ -> pure unit
-  Save -> do
+  -- The download (decision 31, `Puregrain.Web.Download`).
+  DownloadClicked -> do
     s <- H.get
-    canvas <- H.getHTMLElementRef resultRef
-    case s.load, s.run, canvas of
-      Loaded l, Finished _, Just element -> do
-        saved <- liftAff (savePng element (fileName l.picture.name s.settings (nameParts s l) "png"))
-        -- Unless another run has started meanwhile (`runs` counts on).
-        H.modify_ \now -> case now.run of
-          Finished r | now.runs == s.runs -> now { run = Finished r { saveFailed = not saved } }
-          _ -> now
-      _, _, _ -> pure unit
-  SaveFile format -> do
+    download (buttonFormat s.format (choicesOf s))
+  FormatsToggled -> H.modify_ \s -> s { formatsOpen = not s.formatsOpen }
+  -- A format from the list: downloaded, and the button's from now on;
+  -- one that isn't possible does nothing.
+  FormatChosen format -> do
     s <- H.get
-    case s.load, s.run of
-      Loaded l, Finished r ->
-        for_ (Array.find (\f -> f.format == format) r.files) \f ->
-          liftEffect (saveBytes f.bytes (fileName l.picture.name s.settings (nameParts s l) format))
-      _, _ -> pure unit
+    when (Array.any (\c -> c.format == format && c.possible) (choicesOf s)) do
+      H.modify_ _ { format = format }
+      closeFormats
+      download format
   where
+  keyOf event =
+    { key: KE.key event
+    , code: KE.code event
+    , ctrl: KE.ctrlKey event
+    , meta: KE.metaKey event
+    , alt: KE.altKey event
+    , shift: KE.shiftKey event
+    }
+  cancel = do
+    stopWorker
+    H.modify_ _ { run = Cancelled }
+  -- Closed, the focus goes back to the ▾ that opened it.
+  closeFormats = do
+    H.modify_ _ { formatsOpen = false }
+    more <- H.getHTMLElementRef formatsRef
+    for_ more (liftEffect <<< HTMLElement.focus)
   readPixelRatio = do
     ratio <- liftEffect pixelRatio
     H.modify_ _ { pixelRatio = ratio }
@@ -293,15 +348,32 @@ handleAction = case _ of
     when (holdsFiles (DataTransfer.types (DragEvent.dataTransfer event))) do
       H.modify_ \s -> s { dragged = counted s.dragged step }
 
--- | What a download's name says about the preparation: `fit` when the
--- | picture was fitted, and the background when it shows and isn't white.
-nameParts :: State -> { picture :: Picture, prepared :: Prepared } -> { fitted :: Boolean, background :: Maybe Background }
-nameParts s l =
-  { fitted: isJust l.prepared.fitted
-  , background:
-      if backgroundShows l.picture.transparent l.prepared.fitted && s.background /= white then Just s.background
-      else Nothing
-  }
+-- | The formats the download offers for the picture as it's dithered.
+choicesOf :: State -> Array { format :: Format, possible :: Boolean }
+choicesOf s = case s.load of
+  Loaded l -> formatsFor s.settings.target { width: l.prepared.width, height: l.prepared.height }
+  NoPicture -> []
+
+-- | Downloads the result in a format: the PNG made from the result's
+-- | canvas, or a machine's file as the worker made it. Nothing while
+-- | there's no result.
+download :: forall o m. MonadAff m => Format -> H.HalogenM State Action () o m Unit
+download format = do
+  s <- H.get
+  case s.load, s.run of
+    Loaded l, Finished r -> case format of
+      Png -> do
+        canvas <- H.getHTMLElementRef resultRef
+        for_ canvas \element -> do
+          saved <- liftAff (savePng element (downloadName s l Png))
+          -- Unless another run has started meanwhile (`runs` counts on).
+          H.modify_ \now -> case now.run of
+            Finished done | now.runs == s.runs -> now { run = Finished done { saveFailed = not saved } }
+            _ -> now
+      _ ->
+        for_ (Array.find (\f -> f.format == extension format) r.files) \f ->
+          liftEffect (saveBytes f.bytes (downloadName s l format))
+    _, _ -> pure unit
 
 -- | A change of the settings; a real change restarts the dithering, and
 -- | a new target prepares the picture again, as it may fit it.
@@ -355,11 +427,12 @@ drawOriginal prepared = do
 
 -- | Ends the run, if any, and starts a new one for the picture and the
 -- | settings, unless there's nothing to dither. A note on a file that
--- | wasn't a picture goes: this is the next action (decision 30 A).
+-- | wasn't a picture goes: this is the next action (decision 30 A). The
+-- | list of formats closes, as its download waits for the new result.
 restart :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 restart = do
   stopWorker
-  H.modify_ _ { notAPicture = Nothing }
+  H.modify_ _ { notAPicture = Nothing, formatsOpen = false }
   s <- H.get
   case s.load of
     Loaded l | not (isOriginal s.settings) -> startRun l s.settings
