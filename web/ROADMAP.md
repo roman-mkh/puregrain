@@ -340,6 +340,16 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
       the CLI, so a change of the defaults can't change the logo (for
       dithering in linear light, its opt-out goes into the script once
       the CLI has it), and it writes a file only when its pixels changed.
+    - **In the root README** (phase 7, 2026-11-01, the user's choice):
+      the ZX lockup as the README's heading, an SVG at twice its size,
+      one picture for GitHub's light and dark pages and for Pursuit's
+      light one, as the logo's README advises where one picture has to
+      fit every background. Pursuit shows it: it rewrites a relative
+      image path to `raw.githubusercontent.com` at the release's tag,
+      which serves SVG as an image (checked). A `<picture>` with the C64
+      set in light mode may be tried later from `master`; Pursuit would
+      keep only its `<img>`, and whether GitHub takes relative paths in
+      its `srcset` can only be seen once it's there.
 
 Decisions of the design review (v2's phase 5, 2026-10-29 to 31): the
 user's design (sketches and a concept) and Claude's (a concept and an
@@ -716,14 +726,8 @@ package facts are in `web/CLAUDE.md`.
 
 ## Open questions
 
-Each is settled before its phase of v2:
-
-- **Phase 7:** the logo in the root README: Pursuit shows the README
-  too, where an image with a relative path probably breaks, so it may
-  need an absolute URL. To check. And which set it shows: the ZX set, or
-  the one that fits the reader's theme (the C64 set in light mode, the
-  ZX set in dark), with `<picture>` and `prefers-color-scheme`, which
-  GitHub supports (decision 28).
+None left for v2: the last, the logo in the root README, was settled in
+phase 7 (decision 28).
 
 ## Later ideas
 

@@ -1,4 +1,4 @@
-# puregrain
+# <img src="logo/zx/lockup.svg" width="540" alt="puregrain">
 
 [![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
 [![Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain/badge)](https://pursuit.purescript.org/packages/purescript-puregrain)
@@ -8,7 +8,9 @@ Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
 down to a few gray levels, a few levels per color channel, or a fixed
 palette such as CGA or the Commodore 64. It comes with a
-[command-line tool](cli/README.md) for PNG images.
+[command-line tool](cli/README.md) for PNG images, and a
+[web UI](https://roman-mkh.github.io/puregrain/) that dithers pictures in
+the browser.
 
 > **Status: first release (0.x).** The library works and is tested.
 > Before 1.0, a breaking change raises the minor version (0.1 → 0.2);
@@ -140,13 +142,22 @@ npm run dither-cli -- photo.png dithered.png --palette c64
 More examples, every option, and how gray and color output are chosen:
 [cli/README.md](cli/README.md).
 
+### The web UI
+
+Dithers pictures in the browser, with nothing to install:
+[roman-mkh.github.io/puregrain](https://roman-mkh.github.io/puregrain/).
+The picture stays on your computer. Its settings are the command-line
+tool's, and it saves a machine's screen as the machine's own files too.
+How to use it, and how to run it from a checkout:
+[web/README.md](web/README.md).
+
 ### Working on this repository
 
 After `npm install` and `npm run build`:
 
 ```bash
-npm test                  # the library's and the tool's test suites
-npm run check             # what CI runs: strict build, tests, end-to-end checks
+npm test                  # the test suites of the library, the tool and the web UI
+npm run check             # what CI runs: strict build, tests, end-to-end checks (needs Docker)
 npm run generate-images   # test images in samples/
 ```
 
@@ -159,12 +170,13 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 | `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
 | `examples/` | Small example programs, among them the quick start above; a separate package |
-| `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end CLI checks |
-| `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on version tags also the release checks and the GitHub Release |
+| `web/` | The web UI, a separate package, in Halogen |
+| `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end checks of the CLI and, in three browsers, of the web UI |
+| `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on `master` also publishing the web UI on GitHub Pages; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
 | `logo/` | The logo, and the script that makes it with puregrain; under its own terms (see [License](#license)) |
 
-The three packages live in one [spago](https://github.com/purescript/spago)
+The four packages live in one [spago](https://github.com/purescript/spago)
 workspace and are built together.
 
 ## Documentation
@@ -173,6 +185,7 @@ workspace and are built together.
 |---|---|
 | [examples/README.md](examples/README.md) | The example programs: what each shows, how to run them, the REPL |
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
+| [web/README.md](web/README.md) | The web UI: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |
 | [docs/machine-screens/](docs/machine-screens/README.md) | Machine screens: dithering with cells, which mode for which picture; one page per machine, the ZX Spectrum and the Commodore 64 |

@@ -206,6 +206,9 @@ from the code alone.
   pages (Pursuit, GitHub's default), and Pursuit's code font (Roboto
   Mono) probably lacks the block characters, so a fallback font could
   misalign them. The README says in words what the terminal shows.
+  Its heading is the logo (2026-11-01): the ZX lockup, one picture for
+  GitHub's light and dark pages and for Pursuit, which rewrites the
+  relative path (decision 28 in `web/ROADMAP.md`).
 - `examples/README.md` — the example programs: what each shows, how to
   run them, a REPL session with variations to try.
 - Reference docs live in `docs/` and are the single source of truth:
