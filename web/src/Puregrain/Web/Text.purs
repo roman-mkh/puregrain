@@ -4,11 +4,12 @@ module Puregrain.Web.Text (texts) where
 
 import Prelude
 
+import Data.Maybe (Maybe(..), maybe)
 import Data.String.Common (joinWith)
 import Puregrain.Web.Download (Format(..))
 import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
-import Puregrain.Web.Settings (KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), screenSizeOf)
 
 texts
   :: { title :: String
@@ -21,6 +22,11 @@ texts
      , linksLabel :: String
      , settingsLabel :: String
      , pictureLabel :: String
+     , skipToSettings :: String
+     , skipToPicture :: String
+     , originalNamed :: String -> String
+     , resultNamed :: Settings -> String
+     , describe :: Settings -> String
      , versions :: String -> String
      , codeLicense :: String
      , logoLicense :: String
@@ -76,7 +82,11 @@ texts
      , flatCells :: String
      , gray :: String
      , originalShown :: String
-     , dithering :: { done :: Int, total :: Int } -> String
+     , originalShownPhone :: String
+     , loadedPicture :: { name :: String, width :: Int, height :: Int } -> String
+     , ditheringNow :: String
+     , done :: Settings -> String
+     , dithering :: { done :: Int, total :: Int, left :: Maybe TimeLeft } -> String
      , ditheringLabel :: String
      , timeLeft :: TimeLeft -> String
      , cancel :: String
@@ -107,6 +117,33 @@ texts =
   , linksLabel: "Links"
   , settingsLabel: "Settings"
   , pictureLabel: "The picture"
+  -- Shown on the first Tab (decision 33).
+  , skipToSettings: "Skip to the settings"
+  , skipToPicture: "Skip to the picture"
+  -- The pictures' names for screen readers, and the result's description
+  -- in the menus' words: "4 levels, Atkinson".
+  , originalNamed: \name -> "The original: " <> name
+  , resultNamed: \settings -> "The result: " <> texts.describe settings
+  , describe: \settings ->
+      joinWith ", "
+        ( ( case settings.target of
+              AnyScreen -> []
+              Machine machine -> [ machineName machine ]
+          )
+            <>
+              ( case settings.colors of
+                  Original -> []
+                  Threshold t -> [ "threshold " <> show t ]
+                  Levels n -> [ show n <> " levels" ]
+                  Palette p -> [ texts.palette p ]
+                  MachineColors p -> case settings.target of
+                    Machine machine -> [ texts.machinePalette machine p ]
+                    AnyScreen -> []
+              )
+            <> (if settings.kernel == NoDiffusion then [] else [ texts.kernelName settings.kernel ])
+            <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
+            <> (if settings.gray then [ "gray first" ] else [])
+        )
   , versions: \library -> "puregrain lab v2" <> (if library == "" then "" else " · puregrain " <> library)
   , codeLicense: "The code: MIT"
   , logoLicense: "The logo: its own terms"
@@ -205,7 +242,22 @@ texts =
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
   , gray: "Turn the picture gray first"
   , originalShown: "The original is shown. Choose colors or a method to dither it."
-  , dithering: \p -> "Dithering: " <> show p.done <> " of " <> show p.total <> " rows"
+  -- On a phone the settings are behind the header's button.
+  , originalShownPhone: "The original is shown. Open the settings to dither it."
+  -- What screen readers hear of a picture loaded, and of a run: its
+  -- start, once its progress shows, and its end (decision 33).
+  , loadedPicture: \p -> "Loaded: " <> p.name <> ", " <> show p.width <> " × " <> show p.height <> " pixels."
+  , ditheringNow: "Dithering…"
+  , done: \settings -> "Done: " <> texts.describe settings <> "."
+  -- The time left first, what matters most, and the rows after it, where
+  -- their frequent changes push nothing.
+  , dithering: \p ->
+      let
+        rows = show p.done <> "/" <> show p.total <> " rows"
+      in
+        "Dithering: " <> case p.left of
+          Just t -> texts.timeLeft t <> " (" <> rows <> ")"
+          Nothing -> rows
   , ditheringLabel: "Dithering"
   , timeLeft: \t ->
       if t.minutes == 0 && t.seconds == 0 then "a few seconds left"

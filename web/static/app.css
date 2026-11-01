@@ -87,6 +87,21 @@ a { color: var(--accent); }
   clip: rect(0 0 0 0); white-space: nowrap;
 }
 
+/* The skip links (decision 33): out of sight until the keyboard reaches
+   them; they take the focus to the settings or to the picture area, whose
+   focus ring is then drawn inside them. */
+.skip {
+  position: absolute; top: 8px; left: 8px; z-index: 40; padding: 8px 14px;
+  font-weight: 600; color: var(--text); background: var(--panel);
+  border: 2px solid var(--accent); border-radius: var(--radius);
+  transform: translateY(-300%);
+}
+.skip:focus { transform: none; }
+#settings, #picture { outline-offset: -2px; }
+
+/* Words for a phone's layout or for a desktop's (see the end). */
+.on-phone { display: none; }
+
 button, input, select { font: inherit; color: inherit; }
 
 select, input[type="number"] {
@@ -121,7 +136,7 @@ input[type="color"] {
   background: var(--panel); border-bottom: 1px solid var(--line);
 }
 
-.brand { display: flex; align-items: center; gap: 10px; }
+.brand { display: flex; align-items: center; gap: 10px; margin: 0; font: inherit; }
 
 /* The lockup at its size, with sharp pixels; "lab" plain and muted. */
 .brand img { display: block; image-rendering: pixelated; }
@@ -247,10 +262,12 @@ input[type="color"] {
 .column { transition: transform 200ms ease, visibility 0s; }
 .work.column-hidden .column { transform: translateX(-100%); visibility: hidden; transition: transform 200ms ease, visibility 0s linear 200ms; }
 
+/* Half over the picture area, whose gray is too close to the controls'
+   outline in the light theme: a stronger border, 3:1 against both. */
 .column-tab {
   position: absolute; z-index: 2; top: 14px; left: 340px; transform: translateX(-50%);
   display: grid; place-items: center; width: 24px; height: 40px; padding: 0;
-  background: var(--panel); transition: left 200ms ease, transform 200ms ease;
+  background: var(--panel); border-color: var(--muted); transition: left 200ms ease, transform 200ms ease;
 }
 .work.column-hidden .column-tab { left: 0; transform: none; }
 
@@ -347,10 +364,29 @@ input[type="color"] {
 }
 
 .bar-view, .bar-state, .bar-file, .bar-run, .bar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-.bar-state { flex: 1; min-width: 12rem; }
+.bar-state { flex: 1 1 22rem; min-width: 0; container-type: inline-size; }
 .bar-label { font-size: 13.5px; color: var(--muted); }
 .bar .segments span { padding: 5px 10px; font: 13px var(--mono); }
-.bar p { margin: 0; font-size: 14px; }
+.bar p { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+/* While a run goes: one line, only the text after the bar and × moving,
+   cut with "…" rather than wrapped, which would move the picture. */
+.bar-run.running { flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.bar-run.running > .progress, .bar-run.running > .icon-button { flex: none; }
+.bar-run.running > p { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Where the bar's middle is narrow (a small window, a phone), the text
+   goes under the bar and ×, for the whole run: decided by the width
+   alone, so it never jumps between one line and two as it changes. */
+@container (max-width: 36rem) {
+  .bar-run.running { flex-wrap: wrap; }
+  .bar-run.running > p { flex-basis: 100%; }
+}
+
+/* A small button showing only an icon; its name is for screen readers. */
+.icon-button {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  color: var(--muted); background: none; border: 1px solid transparent;
+}
+.icon-button:hover:not(:disabled) { color: var(--text); }
 .warning { color: var(--danger); }
 
 /* The download (decision 31): the button naming its format, and for a
@@ -408,6 +444,10 @@ input[type="color"] {
   .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
   .column-tab { display: none; }
   .settings-button { display: grid; }
+  .off-phone { display: none; }
+  .on-phone { display: inline; }
+  /* The settings are behind the header's button: no skip link to them. */
+  .skip.to-settings { display: none; }
   .column, .work.column-hidden .column {
     position: fixed; inset: 0; z-index: 20; width: auto; padding: 18px 20px 0;
     display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; border-right: 0;
@@ -427,8 +467,9 @@ input[type="color"] {
   .view { padding: 40px 14px 14px; }
   .view.empty { padding: 14px; }
   .drop-inner { padding: 26px 16px 22px; }
-  /* The download on a line of its own, its list as wide as the line. */
-  .bar-actions { flex-basis: 100%; }
+  /* The run's line and the download each on a line of their own, the
+     download's list as wide as the line. */
+  .bar-state, .bar-actions { flex-basis: 100%; }
   .downloads, .downloads > button:first-child { flex: 1; }
   .formats { left: 0; width: auto; min-width: 0; max-width: none; }
   /* A finger's size (decision 33). */

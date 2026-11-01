@@ -30,7 +30,7 @@ import Halogen.Subscription as HS
 import Puregrain.Web.Download (Format(..), buttonFormat, extension, formatsFor)
 import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
-import Puregrain.Web.Keys (Shortcut(..), shortcut, zoomStep)
+import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
 import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
 import Puregrain.Web.Page (narrowScreen, setTheme)
 import Puregrain.Web.Picture (Picture)
@@ -42,7 +42,7 @@ import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
-import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, panelRef, resultRef, settingsButtonRef)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
 import Puregrain.Web.Status (Run(..), held, progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
@@ -68,6 +68,7 @@ import Web.HTML.History as History
 import Web.HTML.Location as Location
 import Web.HTML.Window as Window
 import Web.UIEvent.KeyboardEvent as KE
+import Web.UIEvent.MouseEvent as ME
 import Web.Worker.MessageEvent (data_)
 import Web.Worker.Worker as Worker
 
@@ -97,6 +98,9 @@ component = H.mkComponent
       , libraryVersion: input.libraryVersion
       , columnHidden: false
       , panelOpen: false
+      , resultLabel: ""
+      , status: { text: "", times: 0 }
+      , alert: { text: "", times: 0 }
       }
   , render
   , eval: H.mkEval H.defaultEval { handleAction = handleAction, initialize = Just Initialize }
@@ -105,7 +109,10 @@ component = H.mkComponent
 -- | The page (decision 29): the header, the settings' column beside the
 -- | picture and its bar, the footer. On phones the column is a panel over
 -- | the page, opened by the header's settings button; while it's open,
--- | the rest of the page is `inert`, and the panel a modal dialog.
+-- | the rest of the page is `inert`, and the panel a modal dialog. Before
+-- | them the skip links, which the first Tab shows; after them the live
+-- | regions for screen readers, outside every part that can turn inert
+-- | (decision 33).
 render :: forall m. State -> H.ComponentHTML Action () m
 render state =
   -- The whole page takes a dropped file, so that a drop beside the
@@ -118,7 +125,17 @@ render state =
     , HE.onDragOver DragOver
     , HE.onDrop Dropped
     ]
-    [ header { theme: state.theme, settings: loaded, panelOpen: state.panelOpen }
+    [ HH.div [ HP.class_ (H.ClassName "skips"), inert state.panelOpen ]
+        [ HH.a
+            [ HP.href "#settings"
+            , HP.classes [ H.ClassName "skip", H.ClassName "to-settings" ]
+            , HP.prop (H.PropName "hidden") state.columnHidden
+            , HE.onClick SkippedToSettings
+            ]
+            [ HH.text texts.skipToSettings ]
+        , HH.a [ HP.href "#picture", HP.class_ (H.ClassName "skip"), HE.onClick SkippedToPicture ] [ HH.text texts.skipToPicture ]
+        ]
+    , header { theme: state.theme, settings: loaded, panelOpen: state.panelOpen }
     , HH.div [ HP.classes ([ H.ClassName "work" ] <> (if state.columnHidden then [ H.ClassName "column-hidden" ] else [])) ]
         -- The « / » tab on the column's edge (decision 29): it says
         -- whether the column is open, and which column it opens.
@@ -134,21 +151,38 @@ render state =
             [ if state.columnHidden then Icon.chevronsRight else Icon.chevronsLeft
             , HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.settingsLabel ]
             ]
-        , HH.aside
+        -- What `aside` means, as a `div`, which unlike an `aside` may also be
+        -- a dialog: the phone's panel, while it's open.
+        , HH.div
             ( [ HP.ref panelRef
               , HP.id "settings"
               , HP.class_ (H.ClassName "column")
               , HP.attr (H.AttrName "aria-label") texts.settingsLabel
               , HP.tabIndex (-1)
               ]
-                <> (if state.panelOpen then [ HP.attr (H.AttrName "role") "dialog", HP.attr (H.AttrName "aria-modal") "true" ] else [])
+                <>
+                  if state.panelOpen then [ HP.attr (H.AttrName "role") "dialog", HP.attr (H.AttrName "aria-modal") "true" ]
+                  else [ HP.attr (H.AttrName "role") "complementary" ]
             )
             (column state)
-        , HH.main [ HP.class_ (H.ClassName "stage"), HP.attr (H.AttrName "aria-label") texts.pictureLabel, inert state.panelOpen ] (stage state)
+        , HH.main
+            [ HP.ref pictureRef
+            , HP.id "picture"
+            , HP.class_ (H.ClassName "stage")
+            , HP.attr (H.AttrName "aria-label") texts.pictureLabel
+            , HP.tabIndex (-1)
+            , inert state.panelOpen
+            ]
+            (stage state)
         ]
     , footer state.libraryVersion state.panelOpen
+    , HH.div [ HP.class_ (H.ClassName "sr-only"), HP.attr (H.AttrName "role") "status" ] [ HH.text (spoken state.status) ]
+    , HH.div [ HP.class_ (H.ClassName "sr-only"), HP.attr (H.AttrName "role") "alert" ] [ HH.text (spoken state.alert) ]
     ]
   where
+  -- A no-break space every other time, unheard: the same words again
+  -- still change the region.
+  spoken said = said.text <> (if said.times `mod` 2 == 1 then "\x00A0" else "")
   loaded = case state.load of
     Loaded _ -> true
     NoPicture -> false
@@ -169,6 +203,13 @@ handleAction = case _ of
     void (H.subscribe (eventListener (EventType "click") (Window.toEventTarget win) (Just <<< PageClicked)))
     -- Back, while the phone's panel is open, closes it (decision 34).
     void (H.subscribe (eventListener (EventType "popstate") (Window.toEventTarget win) (const (Just HistoryPopped))))
+    -- The empty page's one thing to do, choosing a picture, has the focus
+    -- from the start, so that Enter opens the file chooser; not on a
+    -- phone, where the settings are hidden and the focus does nothing.
+    narrow <- liftEffect narrowScreen
+    unless narrow do
+      chooser <- H.getHTMLElementRef chooserRef
+      for_ chooser (liftEffect <<< HTMLElement.focus)
   Resized -> do
     readPixelRatio
     -- A phone turned sideways, a window widened: no panel any more.
@@ -198,6 +239,9 @@ handleAction = case _ of
   -- The shortcuts (decision 33, `Puregrain.Web.Keys`): Ctrl+O and Ctrl+S
   -- are taken over from the browser, Ctrl+S even with nothing to
   -- download yet, so that "Save page as" doesn't open over the page.
+  -- The skip links move the focus, without changing the page's address.
+  SkippedToSettings event -> skipTo event panelRef
+  SkippedToPicture event -> skipTo event pictureRef
   PageKey event -> for_ (shortcut (keyOf event)) case _ of
     ChoosePicture -> do
       liftEffect (Event.preventDefault (KE.toEvent event))
@@ -299,13 +343,13 @@ handleAction = case _ of
     s <- H.get
     when (id == s.runs) do
       case runExcept (readReply reply) of
-        Left errors -> finish (RunFailed (describe errors))
+        Left errors -> failed (describe errors)
         Right (Progress p) -> do
           t <- liftEffect clock
           H.modify_ \now -> case now.run of
             Running r -> now { run = Running r { done = p.done, total = p.total, left = next r.left { elapsed: t - r.started, done: p.done, total: p.total } } }
             _ -> now
-        Right (Failure reason) -> finish (RunFailed reason)
+        Right (Failure reason) -> failed reason
         Right (Done result) -> case s.load of
           Loaded { prepared } -> do
             image <- liftEffect (toImageData result.pixels prepared.width prepared.height)
@@ -314,6 +358,8 @@ handleAction = case _ of
             canvas <- H.getHTMLElementRef resultRef
             for_ canvas \element -> liftEffect (Picture.draw element image)
             finish (Finished { files: result.files, saveFailed: false })
+            H.modify_ \now -> now { resultLabel = texts.resultNamed now.settings }
+            say (texts.done s.settings)
           _ -> pure unit
   -- The handle (decision 31): it follows the pointer that took hold of
   -- it, captured, so also outside it, until the pointer is released.
@@ -378,6 +424,14 @@ handleAction = case _ of
   cancel = do
     stopWorker
     H.modify_ _ { run = Cancelled }
+    say texts.cancelled
+  failed reason = do
+    finish (RunFailed reason)
+    alarm (texts.ditherFailed reason)
+  skipTo event ref = do
+    liftEffect (Event.preventDefault (ME.toEvent event))
+    target <- H.getHTMLElementRef ref
+    for_ target (liftEffect <<< HTMLElement.focus)
   -- Closed, the focus goes back to the ▾ that opened it.
   closeFormats = do
     H.modify_ _ { formatsOpen = false }
@@ -416,6 +470,7 @@ download format = do
           H.modify_ \now -> case now.run of
             Finished done | now.runs == s.runs -> now { run = Finished done { saveFailed = not saved } }
             _ -> now
+          unless saved (alarm texts.saveFailed)
       _ ->
         for_ (Array.find (\f -> f.format == extension format) r.files) \f ->
           liftEffect (saveBytes f.bytes (downloadName s l format))
@@ -527,8 +582,21 @@ startRun { picture: p, prepared } settings = do
       liftAff (delay (Milliseconds progressDelay))
       now <- H.get
       case now.run of
-        Running r | now.runs == id -> H.modify_ _ { run = Running r { progressShown = true } }
+        Running r | now.runs == id -> do
+          H.modify_ _ { run = Running r { progressShown = true } }
+          say texts.ditheringNow
         _ -> pure unit
+
+-- | Says a milestone of the run to screen readers, or an error, at once
+-- | (decision 33). Said again, the same words are heard again.
+say :: forall o m. MonadAff m => String -> H.HalogenM State Action () o m Unit
+say text = H.modify_ \s -> s { status = again s.status text }
+
+alarm :: forall o m. MonadAff m => String -> H.HalogenM State Action () o m Unit
+alarm text = H.modify_ \s -> s { alert = again s.alert text }
+
+again :: Said -> String -> Said
+again said text = { text, times: said.times + 1 }
 
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
 -- | it had already sent is dropped.
@@ -546,14 +614,32 @@ loadFile file = do
   started <- H.modify \s -> s { loading = Just (File.name file), notAPicture = Nothing, loads = s.loads + 1 }
   result <- liftAff (try (Picture.load file))
   latest <- H.gets _.loads
+  let
+    first = case started.load of
+      NoPicture -> true
+      Loaded _ -> false
   when (latest == started.loads) do
     case result of
-      Left _ -> H.modify_ _ { loading = Nothing, notAPicture = Just (File.name file) }
+      Left _ -> do
+        H.modify_ _ { loading = Nothing, notAPicture = Just (File.name file) }
+        shown <- H.gets _.load
+        alarm case shown of
+          Loaded _ -> texts.notAPictureKept (File.name file)
+          NoPicture -> texts.notAPicture (File.name file)
       Right p -> do
         stopWorker
         s <- H.get
         prepared <- liftEffect (prepare p s.settings.target s.fit s.background)
         H.modify_ _ { load = Loaded { picture: p, prepared }, loading = Nothing, split = prepared.width / 2, splitDrag = Nothing, run = Idle }
+        say (texts.loadedPicture { name: p.name, width: p.width, height: p.height })
+        -- The first picture took away the button that had the focus: it
+        -- goes on to the next step (`Puregrain.Web.Keys.focusAfterLoad`).
+        narrow <- liftEffect narrowScreen
+        for_ (focusAfterLoad { first, narrow }) \to -> do
+          target <- H.getHTMLElementRef case to of
+            ToTarget -> targetRef
+            ToSettingsButton -> settingsButtonRef
+          for_ target (liftEffect <<< HTMLElement.focus)
         -- The state change rendered the canvases; draw, and dither.
         drawOriginal prepared
         restart

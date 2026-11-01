@@ -15,6 +15,7 @@ import Test.Puregrain.Web.SaveSpec as SaveSpec
 import Test.Puregrain.Web.SettingsSpec as SettingsSpec
 import Test.Puregrain.Web.SplitSpec as SplitSpec
 import Test.Puregrain.Web.StatusSpec as StatusSpec
+import Test.Puregrain.Web.TextSpec as TextSpec
 import Test.Puregrain.Web.ThemeSpec as ThemeSpec
 import Test.Puregrain.Web.ZoomSpec as ZoomSpec
 import Test.Spec.Reporter.Console (consoleReporter)
@@ -36,5 +37,6 @@ main = runSpecAndExitProcess [ consoleReporter ] do
   SaveSpec.spec
   SplitSpec.spec
   StatusSpec.spec
+  TextSpec.spec
   ThemeSpec.spec
   ZoomSpec.spec

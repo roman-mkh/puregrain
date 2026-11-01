@@ -36,16 +36,28 @@ step number title disabled body =
     )
 
 -- | Choices with a line of explanation each: radio buttons, one per card.
+-- | `ref` names the selected one, for moving the focus there.
 cards
   :: forall w i
-   . { name :: String, label :: String, selected :: String, pick :: String -> i }
+   . { name :: String, label :: String, selected :: String, pick :: String -> i, ref :: Maybe H.RefLabel }
   -> Array { value :: String, title :: String, line :: String }
   -> HH.HTML w i
 cards group items =
   HH.div [ HP.class_ (H.ClassName "cards"), HP.attr (H.AttrName "role") "radiogroup", HP.attr (H.AttrName "aria-label") group.label ]
     ( items <#> \item ->
         HH.label [ HP.class_ (H.ClassName "card") ]
-          [ radio group.name item.value (item.value == group.selected) false (group.pick item.value)
+          [ let
+              chosen = item.value == group.selected
+            in
+              HH.input
+                ( [ HP.type_ HP.InputRadio
+                  , HP.name group.name
+                  , HP.value item.value
+                  , HP.checked chosen
+                  , HE.onChange (const (group.pick item.value))
+                  ]
+                    <> (if chosen then maybe [] (\r -> [ HP.ref r ]) group.ref else [])
+                )
           , HH.span_
               [ HH.b_ [ HH.text item.title ]
               , HH.small_ [ HH.text item.line ]

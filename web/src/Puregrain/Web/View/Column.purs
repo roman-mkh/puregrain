@@ -20,7 +20,7 @@ import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
-import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef)
+import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
 import Puregrain.Web.View.Parts (option)
@@ -87,7 +87,7 @@ pictureStep = case _ of
 -- | happens to it, and the choice to fit it to the screen (decision 22).
 targetStep :: forall w. Settings -> Maybe Loaded -> Boolean -> Array (HH.HTML w Action)
 targetStep s loaded fit =
-  [ cards { name: "target", label: texts.target, selected: targetValue s.target, pick: TargetChosen }
+  [ cards { name: "target", label: texts.target, selected: targetValue s.target, pick: TargetChosen, ref: Just targetRef }
       ( [ item AnyScreen "any" ]
           <> map (\m -> item (Machine m) (machineId m)) allMachines
       )

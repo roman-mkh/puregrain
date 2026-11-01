@@ -5,6 +5,7 @@ module Puregrain.Web.State
   , Load(..)
   , Prepared
   , State
+  , Said
   , Action(..)
   , downloadName
   , originalRef
@@ -16,6 +17,8 @@ module Puregrain.Web.State
   , formatsRef
   , panelRef
   , settingsButtonRef
+  , pictureRef
+  , targetRef
   ) where
 
 import Prelude
@@ -35,6 +38,7 @@ import Puregrain.Web.Theme (Theme)
 import Web.Event.Event (Event)
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
+import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.Worker.Worker (Worker)
 
 -- | What the page knows before the app starts: the theme, from the
@@ -74,6 +78,9 @@ type Prepared =
 -- | formats shows (`Puregrain.Web.Download`). `columnHidden` is the
 -- | settings' column slid away (decision 29), and `panelOpen` the
 -- | phone's settings panel open, which holds the runs until it closes.
+-- | `resultLabel` names the result shown, for screen readers, and
+-- | `status` and `alert` are what their two live regions say (decision
+-- | 33): the run's milestones, and errors at once.
 type State =
   { load :: Load
   , loads :: Int
@@ -98,7 +105,15 @@ type State =
   , libraryVersion :: String
   , columnHidden :: Boolean
   , panelOpen :: Boolean
+  , resultLabel :: String
+  , status :: Said
+  , alert :: Said
   }
+
+-- | What a live region says, and how many times it has spoken: the same
+-- | words said again must still change the region, or screen readers
+-- | don't repeat them.
+type Said = { text :: String, times :: Int }
 
 data Action
   = Initialize
@@ -108,6 +123,8 @@ data Action
   | PanelOpened
   | PanelClosed
   | HistoryPopped
+  | SkippedToSettings MouseEvent
+  | SkippedToPicture MouseEvent
   | PageKey KeyboardEvent
   | PageClicked Event
   | FileChosen Event
@@ -183,3 +200,12 @@ panelRef = H.RefLabel "panel"
 
 settingsButtonRef :: H.RefLabel
 settingsButtonRef = H.RefLabel "settings-button"
+
+-- | The picture area, where "Skip to the picture" goes.
+pictureRef :: H.RefLabel
+pictureRef = H.RefLabel "picture"
+
+-- | The target that's chosen, where the focus goes after the first
+-- | picture.
+targetRef :: H.RefLabel
+targetRef = H.RefLabel "target"

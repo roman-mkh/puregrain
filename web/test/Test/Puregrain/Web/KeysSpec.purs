@@ -3,7 +3,7 @@ module Test.Puregrain.Web.KeysSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Keys (Shortcut(..), shortcut, zoomStep)
+import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -55,6 +55,13 @@ spec = describe "Puregrain.Web.Keys" do
     zoomStep (cmd "-" "Minus") `shouldEqual` Nothing
     zoomStep ((plain "-" "Minus") { alt = true }) `shouldEqual` Nothing
     zoomStep (plain "a" "KeyA") `shouldEqual` Nothing
+
+  it "sends the focus to the target after the first picture, to the settings' button on a phone, and nowhere after a later one" do
+    focusAfterLoad { first: true, narrow: false } `shouldEqual` Just ToTarget
+    focusAfterLoad { first: true, narrow: true } `shouldEqual` Just ToSettingsButton
+    focusAfterLoad { first: false, narrow: false } `shouldEqual` Nothing
+    focusAfterLoad { first: false, narrow: true } `shouldEqual` Nothing
+    texts.loadedPicture { name: "plain.png", width: 320, height: 200 } `shouldEqual` "Loaded: plain.png, 320 × 200 pixels."
 
   it "shows the keys in the tooltips, written the same way on every system" do
     texts.withKeys texts.chooseFirst texts.chooseKeys `shouldEqual` "Choose a picture… (Ctrl+O)"

@@ -1,12 +1,15 @@
 -- | The page's shortcuts (decision 33 in web/ROADMAP.md): Ctrl+O to choose
 -- | a picture, Ctrl+S to download, Esc to close the list of formats or to
 -- | cancel a run, anywhere on the page; + and − to zoom in the picture
--- | area. Cmd works as Ctrl, on every system. Pure, so specs test it.
+-- | area. Cmd works as Ctrl, on every system. And where the focus goes
+-- | when a picture arrives. Pure, so specs test it.
 module Puregrain.Web.Keys
   ( Pressed
   , Shortcut(..)
   , shortcut
   , zoomStep
+  , FocusAfterLoad(..)
+  , focusAfterLoad
   ) where
 
 import Prelude
@@ -63,6 +66,30 @@ letter p =
   where
   key = toLower p.key
   latin s = length s == 1 && s >= "a" && s <= "z"
+
+-- | Where the focus goes once a picture has loaded.
+data FocusAfterLoad = ToTarget | ToSettingsButton
+
+derive instance Eq FocusAfterLoad
+derive instance Generic FocusAfterLoad _
+instance Show FocusAfterLoad where
+  show = genericShow
+
+-- | Where the focus goes once a picture has loaded, if anywhere.
+-- |
+-- | - `first`: whether it's the first picture, whose arrival takes away
+-- |   the empty page's buttons, and with them the focus.
+-- | - `narrow`: whether the page has a phone's layout.
+-- |
+-- | The first picture sends it to the next step, the target, or on a
+-- | phone, where the settings wait behind the header's button, to that
+-- | button. A later picture leaves it where it is: on "Choose another…",
+-- | so that several pictures can be tried with the same settings.
+focusAfterLoad :: { first :: Boolean, narrow :: Boolean } -> Maybe FocusAfterLoad
+focusAfterLoad p =
+  if not p.first then Nothing
+  else if p.narrow then Just ToSettingsButton
+  else Just ToTarget
 
 -- | The zoom step a key asks for in the picture area: one up for + (and
 -- | for =, + without Shift on many keyboards), one down for −; none with

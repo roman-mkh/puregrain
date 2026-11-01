@@ -65,7 +65,8 @@ checklist in step.
 - **Tests:** `web/test/`, `Test.Puregrain.Web.Main` listing the specs
   (`SettingsSpec`, `DitherSpec`, `DownloadSpec`, `DragSpec`,
   `EstimateSpec`, `KeysSpec`, `MessageSpec`, `PrepareSpec`, `RunSpec`,
-  `SaveSpec`, `SplitSpec`, `StatusSpec`, `ThemeSpec`, `ZoomSpec`), run by
+  `SaveSpec`, `SplitSpec`, `StatusSpec`, `TextSpec`, `ThemeSpec`,
+  `ZoomSpec`), run by
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
@@ -97,9 +98,24 @@ checklist in step.
   decodes, `notAPicture` the name of one that couldn't be, until the next
   load or setting (`restart` clears it). The picture shown and its run
   go on meanwhile, and stay for good if the file isn't a picture. The
-  bar's middle has two fixed boxes, the file's note and the run's, so
-  both can show at once: a bad file during a run keeps the progress and
-  Cancel in sight.
+  bar's middle has two fixed boxes, the run's and then the file's note,
+  so both can show at once: a bad file during a run keeps the progress
+  and × in sight.
+- **The progress line keeps still** (the user's manual test): the bar
+  first, then × (Cancel as an icon, "Cancel" for screen readers in
+  hidden text, 24 × 24 pixels), then the text, so that only the text's
+  end moves as it changes, and the time left before the rows: "Dithering:
+  about 10 s left (465/1536 rows)", or "Dithering: 465/1536 rows" without
+  an estimate. Tabular digits; while running, one line, cut with "…"
+  rather than wrapped. Whether the text sits beside the bar or under it
+  depends on the width alone: `.bar-state` is a size container, and
+  under 36 rem the text goes under the bar for the whole run (a phone, a
+  1024-pixel window), so it never jumps between one line and two; with a
+  basis of 22 rem, the bar's middle takes a line of its own (the download
+  going below) before it gets too narrow, and on phones always. Checked
+  (`step66c_check.mjs`): over 103 changes of a 30-second run the bar and
+  × never moved, nor the bar's height, which grows once when a bad file's
+  note comes.
 - **A lazy list keeps every cell it has computed, for whatever holds its
   first cell.** The band loop reads rows through a lazy list and gets
   the bands as one, so a variable holding either list's start would
@@ -185,12 +201,12 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6, step 5: `app.js` 167.9 KB, 42.0 KB
-  gzipped (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen;
-  137.0 KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's
-  phase 6, step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the
-  library (since v1's phase 3) and the machines' modules; `app.css`
-  20.6 KB, 5.7 KB gzipped, in place of Pico's 11.7 KB. Gzipped at gzip's
+- **Sizes** after v2's phase 6: `app.js` 173.6 KB, 43.3 KB gzipped
+  (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen; 137.0
+  KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's phase 6,
+  step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since
+  v1's phase 3) and the machines' modules; `app.css` 22.8 KB, 6.4 KB
+  gzipped, in place of Pico's 11.7 KB. Gzipped at gzip's
   default level (`gzip -c`); the worker's 18.6 KB noted before was at
   level 9. PureScript's output is wordy before minifying: a module of a
   few lines, `Download`, is 3.5 KB in an unminified bundle; `spago
@@ -220,7 +236,54 @@ checklist in step.
   stopping a running worker; the held run starts when it closes. The
   focus goes into the panel and back to the settings button. A known
   edge: reopening it in the moment between Apply and the history's step
-  going back would close it again.
+  going back would close it again. The column is a `div` with
+  `role="complementary"`, which is what `aside` means, since an `aside`
+  may not take the dialog's role (axe-core's `aria-allowed-role`).
+- **Accessibility** (decision 33; checked with axe-core, see below):
+  - The page's heading is the header's lockup and "lab", an `<h1>`
+    named "puregrain lab".
+  - **Skip links**, "Skip to the settings" and "Skip to the picture",
+    first in the page, out of sight until the keyboard reaches them; a
+    click moves the focus to the column or to `main#picture` (both
+    `tabindex="-1"`, their focus ring drawn inside them), without
+    changing the page's address. The one to the settings is hidden while
+    the column is, and on phones, where the header's button opens them.
+  - **Two live regions** at the page's end, outside every part that can
+    turn `inert`: a `role="status"` for the run's milestones ("Dithering…"
+    once the progress shows, "Done: 4 levels, Atkinson.", "Cancelled; the
+    original is shown."), and a `role="alert"` for errors (a file that
+    isn't a picture, a failed run, a PNG not made). Not the bar: it
+    changes with every step of the progress. The same words said twice
+    would leave a region unchanged, and unheard, so every other time a
+    no-break space follows them (`Said`'s `times`).
+  - **The pictures** are `role="img"` with names: "The original:
+    plain.png", and the result's, "The result: 4 levels, Atkinson", in
+    the menus' words (`texts.describe`). The result's name is kept in
+    the state (`resultLabel`) from when it was made, so that during the
+    next run it still names what's shown.
+  - **Contrast,** measured from the themes' own values: text 4.5:1 and
+    more (the lowest, muted text on the light picture area, 4.89); the
+    controls' outlines 3:1 against what's behind them (3.07 dark, 3.04
+    light, on the panels). The column's tab, half over the picture area,
+    whose gray is too close to the light theme's outline (2.36), has a
+    stronger border, the muted text's color.
+  - **The focus** (the user's manual test, decided with them): on a
+    desktop the empty page starts with it on step 1's "Choose a
+    picture…", so Enter opens the file chooser; the skip links come
+    before it, reached with Shift+Tab, and on a phone, where the settings
+    are hidden, nothing has it. The first picture takes away the button
+    that had it (step 1's buttons change, and Halogen, matching children
+    by position, replaces them; the drop zone goes): unhandled, the focus
+    fell to the page and the next Tab went on from the picture area. Now
+    it goes to the next step, the chosen target, or on a phone to the
+    Settings button (`Puregrain.Web.Keys.focusAfterLoad`). A later
+    picture leaves it on "Choose another…", which keeps its place, so
+    several pictures can be tried with the same settings. Each picture is
+    announced: "Loaded: plain.png, 320 × 200 pixels."
+  - **Targets:** everything clicked is 24 × 24 pixels or more, except the
+    header's and the footer's links (18 to 20 pixels tall), which WCAG
+    2.2's spacing exception covers: a 24-pixel circle on each meets no
+    other target.
 - **The threshold's slider** shows its value while dragged (`input`,
   `ThresholdDragged`: the number follows) and starts a run only when
   released (`change`, `ThresholdTyped`; decision 31).
@@ -494,7 +557,13 @@ check loaded the page and read "The worker answered: ping" from it.
   `window.Worker`, which the page calls for each. With `devtools.console.stdout.content` in `user.js`,
   Firefox writes the page's console to its standard output, where the
   check script can read it (a file chooser refused for lack of a user
-  action says "picker was blocked").
+  action says "picker was blocked"). After the page's last stop, Tab
+  takes the focus out of the page (headless Firefox has no toolbar to
+  take it), and it comes back without `:focus-visible`: a Tab walk stops
+  where the focus reaches the `body`. axe-core is run by injecting its
+  `axe.min.js` (installed in the scratchpad, not a dependency) with
+  `WebDriver:ExecuteScript` and calling `axe.run` with
+  `WebDriver:ExecuteAsyncScript`.
 - **Checked in phase 3:** for 7 settings (a threshold, levels with
   Atkinson, a palette with JJN, pure Bayer, the hybrid, a palette after
   "gray first", 3 levels), the page's result on the color composite at
@@ -614,6 +683,28 @@ check loaded the page and read "The worker answered: ping" from it.
   held; the window widened while open: the panel closed, the held run
   started, the column beside the picture; at a desktop's width a change
   running at once; with animations off, no slide.
+- **Checked in v2's phase 6, step 6** (`step66_check.mjs`): axe-core
+  4.14.0 (WCAG 2.2 A and AA, and its best practices) finding nothing on
+  the empty page, a picture at none, a result, the list of formats open,
+  a run, a bad file's note, in both themes, and on a phone with the
+  panel closed and open (first it found the missing `<h1>` and the
+  dialog's role on an `aside`); the empty page's focus on "Choose a
+  picture…" on a desktop, two Shift+Tabs from it reaching the theme
+  switch and six the first skip link, none on a phone; the first
+  picture, chosen or dropped, moving the focus to the chosen target (on
+  a phone to the Settings button), a later one leaving it on "Choose
+  another…", each announced; Tab from the first skip link through 23
+  stops, in reading order (skip links, header, the column's tab, column,
+  picture, bar, footer), each with a focus ring of 2 pixels; the skip
+  links moving the focus without changing the address, only "Skip to the
+  picture" on a phone, there on the first Tab; the pictures' names;
+  what the regions said: only "Done: 4 levels, Atkinson." for a short
+  run, "Dithering…" for a long one, "Cancelled" twice changing the
+  region twice, an error at once; the targets and the contrast as above;
+  nothing moving with animations off, at a desktop's and a phone's
+  width, `::before` and `::after` included. The checks of steps 3, 4
+  and 5 run again, all passing (the split still exact to the screen
+  pixel).
 - **A headless Firefox window is at least 500 pixels wide:** asked for
   390, it gave 500, still a phone's layout here (under 760). In a
   profile's `user.js`, `layout.css.prefers-color-scheme.content-override`

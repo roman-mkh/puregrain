@@ -1,7 +1,7 @@
 -- | Small icons, inline SVG drawn in the text's color (decision 34): a
 -- | character such as ☾ or ☼ would look different from system to system,
 -- | and as emoji on some.
-module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight, caretDown, sliders) where
+module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight, caretDown, sliders, cross) where
 
 import Prelude
 
@@ -40,6 +40,10 @@ sliders = icon
   , "M1 7.25h14v1.5H1zM4 5.75h2v4.5H4z"
   , "M1 12h14v1.5H1zM10 10.5h2v4.5h-2z"
   ]
+
+-- | × : stops what's going on.
+cross :: forall w i. HH.HTML w i
+cross = icon [ "M3.4 2 8 6.6 12.6 2 14 3.4 9.4 8 14 12.6 12.6 14 8 9.4 3.4 14 2 12.6 6.6 8 2 3.4z" ]
 
 -- | ▾ : a list opens from the button.
 caretDown :: forall w i. HH.HTML w i

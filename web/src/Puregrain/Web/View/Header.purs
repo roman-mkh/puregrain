@@ -22,9 +22,10 @@ import Puregrain.Web.View.Parts (helpUrl, inert, repositoryUrl)
 header :: forall w. { theme :: Theme, settings :: Boolean, panelOpen :: Boolean } -> HH.HTML w Action
 header { theme, settings, panelOpen } =
   HH.header [ HP.class_ (H.ClassName "top"), inert panelOpen ]
-    [ HH.div [ HP.class_ (H.ClassName "brand") ]
-        -- Both sets of the logo, at their size; the stylesheet shows the
-        -- theme's. Not a link: a click there would reload the page.
+    -- The page's heading, "puregrain lab": both sets of the logo, at
+    -- their size, the stylesheet showing the theme's, and "lab". Not a
+    -- link: a click there would reload the page.
+    [ HH.h1 [ HP.class_ (H.ClassName "brand") ]
         [ lockup "zx" "for-dark"
         , lockup "c64" "for-light"
         , HH.span [ HP.class_ (H.ClassName "lab") ] [ HH.text texts.labName ]

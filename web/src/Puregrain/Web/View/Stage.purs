@@ -52,6 +52,9 @@ stage state = case state.load of
                   [ HH.canvas
                       [ HP.ref originalRef
                       , HP.class_ (H.ClassName "picture")
+                      -- Images with names, for screen readers (decision 33).
+                      , HP.attr (H.AttrName "role") "img"
+                      , HP.attr (H.AttrName "aria-label") (texts.originalNamed loaded.picture.name)
                       , HP.width prepared.width
                       , HP.height prepared.height
                       , HP.style sizeStyle
@@ -59,6 +62,8 @@ stage state = case state.load of
                   , HH.canvas
                       [ HP.ref resultRef
                       , HP.classes [ H.ClassName "picture", H.ClassName "result" ]
+                      , HP.attr (H.AttrName "role") "img"
+                      , HP.attr (H.AttrName "aria-label") state.resultLabel
                       , HP.width prepared.width
                       , HP.height prepared.height
                       , HP.style (sizeStyle <> "; clip-path: inset(0 0 0 " <> percent <> "%)")
@@ -83,9 +88,11 @@ stage state = case state.load of
                   { name: "zoom", labelledBy: "zoom-label", selected: show state.zoom, disabled: false, pick: ZoomChosen }
                   (zooms <#> \z -> { value: show z, text: texts.zoomLevel z })
               ]
+          -- The run first: its bar and × keep their places while the
+          -- text after them changes; a note on a file after that.
           , HH.div [ HP.class_ (H.ClassName "bar-state") ]
-              [ fileNote state
-              , runNotes state.run
+              [ runNotes state.run
+              , fileNote state
               ]
           , HH.div [ HP.class_ (H.ClassName "bar-actions") ] [ downloadBox state loaded ]
           ]
@@ -171,13 +178,13 @@ fileNote state =
     _, _ -> Nothing
   failed = isNothing state.loading && isJust state.notAPicture
 
--- | The run's note in the bar's middle (`Puregrain.Web.Status.runNote`),
--- | after the file's: the progress has its bar, the time left and Cancel.
+-- | The run's note in the bar's middle (`Puregrain.Web.Status.runNote`):
+-- | the progress has its bar first, then × to cancel it, then its text,
+-- | on one line, so that only the text's end moves as it changes.
 runNotes :: forall w. Run -> HH.HTML w Action
 runNotes run =
-  HH.div [ HP.class_ (H.ClassName "bar-run"), hidden (isNothing note) ]
-    [ HH.p [ HP.classes (if failure then [ H.ClassName "warning" ] else []) ] [ HH.text text ]
-    , HH.div
+  HH.div [ HP.classes ([ H.ClassName "bar-run" ] <> (if running then [ H.ClassName "running" ] else [])), hidden (isNothing note) ]
+    [ HH.div
         [ HP.class_ (H.ClassName "progress")
         , HP.attr (H.AttrName "role") "progressbar"
         , HP.attr (H.AttrName "aria-label") texts.ditheringLabel
@@ -192,13 +199,16 @@ runNotes run =
             ]
             []
         ]
+    -- An icon; its name, "Cancel", for screen readers.
     , HH.button
         [ HP.type_ HP.ButtonButton
+        , HP.class_ (H.ClassName "icon-button")
         , HP.title (texts.withKeys texts.cancel texts.cancelKeys)
         , HE.onClick (const Cancel)
         , hidden (not running)
         ]
-        [ HH.text texts.cancel ]
+        [ Icon.cross, HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.cancel ] ]
+    , HH.p [ HP.classes (if failure then [ H.ClassName "warning" ] else []) ] words
     ]
   where
   note = runNote run
@@ -212,10 +222,17 @@ runNotes run =
     Just (DitherFailed _) -> true
     Just SaveFailed -> true
     _ -> false
+  -- On a phone the hint points to the header's settings button.
+  words = case note of
+    Just OriginalShown ->
+      [ HH.span [ HP.class_ (H.ClassName "off-phone") ] [ HH.text texts.originalShown ]
+      , HH.span [ HP.class_ (H.ClassName "on-phone") ] [ HH.text texts.originalShownPhone ]
+      ]
+    _ -> [ HH.text text ]
   text = case note of
     Nothing -> ""
     Just OriginalShown -> texts.originalShown
-    Just (Progress p) -> texts.dithering { done: p.done, total: p.total } <> maybe "" (\ms -> ", " <> texts.timeLeft (rounded ms)) p.left
+    Just (Progress p) -> texts.dithering { done: p.done, total: p.total, left: rounded <$> p.left }
     Just RunCancelled -> texts.cancelled
     Just (DitherFailed reason) -> texts.ditherFailed reason
     Just SaveFailed -> texts.saveFailed
