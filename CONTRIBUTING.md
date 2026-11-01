@@ -8,19 +8,31 @@ is in [TODO.md](TODO.md).
 ## Setup
 
 ```bash
-npm install       # the PureScript toolchain (purs, spago) and pngjs
-npm run build     # the library, the CLI and the examples
+npm install       # the PureScript toolchain (purs, spago), pngjs and playwright-core
+npm run build     # the library, the CLI, the examples and the web UI
 npm run check     # everything CI checks (below)
 ```
+
+The last check needs Docker, usable without sudo (for example, with the
+user in the `docker` group). Only Docker is tested. The check calls the
+`docker` command by name, so Podman would need one that runs it (the
+`podman-docker` package); a shell alias doesn't reach the script.
 
 `npm run check` runs, in order:
 
 1. `spago build --pedantic-packages --strict`: the build, with every
    package dependency declared exactly, and compiler warnings treated as
    errors.
-2. `spago test`: the library's tests, then the CLI's.
+2. `spago test`: the tests of the library, the CLI and the web UI.
 3. `npm run check:cli`: the end-to-end checks of the real CLI on
    generated images ([docs/test-images.md](docs/test-images.md#exact-checks)).
+4. `npm run web:build`, then `npm run check:web`: the web UI bundled, and
+   checked end to end in Chromium, Firefox and WebKit against the CLI's
+   results and files ([web/README.md](web/README.md#development)). The
+   browsers run in Playwright's Docker image, of the installed
+   `playwright-core`'s version; the first run downloads it (about 1 GB,
+   2.5 GB on disk), and each new version of Playwright a new one, so
+   `docker image prune` now and then removes the old ones.
 
 ## Branches
 

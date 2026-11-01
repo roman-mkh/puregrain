@@ -198,8 +198,10 @@ build.
 ## Browsers
 
 Made for the current desktop versions of Chrome, Edge, Firefox and
-Safari; phones on a best-effort basis. So far it's been checked in
-Firefox.
+Safari; phones on a best-effort basis. Its results, its downloads and
+its split are checked automatically in those browsers' engines, as
+Playwright builds them for Linux (Chromium, Firefox and WebKit; see
+[Development](#development)); everything else so far only in Firefox.
 
 ## Accessibility
 
@@ -269,14 +271,27 @@ AAA isn't aimed at.
   the command-line tool's path, the messages, the names, the zoom, what
   the bar says, the split handle's keys, the drag's count, the download's
   formats and the shortcuts.
+- `npm run check:web` (`scripts/check-web.mjs`) checks the page itself in
+  Chromium, Firefox and WebKit, the engines of Chrome and Edge, Firefox
+  and Safari: for four settings, one for each kind of colors, the
+  downloaded PNG has the command-line tool's pixels; for both machines,
+  the PNG too, and their files are the tool's, byte for byte; the split
+  is exact to the screen pixel. It needs Docker, usable without sudo: the
+  browsers run in Playwright's image, which the first run downloads
+  (about 1 GB). Build first (`npm run build`, `npm run web:build`);
+  `npm run check` builds both and runs it last.
 - The plan, the decisions and their reasons: [ROADMAP.md](ROADMAP.md).
   Architecture and gotchas: [CLAUDE.md](CLAUDE.md), notes kept for the
   AI assistant used in development.
 
 ### Checking a change by hand
 
-What the specs can't reach, the browser itself, is checked by hand. After
-`npm run web:build` and a reload, ideally in each of the browsers above:
+What the specs can't reach, the browser itself, is checked by hand.
+`npm run check:web` takes the exact parts in three engines: the results
+and the downloads against the command-line tool's (items 7 to 9), and
+the split, exact to the screen pixel (item 6); the rest, and Chrome, Edge
+and Safari themselves, stay here. After `npm run web:build` and a reload,
+ideally in each of the browsers above:
 
 1. A PNG chosen with the file chooser and a JPEG dropped onto the page
    both show. While a file is dragged over the page, the empty page's

@@ -223,12 +223,23 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     Done in phase 5: decisions 29 to 34.
 25. **A browser smoke test in v2** (v2's Q6): `npm run check:web`
     automates the checklist's exact parts: the CLI's pixels, the split,
-    the downloads. Its tool, and CI, are settled before the delivery
-    phase: our own Marionette client (Firefox only, no dependency; it
-    checked phases 1 to 4, see `web/CLAUDE.md`), Puppeteer over WebDriver
-    BiDi (Chrome, Firefox), or Playwright (Chromium, Firefox, WebKit:
-    Claude's recommendation, as it covers the engines of all four target
-    browsers).
+    the downloads. Settled in phase 7 (2026-11-01): **Playwright**, as
+    it covers the engines of all four target browsers (Chromium,
+    Firefox, WebKit), where our own Marionette client has Firefox only
+    and Puppeteer Chrome and Firefox. **Only the browsers run in a
+    container**, Playwright's Docker image (the user's idea, a container;
+    only the browsers, decided with the user): Playwright builds Firefox
+    and WebKit for each Ubuntu version, so on the host this machine
+    (22.04) and GitHub's runner (24.04) would test different builds; in
+    one image they're the same, nothing for the browsers is installed on
+    the host, and Docker was here already. The whole check in the
+    container was weighed and left: its isolation is what CI already
+    gives, a fresh machine on every run; locally it would rebuild from
+    scratch each time, under the image's Node 24, neither this machine's
+    nor CI's. `npm run check` runs it last, so it keeps running what CI
+    runs, and needs Docker. CI runs it too, and also on pushes to
+    `web-ui` until the merge. Details and gotchas: `web/CLAUDE.md`,
+    "Checking in a real browser".
 26. **Hosting on GitHub Pages** (v2's Q7): from `master` after the merge,
     built and deployed by a GitHub Actions workflow, at
     `https://roman-mkh.github.io/puregrain/`. **No visitor statistics**
@@ -693,13 +704,12 @@ package facts are in `web/CLAUDE.md`.
 
 Each is settled before its phase of v2:
 
-- **Phase 7:** the smoke test's tool, and CI (decision 25). The logo in
-  the root README: Pursuit shows the README too, where an image with a
-  relative path probably breaks, so it may need an absolute URL. To
-  check. And which set it shows: the ZX set, or the one that fits the
-  reader's theme (the C64 set in light mode, the ZX set in dark), with
-  `<picture>` and `prefers-color-scheme`, which GitHub supports
-  (decision 28).
+- **Phase 7:** the logo in the root README: Pursuit shows the README
+  too, where an image with a relative path probably breaks, so it may
+  need an absolute URL. To check. And which set it shows: the ZX set, or
+  the one that fits the reader's theme (the C64 set in light mode, the
+  ZX set in dark), with `<picture>` and `prefers-color-scheme`, which
+  GitHub supports (decision 28).
 
 ## Later ideas
 

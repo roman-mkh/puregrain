@@ -138,7 +138,12 @@ from the code alone.
   strict build compiles it, so a library change that breaks it fails
   `npm run check` and CI. Version 1 (functional, not styled) was done on
   2026-10-21: loading, the settings, dithering in a worker with progress
-  and cancelling, the split view, the PNG download.
+  and cancelling, the split view, the PNG download. `npm run check:web`
+  (2026-11-01; decision 25 in `web/ROADMAP.md`, with its reasons) checks
+  the page end to end in Chromium, Firefox and WebKit against the CLI's
+  results and files: Playwright drives the browsers, which run in its
+  Docker image, and only they do; the rest stays on the host (details
+  and gotchas in `web/CLAUDE.md`).
 - **`logo/`** (2026-10-26, on `web-ui`; decision 28 in `web/ROADMAP.md`)
   — the project's logo, made by puregrain: `make-logo.mjs` draws the
   shapes, dithers gray gradients through the CLI, and writes SVG and PNG
@@ -805,8 +810,9 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
 - The workflow rules — branches (`master`, short-lived branches only for
   risky work), CI, versions, releases — are in `CONTRIBUTING.md`; follow
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
-  build with `--pedantic-packages --strict`, both test suites,
-  `check:cli`. Keep the two in step.
+  build with `--pedantic-packages --strict`, the test suites,
+  `check:cli`, then the web UI's bundle and `check:web` (which needs
+  Docker). Keep the two in step.
 - **0.1.0 was published on 2026-10-10:** tag `v0.1.0`, registry job
   `65ff05b2-b62c-477c-b1f6-282a92ff9c21` (log: https://registry.purescript.org/api/v1/jobs/65ff05b2-b62c-477c-b1f6-282a92ff9c21),
   docs on Pursuit within a minute, GitHub Release created by CI. Pursuit

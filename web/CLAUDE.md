@@ -525,12 +525,57 @@ For the technical choices of v2's phase 5 (decision 34 in
 
 ## Checking in a real browser
 
-Without Playwright (decision 14): the system's Firefox, headless, driven
-through Marionette, its built-in remote control (length-prefixed JSON
-over TCP, port 2828), by a few lines of Python from the standard library
-(phases 1 to 3) or of Node (phase 4: a client of about 40 lines on
-`node:net`, with pngjs reading screenshots and downloads). Phase 1's
-check loaded the page and read "The worker answered: ping" from it.
+**`npm run check:web`** (decision 25, 2026-11-01): `scripts/check-web.mjs`
+drives Chromium, Firefox and WebKit through Playwright (`playwright-core`,
+a dev dependency: Apache-2.0, no dependencies, no install script). Only
+the browsers run in Docker; the CLI, the references and the comparisons
+stay on the host.
+
+- **The container:** `mcr.microsoft.com/playwright:v<version>-noble`, the
+  version read from the installed `playwright-core`, so the two can't
+  drift. Run with `--init --ipc=host --user pwuser`, as Playwright's
+  Docker page advises. `scripts/lib/check-web-container.mjs`, mounted
+  read-only with `web/dist` and the host's `playwright-core`, runs under
+  the image's Node (24): it serves the page at `http://localhost:8080/`
+  inside the container, then starts the CLI's hidden `run-server`
+  command (not listed by `--help`) on port 3000. That port is published
+  on 127.0.0.1 at a port Docker picks (`--publish 127.0.0.1::3000`, read
+  back with `docker port`); the check waits for "Listening on" in
+  `docker logs`, then calls `connect` for each engine.
+- **Why the page is served inside:** a local address is a secure
+  context, as GitHub Pages is, and the browsers reach nothing on the
+  host (no host network, no `host-gateway`); the page uses no
+  secure-context API today, so this is for faithfulness.
+- **Files cross Playwright's connection:** `setInputFiles` with a local
+  path uploads the file to the remote browser; `download.saveAs` brings a
+  download back (`download.path()` isn't available remotely).
+- **Waiting for a run:** an init script wraps `window.Worker` and counts
+  the runs, noting each one's first answer that isn't progress; the
+  check waits for a new run's answer, then for the page's finished state
+  (the download button enabled, no progress). The download's name,
+  which carries the settings, confirms which result it is.
+- **The controls:** `selectOption` on the two menus (colors, then
+  kernel), `fill` on the levels' number, and the radio buttons
+  (segments and cards) clicked in the page once enabled. The split is
+  set by keys on the handle (Home, Shift+→ for tens, → for ones), the
+  handle and the labels hidden by a style tag for the screenshot, at
+  device pixel ratio 1, with the canvas's corner tried ±1 screen pixel.
+- **First results (2026-11-01):** all 48 checks pass in Chromium 156,
+  Firefox 157 and WebKit 27.2, in 31 s once the image is there (its
+  download took 54 s here; 2.54 GB on disk). Mutation-checked: wrong
+  references (30 checks failed, as predicted), the split's sides swapped
+  (18), and a bug in the built page, one of Atkinson's weights 1/8 → 1/9
+  in `web/dist/worker.js` (the Atkinson result and 5 of the 6 splits
+  failed in each engine; at column 320 only the original shows). Ctrl+C
+  removes the container.
+
+Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
+system's Firefox, headless, driven through Marionette, its built-in
+remote control (length-prefixed JSON over TCP, port 2828), by a few
+lines of Python from the standard library (phases 1 to 3) or of Node
+(phase 4: a client of about 40 lines on `node:net`, with pngjs reading
+screenshots and downloads). Phase 1's check loaded the page and read
+"The worker answered: ping" from it.
 
 - **Firefox here is a snap** (`/usr/bin/firefox` starts
   `/snap/bin/firefox`, version 157): it has a private `/tmp`, so a

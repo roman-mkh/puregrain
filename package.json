@@ -18,8 +18,9 @@
     "dither:color:bayer": "npm run dither-cli -- samples/color-512.png samples/output-color-bayer4.png --bayer 4 --kernel none --levels 4",
     "dither:zx": "npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.png --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.scr --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-bayer8.tap --machine zx-spectrum --bayer 8 && npm run dither-cli -- samples/color-256x192.png samples/output-zx-atkinson.png --machine zx-spectrum --kernel atkinson",
     "dither:c64": "npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.png --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.prg --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-bayer8.art --machine c64-hires --bayer 8 && npm run dither-cli -- samples/color-320x200.png samples/output-c64-atkinson.png --machine c64-hires --kernel atkinson",
-    "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli",
+    "check": "spago build --pedantic-packages --strict && spago test && npm run check:cli && npm run web:build && npm run check:web",
     "check:cli": "bash scripts/check-cli.sh",
+    "check:web": "node scripts/check-web.mjs",
     "check:clean": "rm -rf output && npm run check",
     "release:check": "node scripts/release-check.mjs",
     "bench": "node scripts/benchmark.mjs",
@@ -35,6 +36,7 @@
   },
   "devDependencies": {
     "esbuild": "^0.28.2",
+    "playwright-core": "^1.64.1",
     "purescript": "^0.15.16",
     "purs-backend-es": "^1.4.3",
     "purs-tidy": "^0.11.1",
