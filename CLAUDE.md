@@ -128,7 +128,8 @@ from the code alone.
   terminals; reverse it for light backgrounds), 2 characters per pixel
   for square pixels, every line within 80 columns.
 - **`puregrain-web`** (`web/spago.yaml`, `web/src/`, modules
-  `Puregrain.Web.*`; since 2026-10-20, on the long-term branch `web-ui`)
+  `Puregrain.Web.*`; developed from 2026-10-20 on the long-lived branch
+  `web-ui`, merged into `master` at the end of v2)
   — the web UI, the library's second real client, in Halogen. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
@@ -144,7 +145,7 @@ from the code alone.
   results and files: Playwright drives the browsers, which run in its
   Docker image, and only they do; the rest stays on the host (details
   and gotchas in `web/CLAUDE.md`).
-- **`logo/`** (2026-10-26, on `web-ui`; decision 28 in `web/ROADMAP.md`)
+- **`logo/`** (2026-10-26; decision 28 in `web/ROADMAP.md`)
   — the project's logo, made by puregrain: `make-logo.mjs` draws the
   shapes, dithers gray gradients through the CLI, and writes SVG and PNG
   per color set (`zx/` and `c64/`, equal, chosen by what fits around
@@ -227,10 +228,12 @@ from the code alone.
   a sentence each, and links.
 - `cli/README.md` — the CLI's user docs.
 - `web/README.md` — the web UI's user docs: running it, using it, its
-  settings as CLI options, and the manual checklist (on the `web-ui`
-  branch until the merge).
+  settings as CLI options, and the manual checklist.
+- `web/ROADMAP.md` — the web UI's plan and its decisions with their
+  reasons; it stays after the merge (decided 2026-11-01), since v3
+  builds on them.
 - `logo/README.md` — the logo's files, their use, and how it's made and
-  made again; `logo/LICENSE.md`, its terms (on `web-ui` until the merge).
+  made again; `logo/LICENSE.md`, its terms.
 
 ## Core architecture
 

@@ -8,14 +8,16 @@ own files. The same settings give the same pixels and files as the
 [command-line tool](../cli/README.md), for pictures without transparency
 (see below).
 
-> **Status: version 2 in progress,** on the `web-ui` branch: the page is
-> designed, and checked for accessibility. It isn't hosted anywhere yet,
-> so run it from a checkout of this repository; hosting comes with the
-> rest of version 2 ([ROADMAP.md](ROADMAP.md)).
+> **Status: version 2,** the first on GitHub Pages: designed, checked
+> for accessibility, and checked in three browser engines. Version 3 is
+> planned ([ROADMAP.md](ROADMAP.md)).
 
 ## Running it
 
-From the repository root (needs Node.js):
+Online, with nothing to install:
+[roman-mkh.github.io/puregrain](https://roman-mkh.github.io/puregrain/).
+
+From a checkout of this repository, at its root (needs Node.js):
 
 ```bash
 npm install         # once: the PureScript toolchain and esbuild

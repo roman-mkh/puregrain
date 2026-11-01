@@ -1,11 +1,14 @@
 # Web UI: roadmap
 
 The working document of the web UI: the vision, decisions, open
-questions, versions, phases and progress. The work spans several
-versions on the long-term branch `web-ui` (decision 13), so the file
-lives with its package in `web/`. At the merge, user docs go to their
-permanent homes and decisions, with their reasons, to `CLAUDE.md` (see
-Q12).
+questions, versions, phases and progress. It lives with its package in
+`web/`. v1 and v2 were developed on the long-lived branch `web-ui`
+(decision 13), merged into `master` at the end of v2. The file stays
+after the merge (decided 2026-11-01, instead of moving the decisions to
+`web/CLAUDE.md` as first planned): the work goes on with v3, which
+builds on these decisions, and `web/CLAUDE.md`, which Claude Code reads
+every time it works in `web/`, keeps only the architecture and the
+gotchas. The user docs are in `README.md`.
 
 ## Goal
 
@@ -37,9 +40,10 @@ users is a separate task, see TODO.md.)
   2026-10-21; its user docs are in `README.md`.
 - **v2:** the machines, with their files as downloads; fitting a picture
   to the machine's screen; an estimate of the time left; the project's
-  logo (decision 28); the design, the look and feel;
-  at its end the merge into `master` and the hosting. Planned on
-  2026-10-22: decisions 20 to 26, and the phases below.
+  logo (decision 28); the design, the look and feel; at its end the
+  merge into `master`, then the hosting and the checks on phones and in
+  Safari and Chrome (decision 13). Planned on 2026-10-22: decisions 20
+  to 26, and the phases below.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.
@@ -52,8 +56,9 @@ users is a separate task, see TODO.md.)
   (the user's idea); a high-contrast theme (the user's idea); the zoom
   as a menu once there are more values.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
-  is ready to present: functional, styled and hosted on GitHub (decision
-  13; the hosting is the user's decision, since it publishes).
+  is functional and styled; the hosting follows the merge, from `master`
+  (decisions 13 and 26; switching Pages on is the user's, since it
+  publishes).
 - **Later:** see "Later ideas".
 
 ## Decisions
@@ -166,11 +171,11 @@ users is a separate task, see TODO.md.)
 
 Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
 
-20. **The merge after v2** (v2's Q1): with v2 the web UI is functional,
-    styled and hosted, decision 13's conditions, so `web-ui` goes into
-    `master` by one pull request at the end of v2. v3 starts on a new
-    branch from `master`, after dithering in linear light (see
-    "Versions").
+20. **The merge after v2** (v2's Q1): with v2 the web UI is functional
+    and styled, so `web-ui` goes into `master` by one pull request at the
+    end of v2, and is hosted from there (decision 13's order since
+    2026-11-01). v3 starts on a new branch from `master`, after
+    dithering in linear light (see "Versions").
 21. **Machine screens** (v2's Q2): both machines, the ZX Spectrum with its
     palettes full, normal and bright, and the C64's hires mode, with
     ordered dithering inside the cells, the kernels and gray first, as in
