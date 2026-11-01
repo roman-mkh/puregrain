@@ -28,8 +28,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Large images (step 2 of the 2026-10 measurements):** a "large" benchmark suite, documented in a new
       `docs/benchmarks-large.md`:
       - sizes 1024², 2048², 3072²; Floyd-Steinberg with a threshold (gray) and websafe216; 3 runs;
-      - three series: the `output` and `output-es` builds, and the test reference, through a small runner
-        script that prints the same "Dithered in … ms" line;
+      - four series: the `output` and `output-es` builds, the test reference, and the web UI's dithering
+        (`Puregrain.Web.Run.ditherPicture`, in Node; see the 2026-11-01 finding below), through a small
+        runner script that prints the same "Dithered in … ms" line;
       - one more run with `node --max-semi-space-size=128` (a larger young generation);
       - the wide-against-tall check, 6000 × 700 against 700 × 6000.
 
@@ -43,9 +44,25 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
         them; at 6000 pixels they may outlive V8's young generation and get promoted to the old one, where
         collecting is expensive (and cache misses grow with the width too).
 
-      The reference's flat time per pixel (see "ST-based diffusion") already points at the queue design
-      rather than at JavaScript. The results decide between streaming in the CLI (see "Command-line tool")
-      and fewer allocations per pixel in the library.
+      Finding (2026-11-01, a one-off check, not in the benchmark docs: 5 interleaved runs each, medians): the
+      web UI's time per pixel stays nearly flat where the CLI's grows. From 1024² to 2048² on the color
+      composite, with 4 levels per channel and Atkinson, the page took 3.81 → 3.92 µs per pixel and the CLI
+      4.97 → 8.18; with JJN, 6.42 → 6.52 against 8.68 → 13.36; in gray, with Floyd-Steinberg and a
+      threshold, 2.08 → 2.36 against 1.76 → 2.68. At 2048² the page dithers color twice as fast, although its
+      time includes more (starting the worker, reading and writing the pixels). Both run the same library
+      code, the queues included; two things differ:
+      - the engine: Firefox 157 (SpiderMonkey) against Node 22.14 (V8), each with its own garbage collector;
+      - the heap: the page reads and writes the picture in byte arrays and holds one row as PureScript values
+        at a time; the CLI holds the whole picture twice.
+
+      The page has the queues without the whole picture on the heap, and stayed nearly flat (in Firefox);
+      the reference has the whole picture on the heap without the queues, and stayed flat (in Node; see
+      "ST-based diffusion"); only the CLI has both. So the cause may be the two together, or the engine; the
+      fourth series, the page's code in Node, tells which. The results decide between streaming in the CLI
+      (see "Command-line tool") and fewer allocations per pixel in the library: if the page's code stays flat
+      in Node, the CLI should dither as the page does, row by row from and into byte arrays; if it grows
+      there too, V8's garbage collector is part of the cause, and the larger young generation (above) or
+      fewer allocations are the remedies.
 - [ ] **`nearestLevel` binary search** instead of the linear scan (see its `TODO(benchmark)` note). Low
       priority: `--levels 4` costs ×1.13 of a threshold (2026-10-04).
 
