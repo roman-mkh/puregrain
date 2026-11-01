@@ -61,8 +61,10 @@ users is a separate task, see TODO.md.)
 1. **A long-term branch `web-ui`, with this file** (2026-10-19, the
    user's proposal). Short-lived branches may be cut from `master` or
    from `web-ui`, when useful, not as a rule, and merge back into the
-   branch they came from by pull request. To be written into
-   CONTRIBUTING.md, with decision 13.
+   branch they came from by pull request. Written into CONTRIBUTING.md
+   in phase 7 as an exception, not as a general rule (the user,
+   2026-11-01): the next long-lived branch may need another scenario,
+   so its rules are decided with it.
 2. **PureScript with Halogen,** the standard PureScript UI library, in
    the Elm style (2026-10-19). A PureScript client doesn't test the
    JavaScript API; that stays the npm task's.

@@ -811,7 +811,8 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
 ## Working style established in this project
 
 - The workflow rules — branches (`master`, short-lived branches only for
-  risky work), CI, versions, releases — are in `CONTRIBUTING.md`; follow
+  risky work, a long-lived one only as an exception decided with its own
+  rules), CI, versions, releases — are in `CONTRIBUTING.md`; follow
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
   build with `--pedantic-packages --strict`, the test suites,
   `check:cli`, then the web UI's bundle and `check:web` (which needs

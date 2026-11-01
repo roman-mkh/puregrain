@@ -40,7 +40,14 @@ user in the `docker` group). Only Docker is tested. The check calls the
   runs the same checks on every push, and `master` stays green.
 - **Short-lived branches only for risky, multi-step work** (a large
   refactoring, say): push the branch, open a pull request, and merge once
-  CI is green. No long-lived branches.
+  CI is green.
+- **A long-lived branch is an exception,** decided for a specific piece
+  of work together with its rules: when and how it merges, and what CI
+  checks on the way. The work decides them, so there's no general rule.
+  So far there was one: `web-ui`, on which the web UI was developed up to
+  its version 2, then merged into `master` by one pull request and
+  deleted (its rules: decisions 1, 13 and 25 in
+  [web/ROADMAP.md](web/ROADMAP.md)).
 - **Releases are tags on `master`** (see below).
 
 ## CI
