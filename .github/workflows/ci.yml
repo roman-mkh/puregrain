@@ -1,6 +1,8 @@
-# Builds and tests the whole workspace (library and CLI) on every push to
-# master and on every pull request against it. The same three checks run
-# locally with `npm run check` (package.json); keep the two in step.
+# Builds and tests the whole workspace (library, CLI, examples, web UI) on
+# every push to master and on every pull request against it. The same four
+# checks run locally with `npm run check` (package.json): the build, the
+# tests, the CLI's end-to-end checks, and the web UI's in three browsers;
+# keep the two in step.
 #
 # On a version tag `vX.Y.Z` (pushed by `spago publish`, see CONTRIBUTING.md,
 # "Releases"), it also runs the release checks and then creates the GitHub
@@ -39,7 +41,7 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Install the toolchain (purs, spago, pngjs)
+      - name: Install the toolchain (purs, spago, pngjs, playwright-core)
         run: npm ci
 
       # Only the downloaded PureScript packages are cached, never output/:
@@ -56,11 +58,19 @@ jobs:
       - name: Build (dependency check, warnings as errors)
         run: npx spago build --pedantic-packages --strict
 
-      - name: Tests (library, then CLI)
+      - name: Tests (library, CLI, web UI)
         run: npx spago test
 
       - name: End-to-end CLI checks
         run: npm run check:cli
+
+      # The browsers run in Playwright's Docker image, which the check
+      # downloads on every run; the runner's own browsers aren't used.
+      - name: Web UI bundle
+        run: npm run web:build
+
+      - name: Browser checks (Chromium, Firefox, WebKit)
+        run: npm run check:web
 
       # The steps above are check A; this runs the others (B to F).
       - name: Release checks (version tags only)

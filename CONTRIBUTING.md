@@ -45,7 +45,7 @@ user in the `docker` group). Only Docker is tested. The check calls the
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the three
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the four
 checks of `npm run check` on every push to `master` and on every pull
 request against it, each run as a clean build. Its result is the badge at
 the top of the README. Keep the workflow and the `check` script in

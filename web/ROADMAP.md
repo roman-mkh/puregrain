@@ -237,9 +237,11 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     gives, a fresh machine on every run; locally it would rebuild from
     scratch each time, under the image's Node 24, neither this machine's
     nor CI's. `npm run check` runs it last, so it keeps running what CI
-    runs, and needs Docker. CI runs it too, and also on pushes to
-    `web-ui` until the merge. Details and gotchas: `web/CLAUDE.md`,
-    "Checking in a real browser".
+    runs, and needs Docker. CI runs it too; for `web-ui`, first on the
+    delivery pull request, since CI runs on pushes to `master` and on
+    pull requests only (the user's choice, 2026-11-01: no CI trigger for
+    `web-ui`, and no early draft pull request). Details and gotchas:
+    `web/CLAUDE.md`, "Checking in a real browser".
 26. **Hosting on GitHub Pages** (v2's Q7): from `master` after the merge,
     built and deployed by a GitHub Actions workflow, at
     `https://roman-mkh.github.io/puregrain/`. **No visitor statistics**
