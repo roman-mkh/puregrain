@@ -107,7 +107,11 @@ users is a separate task, see TODO.md.)
     now; if one is needed, it merges back into its branch by pull
     request and is deleted. Since no branch carries on after its merge,
     squash merges cause no conflicts. Changes on `master` meanwhile come
-    into the branch by a rebase or a merge of `master`.
+    into the branch by a rebase or a merge of `master`. Changed
+    2026-11-01 (the user's proposal): the merge comes before the hosting.
+    With no users and no earlier version to break, the page is published
+    from `master` after the merge, then checked on phones and in Safari
+    and Chrome, with fixes on `master` (decision 26).
 14. **Testing** (Q8): thin components; the logic (settings to library
     calls, valid combinations, the state's changes on each action) in
     pure functions with specs, run in Node like the other suites; a
@@ -248,9 +252,17 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     (the user's decision): Pages has none for a site (the repository's
     traffic page counts its pages on github.com), and an analytics script
     would break decision 19 and the README's privacy promise. Turning
-    Pages on is the user's, since it publishes. A temporary preview from
-    `web-ui`, to try phones, Safari and Chrome, is an option for the
-    design phase.
+    Pages on is the user's, since it publishes. Settled in phase 7
+    (2026-11-01): a third job in `ci.yml` publishes from `master` only,
+    once every check has passed, the very bundle `check:web` has just
+    tested (an artifact of the checks' job), so a broken `master` can't
+    replace a working page. No preview from `web-ui`: CI doesn't run
+    there (decision 25), so a preview would publish unchecked bundles or
+    need a trigger of its own; the checks on devices come after the
+    merge, on the live page (decision 13). Checked before writing it: the
+    page works under `/puregrain/`, all its paths being relative (served
+    so to Chromium: every file found, no error, a download with the
+    CLI's pixels).
 27. **A background color for transparent parts** (2026-10-25, the user's
     proposal): one rule for both clients, transparent parts put onto a
     background color, white by default. The page offers a color picker
@@ -827,7 +839,10 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 7. **Delivery of v2** (medium): user docs, the checklist and the
    CLAUDE.md notes; the smoke test (decision 25); the Pages workflow
    (decision 26); the pull request, with the logo in the root README and
-   CONTRIBUTING.md's branching rule (decisions 1 and 13).
+   CONTRIBUTING.md's branching rule (decisions 1 and 13); Pages switched
+   on (the user's, just before the merge); after the merge, the
+   checklist on the live page, on phones and in Safari and Chrome, with
+   fixes on `master`.
 
 ## Progress of v2
 

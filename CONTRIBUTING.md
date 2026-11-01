@@ -50,7 +50,11 @@ checks of `npm run check` on every push to `master` and on every pull
 request against it, each run as a clean build. Its result is the badge at
 the top of the README. Keep the workflow and the `check` script in
 `package.json` in step. On a version tag it also runs the release checks
-and creates the GitHub Release (see [Releases](#releases)).
+and creates the GitHub Release (see [Releases](#releases)). On `master`,
+once every check has passed, it publishes the web UI on GitHub Pages, at
+https://roman-mkh.github.io/puregrain/: the bundle the browser checks
+tested. For that, Pages must be on, with "GitHub Actions" as its source
+(Settings → Pages).
 
 ## Changes worth knowing
 

@@ -2,7 +2,8 @@
 # every push to master and on every pull request against it. The same four
 # checks run locally with `npm run check` (package.json): the build, the
 # tests, the CLI's end-to-end checks, and the web UI's in three browsers;
-# keep the two in step.
+# keep the two in step. On master, once every check has passed, it also
+# publishes the web UI on GitHub Pages: the bundle the browsers checked.
 #
 # On a version tag `vX.Y.Z` (pushed by `spago publish`, see CONTRIBUTING.md,
 # "Releases"), it also runs the release checks and then creates the GitHub
@@ -76,6 +77,32 @@ jobs:
       - name: Release checks (version tags only)
         if: startsWith(github.ref, 'refs/tags/v')
         run: node scripts/release-check.mjs "${GITHUB_REF_NAME#v}" --skip-check
+
+      # The bundle the browser checks have just tested, for the pages job.
+      - name: Web UI for GitHub Pages (master only)
+        if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+        uses: actions/upload-pages-artifact@v5
+        with:
+          path: web/dist
+
+  # Publishes the web UI at https://roman-mkh.github.io/puregrain/, from
+  # master only, once every check has passed. Pages must be on, with
+  # "GitHub Actions" as its source (Settings → Pages); if it wasn't yet,
+  # re-run the job from the Actions tab once it is.
+  pages:
+    needs: build-and-test
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
 
   # The only job that can write to the repository: it creates the Release.
   github-release:
