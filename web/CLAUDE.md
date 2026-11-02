@@ -145,6 +145,17 @@ checklist in step.
   move puts the split on the nearest column boundary. A move with no
   button held ends a drag whose release went elsewhere. Only the handle
   has `touch-action: none`: a touch elsewhere still scrolls the picture.
+  **While the pointer is captured, `selectstart` is cancelled** on the
+  document, until `lostpointercapture` (2026-11-02): WebKit stretched a
+  text selection from the pressed handle over the pictures and the
+  page's text, the column, the bar and the header, despite the capture
+  and the handle's `-webkit-user-select: none` (seen by the user in
+  Safari 16.6, reproduced in Playwright's WebKit 27.2; Chromium and
+  Firefox select nothing). Tried and left: cancelling the `pointerdown`
+  (it stopped the selection, but the press no longer focused the handle)
+  and `user-select: none` on the picture box (the text around it was
+  still selected). `check:web` drags the handle out of the picture three
+  ways and expects no selection.
   The keys come through `HE.onKeyDown` (`web-uievents`), and a key the
   handle uses is `preventDefault`ed, so End doesn't also scroll; ↑ and ↓
   and the keys with Ctrl, Alt or Meta stay the browser's. A
@@ -568,6 +579,16 @@ stay on the host.
   in `web/dist/worker.js` (the Atkinson result and 5 of the 6 splits
   failed in each engine; at column 320 only the original shows). Ctrl+C
   removes the container.
+- **In CI** (2026-11-02, the delivery pull request's run, then the
+  merge's on `master`): the browser checks took 65 and 61 s, the image's
+  download included; a whole run about 2 min 45 s, of which 27–32 s for
+  the build, with Halogen. The `pages` job published in 11 s, and the
+  live page served the very bundle built here, file for file, and
+  dithered with the CLI's pixels in all three engines.
+- **The selection check** (2026-11-02, with the fix above, "The split's
+  handle"): it failed in WebKit only before the fix, selecting the
+  column's, the bar's and the header's text, and passes in all three
+  after it: 51 checks.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

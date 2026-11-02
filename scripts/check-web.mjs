@@ -4,7 +4,8 @@
 // colors, the downloaded PNG has the CLI's pixel values; for both
 // machines, at their screens' sizes, the PNG too, and their files are the
 // CLI's, byte for byte; the split shows the original left of it and the
-// result right of it, exact to the screen pixel.
+// result right of it, exact to the screen pixel, and dragging its handle
+// selects nothing.
 //
 // The browsers run in Playwright's Docker image, of the installed
 // playwright-core's version. Inside the container,
@@ -195,6 +196,26 @@ const checksIn = async (engine, page) => {
       `${engine}: the split at column ${split} (the handle says ${g.now}): ${best.compared} screen pixels, ${best.differ} differ`);
   };
 
+  // WebKit stretched a text selection from the pressed handle over the
+  // pictures and the page's text while the handle was dragged (Safari 16.6,
+  // 2026-11-02): a drag far out of the picture, three ways, selects nothing.
+  const checkDragSelects = async () => {
+    const found = [];
+    for (const [where, x, y] of [['left', 5, null], ['left and down', 5, 1095], ['right and up', 1595, 5]]) {
+      await page.evaluate(() => window.getSelection().removeAllRanges());
+      const knob = await page.locator('.knob').boundingBox();
+      const from = { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 };
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(x, y ?? from.y, { steps: 40 });
+      const selection = await page.evaluate(() => ({ none: window.getSelection().isCollapsed, text: window.getSelection().toString() }));
+      await page.mouse.up();
+      if (!selection.none) found.push(`${where}: ${JSON.stringify(selection.text.trim().slice(0, 30))}`);
+    }
+    report(found.length === 0,
+      `${engine}: dragging the split's handle far out of the picture selects nothing${found.length === 0 ? '' : ` (it selected, dragged ${found.join('; ')})`}`);
+  };
+
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();
@@ -212,6 +233,7 @@ const checksIn = async (engine, page) => {
       const original = pixelsOf(fs.readFileSync(`${out}/${PICTURE}.png`));
       const result = pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`));
       for (const split of [160, 0, 320, 1, 37, 319]) await checkSplit(original, result, split);
+      await checkDragSelects();
     }
   }
 

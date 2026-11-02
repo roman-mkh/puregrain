@@ -32,5 +32,6 @@ foreign import pressed :: Event -> Boolean
 foreign import across :: Event -> HTMLElement -> Effect Number
 
 -- | Sends the pointer's next events to the element, also when the
--- | pointer leaves it, until the button is released or the touch ends.
+-- | pointer leaves it, until the button is released or the touch ends;
+-- | meanwhile no text selection starts on the page.
 foreign import capture :: HTMLElement -> Int -> Effect Unit

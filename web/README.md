@@ -278,10 +278,11 @@ AAA isn't aimed at.
   and Safari: for four settings, one for each kind of colors, the
   downloaded PNG has the command-line tool's pixels; for both machines,
   the PNG too, and their files are the tool's, byte for byte; the split
-  is exact to the screen pixel. It needs Docker, usable without sudo: the
-  browsers run in Playwright's image, which the first run downloads
-  (about 1 GB). Build first (`npm run build`, `npm run web:build`);
-  `npm run check` builds both and runs it last.
+  is exact to the screen pixel, and dragging its handle selects nothing.
+  It needs Docker, usable without sudo: the browsers run in Playwright's
+  image, which the first run downloads (about 1 GB). Build first
+  (`npm run build`, `npm run web:build`); `npm run check` builds both and
+  runs it last.
 - The plan, the decisions and their reasons: [ROADMAP.md](ROADMAP.md).
   Architecture and gotchas: [CLAUDE.md](CLAUDE.md), notes kept for the
   AI assistant used in development.
