@@ -1,0 +1,482 @@
+/* puregrain lab's own stylesheet (decision 34 in web/ROADMAP.md): the two
+   themes, the page's layout, the settings' controls, the picture area
+   and the bar under it. */
+
+/* ---- The themes (decision 32) ----------------------------------------
+   Light: the C64's set of the logo and its blue; dark: the ZX Spectrum's
+   and its green. Before the app starts, the system's setting decides;
+   from then on the page's root says which (`data-theme`). Lines between
+   areas are faint; the outlines of controls keep 3:1 against their
+   background (decision 33). */
+:root {
+  color-scheme: light;
+  --bg: #f3f3ef;
+  --panel: #ffffff;
+  --field: #f4f4f0;
+  --line: #d7d8d1;
+  --control: #92958f;
+  --text: #1b1d22;
+  --muted: #596070;
+  --accent: #2724c4;
+  --on-accent: #ffffff;
+  --danger: #96282e;
+  --stage: #e3e3dd;
+  --radius: 3px;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #0e1014;
+    --panel: #151820;
+    --field: #1c2029;
+    --line: #2c323e;
+    --control: #5d6677;
+    --text: #e8eaef;
+    --muted: #9ba4b4;
+    --accent: #00d800;
+    --on-accent: #00140a;
+    --danger: #ff6b6b;
+    --stage: #090a0d;
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --bg: #0e1014;
+  --panel: #151820;
+  --field: #1c2029;
+  --line: #2c323e;
+  --control: #5d6677;
+  --text: #e8eaef;
+  --muted: #9ba4b4;
+  --accent: #00d800;
+  --on-accent: #00140a;
+  --danger: #ff6b6b;
+  --stage: #090a0d;
+}
+
+/* The logo's set for the theme: the header holds both. */
+:root[data-theme="dark"] .for-light,
+:root[data-theme="light"] .for-dark {
+  display: none;
+}
+
+/* ---- Base ------------------------------------------------------------ */
+*, *::before, *::after { box-sizing: border-box; }
+
+/* The rules below set `display`, which would show what's hidden: the
+   result's canvas waits hidden until its run is done. */
+[hidden] { display: none !important; }
+
+html, body { margin: 0; }
+
+body {
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+a { color: var(--accent); }
+
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.sr-only {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+
+/* The skip links (decision 33): out of sight until the keyboard reaches
+   them; they take the focus to the settings or to the picture area, whose
+   focus ring is then drawn inside them. */
+.skip {
+  position: absolute; top: 8px; left: 8px; z-index: 40; padding: 8px 14px;
+  font-weight: 600; color: var(--text); background: var(--panel);
+  border: 2px solid var(--accent); border-radius: var(--radius);
+  transform: translateY(-300%);
+}
+.skip:focus { transform: none; }
+#settings, #picture { outline-offset: -2px; }
+
+/* Words for a phone's layout or for a desktop's (see the end). */
+.on-phone { display: none; }
+
+button, input, select { font: inherit; color: inherit; }
+
+select, input[type="number"] {
+  font-size: 14px; color: var(--text); background: var(--field);
+  border: 1px solid var(--control); border-radius: var(--radius); padding: 5px 8px;
+}
+
+button {
+  font-size: 14px; padding: 6px 12px; color: var(--text); background: var(--field);
+  border: 1px solid var(--control); border-radius: var(--radius); cursor: pointer;
+}
+
+button:hover:not(:disabled) { border-color: var(--accent); }
+button:disabled { opacity: .45; cursor: default; }
+
+/* The main button of an area, in the accent (decision 32). */
+button.primary { font-weight: 600; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+input[type="checkbox"], input[type="range"], progress { accent-color: var(--accent); }
+
+input[type="color"] {
+  width: 44px; height: 30px; padding: 2px; background: var(--field);
+  border: 1px solid var(--control); border-radius: var(--radius);
+}
+
+/* ---- The page (decision 29): it fits the window, and the settings and
+   the picture scroll by themselves. ------------------------------------- */
+.app { display: flex; flex-direction: column; height: 100vh; }
+
+.top {
+  display: flex; align-items: center; gap: 18px; padding: 10px 20px;
+  background: var(--panel); border-bottom: 1px solid var(--line);
+}
+
+.brand { display: flex; align-items: center; gap: 10px; margin: 0; font: inherit; }
+
+/* The lockup at its size, with sharp pixels; "lab" plain and muted. */
+.brand img { display: block; image-rendering: pixelated; }
+.lab { font-size: 26px; line-height: 1; color: var(--muted); }
+
+.tagline { margin: 0; font-size: 13.5px; color: var(--muted); }
+.tagline .short { display: none; }
+
+.links { margin-left: auto; display: flex; align-items: center; gap: 14px; font-size: 14px; }
+.links a { color: var(--text); text-decoration: none; }
+.links a:hover { color: var(--accent); text-decoration: underline; }
+
+.theme, .settings-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
+
+/* The button that opens the settings' panel, and the panel's Apply: on
+   phones only (see the end). */
+.settings-button, .apply { display: none; }
+
+.work { flex: 1; min-height: 0; display: grid; grid-template-columns: 340px minmax(0, 1fr); }
+
+/* ---- The settings' column: numbered steps (decision 31) --------------- */
+.column {
+  width: 340px; min-height: 0; overflow: auto; padding: 18px 20px 28px;
+  background: var(--panel); border-right: 1px solid var(--line);
+}
+
+.step { min-width: 0; margin: 0 0 22px; padding: 0; border: 0; }
+.step > legend {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px; padding: 0;
+  font-size: 12px; font-weight: 650; letter-spacing: .09em; text-transform: uppercase; color: var(--muted);
+}
+.step-number {
+  display: inline-grid; place-items: center; width: 18px; height: 18px;
+  font: 650 11px var(--mono); letter-spacing: 0; color: var(--accent);
+  border: 1px solid var(--accent); border-radius: 2px;
+}
+.step:disabled { opacity: .5; }
+
+.field { display: grid; gap: 5px; margin: 12px 0; }
+.label { font-size: 13.5px; font-weight: 550; }
+.column select { width: 100%; }
+
+.picture-name { margin: 0; font-weight: 600; overflow-wrap: anywhere; }
+.picture-size { margin: 2px 0 10px; font: 13px var(--mono); color: var(--muted); }
+.hint { margin: 8px 0 0; font-size: 12.5px; color: var(--muted); }
+.note { margin: 10px 0; padding: 4px 0 4px 10px; font-size: 13px; color: var(--muted); border-left: 2px solid var(--accent); }
+.note .link { padding: 0; font: inherit; color: var(--accent); background: none; border: 0; text-decoration: underline; cursor: pointer; }
+.check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+
+/* A file chooser that looks like a button: a label around the hidden
+   input, which still takes the focus. */
+.file-button {
+  display: inline-flex; align-items: center; padding: 7px 12px; font-size: 14px; cursor: pointer;
+  color: var(--text); background: var(--field); border: 1px solid var(--control); border-radius: var(--radius);
+}
+.file-button:hover { border-color: var(--accent); }
+.file-button:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
+.file-button.primary { font-weight: 600; color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+
+/* Cards: radio buttons with a line each. */
+.cards { display: grid; gap: 6px; }
+.card {
+  display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; cursor: pointer;
+  background: var(--field); border: 1px solid var(--control); border-radius: var(--radius);
+}
+.card input { flex: none; width: 16px; height: 16px; margin: 2px 0 0; accent-color: var(--accent); }
+.card b { display: block; font-size: 14px; font-weight: 600; }
+.card small { display: block; font: 11.5px var(--mono); color: var(--muted); }
+.card:has(input:checked) { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--field)); }
+.step:disabled .card { cursor: default; }
+
+/* Segments: radio buttons in a row. */
+.segments { display: flex; overflow: hidden; background: var(--field); border: 1px solid var(--control); border-radius: var(--radius); }
+.segments label { position: relative; flex: 1; min-width: 0; }
+.segments input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.segments span { display: block; padding: 6px 2px; text-align: center; font-size: 13.5px; border-left: 1px solid var(--control); }
+.segments label:first-child span { border-left: 0; }
+.segments input:checked + span { font-weight: 600; color: var(--on-accent); background: var(--accent); }
+.segments input:focus-visible + span { outline: 2px solid var(--text); outline-offset: -4px; }
+.segments input:disabled { cursor: not-allowed; }
+.segments input:disabled + span { opacity: .45; }
+
+/* A number between − and +. */
+.stepper { display: inline-flex; }
+.stepper button { width: 36px; padding: 0; border-radius: 0; }
+.stepper button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+.stepper button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+.stepper input {
+  width: 64px; text-align: center; font-family: var(--mono);
+  border-radius: 0; border-left: 0; border-right: 0; appearance: textfield; -moz-appearance: textfield;
+}
+.stepper input::-webkit-inner-spin-button,
+.stepper input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+
+.row { display: flex; align-items: center; gap: 10px; }
+.row input[type="range"] { flex: 1; }
+.row input[type="number"] { width: 72px; font-family: var(--mono); }
+
+/* A toggle switch: the checkbox, invisible, over its track. */
+.switch { position: relative; display: flex; align-items: center; gap: 10px; margin-top: 14px; font-size: 14px; cursor: pointer; }
+.switch input { position: absolute; width: 40px; height: 24px; margin: 0; opacity: 0; cursor: pointer; }
+.track {
+  position: relative; flex: none; width: 40px; height: 24px; border-radius: 12px;
+  background: var(--field); border: 1px solid var(--control); transition: background .15s;
+}
+.track::after {
+  content: ""; position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+  background: var(--muted); transition: transform .15s;
+}
+.switch input:checked + .track { background: var(--accent); border-color: var(--accent); }
+.switch input:checked + .track::after { transform: translateX(16px); background: var(--on-accent); }
+.switch input:focus-visible + .track { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+.color { display: flex; align-items: center; gap: 10px; }
+.hex { font: 13px var(--mono); }
+
+/* ---- The « / » tab (decision 29) ---------------------------------------
+   The column keeps its width and moves left by it while its grid track
+   narrows to nothing; once hidden it's invisible, which also takes it out
+   of the keyboard's and the screen readers' reach. */
+.work { position: relative; transition: grid-template-columns 200ms ease; }
+.work.column-hidden { grid-template-columns: 0 minmax(0, 1fr); }
+.column { transition: transform 200ms ease, visibility 0s; }
+.work.column-hidden .column { transform: translateX(-100%); visibility: hidden; transition: transform 200ms ease, visibility 0s linear 200ms; }
+
+/* Half over the picture area, whose gray is too close to the controls'
+   outline in the light theme: a stronger border, 3:1 against both. */
+.column-tab {
+  position: absolute; z-index: 2; top: 14px; left: 340px; transform: translateX(-50%);
+  display: grid; place-items: center; width: 24px; height: 40px; padding: 0;
+  background: var(--panel); border-color: var(--muted); transition: left 200ms ease, transform 200ms ease;
+}
+.work.column-hidden .column-tab { left: 0; transform: none; }
+
+@media (prefers-reduced-motion: reduce) {
+  .work, .column, .work.column-hidden .column, .column-tab, .track, .track::after { transition: none; }
+}
+
+/* ---- The picture area and the bar under it (decisions 29 and 30) ------ */
+.stage { display: flex; flex-direction: column; min-width: 0; min-height: 0; background: var(--stage); }
+
+/* The area scrolls a large picture, with room above it for the labels of
+   its sides; the drag's overlay covers it, under the column's tab. */
+.area { position: relative; isolation: isolate; flex: 1; min-height: 0; display: flex; }
+/* It takes the focus, for + and −: its focus ring inside its edges. */
+.view { flex: 1; min-width: 0; overflow: auto; display: flex; padding: 46px 32px 32px; outline-offset: -2px; }
+
+/* The original and the result stacked in one box (decision 15): the
+   result on top, its left part cut off at the split by a clip-path that
+   the app sets, so the original shows there. Each picture pixel is
+   exactly zoom × zoom screen pixels (Puregrain.Web.Zoom), drawn without
+   smoothing. */
+.layers { position: relative; flex: none; margin: auto; line-height: 0; box-shadow: 0 0 0 1px var(--line); }
+.picture { display: block; image-rendering: pixelated; }
+.result { position: absolute; top: 0; left: 0; }
+
+/* The split's handle (decision 31): a line on the split, as tall as the
+   picture, with a round knob that stays in the middle of the area's
+   visible part (sticky), whatever the scroll. A touch on the handle drags
+   it; elsewhere it scrolls the picture. */
+.handle {
+  position: absolute; top: 0; bottom: 0; width: 32px; transform: translateX(-50%);
+  cursor: ew-resize; touch-action: none; user-select: none; -webkit-user-select: none;
+}
+.handle::before {
+  content: ""; position: absolute; top: 0; bottom: 0; left: calc(50% - 1px); width: 2px;
+  background: #fff; box-shadow: 0 0 0 1px rgba(0, 0, 0, .6);
+}
+.knob {
+  position: sticky; top: calc(50% - 16px); bottom: calc(50% - 16px);
+  display: grid; place-items: center; width: 32px; height: 32px; margin: 0 auto;
+  color: var(--text); background: var(--panel); border: 2px solid var(--accent); border-radius: 50%;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, .45);
+}
+.handle:focus-visible { outline: none; }
+.handle:focus-visible .knob { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* "Original" and "Result" above the picture's corners, in the margin
+   around it; side by side when the picture is narrower than both. */
+.sides {
+  position: absolute; bottom: calc(100% + 8px); left: 50%; transform: translateX(-50%);
+  display: flex; justify-content: space-between; gap: 8px; width: 100%; min-width: max-content;
+  line-height: 1.4; pointer-events: none;
+}
+.sides span {
+  padding: 2px 9px; font-size: 12.5px; white-space: nowrap;
+  color: var(--text); background: var(--panel); border: 1px solid var(--line); border-radius: 12px;
+}
+
+/* While files are dragged over the page (decision 30 D). The drag's
+   events go through it to the elements under it, which the page counts. */
+.drop-overlay {
+  position: absolute; inset: 0; z-index: 3; display: grid; place-items: center; padding: 16px;
+  background: color-mix(in srgb, var(--stage) 82%, transparent); pointer-events: none;
+}
+.drop-overlay p {
+  margin: 0; padding: 16px 24px; font-size: 18px; font-weight: 650;
+  background: var(--panel); border: 2px solid var(--accent); border-radius: var(--radius);
+}
+
+/* The empty area (decisions 29 and 30): the drop zone, framed in dithered
+   dots of 2 pixels (decision 32), lit while files are dragged over the
+   page; how to start, and the promises. */
+.start { margin: auto; width: 100%; max-width: 480px; }
+.start-note .warning {
+  margin: 0 0 12px; padding: 10px 14px; font-size: 14px;
+  background: var(--panel); border: 1px solid var(--line); border-left: 3px solid var(--danger); border-radius: var(--radius);
+}
+.drop {
+  padding: 2px; border-radius: 6px;
+  background: repeating-conic-gradient(var(--accent) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+}
+.drop.lit { background: var(--accent); }
+.drop-inner { padding: 36px 28px 30px; text-align: center; background: var(--stage); border-radius: 5px; }
+.drop.lit .drop-inner { background: color-mix(in srgb, var(--accent) 14%, var(--stage)); }
+.drop-inner img { vertical-align: top; image-rendering: pixelated; }
+.drop-title { margin: 14px 0 12px; font-size: 20px; font-weight: 650; }
+.drop-choose { display: flex; justify-content: center; align-items: center; gap: 10px; margin: 0; }
+.drop-inner .hint { margin: 10px 0 20px; }
+.about { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+
+.bar {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; padding: 10px 14px;
+  background: var(--panel); border-top: 1px solid var(--line);
+}
+
+.bar-view, .bar-state, .bar-file, .bar-run, .bar-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.bar-state { flex: 1 1 22rem; min-width: 0; container-type: inline-size; }
+.bar-label { font-size: 13.5px; color: var(--muted); }
+.bar .segments span { padding: 5px 10px; font: 13px var(--mono); }
+.bar p { margin: 0; font-size: 14px; font-variant-numeric: tabular-nums; }
+/* While a run goes: one line, only the text after the bar and × moving,
+   cut with "…" rather than wrapped, which would move the picture. */
+.bar-run.running { flex-wrap: nowrap; min-width: 0; max-width: 100%; }
+.bar-run.running > .progress, .bar-run.running > .icon-button { flex: none; }
+.bar-run.running > p { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* Where the bar's middle is narrow (a small window, a phone), the text
+   goes under the bar and ×, for the whole run: decided by the width
+   alone, so it never jumps between one line and two as it changes. */
+@container (max-width: 36rem) {
+  .bar-run.running { flex-wrap: wrap; }
+  .bar-run.running > p { flex-basis: 100%; }
+}
+
+/* A small button showing only an icon; its name is for screen readers. */
+.icon-button {
+  display: inline-grid; place-items: center; width: 24px; height: 24px; padding: 0;
+  color: var(--muted); background: none; border: 1px solid transparent;
+}
+.icon-button:hover:not(:disabled) { color: var(--text); }
+.warning { color: var(--danger); }
+
+/* The download (decision 31): the button naming its format, and for a
+   machine ▾ beside it, joined; the list of formats opens above them. */
+.downloads { position: relative; display: inline-flex; }
+.downloads > button.more { display: grid; place-items: center; padding: 6px 7px; border-left-color: var(--on-accent); }
+.downloads > button:first-child:not(:last-child) { border-radius: var(--radius) 0 0 var(--radius); }
+.downloads > button.more { border-radius: 0 var(--radius) var(--radius) 0; }
+.formats {
+  position: absolute; right: 0; bottom: calc(100% + 6px); z-index: 5;
+  width: max-content; min-width: 300px; max-width: min(460px, calc(100vw - 28px));
+  margin: 0; padding: 6px; list-style: none;
+  background: var(--panel); border: 1px solid var(--control); border-radius: 4px; box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.formats button {
+  display: grid; grid-template-columns: 44px 1fr; gap: 1px 10px; width: 100%; padding: 7px 8px;
+  text-align: left; background: none; border: 0;
+}
+.formats button:hover:not([aria-disabled="true"]) { background: var(--field); }
+.formats button[aria-disabled="true"] { opacity: .55; cursor: default; }
+.formats .ext { font: 600 13px var(--mono); color: var(--accent); }
+.formats small { grid-column: 2; font: 11.5px var(--mono); color: var(--muted); overflow-wrap: anywhere; }
+
+/* The progress, its leading edge in dithered dots (decision 32). */
+.progress {
+  position: relative; width: 10rem; height: 8px; overflow: hidden;
+  background: var(--field); border: 1px solid var(--control); border-radius: 1px;
+}
+.fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); }
+.fill::after {
+  content: ""; position: absolute; top: 0; bottom: 0; left: 100%; width: 8px;
+  background: repeating-conic-gradient(var(--accent) 0 25%, transparent 0 50%) 0 0 / 4px 4px;
+}
+
+.foot {
+  display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 20px; font-size: 12.5px;
+  color: var(--muted); background: var(--panel); border-top: 1px solid var(--line);
+}
+.foot a { color: inherit; }
+
+/* ---- Phones (decisions 29 and 34) ---------------------------------------
+   The picture and its bar; the settings in a panel over the whole screen,
+   opened by the header's settings button and closed with Apply, sliding
+   in and out as the desktop column does. Closed, the panel is off the
+   screen and invisible, out of the keyboard's and screen readers' reach.
+   app.js reads the same limit, 760 pixels (Puregrain.Web.Page). */
+@media (max-width: 760px) {
+  .app { height: auto; min-height: 100vh; }
+  .top { flex-wrap: wrap; gap: 6px 8px; padding: 10px 14px; }
+  .brand { gap: 6px; }
+  .tagline { order: 3; flex-basis: 100%; }
+  .tagline .long { display: none; }
+  .tagline .short { display: inline; }
+  .links a { display: none; }
+  .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
+  .column-tab { display: none; }
+  .settings-button { display: grid; }
+  .off-phone { display: none; }
+  .on-phone { display: inline; }
+  /* The settings are behind the header's button: no skip link to them. */
+  .skip.to-settings { display: none; }
+  .column, .work.column-hidden .column {
+    position: fixed; inset: 0; z-index: 20; width: auto; padding: 18px 20px 0;
+    display: flex; flex-direction: column; overflow: auto; overscroll-behavior: contain; border-right: 0;
+    transform: translateX(-100%); visibility: hidden;
+    transition: transform 200ms ease, visibility 0s linear 200ms;
+  }
+  .app.panel-open .column { transform: none; visibility: visible; transition: transform 200ms ease, visibility 0s; }
+  /* Apply at the bottom: of the screen while the steps are shorter, of
+     the visible part while they scroll. */
+  .steps { flex: 1 0 auto; }
+  .apply {
+    display: block; position: sticky; bottom: 0; margin: 0 -20px; padding: 12px 20px;
+    background: var(--panel); border-top: 1px solid var(--line);
+  }
+  .apply button { width: 100%; padding: 10px; font-size: 15px; }
+  .area { min-height: 240px; max-height: 70vh; }
+  .view { padding: 40px 14px 14px; }
+  .view.empty { padding: 14px; }
+  .drop-inner { padding: 26px 16px 22px; }
+  /* The run's line and the download each on a line of their own, the
+     download's list as wide as the line. */
+  .bar-state, .bar-actions { flex-basis: 100%; }
+  .downloads, .downloads > button:first-child { flex: 1; }
+  .formats { left: 0; width: auto; min-width: 0; max-width: none; }
+  /* A finger's size (decision 33). */
+  .handle { width: 44px; }
+  .knob { width: 40px; height: 40px; top: calc(50% - 20px); bottom: calc(50% - 20px); }
+}
+
+@media (max-width: 760px) and (prefers-reduced-motion: reduce) {
+  .column, .work.column-hidden .column, .app.panel-open .column { transition: none; }
+}

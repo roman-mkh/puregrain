@@ -1,0 +1,52 @@
+package:
+  name: puregrain-web
+  dependencies:
+    - aff
+    - aff-promise
+    - arraybuffer-types
+    - arrays
+    - canvas
+    - datetime
+    - effect
+    - either
+    - foldable-traversable
+    - foreign
+    - halogen
+    - halogen-subscriptions
+    - integers
+    - lists
+    - maybe
+    - now
+    - partial
+    - prelude
+    - puregrain
+    - refs
+    - strings
+    - transformers
+    - tuples
+    - unfoldable
+    - unsafe-coerce
+    - web-dom
+    - web-events
+    - web-file
+    - web-html
+    - web-uievents
+    - web-workers
+  test:
+    main: Test.Puregrain.Web.Main
+    dependencies:
+      - aff
+      - arraybuffer-types
+      - arrays
+      - effect
+      - either
+      - foldable-traversable
+      - foreign
+      - integers
+      - maybe
+      - puregrain
+      - refs
+      - spec
+      - spec-node
+      - transformers
+      - web-workers

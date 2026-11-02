@@ -16,7 +16,8 @@ from the code alone.
   stay exact: keep `spago build --pedantic-packages` clean, keep
   test-only packages under `test.dependencies`, and never add
   Node-only or app packages here. MIT-licensed (`LICENSE` at the root
-  covers the library and the CLI); `package.publish` in `spago.yaml`
+  covers the library and the CLI; the logo in `logo/` has terms of its
+  own, see below); `package.publish` in `spago.yaml`
   holds the license and the current version (0.2.0), and
   `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
@@ -126,6 +127,46 @@ from the code alone.
   art: `shades` in `QuickStart` (one editable list, █ = white for dark
   terminals; reverse it for light backgrounds), 2 characters per pixel
   for square pixels, every line within 80 columns.
+- **`puregrain-web`** (`web/spago.yaml`, `web/src/`, modules
+  `Puregrain.Web.*`; developed from 2026-10-20 on the long-lived branch
+  `web-ui`, merged into `master` at the end of v2)
+  — the web UI, the library's second real client, in Halogen. Its plan,
+  decisions and open questions are in `web/ROADMAP.md`; its architecture
+  and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
+  in `web/`; its user docs, with a manual checklist, in `web/README.md`.
+  `npm run web:build` bundles it into `web/dist/` (gitignored),
+  `npm run web:serve` serves that on localhost:8000. The workspace's
+  strict build compiles it, so a library change that breaks it fails
+  `npm run check` and CI. Version 1 (functional, not styled) was done on
+  2026-10-21: loading, the settings, dithering in a worker with progress
+  and cancelling, the split view, the PNG download. `npm run check:web`
+  (2026-11-01; decision 25 in `web/ROADMAP.md`, with its reasons) checks
+  the page end to end in Chromium, Firefox and WebKit against the CLI's
+  results and files: Playwright drives the browsers, which run in its
+  Docker image, and only they do; the rest stays on the host (details
+  and gotchas in `web/CLAUDE.md`).
+- **`logo/`** (2026-10-26; decision 28 in `web/ROADMAP.md`)
+  — the project's logo, made by puregrain: `make-logo.mjs` draws the
+  shapes, dithers gray gradients through the CLI, and writes SVG and PNG
+  per color set (`zx/` and `c64/`, equal, chosen by what fits around
+  them; `logo/README.md` recommends the ZX set on dark backgrounds, from
+  the colors' contrast), and the favicons and the social preview in the
+  ZX set, since they must work on any background; the web build copies
+  the three icons into the page. `npm run logo`, after `npm run build`. Every CLI setting is given
+  (`--levels 2 --bayer N --kernel none --gray`), so a change of the CLI's
+  defaults can't change the logo: **when dithering in linear light
+  becomes the default, add its opt-out to the script's CLI call**; then
+  `npm run logo` must report every file unchanged. It writes a file only
+  when its pixels changed, since zlib may compress the same pixels to
+  other bytes on another Node. **Not MIT:** the whole folder, the script
+  included (it holds the design), is under `logo/LICENSE.md` (decided
+  with the user 2026-10-26: unchanged, to refer to puregrain or show
+  it's used, and in copies of the repository for working on it; not as
+  the logo of a modified version or of anything else). The root
+  `LICENSE` stays plain MIT, so GitHub keeps showing "MIT" (its license
+  detection, Licensee, reads only the root and a top-level `LICENSES/`);
+  the README's License section names the exception. User docs:
+  `logo/README.md`.
 - **`.purs-repl`** (the REPL's startup file, at the workspace root) is
   committed, through an exception in `.gitignore` (since 2026-10-08;
   spago's own template ignores `.purs*` and treats it as personal, and
@@ -166,6 +207,9 @@ from the code alone.
   pages (Pursuit, GitHub's default), and Pursuit's code font (Roboto
   Mono) probably lacks the block characters, so a fallback font could
   misalign them. The README says in words what the terminal shows.
+  Its heading is the logo (2026-11-01): the ZX lockup, one picture for
+  GitHub's light and dark pages and for Pursuit, which rewrites the
+  relative path (decision 28 in `web/ROADMAP.md`).
 - `examples/README.md` — the example programs: what each shows, how to
   run them, a REPL session with variations to try.
 - Reference docs live in `docs/` and are the single source of truth:
@@ -183,6 +227,13 @@ from the code alone.
   (the CLI's size error points there for the resize hint), the files in
   a sentence each, and links.
 - `cli/README.md` — the CLI's user docs.
+- `web/README.md` — the web UI's user docs: running it, using it, its
+  settings as CLI options, and the manual checklist.
+- `web/ROADMAP.md` — the web UI's plan and its decisions with their
+  reasons; it stays after the merge (decided 2026-11-01), since v3
+  builds on them.
+- `logo/README.md` — the logo's files, their use, and how it's made and
+  made again; `logo/LICENSE.md`, its terms.
 
 ## Core architecture
 
@@ -697,6 +748,11 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   = h where g = …` fails with "Unknown value g" in the first guard.
   Use `if`/`case` instead, or put the shared bindings in a `where` of an
   unguarded equation (as in `Puregrain.Ordered.bayerMatrix`).
+- **A pattern binding in a `where` or `let` sees only the bindings above
+  it**: `{ width, height } = … roundedRatio …` with `roundedRatio`
+  defined further down fails with "Unknown value roundedRatio" (seen in
+  `Puregrain.Web.Prepare`, 2026-10-25). Define the helper first, or at
+  the top level.
 
 - **`(..)` is NOT empty when reversed**: `1 .. 0` evaluates to `[1, 0]`
   (descending), NOT `[]` like Haskell's `[1..0]`. This caused a real,
@@ -758,10 +814,12 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
 ## Working style established in this project
 
 - The workflow rules — branches (`master`, short-lived branches only for
-  risky work), CI, versions, releases — are in `CONTRIBUTING.md`; follow
+  risky work, a long-lived one only as an exception decided with its own
+  rules), CI, versions, releases — are in `CONTRIBUTING.md`; follow
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
-  build with `--pedantic-packages --strict`, both test suites,
-  `check:cli`. Keep the two in step.
+  build with `--pedantic-packages --strict`, the test suites,
+  `check:cli`, then the web UI's bundle and `check:web` (which needs
+  Docker). Keep the two in step.
 - **0.1.0 was published on 2026-10-10:** tag `v0.1.0`, registry job
   `65ff05b2-b62c-477c-b1f6-282a92ff9c21` (log: https://registry.purescript.org/api/v1/jobs/65ff05b2-b62c-477c-b1f6-282a92ff9c21),
   docs on Pursuit within a minute, GitHub Release created by CI. Pursuit

@@ -17,3 +17,5 @@ generated-docs/
 # committed exception, under docs/images/test-images/.
 samples/
 .spec-results
+# The web UI's build (npm run web:build), reproducible from web/.
+web/dist/

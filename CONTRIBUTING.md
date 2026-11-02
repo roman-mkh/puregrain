@@ -8,19 +8,31 @@ is in [TODO.md](TODO.md).
 ## Setup
 
 ```bash
-npm install       # the PureScript toolchain (purs, spago) and pngjs
-npm run build     # the library, the CLI and the examples
+npm install       # the PureScript toolchain (purs, spago), pngjs and playwright-core
+npm run build     # the library, the CLI, the examples and the web UI
 npm run check     # everything CI checks (below)
 ```
+
+The last check needs Docker, usable without sudo (for example, with the
+user in the `docker` group). Only Docker is tested. The check calls the
+`docker` command by name, so Podman would need one that runs it (the
+`podman-docker` package); a shell alias doesn't reach the script.
 
 `npm run check` runs, in order:
 
 1. `spago build --pedantic-packages --strict`: the build, with every
    package dependency declared exactly, and compiler warnings treated as
    errors.
-2. `spago test`: the library's tests, then the CLI's.
+2. `spago test`: the tests of the library, the CLI and the web UI.
 3. `npm run check:cli`: the end-to-end checks of the real CLI on
    generated images ([docs/test-images.md](docs/test-images.md#exact-checks)).
+4. `npm run web:build`, then `npm run check:web`: the web UI bundled, and
+   checked end to end in Chromium, Firefox and WebKit against the CLI's
+   results and files ([web/README.md](web/README.md#development)). The
+   browsers run in Playwright's Docker image, of the installed
+   `playwright-core`'s version; the first run downloads it (about 1 GB,
+   2.5 GB on disk), and each new version of Playwright a new one, so
+   `docker image prune` now and then removes the old ones.
 
 ## Branches
 
@@ -28,17 +40,28 @@ npm run check     # everything CI checks (below)
   runs the same checks on every push, and `master` stays green.
 - **Short-lived branches only for risky, multi-step work** (a large
   refactoring, say): push the branch, open a pull request, and merge once
-  CI is green. No long-lived branches.
+  CI is green.
+- **A long-lived branch is an exception,** decided for a specific piece
+  of work together with its rules: when and how it merges, and what CI
+  checks on the way. The work decides them, so there's no general rule.
+  So far there was one: `web-ui`, on which the web UI was developed up to
+  its version 2, then merged into `master` by one pull request and
+  deleted (its rules: decisions 1, 13 and 25 in
+  [web/ROADMAP.md](web/ROADMAP.md)).
 - **Releases are tags on `master`** (see below).
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the three
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the four
 checks of `npm run check` on every push to `master` and on every pull
 request against it, each run as a clean build. Its result is the badge at
 the top of the README. Keep the workflow and the `check` script in
 `package.json` in step. On a version tag it also runs the release checks
-and creates the GitHub Release (see [Releases](#releases)).
+and creates the GitHub Release (see [Releases](#releases)). On `master`,
+once every check has passed, it publishes the web UI on GitHub Pages, at
+https://roman-mkh.github.io/puregrain/: the bundle the browser checks
+tested. For that, Pages must be on, with "GitHub Actions" as its source
+(Settings → Pages).
 
 ## Changes worth knowing
 

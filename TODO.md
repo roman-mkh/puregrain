@@ -28,8 +28,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Large images (step 2 of the 2026-10 measurements):** a "large" benchmark suite, documented in a new
       `docs/benchmarks-large.md`:
       - sizes 1024², 2048², 3072²; Floyd-Steinberg with a threshold (gray) and websafe216; 3 runs;
-      - three series: the `output` and `output-es` builds, and the test reference, through a small runner
-        script that prints the same "Dithered in … ms" line;
+      - four series: the `output` and `output-es` builds, the test reference, and the web UI's dithering
+        (`Puregrain.Web.Run.ditherPicture`, in Node; see the 2026-11-01 finding below), through a small
+        runner script that prints the same "Dithered in … ms" line;
       - one more run with `node --max-semi-space-size=128` (a larger young generation);
       - the wide-against-tall check, 6000 × 700 against 700 × 6000.
 
@@ -43,9 +44,25 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
         them; at 6000 pixels they may outlive V8's young generation and get promoted to the old one, where
         collecting is expensive (and cache misses grow with the width too).
 
-      The reference's flat time per pixel (see "ST-based diffusion") already points at the queue design
-      rather than at JavaScript. The results decide between streaming in the CLI (see "Command-line tool")
-      and fewer allocations per pixel in the library.
+      Finding (2026-11-01, a one-off check, not in the benchmark docs: 5 interleaved runs each, medians): the
+      web UI's time per pixel stays nearly flat where the CLI's grows. From 1024² to 2048² on the color
+      composite, with 4 levels per channel and Atkinson, the page took 3.81 → 3.92 µs per pixel and the CLI
+      4.97 → 8.18; with JJN, 6.42 → 6.52 against 8.68 → 13.36; in gray, with Floyd-Steinberg and a
+      threshold, 2.08 → 2.36 against 1.76 → 2.68. At 2048² the page dithers color twice as fast, although its
+      time includes more (starting the worker, reading and writing the pixels). Both run the same library
+      code, the queues included; two things differ:
+      - the engine: Firefox 157 (SpiderMonkey) against Node 22.14 (V8), each with its own garbage collector;
+      - the heap: the page reads and writes the picture in byte arrays and holds one row as PureScript values
+        at a time; the CLI holds the whole picture twice.
+
+      The page has the queues without the whole picture on the heap, and stayed nearly flat (in Firefox);
+      the reference has the whole picture on the heap without the queues, and stayed flat (in Node; see
+      "ST-based diffusion"); only the CLI has both. So the cause may be the two together, or the engine; the
+      fourth series, the page's code in Node, tells which. The results decide between streaming in the CLI
+      (see "Command-line tool") and fewer allocations per pixel in the library: if the page's code stays flat
+      in Node, the CLI should dither as the page does, row by row from and into byte arrays; if it grows
+      there too, V8's garbage collector is part of the cause, and the larger young generation (above) or
+      fewer allocations are the remedies.
 - [ ] **`nearestLevel` binary search** instead of the linear scan (see its `TODO(benchmark)` note). Low
       priority: `--levels 4` costs ×1.13 of a threshold (2026-10-04).
 
@@ -61,6 +78,12 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       image as a 1-bit PNG is half the size (2.66 → 1.33 MB for a 6000 × 5807 photo, 46% for the 512² gray
       composite). pngjs can write neither (only 8- or 16-bit samples, no color type 3), so it needs a small
       writer of our own on Node's `zlib`: about 40 lines for 1-bit, tried in a scratch script.
+- [ ] **A background color for transparent parts** (decided 2026-10-25, decision 27 in `web/ROADMAP.md`):
+      `--background RRGGBB`, white by default, as in the web UI. Today the CLI ignores alpha and dithers the
+      colors stored under transparent parts, so the two clients differ on such pictures. The flattening, color
+      × alpha + background × (1 − alpha) per channel, rounded, becomes a library helper both clients use. With
+      dithering in linear light (see "Algorithms"), which decides whether to flatten in linear light too;
+      before the web UI's v3.
 
 ## Algorithms
 
@@ -80,6 +103,16 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Dithering in linear light:** today error is diffused on the stored, gamma-encoded sRGB values, which
       skews mid-tones slightly; convert to linear light first (cli/README.md, "Limitations": "fixing this is
       planned").
+- [ ] **Ordered dithering along a color ramp** (an idea, 2026-10-26; after linear light): a palette of colors in
+      a row, two or more (red to green, say, or four greens like the Game Boy Camera's pictures). The pixel's
+      gray value picks a point on the row, and a Bayer map chooses between the two colors on either side, as
+      `Puregrain.Ordered` chooses between two levels. That's ordered dithering with a palette where it's well
+      defined: a ramp has the order a general palette lacks (see "Ordered dithering against a palette" in
+      Future directions). For retro looks, the project's niche, and for logos and banners: the logo is made
+      this way, in two steps, since the CLI can't use a Bayer map with a palette (`logo/make-logo.mjs`: a gray
+      gradient dithered to black and white, then the dots painted in the two colors). The library can do it in
+      a few lines today (`ordered` on gray, then a `map` to the colors); the value would be in the CLI and the
+      web UI, as an option, perhaps with a preset or two.
 
 ## Application
 
@@ -91,9 +124,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       The CLI ships through npm too, not the PureScript registry (spago can't install pngjs): one JS file
       bundled with esbuild, pngjs as an npm dependency, a `bin` entry, so `npx puregrain …` works. It could
       come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
+      Then the web UI can show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 
 ## Future directions (not in scope now)
+
+- [ ] Keeping transparency in the output, for icons and sprites (moved here from `web/ROADMAP.md`'s later
+      ideas, 2026-10-25): the library has `RGBA` and dithers it per channel already, but palettes are RGB
+      only, and the CLI ignores alpha. Transparency could be kept as on or off per pixel; the machines have
+      none.
 
 - [ ] Calmer error diffusion in cells (an idea, set aside 2026-10-14: ordered dithering inside cells, which
       passes no error on, becomes the main mode for machine screens). With Floyd–Steinberg, `--machine
