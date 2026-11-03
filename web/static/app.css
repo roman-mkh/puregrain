@@ -422,10 +422,14 @@ input[type="color"] {
 }
 
 .foot {
-  display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 8px 20px; font-size: 12.5px;
-  color: var(--muted); background: var(--panel); border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 6px 18px; padding: 8px 20px;
+  font-size: 12.5px; color: var(--muted); background: var(--panel); border-top: 1px solid var(--line);
 }
 .foot a { color: inherit; }
+/* The links divided by thin lines within the footer's padding: drawn as
+   borders, not "|", which a screen reader would read out. */
+.foot-links { display: flex; flex-wrap: wrap; }
+.foot-links a + a { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line); }
 
 /* ---- Phones (decisions 29 and 34) ---------------------------------------
    The picture and its bar; the settings in a panel over the whole screen,
@@ -475,6 +479,9 @@ input[type="color"] {
   /* A finger's size (decision 33). */
   .handle { width: 44px; }
   .knob { width: 40px; height: 40px; top: calc(50% - 20px); bottom: calc(50% - 20px); }
+  /* The links wrap on a phone, and a line could start a row: plain gaps. */
+  .foot-links { gap: 6px 18px; }
+  .foot-links a + a { margin-left: 0; padding-left: 0; border-left: 0; }
 }
 
 @media (max-width: 760px) and (prefers-reduced-motion: reduce) {

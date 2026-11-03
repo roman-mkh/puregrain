@@ -54,7 +54,16 @@ users is a separate task, see TODO.md.)
   "none"), which clears the gallery, asking first when results aren't
   saved; an (i) next to each setting, opening a short description of it
   (the user's idea); a high-contrast theme (the user's idea); the zoom
-  as a menu once there are more values.
+  as a menu once there are more values. From the checks on devices
+  (2026-11-03, the user's ideas): on phones, "Choose another picture"
+  next to the download button, opening the file chooser at once and
+  keeping the settings, as step 1's "Choose another…" does, which a
+  phone hides in the settings' panel (not "Start over", which resets
+  every setting; a phone has no drag and drop, so the empty page would
+  only offer the same chooser); and a zoom of 0.5× at least, for
+  pictures larger than the screen. Below 1× a screen pixel covers
+  several picture pixels, so the dithering's pattern can't show as it
+  is: an overview, to be marked as such.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
@@ -391,9 +400,16 @@ these decisions are phase 6's reference (the user).
       settings.
     - **The gallery** (v3) gets a strip under the bar.
     - **The footer:** the versions of the page and of the library
-      ("puregrain lab v2 · puregrain 0.2.0": the page's from this file,
-      the library's read from `spago.yaml` at build time), the licenses
-      (the code MIT, the logo its own terms), GitHub.
+      ("puregrain lab v2, built on puregrain 0.2.0": the page's written
+      in `Text.purs`, the library's read from `spago.yaml` at build
+      time), the licenses (the code MIT, the logo its own terms),
+      GitHub. Since 2026-11-03 (the user's design): the versions on the
+      left, the links on the right, divided by thin lines within the
+      footer's padding, drawn as borders so screen readers don't read
+      them; on phones, where the links wrap, plain gaps instead. "Built
+      on", not just "·", since two names alike read as a stutter to
+      anyone who doesn't know that one is the page and the other the
+      library.
     - **Phones:** the same column, hidden at first and opened over the
       picture by a settings button. An Apply button at its bottom closes
       it and starts the run; closing it any other way applies too.
