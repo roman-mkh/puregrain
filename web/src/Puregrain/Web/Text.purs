@@ -146,7 +146,7 @@ texts =
             <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
             <> (if settings.gray then [ "gray first" ] else [])
         )
-  , versions: \library -> "puregrain lab v2" <> (if library == "" then "" else ", built on puregrain " <> library)
+  , versions: \library -> "puregrain lab v2.1" <> (if library == "" then "" else ", built on puregrain " <> library)
   , codeLicense: "The code: MIT"
   , logoLicense: "The logo: its own terms"
   , onGitHub: "puregrain on GitHub"

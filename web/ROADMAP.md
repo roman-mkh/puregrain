@@ -44,6 +44,16 @@ users is a separate task, see TODO.md.)
   merge into `master`, then the hosting and the checks on phones and in
   Safari and Chrome (decision 13). Planned on 2026-10-22: decisions 20
   to 26, and the phases below.
+- **v2.1** (2026-11-03), after the first checks on devices: no text
+  selection while the split's handle is dragged (Safari); the footer's
+  versions on the left, "built on", its links on the right; for both
+  machines, 2×2 recommended for the look of the time and 4×4 for smooth
+  tones, from a count of real loading screens; "Original" and "Result"
+  clickable; the worker's script kept in memory, so that runs need no
+  server once the page has loaded. Made on a short-lived branch,
+  `web-v2.1`, merged by one squashed pull request (the user's choice,
+  for this release). Improvements published between the roadmap's
+  versions count up after the dot.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.
@@ -401,7 +411,7 @@ these decisions are phase 6's reference (the user).
       settings.
     - **The gallery** (v3) gets a strip under the bar.
     - **The footer:** the versions of the page and of the library
-      ("puregrain lab v2, built on puregrain 0.2.0": the page's written
+      ("puregrain lab v2.1, built on puregrain 0.2.0": the page's written
       in `Text.purs`, the library's read from `spago.yaml` at build
       time), the licenses (the code MIT, the logo its own terms),
       GitHub. Since 2026-11-03 (the user's design): the versions on the
