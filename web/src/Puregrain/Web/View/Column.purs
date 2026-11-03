@@ -193,7 +193,7 @@ methodStep s =
       ( if flatCells s then
           [ note
               [ HH.text (texts.flatCells <> " ")
-              , HH.button [ HP.type_ HP.ButtonButton, HP.class_ (H.ClassName "link"), HE.onClick (const (BayerChosen "8")) ] [ HH.text texts.useBayer8 ]
+              , HH.button [ HP.type_ HP.ButtonButton, HP.class_ (H.ClassName "link"), HE.onClick (const (BayerChosen "2")) ] [ HH.text texts.useBayer2 ]
               ]
           ]
         else []

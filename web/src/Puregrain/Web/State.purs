@@ -97,6 +97,7 @@ type State =
   , run :: Run
   , runs :: Int
   , worker :: Maybe Worker
+  , workerScript :: String
   , listener :: Maybe (HS.Listener Action)
   , dragged :: Int
   , format :: Format
@@ -150,6 +151,7 @@ data Action
   | SplitDragged Event
   | SplitReleased Event
   | SplitKey KeyboardEvent
+  | SplitTo Int
   | DownloadClicked
   | FormatsToggled
   | FormatChosen Format

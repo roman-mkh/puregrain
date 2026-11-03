@@ -70,9 +70,13 @@ stage state = case state.load of
                       , hidden (not shows)
                       ]
                   , handle state.split prepared.width percent shows
+                  -- A click on a label shows the whole of it (the user's
+                  -- idea). For the pointer only: to the keyboard and to
+                  -- screen readers they stay plain text, since the handle
+                  -- does the same with End and Home.
                   , HH.div [ HP.class_ (H.ClassName "sides"), hidden (not shows) ]
-                      [ HH.span_ [ HH.text texts.original ]
-                      , HH.span_ [ HH.text texts.result ]
+                      [ HH.span [ HP.title texts.showWholeOriginal, HE.onClick (const (SplitTo prepared.width)) ] [ HH.text texts.original ]
+                      , HH.span [ HP.title texts.showWholeResult, HE.onClick (const (SplitTo 0)) ] [ HH.text texts.result ]
                       ]
                   ]
               ]

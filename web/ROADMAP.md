@@ -44,6 +44,16 @@ users is a separate task, see TODO.md.)
   merge into `master`, then the hosting and the checks on phones and in
   Safari and Chrome (decision 13). Planned on 2026-10-22: decisions 20
   to 26, and the phases below.
+- **v2.1** (2026-11-03), after the first checks on devices: no text
+  selection while the split's handle is dragged (Safari); the footer's
+  versions on the left, "built on", its links on the right; for both
+  machines, 2×2 recommended for the look of the time and 4×4 for smooth
+  tones, from a count of real loading screens; "Original" and "Result"
+  clickable; the worker's script kept in memory, so that runs need no
+  server once the page has loaded. Made on a short-lived branch,
+  `web-v2.1`, merged by one squashed pull request (the user's choice,
+  for this release). Improvements published between the roadmap's
+  versions count up after the dot.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.
@@ -54,7 +64,16 @@ users is a separate task, see TODO.md.)
   "none"), which clears the gallery, asking first when results aren't
   saved; an (i) next to each setting, opening a short description of it
   (the user's idea); a high-contrast theme (the user's idea); the zoom
-  as a menu once there are more values.
+  as a menu once there are more values. From the checks on devices
+  (2026-11-03, the user's ideas): on phones, "Choose another picture"
+  next to the download button, opening the file chooser at once and
+  keeping the settings, as step 1's "Choose another…" does, which a
+  phone hides in the settings' panel (not "Start over", which resets
+  every setting; a phone has no drag and drop, so the empty page would
+  only offer the same chooser); and a zoom of 0.5× at least, for
+  pictures larger than the screen. Below 1× a screen pixel covers
+  several picture pixels, so the dithering's pattern can't show as it
+  is: an overview, to be marked as such.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
@@ -182,8 +201,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     the CLI. The result is a PNG; for a picture of the screen's size
     (256×192, 320×200) the machine's files too: `.scr` and `.tap`,
     `.prg` and `.art`. A machine with no method gives flat cells: a hint
-    names the recommended method (ordered dithering, 8×8), and nothing is
-    chosen by itself (decision 16). The tape's name follows the CLI's
+    names the recommended method (ordered dithering, 8×8; 2×2 since
+    2026-11-03, see decision 31's hint), and nothing is chosen by itself
+    (decision 16). The tape's name follows the CLI's
     rule (the name without its extension, printable ASCII only, the
     first 10 characters), applied to the picture's name, since the
     download's is generated; `puregrain` when nothing printable is left.
@@ -391,9 +411,16 @@ these decisions are phase 6's reference (the user).
       settings.
     - **The gallery** (v3) gets a strip under the bar.
     - **The footer:** the versions of the page and of the library
-      ("puregrain lab v2 · puregrain 0.2.0": the page's from this file,
-      the library's read from `spago.yaml` at build time), the licenses
-      (the code MIT, the logo its own terms), GitHub.
+      ("puregrain lab v2.1, built on puregrain 0.2.0": the page's written
+      in `Text.purs`, the library's read from `spago.yaml` at build
+      time), the licenses (the code MIT, the logo its own terms),
+      GitHub. Since 2026-11-03 (the user's design): the versions on the
+      left, the links on the right, divided by thin lines within the
+      footer's padding, drawn as borders so screen readers don't read
+      them; on phones, where the links wrap, plain gaps instead. "Built
+      on", not just "·", since two names alike read as a stutter to
+      anyone who doesn't know that one is the page and the other the
+      library.
     - **Phones:** the same column, hidden at first and opened over the
       picture by a settings button. An Apply button at its bottom closes
       it and starts the run; closing it any other way applies too.
@@ -452,7 +479,12 @@ these decisions are phase 6's reference (the user).
       switch for screen readers: by the usual convention a switch takes
       effect at once, as every change on the page does (decision 16).
     - **The machine's hint** has "Use 8×8": one click, and still the
-      user's choice (decision 16).
+      user's choice (decision 16). Since 2026-11-03 "Use 2×2", the same
+      for both machines: "Recommended: ordered dithering, 2×2, the look
+      of the time; 4×4 for smoother tones." One button, not two, since
+      choosing a machine is mostly about its look (the user). Why 2×2
+      and 4×4: the count of real loading screens in
+      `docs/machine-screens/README.md`.
     - **Plain controls,** each with its label, and its notes beside it:
       the column and the phone's panel have the room. The user's idea of
       compact controls that grow when focused was dropped (the user): a
@@ -468,7 +500,14 @@ these decisions are phase 6's reference (the user).
       and End to the edges, like any slider, without scrolling the page.
       The knob stays in the visible part when the picture is taller than
       its area. "Original" and "Result" above the picture's corners, in
-      the margin around it.
+      the margin around it. Since 2026-11-03 (the user's idea; the user
+      had clicked them once to see the whole original), a click or a tap
+      on one shows the whole of it, as End and Home do on the handle:
+      for the pointer only, with a tooltip and a pointer cursor; to the
+      keyboard and to screen readers they stay plain text, since the
+      handle does the same. Not a button, which would duplicate the
+      handle's keys, and not a link, which would promise to go
+      somewhere.
     - **Download** (decision 24's format menu, the user's idea): a
       button naming its format ("Download PNG"), with ▾ beside it when
       there are more: a machine's files, each with the name it's saved

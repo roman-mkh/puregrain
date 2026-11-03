@@ -4,7 +4,9 @@
 // colors, the downloaded PNG has the CLI's pixel values; for both
 // machines, at their screens' sizes, the PNG too, and their files are the
 // CLI's, byte for byte; the split shows the original left of it and the
-// result right of it, exact to the screen pixel.
+// result right of it, exact to the screen pixel, dragging its handle
+// selects nothing, and a click on "Original" or "Result" moves it to its
+// end; a run works with worker.js blocked once the page has loaded.
 //
 // The browsers run in Playwright's Docker image, of the installed
 // playwright-core's version. Inside the container,
@@ -119,8 +121,8 @@ const checksIn = async (engine, page) => {
   const runs = () => page.evaluate(() => window.__runs.length);
   // Waits for a run started after `before` runs, the last one, to end,
   // and for the page to show its result.
-  const finished = async (before) => {
-    await page.waitForFunction((n) => window.__runs.length > n && window.__runs[window.__runs.length - 1].ended, before, { timeout: 120000 });
+  const finished = async (before, timeout = 120000) => {
+    await page.waitForFunction((n) => window.__runs.length > n && window.__runs[window.__runs.length - 1].ended, before, { timeout });
     await page.waitForFunction(() => {
       const button = document.querySelector('.downloads button');
       return button !== null && !button.disabled && document.querySelector('.progress:not([hidden])') === null;
@@ -195,6 +197,65 @@ const checksIn = async (engine, page) => {
       `${engine}: the split at column ${split} (the handle says ${g.now}): ${best.compared} screen pixels, ${best.differ} differ`);
   };
 
+  // WebKit stretched a text selection from the pressed handle over the
+  // pictures and the page's text while the handle was dragged (Safari 16.6,
+  // 2026-11-02): a drag far out of the picture, three ways, selects nothing.
+  const checkDragSelects = async () => {
+    const found = [];
+    for (const [where, x, y] of [['left', 5, null], ['left and down', 5, 1095], ['right and up', 1595, 5]]) {
+      await page.evaluate(() => window.getSelection().removeAllRanges());
+      const knob = await page.locator('.knob').boundingBox();
+      const from = { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 };
+      await page.mouse.move(from.x, from.y);
+      await page.mouse.down();
+      await page.mouse.move(x, y ?? from.y, { steps: 40 });
+      const selection = await page.evaluate(() => ({ none: window.getSelection().isCollapsed, text: window.getSelection().toString() }));
+      await page.mouse.up();
+      if (!selection.none) found.push(`${where}: ${JSON.stringify(selection.text.trim().slice(0, 30))}`);
+    }
+    report(found.length === 0,
+      `${engine}: dragging the split's handle far out of the picture selects nothing${found.length === 0 ? '' : ` (it selected, dragged ${found.join('; ')})`}`);
+  };
+
+  // The runs' workers start from the page's copy of worker.js in memory:
+  // with the file blocked once the page has fetched it, a run still gives
+  // the CLI's pixels (started from the file, no run worked without it).
+  const checkWorkerInMemory = async () => {
+    const fetched = page.waitForResponse((r) => r.url().endsWith('/worker.js'), { timeout: 10000 }).catch(() => null);
+    await page.goto(pageUrl);
+    await fetched;
+    await sleep(300);
+    await page.context().route('**/worker.js', (route) => route.abort());
+    try {
+      await page.locator('input[type=file]').first().setInputFiles(`${out}/${PICTURE}.png`);
+      await page.waitForFunction((name) => document.querySelector('.picture-name')?.textContent === name, `${PICTURE}.png`);
+      const before = await runs();
+      await page.locator('select').nth(0).selectOption('levels');
+      await page.locator('.stepper input[type=number]').fill('4');
+      await page.locator('select').nth(1).selectOption('atkinson');
+      const done = await finished(before, 20000).then(() => true, () => false);
+      const diff = done
+        ? differing(pixelsOf((await download(() => page.locator('.downloads button').first().click())).bytes), pixelsOf(fs.readFileSync(`${out}/cli-levels4-atkinson.png`)))
+        : null;
+      report(done && diff === 0,
+        `${engine}: with worker.js blocked after the page has loaded, a run ${done ? (diff === 0 ? "still gives the CLI's pixels" : `gives ${diff} pixels off`) : 'never finishes'}`);
+    } finally {
+      await page.context().unroute('**/worker.js');
+    }
+  };
+
+  // A click on "Result" shows the whole result, on "Original" the whole
+  // original: the split goes to 0 and to the width.
+  const checkLabels = async (width) => {
+    const split = () => page.evaluate(() => Number(document.querySelector('.handle').getAttribute('aria-valuenow')));
+    await page.locator('.sides span', { hasText: 'Result' }).click({ timeout: 5000 });
+    const toResult = await split();
+    await page.locator('.sides span', { hasText: 'Original' }).click({ timeout: 5000 });
+    const toOriginal = await split();
+    report(toResult === 0 && toOriginal === width,
+      `${engine}: a click on "Result" moves the split to ${toResult}, on "Original" to ${toOriginal} (the width, ${width})`);
+  };
+
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();
@@ -212,6 +273,8 @@ const checksIn = async (engine, page) => {
       const original = pixelsOf(fs.readFileSync(`${out}/${PICTURE}.png`));
       const result = pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`));
       for (const split of [160, 0, 320, 1, 37, 319]) await checkSplit(original, result, split);
+      await checkDragSelects();
+      await checkLabels(original.width);
     }
   }
 
@@ -233,6 +296,8 @@ const checksIn = async (engine, page) => {
       report(file.name === expected && same, `${engine}: ${m.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${how}`);
     }
   }
+
+  await checkWorkerInMemory();
 };
 
 const started = Date.now();

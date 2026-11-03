@@ -9,13 +9,16 @@ import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Parts (helpUrl, inert, licenseUrl, logoTermsUrl, repositoryUrl)
 
 -- | On a phone the header has no room for its links, so Help is here
--- | too, and the repository. `inert` while the phone's panel is open.
+-- | too, and the repository. The versions on the left, the links on the
+-- | right. `inert` while the phone's panel is open.
 footer :: forall w i. String -> Boolean -> HH.HTML w i
 footer libraryVersion panelOpen =
   HH.footer [ HP.class_ (H.ClassName "foot"), inert panelOpen ]
     [ HH.span_ [ HH.text (texts.versions libraryVersion) ]
-    , HH.a [ HP.href helpUrl ] [ HH.text texts.help ]
-    , HH.a [ HP.href licenseUrl ] [ HH.text texts.codeLicense ]
-    , HH.a [ HP.href logoTermsUrl ] [ HH.text texts.logoLicense ]
-    , HH.a [ HP.href repositoryUrl ] [ HH.text texts.onGitHub ]
+    , HH.span [ HP.class_ (H.ClassName "foot-links") ]
+        [ HH.a [ HP.href helpUrl ] [ HH.text texts.help ]
+        , HH.a [ HP.href licenseUrl ] [ HH.text texts.codeLicense ]
+        , HH.a [ HP.href logoTermsUrl ] [ HH.text texts.logoLicense ]
+        , HH.a [ HP.href repositoryUrl ] [ HH.text texts.onGitHub ]
+        ]
     ]

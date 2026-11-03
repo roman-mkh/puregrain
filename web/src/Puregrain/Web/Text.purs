@@ -41,7 +41,7 @@ texts
      , fewerLevels :: String
      , moreLevels :: String
      , method :: String
-     , useBayer8 :: String
+     , useBayer2 :: String
      , hideSettings :: String
      , showSettings :: String
      , apply :: String
@@ -56,6 +56,8 @@ texts
      , dropToLoad :: String
      , original :: String
      , result :: String
+     , showWholeOriginal :: String
+     , showWholeResult :: String
      , zoom :: String
      , zoomLevel :: Int -> String
      , target :: String
@@ -144,7 +146,7 @@ texts =
             <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
             <> (if settings.gray then [ "gray first" ] else [])
         )
-  , versions: \library -> "puregrain lab v2" <> (if library == "" then "" else " · puregrain " <> library)
+  , versions: \library -> "puregrain lab v2.1" <> (if library == "" then "" else ", built on puregrain " <> library)
   , codeLicense: "The code: MIT"
   , logoLicense: "The logo: its own terms"
   , onGitHub: "puregrain on GitHub"
@@ -165,7 +167,7 @@ texts =
   , fewerLevels: "Fewer levels"
   , moreLevels: "More levels"
   , method: "Method"
-  , useBayer8: "Use 8×8"
+  , useBayer2: "Use 2×2"
   , hideSettings: "Hide the settings"
   , showSettings: "Show the settings"
   -- The phone's settings panel closes with it, and dithers then.
@@ -184,6 +186,8 @@ texts =
   -- Above the picture's corners, either side of the split.
   , original: "Original"
   , result: "Result"
+  , showWholeOriginal: "Show the whole original"
+  , showWholeResult: "Show the whole result"
   , zoom: "Zoom"
   , zoomLevel: \zoom -> show zoom <> "×"
   , target: "Target"
@@ -239,7 +243,7 @@ texts =
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
-  , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
+  , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 2×2, the look of the time; 4×4 for smoother tones."
   , gray: "Turn the picture gray first"
   , originalShown: "The original is shown. Choose colors or a method to dither it."
   -- On a phone the settings are behind the header's button.

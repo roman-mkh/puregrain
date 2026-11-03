@@ -32,7 +32,7 @@ import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
 import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
 import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
-import Puregrain.Web.Page (narrowScreen, setTheme)
+import Puregrain.Web.Page (keptInMemory, narrowScreen, setTheme)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
@@ -90,6 +90,7 @@ component = H.mkComponent
       , run: Idle
       , runs: 0
       , worker: Nothing
+      , workerScript: "worker.js"
       , listener: Nothing
       , dragged: 0
       , format: Png
@@ -210,6 +211,11 @@ handleAction = case _ of
     unless narrow do
       chooser <- H.getHTMLElementRef chooserRef
       for_ chooser (liftEffect <<< HTMLElement.focus)
+    -- The worker's script, fetched once and kept in memory, in the
+    -- background: the runs' workers start from that copy (see `startRun`).
+    void $ H.fork do
+      script <- H.liftAff (keptInMemory "worker.js")
+      H.modify_ _ { workerScript = script }
   Resized -> do
     readPixelRatio
     -- A phone turned sideways, a window widened: no panel any more.
@@ -399,6 +405,9 @@ handleAction = case _ of
           liftEffect (Event.preventDefault (KE.toEvent event))
           H.modify_ _ { split = split }
       _ -> pure unit
+  -- A click on "Original" or "Result" above the picture shows the whole
+  -- of it, as End and Home do on the handle.
+  SplitTo split -> H.modify_ _ { split = split }
   -- The download (decision 31, `Puregrain.Web.Download`).
   DownloadClicked -> do
     s <- H.get
@@ -563,12 +572,20 @@ restart = do
 -- | run's number. The result before it stays on show, if it shows
 -- | (`resultShows`); the progress shows after `progressDelay`, unless
 -- | the run is over by then (decision 30 B).
+-- |
+-- | Each run needs a fresh worker, since cancelling a run ends its worker
+-- | (decision 11). It starts from the copy of `worker.js` kept in memory
+-- | (`workerScript`, fetched once by `Initialize`; the file itself until
+-- | then, or if the fetch failed). Started from the file, every run would
+-- | fetch it again: no run without a server (the dev server stopped, the
+-- | network gone), and after a new version is published, an open page
+-- | could get a newer worker than itself, which may not understand it.
 startRun :: forall o m. MonadAff m => { picture :: Picture, prepared :: Prepared } -> Settings -> H.HalogenM State Action () o m Unit
 startRun { picture: p, prepared } settings = do
   s <- H.get
   for_ s.listener \listener -> do
     let id = s.runs
-    worker <- liftEffect (Worker.new "worker.js" Worker.defaultWorkerOptions)
+    worker <- liftEffect (Worker.new s.workerScript Worker.defaultWorkerOptions)
     liftEffect (Worker.onMessage (\event -> HS.notify listener (FromWorker id (data_ event))) worker)
     copy <- liftEffect (copyPixels (imageDataBuffer prepared.image))
     let job = { settings, width: prepared.width, height: prepared.height, pixels: copy, tapeName: tapeName p.name }
