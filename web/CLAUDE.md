@@ -346,7 +346,8 @@ checklist in step.
   dependency. With `--platform browser` and the default bundle type
   `app`, it writes a self-running script (esbuild's `--format=iife`) that
   imports the module's `main` and calls it: right for the page's
-  `<script>` and for a classic worker (`new Worker("worker.js")`). Module
+  `<script>` and for a classic worker (started from a copy of `worker.js`
+  kept in memory, see `App.startRun`). Module
   workers (`{ type: "module" }`) aren't needed; they'd require Firefox
   114 or later. spago refuses to overwrite a file it didn't write itself,
   unless `--force`.

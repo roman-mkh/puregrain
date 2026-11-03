@@ -13,3 +13,12 @@ export const libraryVersion = () =>
 
 // The same limit as app.css's phone layout.
 export const narrowScreen = () => window.matchMedia('(max-width: 760px)').matches;
+
+// A file fetched once and kept in memory for the page's lifetime, under an
+// address of its own (a Blob URL, never revoked); the file's own address
+// when it can't be fetched.
+export const keptInMemoryImpl = (path) => () =>
+  fetch(path)
+    .then((response) => (response.ok ? response.blob() : Promise.reject(new Error(response.statusText))))
+    .then((blob) => URL.createObjectURL(blob))
+    .catch(() => path);
