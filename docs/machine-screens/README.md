@@ -63,13 +63,26 @@ How ordered dithering works in general: [ordered-dithering.md](../ordered-dither
 
 ## Which mode for which picture
 
-It depends on the picture, so try both on yours, and look at the results
+It depends on the picture, so try them on yours, and look at the results
 at 100% zoom.
 
 | Picture | Best | Why |
 |---|---|---|
-| Drawn graphics, smooth shading, gradients; the classic look of much 8-bit art | Ordered: `--bayer 8` | Every tone is kept, as a pattern of the cell's two colors, shadows included. There are no streaks, since no error flows. `--bayer 4` gives a coarser pattern with fewer tone steps. |
-| Photos with fine detail, especially on a light background | Error diffusion: `--kernel atkinson` | The dots go where the detail is, and Atkinson's extra contrast keeps edges crisp. A Bayer map lays the same pattern over everything, and on 8×8 cells it's as large as a cell, so small details turn into texture. |
+| The look of the time: drawn graphics, logos, pixel art | Ordered: `--bayer 2` | The patterns the period's artists filled areas with: checkerboards, and dots for a quarter or three quarters. Only 5 tones per pair of colors, as in their pictures. There are no streaks, since no error flows. |
+| Smooth shading, gradients | Ordered: `--bayer 4` | Tones become patterns of the cell's two colors, shadows included: 17 steps per pair, which after blurring keep the tones as faithfully as `--bayer 8`'s 65, in a coarser pattern. `--bayer 8` and `--bayer 16` are smoother still. |
+| Photos with fine detail, especially on a light background | Error diffusion: `--kernel atkinson` | The dots go where the detail is, and Atkinson's extra contrast keeps edges crisp. A Bayer map lays the same pattern over everything, so small details turn into texture. |
+
+How the ordered ones were chosen (2026-11-03): in 300 ZX Spectrum loading
+screens of 1982 to 1989, the original `.scr` files of the 150 most voted
+games in [ZXDB](https://spectrumcomputing.co.uk) and 150 more drawn at
+random, 95% of the cells that show both their colors are drawn by hand.
+Where areas are filled with a regular pattern, it's a 2×2 one (in 22 of
+the screens) or stripes and hatching (in 28); patterns that need the 4×4
+map show in 4 screens, and patterns of the 8×8 map in none. After
+blurring, as the eye blends at a distance, `--bayer 4` keeps the tones of
+the test images as well as `--bayer 8`, and `--bayer 2` about as well as
+Atkinson. Only the Spectrum's screens were counted: the C64's hires mode,
+with the same two colors per 8×8 cell, follows by analogy.
 
 On the Spectrum, an alternative worth trying for photos is two steps:
 `--palette zx15 --kernel atkinson` first, then `--machine zx-spectrum
@@ -89,10 +102,10 @@ Two things to know about error diffusion inside cells:
   whose colors can express it turns it into a line of extreme pixels.
   Atkinson passes on only 3/4 of each error, so such error dies out.
 
-This advice comes from the generated [test images](../test-images.md), on
-both machines, and from a portrait photo at 256×192. On the C64's test
-image too, ordered dithering and Atkinson keep the tones about equally
-well, and Floyd–Steinberg streaks.
+The rest of this advice comes from the generated [test
+images](../test-images.md), on both machines, and from a portrait photo
+at 256×192. On the C64's test image too, ordered dithering and Atkinson
+keep the tones about equally well, and Floyd–Steinberg streaks.
 
 ## What it looks like
 

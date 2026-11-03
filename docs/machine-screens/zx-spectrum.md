@@ -13,18 +13,21 @@ picture: [README.md](README.md).
 ## Quick start
 
 ```bash
-# ordered dithering inside the cells: the classic look
-npm run dither-cli -- picture.png screen.png --machine zx-spectrum --bayer 8
+# ordered dithering inside the cells: the look of the time
+npm run dither-cli -- picture.png screen.png --machine zx-spectrum --bayer 2
+
+# the same with the 4×4 map, for smoother tones
+npm run dither-cli -- picture.png screen.png --machine zx-spectrum --bayer 4
 
 # error diffusion inside the cells, for photos with fine detail
 npm run dither-cli -- picture.png screen.png --machine zx-spectrum --kernel atkinson
 
 # normal brightness only: no BRIGHT, so large light areas stay even
-npm run dither-cli -- picture.png screen.png --machine zx-spectrum --machine-palette normal --bayer 8
+npm run dither-cli -- picture.png screen.png --machine zx-spectrum --machine-palette normal --bayer 2
 
 # the Spectrum's own files: a screen file, and a tape that loads and shows it
-npm run dither-cli -- picture.png screen.scr --machine zx-spectrum --bayer 8
-npm run dither-cli -- picture.png screen.tap --machine zx-spectrum --bayer 8
+npm run dither-cli -- picture.png screen.scr --machine zx-spectrum --bayer 2
+npm run dither-cli -- picture.png screen.tap --machine zx-spectrum --bayer 2
 ```
 
 The `.scr` and `.tap` files need a picture of exactly 256×192 (see

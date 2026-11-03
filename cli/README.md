@@ -32,8 +32,8 @@ npm run dither-cli -- samples/color-512.png samples/out-gray4.png --gray --level
 # ordered dithering with the 4×4 Bayer map, no error diffusion
 npm run dither-cli -- samples/gray-512.png samples/out-bayer4.png --bayer 4
 
-# a ZX Spectrum screen: two colors per 8×8 cell, in the 8×8 Bayer pattern
-npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --bayer 8
+# a ZX Spectrum screen: two colors per 8×8 cell, in the 2×2 Bayer pattern
+npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --bayer 2
 ```
 
 View the results at **100% zoom**. Any other zoom level resamples the dot
@@ -190,12 +190,14 @@ and its pixels are dithered with just those two colors.
 How that works, what it looks like, and each machine's colors and files
 are described in [docs/machine-screens/](../docs/machine-screens/README.md).
 
-- **Which mode:** it depends on the picture. `--bayer 8`, ordered
-  dithering inside the cells, suits drawn graphics and smooth shading, and
-  gives the classic look. `--kernel atkinson`, error diffusion, suits
-  photos with fine detail; on the Spectrum, two steps are an alternative
-  worth trying for photos. Floyd–Steinberg, the default without
-  `--bayer`, can leave streaks. Details: [which mode for which
+- **Which mode:** it depends on the picture. Ordered dithering inside the
+  cells: `--bayer 2` gives the look of the time, the patterns the
+  period's artists used; `--bayer 4` suits smooth shading, and `--bayer 8`
+  and `--bayer 16` are smoother still. `--kernel atkinson`, error
+  diffusion, suits photos with fine detail; on the Spectrum, two steps
+  are an alternative worth trying for photos. Floyd–Steinberg, the
+  default without `--bayer`, can leave streaks. Details, and how this was
+  found: [which mode for which
   picture](../docs/machine-screens/README.md#which-mode-for-which-picture).
 - **Options:** any `--kernel` works; `--kernel none` gives flat cells.
   `--bayer N` gives ordered dithering inside the cells, with no error
@@ -315,8 +317,8 @@ npm run dither-cli -- samples/color-512.png samples/bayer4-websafe.png --bayer 4
 ### Machine screens
 
 ```bash
-# a ZX Spectrum screen, ordered dithering inside the cells with the 8×8 and the 4×4 Bayer map
-npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.png --machine zx-spectrum --bayer 8
+# a ZX Spectrum screen, ordered dithering inside the cells with the 2×2 and the 4×4 Bayer map
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer2.png --machine zx-spectrum --bayer 2
 npm run dither-cli -- samples/color-256x192.png samples/zx-bayer4.png --machine zx-spectrum --bayer 4
 
 # error diffusion inside the cells, with Floyd–Steinberg (the default without --bayer) and with Atkinson
@@ -327,19 +329,19 @@ npm run dither-cli -- samples/color-256x192.png samples/zx-atk.png --machine zx-
 npm run dither-cli -- samples/color-256x192.png samples/zx-flat.png --machine zx-spectrum --kernel none
 
 # a poster in the Spectrum's style, at 512×512 (the CLI notes the size)
-npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum --bayer 8
+npm run dither-cli -- samples/color-512.png samples/zx-poster.png --machine zx-spectrum --bayer 2
 
 # the Spectrum's own screen file, and a tape that loads it (256×192 only)
-npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.scr --machine zx-spectrum --bayer 8
-npm run dither-cli -- samples/color-256x192.png samples/zx-bayer8.tap --machine zx-spectrum --bayer 8
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer2.scr --machine zx-spectrum --bayer 2
+npm run dither-cli -- samples/color-256x192.png samples/zx-bayer2.tap --machine zx-spectrum --bayer 2
 
-# the C64's hires screen, with the 8×8 Bayer map and with Atkinson
-npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.png --machine c64-hires --bayer 8
+# the C64's hires screen, with the 2×2 Bayer map and with Atkinson
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer2.png --machine c64-hires --bayer 2
 npm run dither-cli -- samples/color-320x200.png samples/c64-atk.png --machine c64-hires --kernel atkinson
 
 # a C64 program that shows the picture, and an Art Studio picture (320×200 only)
-npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.prg --machine c64-hires --bayer 8
-npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.art --machine c64-hires --bayer 8
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer2.prg --machine c64-hires --bayer 2
+npm run dither-cli -- samples/color-320x200.png samples/c64-bayer2.art --machine c64-hires --bayer 2
 ```
 
 ### Shortcuts
@@ -355,8 +357,8 @@ npm run dither-cli -- samples/color-320x200.png samples/c64-bayer8.art --machine
 | `npm run dither:bayer` | `gray-512.png` with `--bayer 4 --kernel none` |
 | `npm run dither:bayer:fs` | `gray-512.png` with `--bayer 4 --kernel floyd-steinberg` |
 | `npm run dither:color:bayer` | `color-512.png` with `--bayer 4 --kernel none --levels 4` |
-| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 8` as a PNG, a screen file and a tape (`.scr`, `.tap`), and `--kernel atkinson` as a PNG, to compare |
-| `npm run dither:c64` | `color-320x200.png` with `--machine c64-hires`: `--bayer 8` as a PNG, a program and an Art Studio picture (`.prg`, `.art`), and `--kernel atkinson` as a PNG, to compare |
+| `npm run dither:zx` | `color-256x192.png` with `--machine zx-spectrum`: `--bayer 2` as a PNG, a screen file and a tape (`.scr`, `.tap`), and `--bayer 4` and `--kernel atkinson` as PNGs, to compare |
+| `npm run dither:c64` | `color-320x200.png` with `--machine c64-hires`: `--bayer 2` as a PNG, a program and an Art Studio picture (`.prg`, `.art`), and `--bayer 4` and `--kernel atkinson` as PNGs, to compare |
 
 ## Output and timing
 

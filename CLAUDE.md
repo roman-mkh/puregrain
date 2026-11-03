@@ -698,15 +698,24 @@ Visual checks and benchmarks share one set of generated images:
 the two doc previews in `docs/images/test-images/` are the only ones
 committed (refresh: `npm run docs:images`). `npm run generate-images`
 writes both composites at 512², and the color one at 256×192 (the ZX
-Spectrum's screen) for `npm run dither:zx`: Bayer 8 inside the cells as
-a PNG and a `.scr` (the recommended mode, chosen by eye 2026-10-15 over
-Bayer 4 and Atkinson), and Atkinson as a PNG, kept next to it for
-comparison. Likewise at 320×200 (the C64's hires screen) for
-`npm run dither:c64`: Bayer 8 as a PNG, a `.prg` and an `.art`, and
-Atkinson as a PNG (chosen by eye 2026-10-18, as for the ZX; after
-blurring, Bayer 8, Bayer 4 and Atkinson kept the tones equally well,
-25.7/25.7/26.0, while Floyd–Steinberg and the Bayer 8 hybrid streaked,
-about 35). Two steps, `--palette zx15 --kernel atkinson` and then
+Spectrum's screen) for `npm run dither:zx`: Bayer 2 inside the cells as
+a PNG, a `.scr` and a `.tap`, and Bayer 4 and Atkinson as PNGs, to
+compare. Likewise at 320×200 (the C64's hires screen) for
+`npm run dither:c64`: Bayer 2 as a PNG, a `.prg` and an `.art`, and
+Bayer 4 and Atkinson as PNGs. The recommendation since 2026-11-03 (the
+user found 2×2 more authentic): Bayer 2 for the look of the time, Bayer
+4 for smooth tones, Atkinson for photos with fine detail; 8 and 16 stay.
+Measured: in 300 real ZX loading screens (ZXDB's 150 most voted games of
+1982–1989 and 150 more at random, through the ZXInfo API; the method in
+a short note in docs/machine-screens/README.md), 2×2 patterns fill areas
+in 22 screens, 4×4-only ones in 4, 8×8-only ones in none, and 95% of
+the two-color cells are drawn by hand; after blurring, Bayer 4 keeps the
+tones as well as Bayer 8, Bayer 2 like Atkinson. The C64 follows by
+analogy, uncounted, and the docs say so. Before, Bayer 8 had been
+chosen by eye on the test composite (2026-10-15 over Bayer 4 and
+Atkinson; for the C64 on 2026-10-18, when after blurring Bayer 8,
+Bayer 4 and Atkinson kept the tones equally well, 25.7/25.7/26.0, while
+Floyd–Steinberg and the Bayer 8 hybrid streaked, about 35). Two steps, `--palette zx15 --kernel atkinson` and then
 `--machine zx-spectrum --kernel none`, are mentioned briefly as an
 alternative worth trying for photos (2026-10-17, the user's find), not
 as a recommendation: measured after blurring, they keep the tones least

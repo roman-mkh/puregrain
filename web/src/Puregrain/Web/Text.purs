@@ -41,7 +41,7 @@ texts
      , fewerLevels :: String
      , moreLevels :: String
      , method :: String
-     , useBayer8 :: String
+     , useBayer2 :: String
      , hideSettings :: String
      , showSettings :: String
      , apply :: String
@@ -165,7 +165,7 @@ texts =
   , fewerLevels: "Fewer levels"
   , moreLevels: "More levels"
   , method: "Method"
-  , useBayer8: "Use 8×8"
+  , useBayer2: "Use 2×2"
   , hideSettings: "Hide the settings"
   , showSettings: "Show the settings"
   -- The phone's settings panel closes with it, and dithers then.
@@ -239,7 +239,7 @@ texts =
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
-  , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 8×8."
+  , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 2×2, the look of the time; 4×4 for smoother tones."
   , gray: "Turn the picture gray first"
   , originalShown: "The original is shown. Choose colors or a method to dither it."
   -- On a phone the settings are behind the header's button.

@@ -191,8 +191,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     the CLI. The result is a PNG; for a picture of the screen's size
     (256×192, 320×200) the machine's files too: `.scr` and `.tap`,
     `.prg` and `.art`. A machine with no method gives flat cells: a hint
-    names the recommended method (ordered dithering, 8×8), and nothing is
-    chosen by itself (decision 16). The tape's name follows the CLI's
+    names the recommended method (ordered dithering, 8×8; 2×2 since
+    2026-11-03, see decision 31's hint), and nothing is chosen by itself
+    (decision 16). The tape's name follows the CLI's
     rule (the name without its extension, printable ASCII only, the
     first 10 characters), applied to the picture's name, since the
     download's is generated; `puregrain` when nothing printable is left.
@@ -468,7 +469,12 @@ these decisions are phase 6's reference (the user).
       switch for screen readers: by the usual convention a switch takes
       effect at once, as every change on the page does (decision 16).
     - **The machine's hint** has "Use 8×8": one click, and still the
-      user's choice (decision 16).
+      user's choice (decision 16). Since 2026-11-03 "Use 2×2", the same
+      for both machines: "Recommended: ordered dithering, 2×2, the look
+      of the time; 4×4 for smoother tones." One button, not two, since
+      choosing a machine is mostly about its look (the user). Why 2×2
+      and 4×4: the count of real loading screens in
+      `docs/machine-screens/README.md`.
     - **Plain controls,** each with its label, and its notes beside it:
       the column and the phone's panel have the room. The user's idea of
       compact controls that grow when focused was dropped (the user): a

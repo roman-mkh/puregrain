@@ -275,18 +275,21 @@ the left, a ~50/50 mix on the right.
 - **Look for:** nothing to judge by eye; it's a test image.
 
 For the visual check of `--machine zx-spectrum`, use the color composite at
-256×192. `npm run dither:zx` writes it twice, to compare the two ways of
-dithering inside the cells: with ordered dithering, `--bayer 8`, as
-`samples/output-zx-bayer8.png` (and as `samples/output-zx-bayer8.scr` for
-an emulator), and with error diffusion, Atkinson, as
-`samples/output-zx-atkinson.png`. Look for, in both: every 8×8 cell in at
-most two colors, both normal or both bright; where colors change, a
-visible block grid, the edge stepping cell by cell ("attribute clash"; the
-sphere's outline shows it clearly); flat patches in exact Spectrum colors
-(pure red, green, blue, black) staying flat. In the Bayer version, smooth
-shading becomes a regular pattern of a cell's two colors, and every tone
-is kept: the sphere's shadow side shades from red to black, and the dark
-and light gray patches stay gray patterns. In the Atkinson version, the
+256×192. `npm run dither:zx` writes it three times, to compare the ways
+of dithering inside the cells: with ordered dithering, `--bayer 2`, as
+`samples/output-zx-bayer2.png` (and as `samples/output-zx-bayer2.scr` for
+an emulator) and `--bayer 4` as `samples/output-zx-bayer4.png`, and with
+error diffusion, Atkinson, as `samples/output-zx-atkinson.png`. Look for,
+in all three: every 8×8 cell in at most two colors, both normal or both
+bright; where colors change, a visible block grid, the edge stepping cell
+by cell ("attribute clash"; the sphere's outline shows it clearly); flat
+patches in exact Spectrum colors (pure red, green, blue, black) staying
+flat. In the Bayer versions, smooth shading becomes a regular pattern of
+a cell's two colors. With `--bayer 2` it falls into coarse steps,
+checkerboards and dots, 5 per pair of colors, so the sphere shades in
+bands; with `--bayer 4` the steps are finer and the tones are kept: the
+sphere's shadow side shades from red to black, and the dark and light
+gray patches stay gray patterns. In the Atkinson version, the
 dots are irregular, and dark and light tones are pushed to black and
 white: the sphere's shadow side turns solid black. With Floyd–Steinberg,
 thin streaks of extreme pixels can appear, mostly vertical: error a
@@ -306,18 +309,19 @@ a known limit of error diffusion in cells, not a regression.
 - **Look for:** nothing to judge by eye; it's a test image.
 
 For the visual check of `--machine c64-hires`, use the color composite at
-320×200. `npm run dither:c64` writes it, as for the Spectrum, with
-ordered dithering, `--bayer 8`, as `samples/output-c64-bayer8.png` (and as
-`.prg` and `.art`, for an emulator and a viewer), and with Atkinson as
+320×200. `npm run dither:c64` writes it as for the Spectrum: with
+ordered dithering, `--bayer 2`, as `samples/output-c64-bayer2.png` (and
+as `.prg` and `.art`, for an emulator and a viewer) and `--bayer 4` as
+`samples/output-c64-bayer4.png`, and with Atkinson as
 `samples/output-c64-atkinson.png`. Look for the same as on the Spectrum:
 every 8×8 cell in at most two colors, the cell grid where colors change,
 and patterns of a cell's two colors in smooth shading. The colors are
 the C64's, softer than the Spectrum's: the hue bands come out in its
 reds, greens and blues, and the patches with exact Spectrum colors don't
-stay flat, since the C64 has no pure red, green or blue. Bayer 8 and
-Atkinson keep the tones equally well here (measured after blurring,
-2026-10-18); with Floyd–Steinberg, the streaks known from the Spectrum
-appear.
+stay flat, since the C64 has no pure red, green or blue. Bayer 4, Bayer
+8 and Atkinson keep the tones equally well here (measured after
+blurring, 2026-10-18); with Floyd–Steinberg, the streaks known from the
+Spectrum appear.
 
 ## Exact checks
 
