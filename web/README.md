@@ -85,9 +85,10 @@ fills the page, and the settings open over it (see below).
    the original shows until a picture's first result is there, again
    after a new target, fit or background, and after Cancel.
 4. **Compare.** The original shows left of the split and the result right
-   of it, as the labels above the picture's corners say. Drag the split's
-   handle, or give it the focus (Tab) and move it with ← and → (ten
-   columns with Shift), Home and End. The zoom, 1× to 4×, makes each
+   of it, as the labels above the picture's corners say; a click on one
+   shows the whole of it. Drag the split's handle, or give it the focus
+   (Tab) and move it with ← and → (ten columns with Shift), Home and End.
+   The zoom, 1× to 4×, makes each
    picture pixel exactly 1 to 4 screen pixels wide, whatever the screen's
    density, so the dither pattern stays sharp: at any other scale it
    would blur or form moiré. A large picture scrolls in its area.
@@ -278,7 +279,8 @@ AAA isn't aimed at.
   and Safari: for four settings, one for each kind of colors, the
   downloaded PNG has the command-line tool's pixels; for both machines,
   the PNG too, and their files are the tool's, byte for byte; the split
-  is exact to the screen pixel, and dragging its handle selects nothing.
+  is exact to the screen pixel, dragging its handle selects nothing, and
+  a click on "Original" or "Result" moves it to that end.
   It needs Docker, usable without sudo: the browsers run in Playwright's
   image, which the first run downloads (about 1 GB). Build first
   (`npm run build`, `npm run web:build`); `npm run check` builds both and
@@ -314,7 +316,8 @@ ideally in each of the browsers above:
    and stays where it is when a setting changes. Its handle follows the
    mouse, and a finger on a touch screen, where the picture still
    scrolls when touched elsewhere; with the focus, the arrow keys, Home
-   and End move it. On a picture taller than its area, the handle's knob
+   and End move it. A click or a tap on "Original" or "Result" shows the
+   whole of it. On a picture taller than its area, the handle's knob
    stays in sight while it scrolls.
 7. The downloaded file has the settings in its name and shows the result.
    For a machine, ▾ lists the formats; one chosen there becomes the

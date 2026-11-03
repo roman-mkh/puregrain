@@ -150,6 +150,7 @@ data Action
   | SplitDragged Event
   | SplitReleased Event
   | SplitKey KeyboardEvent
+  | SplitTo Int
   | DownloadClicked
   | FormatsToggled
   | FormatChosen Format

@@ -399,6 +399,9 @@ handleAction = case _ of
           liftEffect (Event.preventDefault (KE.toEvent event))
           H.modify_ _ { split = split }
       _ -> pure unit
+  -- A click on "Original" or "Result" above the picture shows the whole
+  -- of it, as End and Home do on the handle.
+  SplitTo split -> H.modify_ _ { split = split }
   -- The download (decision 31, `Puregrain.Web.Download`).
   DownloadClicked -> do
     s <- H.get

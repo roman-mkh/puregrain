@@ -56,6 +56,8 @@ texts
      , dropToLoad :: String
      , original :: String
      , result :: String
+     , showWholeOriginal :: String
+     , showWholeResult :: String
      , zoom :: String
      , zoomLevel :: Int -> String
      , target :: String
@@ -184,6 +186,8 @@ texts =
   -- Above the picture's corners, either side of the split.
   , original: "Original"
   , result: "Result"
+  , showWholeOriginal: "Show the whole original"
+  , showWholeResult: "Show the whole result"
   , zoom: "Zoom"
   , zoomLevel: \zoom -> show zoom <> "×"
   , target: "Target"

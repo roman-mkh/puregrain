@@ -4,8 +4,9 @@
 // colors, the downloaded PNG has the CLI's pixel values; for both
 // machines, at their screens' sizes, the PNG too, and their files are the
 // CLI's, byte for byte; the split shows the original left of it and the
-// result right of it, exact to the screen pixel, and dragging its handle
-// selects nothing.
+// result right of it, exact to the screen pixel, dragging its handle
+// selects nothing, and a click on "Original" or "Result" moves it to its
+// end.
 //
 // The browsers run in Playwright's Docker image, of the installed
 // playwright-core's version. Inside the container,
@@ -216,6 +217,18 @@ const checksIn = async (engine, page) => {
       `${engine}: dragging the split's handle far out of the picture selects nothing${found.length === 0 ? '' : ` (it selected, dragged ${found.join('; ')})`}`);
   };
 
+  // A click on "Result" shows the whole result, on "Original" the whole
+  // original: the split goes to 0 and to the width.
+  const checkLabels = async (width) => {
+    const split = () => page.evaluate(() => Number(document.querySelector('.handle').getAttribute('aria-valuenow')));
+    await page.locator('.sides span', { hasText: 'Result' }).click({ timeout: 5000 });
+    const toResult = await split();
+    await page.locator('.sides span', { hasText: 'Original' }).click({ timeout: 5000 });
+    const toOriginal = await split();
+    report(toResult === 0 && toOriginal === width,
+      `${engine}: a click on "Result" moves the split to ${toResult}, on "Original" to ${toOriginal} (the width, ${width})`);
+  };
+
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();
@@ -234,6 +247,7 @@ const checksIn = async (engine, page) => {
       const result = pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`));
       for (const split of [160, 0, 320, 1, 37, 319]) await checkSplit(original, result, split);
       await checkDragSelects();
+      await checkLabels(original.width);
     }
   }
 

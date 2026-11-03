@@ -490,7 +490,14 @@ these decisions are phase 6's reference (the user).
       and End to the edges, like any slider, without scrolling the page.
       The knob stays in the visible part when the picture is taller than
       its area. "Original" and "Result" above the picture's corners, in
-      the margin around it.
+      the margin around it. Since 2026-11-03 (the user's idea; the user
+      had clicked them once to see the whole original), a click or a tap
+      on one shows the whole of it, as End and Home do on the handle:
+      for the pointer only, with a tooltip and a pointer cursor; to the
+      keyboard and to screen readers they stay plain text, since the
+      handle does the same. Not a button, which would duplicate the
+      handle's keys, and not a link, which would promise to go
+      somewhere.
     - **Download** (decision 24's format menu, the user's idea): a
       button naming its format ("Download PNG"), with ▾ beside it when
       there are more: a machine's files, each with the name it's saved
