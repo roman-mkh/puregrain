@@ -4,8 +4,9 @@
 -- | - `ditherImage`, which dithers an image in memory; `ditherRows`, which
 -- |   dithers a lazy stream of rows, each when it's needed; and
 -- |   `initDithering` with `ditherRow`, one row at a time from any source;
--- | - the kernels `floydSteinberg`, `atkinson` and `jarvisJudiceNinke`, and
--- |   `noDiffusion` for none;
+-- | - the kernels `floydSteinberg`, `atkinson`, `jarvisJudiceNinke`,
+-- |   `stucki`, `burkes`, `sierra3`, `sierra2`, `sierraLite`, `fan`,
+-- |   `shiauFan` and `shiauFan2`, and `noDiffusion` for none;
 -- | - the quantizers `threshold`, `nearestLevel` with `evenRamp`, and
 -- |   `perChannel` for color; `nearestColor` with the palette presets;
 -- |   `bayer` and `ordered` for ordered dithering;
@@ -36,7 +37,7 @@ module Puregrain
   ) where
 
 import Puregrain.Dither (Dithering, ditherImage, ditherRow, ditherRows, initDithering)
-import Puregrain.Kernel (Kernel, Offset, atkinson, floydSteinberg, jarvisJudiceNinke, noDiffusion)
+import Puregrain.Kernel (Kernel, Offset, atkinson, burkes, fan, floydSteinberg, jarvisJudiceNinke, noDiffusion, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)
 import Puregrain.Palette (nearestColor)
 import Puregrain.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
