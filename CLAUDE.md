@@ -234,6 +234,13 @@ from the code alone.
   builds on them.
 - `logo/README.md` — the logo's files, their use, and how it's made and
   made again; `logo/LICENSE.md`, its terms.
+- `docs/similar-tools.md` — an internal working document, not linked
+  from the README (the user, 2026-11-04): a survey of similar tools, the
+  facts behind the positioning. Part 1, converters for retro machines
+  (2026-11-03): puregrain is the narrowest, but alone in exactness
+  across library, CLI and web, in an MIT library (Dithertron's is
+  GPL-3.0) and in evidence for its recommendations. Part 2, general
+  dithering tools and libraries, later.
 
 ## Core architecture
 

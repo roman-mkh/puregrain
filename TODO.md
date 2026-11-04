@@ -113,6 +113,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       gradient dithered to black and white, then the dots painted in the two colors). The library can do it in
       a few lines today (`ordered` on gray, then a `map` to the colors); the value would be in the CLI and the
       web UI, as an option, perhaps with a preset or two.
+- [ ] **Halftone maps: round dots, lines, crosses, honeycomb** (an idea, 2026-11-03, from the user's question
+      about "honeycomb"): ready-made threshold maps for `Puregrain.Ordered`, each with a size. Bayer's maps
+      scatter the dots (dispersed dots, the computer look); these gather them into dots that grow (clustered
+      dots, the print look). Honeycomb is such dots on a hexagonal grid, each with six neighbours, as in
+      Ulichney's *Digital Halftoning*; on square pixels, a rectangular tile with every other row of dots shifted
+      by half a dot. The mechanism exists: `compileThresholdMap` takes any rectangular map of ranks, so what's
+      missing is the maps themselves. They'd work pure, as the hybrid with a kernel, and inside machine cells;
+      in the web UI, next to the Bayer sizes. Dots need room: a period of 6 to 12 pixels looks coarse on a
+      256×192 screen, and on square pixels the hexagon's 60° angles are only approximate.
 
 ## Application
 
@@ -126,6 +135,21 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
       Then the web UI can show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
+
+## Before 1.0
+
+- [ ] **The project's one-liner** (2026-11-04): one sentence that says where puregrain is best, for the top of
+      the root README under the logo, for GitHub's "About" description, and, in v3, for the web UI's header in
+      place of its tagline (web/ROADMAP.md, "Versions"). Not settled yet (the user): it may get better as the
+      features grow. The candidates so far:
+      1. "**Authentic 8-bit screens, exactly:** a dithering library, a command-line tool and a web app with the
+         same results everywhere, and machine screens true to the art of the time."
+      2. "**Exact dithering, from library to browser:** an MIT-licensed PureScript library, a command-line tool
+         and a web app with the same results everywhere, and 8-bit machine screens true to the art of the time."
+
+      What only puregrain has, by the survey of similar tools (docs/similar-tools.md): exactness across library,
+      CLI and web, an MIT library, and evidence for its recommendations; "authentic" alone, many tools can
+      claim. "True to the art of the time", not "backed by", since the C64 follows only by analogy.
 
 ## Future directions (not in scope now)
 
@@ -177,6 +201,13 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       swappable — see `Puregrain.Palette`). Requires an RGB→Lab conversion
       (through XYZ, with a chosen white point/gamma assumption) that
       doesn't exist yet anywhere in this codebase.
+      Also a candidate (noted 2026-11-03), next to CIELAB, not instead:
+      **OKLab** (Björn Ottosson, 2020), which ditherit.com uses for its
+      palette distance. Simpler to compute: linear sRGB, two 3×3 matrices
+      and a cube root, with no white point to choose; and designed to keep
+      hues steadier than CIELAB, blues notably. Both start from linear
+      light, so they'd share that step with "Dithering in linear light".
+      Which one, or both, is decided when the item is done.
 - [ ] Effectful quantizers and row sources (pipes/coroutines): postponed until someone needs them. Quantizers
       stay pure; if ever, as an extension package. For row sources, a generic driver on top of the stepper
       would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)

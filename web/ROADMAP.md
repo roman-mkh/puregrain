@@ -43,7 +43,8 @@ users is a separate task, see TODO.md.)
   logo (decision 28); the design, the look and feel; at its end the
   merge into `master`, then the hosting and the checks on phones and in
   Safari and Chrome (decision 13). Planned on 2026-10-22: decisions 20
-  to 26, and the phases below.
+  to 26, and the phases below. Done: merged on 2026-11-02, then checked
+  on devices.
 - **v2.1** (2026-11-03), after the first checks on devices: no text
   selection while the split's handle is dragged (Safari); the footer's
   versions on the left, "built on", its links on the right; for both
@@ -73,7 +74,12 @@ users is a separate task, see TODO.md.)
   only offer the same chooser); and a zoom of 0.5× at least, for
   pictures larger than the screen. Below 1× a screen pixel covers
   several picture pixels, so the dithering's pattern can't show as it
-  is: an overview, to be marked as such.
+  is: an overview, to be marked as such. And the header's tagline
+  becomes the project's one-liner, its lead in bold, once the
+  one-liner is settled (TODO.md, "Before 1.0"; the user, 2026-11-04):
+  the tagline's promise that pictures stay
+  in the browser is in the drop zone already, where it matters, before
+  a picture is chosen.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
@@ -785,6 +791,20 @@ phase 7 (decision 28).
 - Translations of the UI's texts.
 - Keeping transparency in the output, for icons and sprites: in TODO.md's
   future directions, since it concerns the library and the CLI too.
+- **Pasting a picture** (the user's idea, 2026-11-04): an image copied
+  anywhere, from a web page or another program, and pasted onto the
+  page becomes the original, as a file chosen or dropped does. On a
+  phone, which has no Ctrl+V, pasting needs something to tap.
+- **A picture from its address** (the user's idea, 2026-11-04): a link
+  to an image, given to the page, loads that image as the original; a
+  link to something that isn't a picture, or not one the browser can
+  read, gets a message, as such a file does. Pasting the link may be
+  enough, so that one gesture covers both ideas: an image, or a link to
+  one. To keep in mind: a page that runs only in the browser can read
+  another site's picture only when that site allows it (CORS), and many
+  sites don't; a server of our own in between would break the promise
+  that nothing leaves the browser. A picture dragged from another page
+  often brings only its link, the same case.
 
 ## Phases of v1
 
@@ -903,4 +923,4 @@ us (the user's proposal, 2026-10-22). The sizes are rough.
 - [x] 4. The logo: the mark, the wordmark, the lockup and the swash in two color sets, dithered by puregrain; SVG, PNG, the favicons and the social preview; its own terms; the SVGs and the icons checked in Firefox
 - [x] 5. Design review: two designs made separately, compared goal by goal; decisions 29 to 34, and phase 6's plan
 - [x] 6. Design: decisions 29 to 34 built in six steps, each checked in headless Firefox: our own stylesheet in place of Pico, the two themes, the page's skeleton; the settings' column as numbered steps, with the « / » tab; the picture area and the bar (the drop zone, the drag's overlay, a bad file keeping the picture, the split's handle with its sticky knob, the result kept during a run, the progress after a second); download and keys (the button naming its format with ▾ and its list, the format kept with its fallback, Ctrl/Cmd+O and +S, Esc, + and −); phones (the settings as a panel over the screen, with Apply, the runs held until it closes, the back gesture); accessibility (skip links, live regions for the run's milestones and errors, the pictures' names, an `<h1>`, contrast and target sizes measured, axe-core 4.14.0 finding nothing)
-- [ ] 7. Delivery
+- [x] 7. Delivery: the browser checks (`npm run check:web`: Playwright, only the browsers in Docker, also in CI); publishing on GitHub Pages from `master`, after the checks; the docs for the merge (the README's logo heading, long-lived branches as exceptions in CONTRIBUTING.md, the roadmap kept); the pull request, merged on 2026-11-02 (#5); then the user's checks on devices (Firefox, Edge, Brave, Safari 16.6, and Chrome and Brave on Android), which found one issue, a text selection in Safari, fixed in v2.1 (#6, 2026-11-03)
