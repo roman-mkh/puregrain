@@ -9,7 +9,7 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
-import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, threshold, websafe216, zxSpectrum)
+import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
 import Effect.Aff (Aff)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
@@ -226,6 +226,14 @@ spec = describe "Puregrain.Cli.Pipeline" do
       kernelOf FloydSteinberg `shouldEqual` floydSteinberg
       kernelOf Atkinson `shouldEqual` atkinson
       kernelOf JarvisJudiceNinke `shouldEqual` jarvisJudiceNinke
+      kernelOf Stucki `shouldEqual` stucki
+      kernelOf Burkes `shouldEqual` burkes
+      kernelOf Sierra3 `shouldEqual` sierra3
+      kernelOf Sierra2 `shouldEqual` sierra2
+      kernelOf SierraLite `shouldEqual` sierraLite
+      kernelOf Fan `shouldEqual` fan
+      kernelOf ShiauFan `shouldEqual` shiauFan
+      kernelOf ShiauFan2 `shouldEqual` shiauFan2
       kernelOf NoDiffusion `shouldEqual` noDiffusion
 
     it "each palette name maps to the library's palette" do

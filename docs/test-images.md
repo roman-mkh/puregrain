@@ -334,6 +334,7 @@ Two tiles have exact, checkable expectations when rendered on their own
 - **`color:palette-exact`, with the web-safe palette** (`--palette
   websafe216` or `--levels 6`): output equals input byte for byte, with any
   kernel. Every pixel is a palette color, so the error is zero everywhere.
+  The check tries every kernel, on the tile at 128×128.
 - **`color:channel-ramps`, with scalarED (`--levels N`) or vectorED
   web-safe (`--palette websafe216`):** every pixel of the gray stripe stays
   exactly neutral (`r = g = b`). It's the first stripe, so all three
@@ -374,8 +375,8 @@ images, maps and levels.
 The machine screens have checks of their own:
 
 - **`color:zx-cells` at 256×192, with `--machine zx-spectrum`:** output
-  equals input byte for byte, with Floyd–Steinberg, with `--kernel none`,
-  and with `--bayer 8`, pure and combined with Floyd–Steinberg. Every cell
+  equals input byte for byte, with every kernel, `none` included, and with
+  `--bayer 8`, pure and combined with Floyd–Steinberg. Every cell
   holds only one attribute's colors, so it fits that attribute exactly,
   the error is zero everywhere, and nothing changes; with `--bayer`, every
   threshold lies strictly between a cell's two colors, so each stays. It
@@ -385,7 +386,7 @@ The machine screens have checks of their own:
   first, leaves it unchanged. Also a property in
   `Test.Puregrain.ZxSpectrumSpec`, for arbitrary screens and kernels.
 - **`color:c64-cells` at 320×200, with `--machine c64-hires`:** the same
-  for the C64's hires cells, in the same four modes. Here the grays test
+  for the C64's hires cells, in the same modes. Here the grays test
   the order: grey lies on the segment from black to white, so a cell of
   black and grey fits black and white perfectly too, and only the nearer
   pair, tried first, leaves it unchanged. Also a property in

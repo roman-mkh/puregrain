@@ -2,11 +2,12 @@
 
 Error-diffusion and ordered dithering of PNG images from the command
 line, built on the puregrain library in this repository. It reads a PNG,
-dithers it with a classic error-diffusion kernel (Floyd–Steinberg, Atkinson
-or Jarvis–Judice–Ninke), with ordered (Bayer) dithering, or with both
-combined, and writes the result as a PNG: 1-bit black and white, a few gray
-or color levels, a fixed palette, or a ZX Spectrum screen, which it can also
-write as the Spectrum's own screen file.
+dithers it with an error-diffusion kernel (Floyd–Steinberg, Atkinson,
+Jarvis–Judice–Ninke or one of eight more), with ordered (Bayer)
+dithering, or with both combined, and writes the result as a PNG: 1-bit
+black and white, a few gray or color levels, a fixed palette, or a ZX
+Spectrum screen, which it can also write as the Spectrum's own screen
+file.
 
 > **Status:** a development tool inside the puregrain workspace. It isn't
 > published as a package yet, so run it from a checkout of this repository.
@@ -58,7 +59,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 |---|---|---|---|
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
 | `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr`, `.tap`, `.prg` or `.art`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
-| `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
+| `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `stucki`, `burkes`, `sierra-3`, `sierra-2`, `sierra-lite`, `fan`, `shiau-fan`, `shiau-fan-2`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
@@ -118,8 +119,19 @@ unless `--format` says what to write.
 |---|---|---|
 | `floyd-steinberg` | 4 neighbours: 1 to the right, 3 in the row below | The classic. Fine texture; at tones very near black or white, dots tend to line up into curved diagonal strings ("worms"). |
 | `atkinson` | 6 neighbours over the next 2 rows, but only **3/4** of the error | Throws a quarter of the error away on purpose: crisper, higher contrast, but dark and light tones get pushed toward solid black and white, losing detail there. About 1.5× Floyd–Steinberg's time. |
-| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slowest: about 2.5× Floyd–Steinberg's time. |
+| `jjn` (Jarvis–Judice–Ninke) | 12 neighbours over the next 2 rows | Error spread widest, for the smoothest texture. Slow: about 2.5× Floyd–Steinberg's time. |
+| `stucki` | 12 neighbours over the next 2 rows | Like `jjn`, with other weights, for a clean, sharp result. |
+| `burkes` | 7 neighbours: 2 to the right, 5 in the row below | `stucki` without its last row: faster, at a small cost in quality. |
+| `sierra-3` | 10 neighbours over the next 2 rows | Results like `jjn`'s, with fewer neighbours. |
+| `sierra-2` | 7 neighbours: 2 to the right, 5 in the row below | A faster `sierra-3`, over one row below. |
+| `sierra-lite` | 3 neighbours: 1 to the right, 2 in the row below | Results like Floyd–Steinberg's, with one neighbour fewer. |
+| `fan` | 4 neighbours: 1 to the right, 3 in the row below | Floyd–Steinberg with one weight moved: its 1/16 from below-right to two columns left. |
+| `shiau-fan` | 4 neighbours: 1 to the right, 3 in the row below | Made to reduce Floyd–Steinberg's worms, with weights in eighths. |
+| `shiau-fan-2` | 5 neighbours: 1 to the right, 4 in the row below | The same aim, reaching three columns to the left. |
 | `none` | nowhere | No error diffusion: each pixel is decided on its own. With `--bayer`, that's pure ordered dithering, and the default there. With `--threshold` or `--levels`, each pixel is just rounded to a level (posterization). |
+
+For `stucki` to `shiau-fan-2`, the character is as their sources
+describe it; they haven't been compared here yet.
 
 The exact weights are in `src/Puregrain/Kernel.purs`. Time grows with the
 number of neighbours, because each one costs the same per pixel; the
@@ -249,7 +261,7 @@ and `toArtStudio` for its files).
 ### Gray
 
 ```bash
-# the three kernels on the same image
+# three kernels on the same image
 npm run dither-cli -- samples/gray-512.png samples/fs.png  --kernel floyd-steinberg
 npm run dither-cli -- samples/gray-512.png samples/atk.png --kernel atkinson
 npm run dither-cli -- samples/gray-512.png samples/jjn.png --kernel jjn
@@ -400,8 +412,8 @@ error.
   and a threshold, so roughly 0.4 s for 512×512 and 2 s for 1024×1024 on
   the development machine. The color modes take about 2 to 5 times as
   long, and ordered dithering without diffusion (`--bayer N` alone) about
-  a third. Details, and every mode and kernel, are in
-  [the benchmarks](../docs/benchmarks-dithering.md).
+  a third. Details, for every mode and for `floyd-steinberg`, `atkinson`
+  and `jjn`, are in [the benchmarks](../docs/benchmarks-dithering.md).
 
 ## Development
 

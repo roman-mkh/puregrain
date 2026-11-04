@@ -30,7 +30,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits as CodeUnits
-import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, threshold, websafe216, zxSpectrum)
+import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
@@ -174,6 +174,14 @@ kernelOf = case _ of
   FloydSteinberg -> floydSteinberg
   Atkinson -> atkinson
   JarvisJudiceNinke -> jarvisJudiceNinke
+  Stucki -> stucki
+  Burkes -> burkes
+  Sierra3 -> sierra3
+  Sierra2 -> sierra2
+  SierraLite -> sierraLite
+  Fan -> fan
+  ShiauFan -> shiauFan
+  ShiauFan2 -> shiauFan2
   NoDiffusion -> noDiffusion
 
 paletteOf :: PaletteName -> NonEmptyArray RGB

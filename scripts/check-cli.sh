@@ -13,6 +13,7 @@ mkdir -p $out
 
 node scripts/generate-images.mjs --pattern color --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:palette-exact --out $out >/dev/null
+node scripts/generate-images.mjs --pattern color:palette-exact --size 128 --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:channel-ramps --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:zx-cells --size 256x192 --out $out >/dev/null
 node scripts/generate-images.mjs --pattern color:c64-cells --size 320x200 --out $out >/dev/null
@@ -21,6 +22,14 @@ node scripts/generate-images.mjs --pattern color --size 320x200 --out $out >/dev
 
 pass() { echo "PASS  $1"; }
 fail() { echo "FAIL  $1"; exit 1; }
+
+# Every kernel's name, from the CLI's own list (allKernels and kernelName
+# in Puregrain.Cli.Options), so that a new kernel is checked without being
+# named here too. For the checks that hold with any kernel (2 and 6).
+kernels=$(node --input-type=module -e '
+  const { allKernels, kernelName } = await import(`./${process.env.PUREGRAIN_OUTPUT || "output"}/Puregrain.Cli.Options/index.js`);
+  console.log(allKernels.map(kernelName).join(" "));')
+kernel_count=$(wc -w <<< "$kernels")
 
 # 1. vectorED with the web-safe palette == scalarED with 6 levels per
 #    channel (the cube's steps), byte for byte — proved as a property in
@@ -32,12 +41,16 @@ cmp -s $out/websafe.png $out/levels6.png \
   || fail "color composite: --palette websafe216 != --levels 6"
 
 # 2. An image made only of palette colors has zero error everywhere, so it
-#    must come back unchanged — in both modes.
+#    must come back unchanged — in both modes, with every kernel. At
+#    128×128: the same 12 patches as at 512×512, in a sixteenth of the
+#    time per run.
 for mode in "--palette websafe216" "--levels 6"; do
-  $cli $out/color-palette-exact-512.png $out/exact.png $mode >/dev/null
-  cmp -s $out/color-palette-exact-512.png $out/exact.png \
-    && pass "color:palette-exact alone, $mode: output == input" \
-    || fail "color:palette-exact alone, $mode: output differs from input"
+  for kernel in $kernels; do
+    $cli $out/color-palette-exact-128.png $out/exact.png $mode --kernel $kernel >/dev/null
+    cmp -s $out/color-palette-exact-128.png $out/exact.png \
+      || fail "color:palette-exact alone, $mode --kernel $kernel: output differs from input"
+  done
+  pass "color:palette-exact alone, $mode, with each of the $kernel_count kernels: output == input"
 done
 
 # 3. The gray stripe is the top quarter of color:channel-ramps. Rendered
@@ -96,19 +109,23 @@ done
 #    cell only the two colors of one of its cells: a ZX Spectrum
 #    attribute's ink and paper, or a C64 hires cell's two colors) fits the
 #    machine's own cells exactly, so the error is zero everywhere and it
-#    must come back unchanged: with error diffusion and without, and with
-#    ordered dithering inside the cells, pure and combined with a kernel
-#    (every threshold lies strictly between a cell's two colors). The CLI
-#    twin of the properties in Test.Puregrain.ZxSpectrumSpec and
-#    Test.Puregrain.C64Spec.
+#    must come back unchanged: with every kernel, none included, and with
+#    ordered dithering inside the cells, pure and combined with
+#    Floyd-Steinberg (every threshold lies strictly between a cell's two
+#    colors). A kernel only passes the error on, zero here, so one kernel
+#    is enough for the combination. The CLI twin of the properties in
+#    Test.Puregrain.ZxSpectrumSpec and Test.Puregrain.C64Spec.
+modes=()
+for kernel in $kernels; do modes+=("--kernel $kernel"); done
+modes+=("--bayer 8" "--bayer 8 --kernel floyd-steinberg")
 for screen in "zx-spectrum zx-cells 256x192" "c64-hires c64-cells 320x200"; do
   set -- $screen
-  for mode in "--kernel floyd-steinberg" "--kernel none" "--bayer 8" "--bayer 8 --kernel floyd-steinberg"; do
+  for mode in "${modes[@]}"; do
     $cli $out/color-$2-$3.png $out/$1.png --machine $1 $mode >/dev/null
     cmp -s $out/color-$2-$3.png $out/$1.png \
-      && pass "color:$2 alone, --machine $1 $mode: output == input" \
       || fail "color:$2 alone, --machine $1 $mode: output differs from input"
   done
+  pass "color:$2 alone, --machine $1, with each of the $kernel_count kernels, and with --bayer 8, pure and with floyd-steinberg: output == input"
 done
 
 # 7. A .scr file (--format scr) holds the same picture as the PNG of the

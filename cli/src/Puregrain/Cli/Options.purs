@@ -40,7 +40,19 @@ import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..)
 -- | `NoDiffusion` is the empty kernel: each pixel is quantized on its
 -- | own, so `--bayer` with it gives pure ordered dithering (the default
 -- | with `--bayer`, see `resolve`).
-data KernelName = FloydSteinberg | Atkinson | JarvisJudiceNinke | NoDiffusion
+data KernelName
+  = FloydSteinberg
+  | Atkinson
+  | JarvisJudiceNinke
+  | Stucki
+  | Burkes
+  | Sierra3
+  | Sierra2
+  | SierraLite
+  | Fan
+  | ShiauFan
+  | ShiauFan2
+  | NoDiffusion
 
 derive instance Eq KernelName
 derive instance Generic KernelName _
@@ -122,7 +134,8 @@ type Options =
 -- | (The compiler checks that the name functions cover every constructor;
 -- | it can't check these lists, so a new constructor must be added here.)
 allKernels :: Array KernelName
-allKernels = [ FloydSteinberg, Atkinson, JarvisJudiceNinke, NoDiffusion ]
+allKernels =
+  [ FloydSteinberg, Atkinson, JarvisJudiceNinke, Stucki, Burkes, Sierra3, Sierra2, SierraLite, Fan, ShiauFan, ShiauFan2, NoDiffusion ]
 
 allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
@@ -162,6 +175,14 @@ kernelName = case _ of
   FloydSteinberg -> "floyd-steinberg"
   Atkinson -> "atkinson"
   JarvisJudiceNinke -> "jjn"
+  Stucki -> "stucki"
+  Burkes -> "burkes"
+  Sierra3 -> "sierra-3"
+  Sierra2 -> "sierra-2"
+  SierraLite -> "sierra-lite"
+  Fan -> "fan"
+  ShiauFan -> "shiau-fan"
+  ShiauFan2 -> "shiau-fan-2"
   NoDiffusion -> "none"
 
 paletteName :: PaletteName -> String
