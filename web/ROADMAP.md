@@ -55,19 +55,22 @@ users is a separate task, see TODO.md.)
   `web-v2.1`, merged by one squashed pull request (the user's choice,
   for this release). Improvements published between the roadmap's
   versions count up after the dot.
-- **v2.2** (planned 2026-11-05): the eight kernels of the library's 0.2.1
-  in the kernel menu, Phase B of `docs/kernels-spec.md`. The menu stays
-  one flat list, of 12 entries, in the CLI's order with None first: None,
-  Floyd-Steinberg, Atkinson, Jarvis-Judice-Ninke, Stucki, Burkes, Sierra
-  3, Sierra 2, Sierra Lite, Fan, Shiau-Fan, Shiau-Fan 2 (the user's
-  choice: a group like the colors menu's "Palettes" saves no room, its
-  heading even adds a row, and groups by the kernels' shapes would be
-  names of our own). The labels from the spec's table of names, the
-  downloads named with the CLI's names. No note on the chosen kernel:
-  v3's (i) will describe it. `check:web` compares one new kernel with the
-  CLI: Shiau-Fan 2, with 4 levels, the most unusual shape (it reaches
-  three columns to the left). On a short-lived branch, `web-v2.2`, as
-  v2.1; at its end the spec is deleted, its Phase B now here.
+- **v2.2** (2026-11-05): the eight kernels of the library's 0.2.1 in the
+  kernel menu. The menu stays one flat list, of 12 entries, in the CLI's
+  order with None first: None, Floyd-Steinberg, Atkinson,
+  Jarvis-Judice-Ninke, Stucki, Burkes, Sierra 3, Sierra 2, Sierra Lite,
+  Fan, Shiau-Fan, Shiau-Fan 2 (the user's choice: a group like the colors
+  menu's "Palettes" saves no room, its heading even adds a row, and
+  groups by the kernels' shapes would be names of our own). The downloads
+  are named with the CLI's names. No note on the chosen kernel: v3's (i)
+  will describe it. `check:web` compares one new kernel with the CLI:
+  Shiau-Fan 2, with 4 levels, the most unusual shape (it reaches three
+  columns to the left); 60 checks, three of them new, and one of
+  Shiau-Fan 2's weights changed in the built worker failed exactly those
+  three. On a short-lived branch, `web-v2.2`, as v2.1. The kernels'
+  specification, `docs/kernels-spec.md` (Phase A, the library's 0.2.1;
+  Phase B, this), was deleted at the end, as planned: its content lives
+  on in `docs/error-diffusion.md`, here, and in the pull requests.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.

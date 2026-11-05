@@ -1,7 +1,8 @@
 // End-to-end checks of the web UI in real browsers, Chromium, Firefox and
 // WebKit: the exact parts of the manual checklist (web/README.md,
-// "Checking a change by hand"). For four settings, one for each kind of
-// colors, the downloaded PNG has the CLI's pixel values; for both
+// "Checking a change by hand"). For five settings, one for each kind of
+// colors and one of the newer kernels, the downloaded PNG has the CLI's
+// pixel values; for both
 // machines, at their screens' sizes, the PNG too, and their files are the
 // CLI's, byte for byte; the split shows the original left of it and the
 // result right of it, exact to the screen pixel, dragging its handle
@@ -47,6 +48,10 @@ const SETTINGS = [
     cli: ['--palette', 'cga16', '--kernel', 'jjn'], name: 'cga16-jjn' },
   { what: '4 levels, Bayer 4', colors: 'levels', levels: '4', bayer: '4',
     cli: ['--levels', '4', '--bayer', '4'], name: 'levels4-bayer4' },
+  // One of the kernels of the library's 0.2.1, the one of the most unusual
+  // shape: it reaches three columns to the left (v2.2 in web/ROADMAP.md).
+  { what: '4 levels, Shiau-Fan 2', colors: 'levels', levels: '4', kernel: 'shiau-fan-2',
+    cli: ['--levels', '4', '--kernel', 'shiau-fan-2'], name: 'levels4-shiau-fan-2' },
 ];
 const MACHINES = [
   { what: 'the ZX Spectrum, Bayer 8', picture: 'color-256x192', target: 'zx-spectrum', formats: ['png', 'scr', 'tap'] },

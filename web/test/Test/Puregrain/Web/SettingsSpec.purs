@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, initial, isOriginal, machinePalettesOf, toMessage)
+import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, initial, isOriginal, kernelId, machinePalettesOf, toMessage)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -78,6 +78,12 @@ spec = describe "Puregrain.Web.Settings" do
       flatCells (chooseColors (Levels 4) initial) `shouldEqual` false
 
   describe "messages to the worker" do
+    -- The CLI's names, written out here: the web package doesn't depend on
+    -- the CLI's. The menu shows the kernels in this order.
+    it "names the kernels as the CLI does, in the CLI's order with none first" do
+      map kernelId allKernels `shouldEqual`
+        [ "none", "floyd-steinberg", "atkinson", "jjn", "stucki", "burkes", "sierra-3", "sierra-2", "sierra-lite", "fan", "shiau-fan", "shiau-fan-2" ]
+
     it "reads back every combination the page can send" do
       let
         everyColors = [ Original, Threshold 0, Threshold 128, Threshold 255, Levels 2, Levels 256 ] <> map Palette allPalettes

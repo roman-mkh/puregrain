@@ -47,7 +47,19 @@ import Data.Show.Generic (genericShow)
 -- | The kernels, as the CLI calls them. A table of the web package's own:
 -- | after v1, with two clients side by side, it's decided whether the
 -- | library should offer one (decision 12).
-data KernelName = NoDiffusion | FloydSteinberg | Atkinson | JarvisJudiceNinke
+data KernelName
+  = NoDiffusion
+  | FloydSteinberg
+  | Atkinson
+  | JarvisJudiceNinke
+  | Stucki
+  | Burkes
+  | Sierra3
+  | Sierra2
+  | SierraLite
+  | Fan
+  | ShiauFan
+  | ShiauFan2
 
 derive instance Eq KernelName
 derive instance Generic KernelName _
@@ -114,8 +126,11 @@ type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, baye
 initial :: Settings
 initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false }
 
+-- | The kernel menu's order: the CLI's, with None first (v2.2 in
+-- | ROADMAP.md).
 allKernels :: Array KernelName
-allKernels = [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke ]
+allKernels =
+  [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke, Stucki, Burkes, Sierra3, Sierra2, SierraLite, Fan, ShiauFan, ShiauFan2 ]
 
 allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
@@ -142,6 +157,14 @@ kernelId = case _ of
   FloydSteinberg -> "floyd-steinberg"
   Atkinson -> "atkinson"
   JarvisJudiceNinke -> "jjn"
+  Stucki -> "stucki"
+  Burkes -> "burkes"
+  Sierra3 -> "sierra-3"
+  Sierra2 -> "sierra-2"
+  SierraLite -> "sierra-lite"
+  Fan -> "fan"
+  ShiauFan -> "shiau-fan"
+  ShiauFan2 -> "shiau-fan-2"
 
 paletteId :: PaletteName -> String
 paletteId = case _ of
