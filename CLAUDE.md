@@ -878,6 +878,22 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   `Zx.normalScreen`/`brightScreen`, and the `c64` palette switched to
   Colodore, which changes output and so made it 0.2.0, not 0.1.2 (see
   CHANGELOG.md).
+- **0.2.1 was published on 2026-11-05** (17:42 UTC): tag `v0.2.1` on
+  `e24c0a4`, registry job `ea92db01-a13f-4e45-8179-3e6bc7c15837` (log:
+  https://registry.purescript.org/api/v1/jobs/ea92db01-a13f-4e45-8179-3e6bc7c15837;
+  finished after 33 s, `success: true`; its log says "Successfully
+  uploaded package docs to Pursuit"), CI green on `master` and on the
+  tag, GitHub Release created by CI. Contents: the eight kernels of
+  `docs/error-diffusion.md`, the raised minimum versions (package set
+  81.9.0), and a new registry description (the 11 kernels and the
+  machine screens), committed after the merge, so the published commit
+  is `e24c0a4`, not the merge's `c9cf2f0`. New since 0.2.0: the registry
+  runs the compiler matrix as separate jobs, queued at the publish job's
+  end, so right after the publish the metadata listed only 0.15.0,
+  0.15.2–0.15.5 and 0.15.16 (a partial matrix no longer means an
+  unfinished publish: check the job); and Pursuit sits behind Anubis bot
+  protection, which refuses automated fetches ("Access Denied"), so the
+  docs were confirmed from the job's log, and a browser shows them.
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified

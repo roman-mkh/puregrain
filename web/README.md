@@ -205,9 +205,9 @@ Safari; phones on a best-effort basis. Its results, its downloads and
 its split are checked automatically in those browsers' engines, as
 Playwright builds them for Linux (Chromium, Firefox and WebKit; see
 [Development](#development)). By hand, versions 2 and 2.1 were tried in
-November 2026 in Firefox 157 on Linux, Edge 156 and Brave 1.98 on
-Windows, Safari 16.6 on macOS, and Chrome 156 and Brave 1.98 on Android
-phones; not yet in Safari on an iPhone, nor in Chrome on a desktop.
+November 2026 in Firefox 157 on Linux, Chrome 156, Edge 156 and Brave
+1.98 on Windows, Safari 16.6 on macOS, and Chrome 156 and Brave 1.98 on
+Android phones; not yet in Safari on an iPhone.
 
 ## Accessibility
 
