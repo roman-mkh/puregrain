@@ -834,6 +834,15 @@ phase 7 (decision 28).
   sites don't; a server of our own in between would break the promise
   that nothing leaves the browser. A picture dragged from another page
   often brings only its link, the same case.
+- **Fresh files after each deploy** (2026-11-05): the page loads
+  `app.js`, `app.css` and the worker's script under the same names each
+  time, and GitHub Pages lets a browser keep them for 10 minutes
+  (`max-age=600`). So after a deploy a normal reload can still show the
+  old script (v2.1's footer, after v2.2's deploy, until a hard reload),
+  and a browser can combine a new `index.html` with an old script. A
+  small fix in `web/build.mjs`: each address carries a fingerprint of
+  the file's content (`app.js?v=3f2a1c`), in `index.html` and, for the
+  worker, in the script that starts it.
 
 ## Phases of v1
 
