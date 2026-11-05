@@ -18,7 +18,7 @@ from the code alone.
   Node-only or app packages here. MIT-licensed (`LICENSE` at the root
   covers the library and the CLI; the logo in `logo/` has terms of its
   own, see below); `package.publish` in `spago.yaml`
-  holds the license and the current version (0.2.0), and
+  holds the license and the current version (0.2.1), and
   `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
   `Puregrain.Cli.*`) — the command-line tool, a separate package that
@@ -39,7 +39,11 @@ from the code alone.
   `Puregrain.Cli.Main` I/O-only: decisions go in `Puregrain.Cli.Pipeline`
   (pure, tested in `cli/test/`). Kernel/palette CLI names are defined
   once (`kernelName`/`paletteName`); tables and help text derive from
-  them. `--kernel none` is the empty kernel. `--bayer N` (2–16) is its own
+  them, and `check-cli.sh` reads the kernels' names from the compiled
+  `allKernels`/`kernelName`, so its checks 2 and 6 run every kernel, a
+  new one included (2026-11-05; check 2 on the palette tile at 128×128,
+  the same patches in a sixteenth of the time: every kernel at 512×512
+  would have added 68 s). `--kernel none` is the empty kernel. `--bayer N` (2–16) is its own
   option; how it combines with the quantizer options (only with
   `--levels`; `--palette` is rejected) is checked after optparse, in
   `Options.resolve`, whose rejections `parseOptions` turns into ordinary
@@ -53,8 +57,8 @@ from the code alone.
   hybrid), not just the texture; a global default of none was rejected,
   since every other mode would then stop dithering by default. Floyd–
   Steinberg stays the general default: it passes on all the error (true
-  tones), with the fewest neighbours of the kernels that do, and it's the
-  classic. `--machine NAME`
+  tones), with few neighbours (of the kernels that do, only Sierra Lite,
+  since 0.2.1, has fewer: 3 to its 4), and it's the classic. `--machine NAME`
   (2026-10-11; names from `machineName`, now `zx-spectrum` and, since
   2026-10-17, `c64-hires`; constructors `ZxSpectrumScreen` and
   `C64HiresScreen`, since `ZxSpectrum` and `C64` are the palettes'; that palette's
@@ -213,6 +217,10 @@ from the code alone.
 - `examples/README.md` — the example programs: what each shows, how to
   run them, a REPL session with variations to try.
 - Reference docs live in `docs/` and are the single source of truth:
+  `error-diffusion.md` (2026-11-05: the 11 kernels, each with its table,
+  other names, sources, and what it's good for as the sources say it;
+  the project's own observations marked *seen here*; its tables were
+  checked against the compiled presets by a script when written),
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
   `machine-screens/` (decided 2026-10-16, the user's idea: one folder,
   its `README.md` for what all cell screens share, which mode for which
@@ -289,8 +297,17 @@ from the code alone.
   neighbour appears twice (rules 2–3 by "start closed": relaxing later
   is compatible). Weight sign and sum aren't checked (Atkinson's 3/4 is
   deliberate). `offsets` reads them back; presets `floydSteinberg`,
-  `atkinson`, `jarvisJudiceNinke`, and `noDiffusion` (the empty kernel;
-  `[]` is no longer a `Kernel`). The test generator draws distinct
+  `atkinson`, `jarvisJudiceNinke`, since 0.2.1 (2026-11-05) `stucki`,
+  `burkes`, `sierra3`, `sierra2`, `sierraLite`, `fan`, `shiauFan` and
+  `shiauFan2` (each table checked against at least two sources, listed in
+  `docs/error-diffusion.md`; `KernelSpec` writes each table out as
+  published, independently of the library), and `noDiffusion` (the empty
+  kernel; `[]` is no longer a `Kernel`). Names (decided 2026-11-04):
+  family first, the Sierras numbered by the rows they span, as FFmpeg and
+  DitherPunk.jl number them (`sierra3`, CLI `sierra-3`, label "Sierra
+  3"). Left out on purpose: Simple 2D (a teaching example), Stevenson–Arce
+  (made for hexagonal grids) and False Floyd–Steinberg (worse, and its
+  name confuses); the page's "Not included". The test generator draws distinct
   offsets per row, so its kernels always pass. `Puregrain.Internal.Kernel`:
   `CompiledKernel` (record: `currentOffsets`, `futureLayers`, `maxDepth`)
   is a precomputed cache built once via `compileKernel`, threaded through

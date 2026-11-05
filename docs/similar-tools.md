@@ -22,7 +22,7 @@ don't say, not that the feature is missing. Links: [Sources](#sources).
 | [BitPast](https://portwally.github.io/Bitpast/) | macOS app (App Store) | 15 machines, among them ZX Spectrum, C64 (also PETSCII), Amstrad CPC, MSX, BBC Micro, Apple II, Atari, Amiga, IBM PC | over 20 formats (`.scr`, `.prg`, Koala, Art Studio, `.sc2`…) and disk images (`.trd`, `.d64`, `.dsk`…) | "15+ algorithms", not named | not stated | not stated |
 | [RetroPIC](https://github.com/marlow75/retropic) | Java desktop app | C64, C16/Plus/4, VIC-20, C128, ZX Spectrum, Amstrad CPC, Atari ST, Amiga, PC CGA/VESA text | `.prg`, Koala, Art Studio, `.scr`, DEGAS, IFF, `.com` | Bayer, blue noise, Floyd–Steinberg, noise, Atkinson | not stated | not stated |
 | [Img2Spec](https://github.com/jarikomppa/img2spec) (Jari Komppa) | desktop app | ZX Spectrum | its own `.isw`, a C header | not described; "an artist tool", with manual adjustment | not stated | not stated |
-| **puregrain** | library (PureScript), CLI, browser | ZX Spectrum (all colors, normal, bright), C64 hires | `.scr`, a self-loading `.tap`, a `.prg` with a BASIC viewer, Art Studio `.art` | Floyd–Steinberg, Atkinson, JJN, your own kernels; Bayer 2 to 16 and your own maps, also inside cells | nearest color in RGB; linear light and perceptual distance planned | MIT; property tests against an independent reference, 26 CLI and 57 browser checks; the same bytes from the library, the CLI and the web app |
+| **puregrain** | library (PureScript), CLI, browser | ZX Spectrum (all colors, normal, bright), C64 hires | `.scr`, a self-loading `.tap`, a `.prg` with a BASIC viewer, Art Studio `.art` | 11 kernels since 0.2.1 (Floyd–Steinberg, Atkinson, JJN, Stucki, Burkes, three Sierras, Fan, two by Shiau and Fan; the web app 4 of them until its v2.2) and your own; Bayer 2 to 16 and your own maps, also inside cells | nearest color in RGB; linear light and perceptual distance planned | MIT; property tests against an independent reference, 20 CLI checks over 68 runs, 57 browser checks; the same bytes from the library, the CLI and the web app |
 
 ## What it says about puregrain
 
@@ -31,8 +31,9 @@ don't say, not that the feature is missing. Links: [Sources](#sources).
   against Dithertron.
 - **Behind: methods and color.** Retro Pixel Converter has 16 dithering
   methods and dithers in linear light; Dithertron has perceptual error
-  functions. The planned linear light, perceptual distance and new
-  kernels close that gap; they don't set puregrain apart.
+  functions. The eight kernels of 0.2.1 (2026-11-05) narrow that gap, and
+  the planned linear light and perceptual distance would close it; none
+  of it sets puregrain apart.
 - **Level: native files.** Several tools write `.scr`, `.tap`, `.prg` or
   Koala; BitPast writes even disk images. A self-loading tape and a viewer
   program are good, but not unique (ZX Spectrumizer writes a `.tap` too).

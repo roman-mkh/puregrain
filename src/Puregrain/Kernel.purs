@@ -1,9 +1,13 @@
 -- | Error-diffusion kernels: where each pixel's quantization error goes,
 -- | and in what shares.
 -- |
--- | Use a ready-made kernel (`floydSteinberg`, `atkinson`,
--- | `jarvisJudiceNinke`, or `noDiffusion` for none), or build your own
--- | from a list of offsets with `fromOffsets`, which checks it.
+-- | Use a ready-made kernel, or build your own from a list of offsets
+-- | with `fromOffsets`, which checks it. The ready-made ones:
+-- | `floydSteinberg`, `atkinson`, `jarvisJudiceNinke`, `stucki`, `burkes`,
+-- | the Sierras `sierra3`, `sierra2` and `sierraLite`, `fan`, `shiauFan`
+-- | and `shiauFan2`; `noDiffusion` for none. Each one's table, its source
+-- | and what it suits:
+-- | [docs/error-diffusion.md](https://github.com/roman-mkh/puregrain/blob/master/docs/error-diffusion.md).
 module Puregrain.Kernel
   ( Offset
   , Kernel
@@ -12,6 +16,14 @@ module Puregrain.Kernel
   , floydSteinberg
   , atkinson
   , jarvisJudiceNinke
+  , stucki
+  , burkes
+  , sierra3
+  , sierra2
+  , sierraLite
+  , fan
+  , shiauFan
+  , shiauFan2
   , noDiffusion
   ) where
 
@@ -136,6 +148,116 @@ jarvisJudiceNinke = Kernel
   , { dx: 0,  dy: 2, weight: 5.0 / 48.0 }
   , { dx: 1,  dy: 2, weight: 3.0 / 48.0 }
   , { dx: 2,  dy: 2, weight: 1.0 / 48.0 }
+  ]
+
+-- | Stucki (Peter Stucki, IBM Zurich, 1981): 12 neighbours over the next 2
+-- | rows, like Jarvis–Judice–Ninke, with weights that give a clean, sharp
+-- | result.
+stucki :: Kernel
+stucki = Kernel
+  [ { dx: 1, dy: 0, weight: 8.0 / 42.0 }
+  , { dx: 2, dy: 0, weight: 4.0 / 42.0 }
+
+  , { dx: -2, dy: 1, weight: 2.0 / 42.0 }
+  , { dx: -1, dy: 1, weight: 4.0 / 42.0 }
+  , { dx: 0,  dy: 1, weight: 8.0 / 42.0 }
+  , { dx: 1,  dy: 1, weight: 4.0 / 42.0 }
+  , { dx: 2,  dy: 1, weight: 2.0 / 42.0 }
+
+  , { dx: -2, dy: 2, weight: 1.0 / 42.0 }
+  , { dx: -1, dy: 2, weight: 2.0 / 42.0 }
+  , { dx: 0,  dy: 2, weight: 4.0 / 42.0 }
+  , { dx: 1,  dy: 2, weight: 2.0 / 42.0 }
+  , { dx: 2,  dy: 2, weight: 1.0 / 42.0 }
+  ]
+
+-- | Burkes (Daniel Burkes, 1988): Stucki without its last row, so 7
+-- | neighbours over the next row: a little less clean, at a lower cost.
+burkes :: Kernel
+burkes = Kernel
+  [ { dx: 1, dy: 0, weight: 8.0 / 32.0 }
+  , { dx: 2, dy: 0, weight: 4.0 / 32.0 }
+
+  , { dx: -2, dy: 1, weight: 2.0 / 32.0 }
+  , { dx: -1, dy: 1, weight: 4.0 / 32.0 }
+  , { dx: 0,  dy: 1, weight: 8.0 / 32.0 }
+  , { dx: 1,  dy: 1, weight: 4.0 / 32.0 }
+  , { dx: 2,  dy: 1, weight: 2.0 / 32.0 }
+  ]
+
+-- | Sierra 3 (Frankie Sierra, 1989–1990; also "Sierra" or "three-row
+-- | Sierra"): 10 neighbours over the next 2 rows, for results like
+-- | Jarvis–Judice–Ninke's with fewer neighbours.
+sierra3 :: Kernel
+sierra3 = Kernel
+  [ { dx: 1, dy: 0, weight: 5.0 / 32.0 }
+  , { dx: 2, dy: 0, weight: 3.0 / 32.0 }
+
+  , { dx: -2, dy: 1, weight: 2.0 / 32.0 }
+  , { dx: -1, dy: 1, weight: 4.0 / 32.0 }
+  , { dx: 0,  dy: 1, weight: 5.0 / 32.0 }
+  , { dx: 1,  dy: 1, weight: 4.0 / 32.0 }
+  , { dx: 2,  dy: 1, weight: 2.0 / 32.0 }
+
+  , { dx: -1, dy: 2, weight: 2.0 / 32.0 }
+  , { dx: 0,  dy: 2, weight: 3.0 / 32.0 }
+  , { dx: 1,  dy: 2, weight: 2.0 / 32.0 }
+  ]
+
+-- | Sierra 2 (Frankie Sierra, 1989–1990; also "two-row Sierra"): 7
+-- | neighbours over the next row, a faster Sierra 3.
+sierra2 :: Kernel
+sierra2 = Kernel
+  [ { dx: 1, dy: 0, weight: 4.0 / 16.0 }
+  , { dx: 2, dy: 0, weight: 3.0 / 16.0 }
+
+  , { dx: -2, dy: 1, weight: 1.0 / 16.0 }
+  , { dx: -1, dy: 1, weight: 2.0 / 16.0 }
+  , { dx: 0,  dy: 1, weight: 3.0 / 16.0 }
+  , { dx: 1,  dy: 1, weight: 2.0 / 16.0 }
+  , { dx: 2,  dy: 1, weight: 1.0 / 16.0 }
+  ]
+
+-- | Sierra Lite (Frankie Sierra, 1989–1990; also "Filter Lite" or
+-- | "Sierra-2-4A"): 3 neighbours, one fewer than Floyd–Steinberg, for
+-- | similar results.
+sierraLite :: Kernel
+sierraLite = Kernel
+  [ { dx: 1,  dy: 0, weight: 2.0 / 4.0 }
+  , { dx: -1, dy: 1, weight: 1.0 / 4.0 }
+  , { dx: 0,  dy: 1, weight: 1.0 / 4.0 }
+  ]
+
+-- | Fan (Zhigang Fan, 1993): Floyd–Steinberg's 4 neighbours with one weight
+-- | moved, its 1/16 from below-right to two columns left.
+fan :: Kernel
+fan = Kernel
+  [ { dx: 1,  dy: 0, weight: 7.0 / 16.0 }
+  , { dx: -2, dy: 1, weight: 1.0 / 16.0 }
+  , { dx: -1, dy: 1, weight: 3.0 / 16.0 }
+  , { dx: 0,  dy: 1, weight: 5.0 / 16.0 }
+  ]
+
+-- | Shiau–Fan (Jeng-Nan Shiau and Zhigang Fan, 1993): 4 neighbours, with
+-- | weights in eighths, made to reduce the "worm" patterns of
+-- | Floyd–Steinberg.
+shiauFan :: Kernel
+shiauFan = Kernel
+  [ { dx: 1,  dy: 0, weight: 4.0 / 8.0 }
+  , { dx: -2, dy: 1, weight: 1.0 / 8.0 }
+  , { dx: -1, dy: 1, weight: 1.0 / 8.0 }
+  , { dx: 0,  dy: 1, weight: 2.0 / 8.0 }
+  ]
+
+-- | Shiau–Fan 2 (Jeng-Nan Shiau and Zhigang Fan, 1993): the same aim with 5
+-- | neighbours, reaching three columns to the left.
+shiauFan2 :: Kernel
+shiauFan2 = Kernel
+  [ { dx: 1,  dy: 0, weight: 8.0 / 16.0 }
+  , { dx: -3, dy: 1, weight: 1.0 / 16.0 }
+  , { dx: -2, dy: 1, weight: 1.0 / 16.0 }
+  , { dx: -1, dy: 1, weight: 2.0 / 16.0 }
+  , { dx: 0,  dy: 1, weight: 4.0 / 16.0 }
   ]
 
 -- | No neighbours: no error is passed on, so each pixel is quantized on

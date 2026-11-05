@@ -78,7 +78,8 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
           `shouldEqual` Right (defaults { quantizer = Machine { name: machine, palette: FullPalette, bayer: Nothing }, format = f })
 
     it "the documented kernel, palette, machine and format names are exactly the ones in the README" do
-      map kernelName allKernels `shouldEqual` [ "floyd-steinberg", "atkinson", "jjn", "none" ]
+      map kernelName allKernels `shouldEqual`
+        [ "floyd-steinberg", "atkinson", "jjn", "stucki", "burkes", "sierra-3", "sierra-2", "sierra-lite", "fan", "shiau-fan", "shiau-fan-2", "none" ]
       map paletteName allPalettes `shouldEqual` [ "bw", "websafe216", "cga16", "ansi16", "ansi256", "c64", "zx15" ]
       map machineName allMachines `shouldEqual` [ "zx-spectrum", "c64-hires" ]
       map formatName allFormats `shouldEqual` [ "png", "scr", "tap", "prg", "art" ]

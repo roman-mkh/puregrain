@@ -21,8 +21,9 @@ the browser.
 ## What it does
 
 - **Error diffusion with a choice of kernel:** Floyd–Steinberg, Atkinson,
-  Jarvis–Judice–Ninke, or your own (a list of neighbour offsets and
-  weights, checked when you build it).
+  Jarvis–Judice–Ninke, Stucki, Burkes, three Sierras, Fan and two by Shiau
+  and Fan, or your own (a list of neighbour offsets and weights, checked
+  when you build it). See [docs/error-diffusion.md](docs/error-diffusion.md).
 - **Grayscale and color.** For color there are two approaches:
   - dither each channel on its own, e.g. 4 levels per channel;
   - or pick the nearest color from a palette, looking at the whole pixel.
@@ -186,6 +187,7 @@ workspace and are built together.
 | [examples/README.md](examples/README.md) | The example programs: what each shows, how to run them, the REPL |
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
 | [web/README.md](web/README.md) | The web UI: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
+| [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |
 | [docs/machine-screens/](docs/machine-screens/README.md) | Machine screens: dithering with cells, which mode for which picture; one page per machine, the ZX Spectrum and the Commodore 64 |
