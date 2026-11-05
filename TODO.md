@@ -135,6 +135,10 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
       Then the web UI can show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
+- [ ] **The eight kernels of 0.2.1, measured and compared** (2026-11-05): their times, so far only expected from
+      their neighbour counts (the benchmark's kernels suite has Floyd–Steinberg, Atkinson and JJN), and their
+      looks on the test images. `docs/error-diffusion.md` and cli/README.md describe them by their sources only,
+      and say so; observations would go in the page's *seen here* notes.
 
 ## Before 1.0
 

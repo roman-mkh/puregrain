@@ -6,6 +6,16 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+## 0.2.1 - 2026-11-05
+
+### Added
+
+- `Puregrain.Kernel`: eight more error-diffusion kernels, also in the
+  `Puregrain` facade: `stucki`, `burkes`, the Sierras `sierra3`, `sierra2`
+  and `sierraLite`, `fan`, `shiauFan` and `shiauFan2`. Each one's table,
+  other names and sources are in
+  [docs/error-diffusion.md](https://github.com/roman-mkh/puregrain/blob/master/docs/error-diffusion.md).
+
 ### Changed
 
 - The minimum versions of the library's dependencies are raised to those

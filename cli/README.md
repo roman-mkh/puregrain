@@ -133,7 +133,8 @@ unless `--format` says what to write.
 For `stucki` to `shiau-fan-2`, the character is as their sources
 describe it; they haven't been compared here yet.
 
-The exact weights are in `src/Puregrain/Kernel.purs`. Time grows with the
+Each kernel's weights, sources and history are in
+[docs/error-diffusion.md](../docs/error-diffusion.md). Time grows with the
 number of neighbours, because each one costs the same per pixel; the
 measurements are in [the benchmarks](../docs/benchmarks-dithering.md).
 

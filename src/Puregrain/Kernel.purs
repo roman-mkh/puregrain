@@ -219,8 +219,8 @@ sierra2 = Kernel
   ]
 
 -- | Sierra Lite (Frankie Sierra, 1989–1990; also "Filter Lite" or
--- | "Sierra-2-4A"): 3 neighbours, the fewest of all, with results similar
--- | to Floyd–Steinberg's.
+-- | "Sierra-2-4A"): 3 neighbours, one fewer than Floyd–Steinberg, for
+-- | similar results.
 sierraLite :: Kernel
 sierraLite = Kernel
   [ { dx: 1,  dy: 0, weight: 2.0 / 4.0 }
