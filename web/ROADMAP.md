@@ -101,7 +101,14 @@ users is a separate task, see TODO.md.)
   one-liner is settled (TODO.md, "Before 1.0"; the user, 2026-11-04):
   the tagline's promise that pictures stay
   in the browser is in the drop zone already, where it matters, before
-  a picture is chosen.
+  a picture is chosen. And an idea (the user's, 2026-11-05): how the
+  dithered file's size compares with the original's, shown very small,
+  as extra information, no diagram; no design yet. It says most once the
+  downloads are compact, indexed PNGs of 1 to 8 bits per pixel (TODO.md,
+  "Compact PNG output", for the CLI; the page would write them itself,
+  since a canvas writes no indexed PNGs): with today's 8-bit PNGs it
+  would mostly show growth, the test composite going from 62 KB to
+  227 KB with `ansi16`.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
