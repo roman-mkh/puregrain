@@ -212,6 +212,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       hues steadier than CIELAB, blues notably. Both start from linear
       light, so they'd share that step with "Dithering in linear light".
       Which one, or both, is decided when the item is done.
+- [ ] **Palettes chosen from the picture** (the user, 2026-11-05): median cut, k-means and similar methods pick
+      the N colors that suit a picture, as ditherit.com does (its "Color selection method"); presets like
+      `ansi16` it doesn't have. Colors a preset lacks then get entries of their own: dithered to `ansi16`, about
+      1% of the test image's red sphere comes out green (docs/error-diffusion.md). An auxiliary part of the
+      library (the decision of 2026-09-23, reformulated with the user on 2026-11-05; CLAUDE.md, "Multi-channel
+      model"): a pure function computes the palette from the picture, before dithering, and returns it as the
+      presets are, a `NonEmptyArray RGB` that `nearestColor` takes like any preset. Never computed on the fly
+      inside `quantize`, which sees one pixel at a time, so the dithering core stays as it is. The CLI (an option)
+      and the web UI (an entry in the colors menu) share it.
 - [ ] Effectful quantizers and row sources (pipes/coroutines): postponed until someone needs them. Quantizers
       stay pure; if ever, as an extension package. For row sources, a generic driver on top of the stepper
       would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)

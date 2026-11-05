@@ -628,8 +628,13 @@ from the code alone.
     live in the space future pixels are added in). Output-format
     reduction (e.g. RGB→Gray) is a plain post-hoc `map` over
     `ditherImage`'s result; image-dependent palette generation (e.g.
-    median-cut) happens *outside* this library (FFI/caller side).
-    Fixed preset palettes (e.g. `websafe216`) live inside it.
+    median-cut) never happens inside `quantize`, which sees one pixel at
+    a time: it's a step before dithering, whose palette the quantizer
+    takes like a preset. First placed outside this library (FFI/caller
+    side); reformulated with the user on 2026-11-05: an auxiliary part of
+    the library, shared by the CLI and the web UI (TODO.md, "Palettes
+    chosen from the picture"). Fixed preset palettes (e.g. `websafe216`)
+    live inside it.
 - **`DelayLine` is pre-padded to length `dy`, not grown from empty**:
   `initState` builds each `DelayLine` as `Array.replicate dy []` —
   already at its full, constant length `dy`, from the very first row

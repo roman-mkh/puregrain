@@ -66,8 +66,13 @@ offset, for example, is `{ dx: 1, dy: 0, weight: 7.0 / 16.0 }`.
 
 What each kernel is good for is quoted or paraphrased from its sources,
 named with it. Notes marked *seen here* are this project's own
-observations, on its [test images](test-images.md). The kernels haven't
-been compared with each other here yet.
+observations, on its [test images](test-images.md); beyond them, the
+kernels haven't been compared with each other here yet.
+
+*Seen here,* with every kernel that passes on all the error: a small
+palette gets dots of other hues where it lacks the picture's colors.
+With `ansi16`, about 1% of the test image's red sphere comes out green.
+Atkinson, which drops a quarter of the error, shows none there.
 
 ### Floyd–Steinberg
 

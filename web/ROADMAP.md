@@ -55,6 +55,22 @@ users is a separate task, see TODO.md.)
   `web-v2.1`, merged by one squashed pull request (the user's choice,
   for this release). Improvements published between the roadmap's
   versions count up after the dot.
+- **v2.2** (2026-11-05): the eight kernels of the library's 0.2.1 in the
+  kernel menu. The menu stays one flat list, of 12 entries, in the CLI's
+  order with None first: None, Floyd-Steinberg, Atkinson,
+  Jarvis-Judice-Ninke, Stucki, Burkes, Sierra 3, Sierra 2, Sierra Lite,
+  Fan, Shiau-Fan, Shiau-Fan 2 (the user's choice: a group like the colors
+  menu's "Palettes" saves no room, its heading even adds a row, and
+  groups by the kernels' shapes would be names of our own). The downloads
+  are named with the CLI's names. No note on the chosen kernel: v3's (i)
+  will describe it. `check:web` compares one new kernel with the CLI:
+  Shiau-Fan 2, with 4 levels, the most unusual shape (it reaches three
+  columns to the left); 60 checks, three of them new, and one of
+  Shiau-Fan 2's weights changed in the built worker failed exactly those
+  three. On a short-lived branch, `web-v2.2`, as v2.1. The kernels'
+  specification, `docs/kernels-spec.md` (Phase A, the library's 0.2.1;
+  Phase B, this), was deleted at the end, as planned: its content lives
+  on in `docs/error-diffusion.md`, here, and in the pull requests.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   the default, with a switch to turn it off, released as the library's
   0.3.0. The web UI then gets the switch too.
@@ -64,7 +80,13 @@ users is a separate task, see TODO.md.)
   the bar; "Start over" (back to the empty page, every setting at
   "none"), which clears the gallery, asking first when results aren't
   saved; an (i) next to each setting, opening a short description of it
-  (the user's idea); a high-contrast theme (the user's idea); the zoom
+  (the user's idea), and, the user added on 2026-11-05, of the item
+  chosen in it, if any, with links to the docs that cover it in detail:
+  opened by a click or a tap, not on hover (phones have none), as a
+  disclosure like the download's ▾, since `popover` needs Safari 17;
+  the texts taken from the docs, not written anew, so that the page
+  claims nothing the docs don't; the links to the docs on GitHub, as the
+  footer's are; a high-contrast theme (the user's idea); the zoom
   as a menu once there are more values. From the checks on devices
   (2026-11-03, the user's ideas): on phones, "Choose another picture"
   next to the download button, opening the file chooser at once and
@@ -79,7 +101,14 @@ users is a separate task, see TODO.md.)
   one-liner is settled (TODO.md, "Before 1.0"; the user, 2026-11-04):
   the tagline's promise that pictures stay
   in the browser is in the drop zone already, where it matters, before
-  a picture is chosen.
+  a picture is chosen. And an idea (the user's, 2026-11-05): how the
+  dithered file's size compares with the original's, shown very small,
+  as extra information, no diagram; no design yet. It says most once the
+  downloads are compact, indexed PNGs of 1 to 8 bits per pixel (TODO.md,
+  "Compact PNG output", for the CLI; the page would write them itself,
+  since a canvas writes no indexed PNGs): with today's 8-bit PNGs it
+  would mostly show growth, the test composite going from 62 KB to
+  227 KB with `ansi16`.
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it

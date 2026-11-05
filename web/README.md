@@ -8,7 +8,7 @@ own files. The same settings give the same pixels and files as the
 [command-line tool](../cli/README.md), for pictures without transparency
 (see below).
 
-> **Status: version 2.1,** on GitHub Pages: designed, checked for
+> **Status: version 2.2,** on GitHub Pages: designed, checked for
 > accessibility, and checked in three browser engines. Version 3 is
 > planned ([ROADMAP.md](ROADMAP.md)).
 
@@ -59,9 +59,9 @@ fills the page, and the settings open over it (see below).
      number), a number of levels per channel (2–256, with − and +), or
      one of the palettes; for the Spectrum all its 15 colors, the normal
      ones only or the bright ones only; for the C64 its 16;
-   - **the method** (step 4): error diffusion (Floyd–Steinberg, Atkinson
-     or Jarvis–Judice–Ninke), ordered dithering with a Bayer map (2×2 to
-     16×16), or both. A Bayer map works over levels, or inside a
+   - **the method** (step 4): error diffusion with one of 11 kernels
+     (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke and eight more),
+     ordered dithering with a Bayer map (2×2 to 16×16), or both. A Bayer map works over levels, or inside a
      machine's cells, so it isn't offered with a threshold or a palette,
      and a note beside it says why. For black and white with a Bayer map,
      choose 2 levels and "Turn the picture gray first" (the command-line
@@ -153,7 +153,8 @@ animations off in their system. The standard it follows:
 
 What each kernel, Bayer map and palette does, and how gray and color are
 chosen, is in the command-line tool's documentation:
-[kernels](../cli/README.md#kernels),
+[kernels](../cli/README.md#kernels) (each one's table and sources:
+[error diffusion](../docs/error-diffusion.md)),
 [ordered dithering](../cli/README.md#ordered-dithering),
 [palettes](../cli/README.md#palettes),
 [how the output is chosen](../cli/README.md#how-the-output-is-chosen).
@@ -167,7 +168,7 @@ chosen, is in the command-line tool's documentation:
 | Colors: gray, black and white at a threshold | `--threshold T` |
 | Colors: levels per channel | `--levels N` |
 | Colors: a palette | `--palette NAME` (`bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15`) |
-| Error diffusion | `--kernel NAME` (`none`, `floyd-steinberg`, `atkinson`, `jjn`) |
+| Error diffusion | `--kernel NAME` (`none`, `floyd-steinberg`, `atkinson`, `jjn`, `stucki`, `burkes`, `sierra-3`, `sierra-2`, `sierra-lite`, `fan`, `shiau-fan`, `shiau-fan-2`) |
 | Ordered dithering (Bayer map) | `--bayer N` |
 | Turn the picture gray first | `--gray` |
 
@@ -279,8 +280,9 @@ AAA isn't aimed at.
   formats and the shortcuts.
 - `npm run check:web` (`scripts/check-web.mjs`) checks the page itself in
   Chromium, Firefox and WebKit, the engines of Chrome and Edge, Firefox
-  and Safari: for four settings, one for each kind of colors, the
-  downloaded PNG has the command-line tool's pixels; for both machines,
+  and Safari: for five settings, one for each kind of colors and one of
+  the newer kernels, the downloaded PNG has the command-line tool's
+  pixels; for both machines,
   the PNG too, and their files are the tool's, byte for byte; the split
   is exact to the screen pixel, dragging its handle selects nothing, and
   a click on "Original" or "Result" moves it to that end.

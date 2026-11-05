@@ -146,7 +146,7 @@ texts =
             <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
             <> (if settings.gray then [ "gray first" ] else [])
         )
-  , versions: \library -> "puregrain lab v2.1" <> (if library == "" then "" else ", built on puregrain " <> library)
+  , versions: \library -> "puregrain lab v2.2" <> (if library == "" then "" else ", built on puregrain " <> library)
   , codeLicense: "The code: MIT"
   , logoLicense: "The logo: its own terms"
   , onGitHub: "puregrain on GitHub"
@@ -239,6 +239,14 @@ texts =
       FloydSteinberg -> "Floyd-Steinberg"
       Atkinson -> "Atkinson"
       JarvisJudiceNinke -> "Jarvis-Judice-Ninke"
+      Stucki -> "Stucki"
+      Burkes -> "Burkes"
+      Sierra3 -> "Sierra 3"
+      Sierra2 -> "Sierra 2"
+      SierraLite -> "Sierra Lite"
+      Fan -> "Fan"
+      ShiauFan -> "Shiau-Fan"
+      ShiauFan2 -> "Shiau-Fan 2"
   , bayer: "Ordered dithering (Bayer map)"
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side

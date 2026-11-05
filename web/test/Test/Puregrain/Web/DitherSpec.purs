@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Effect.Aff (Aff)
-import Puregrain (Quantize, RGB(..), atkinson, bayer, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, threshold, websafe216)
+import Puregrain (Quantize, RGB(..), atkinson, bayer, burkes, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
@@ -124,6 +124,14 @@ spec = describe "Puregrain.Web.Dither" do
       kernelOf FloydSteinberg `shouldEqual` floydSteinberg
       kernelOf Atkinson `shouldEqual` atkinson
       kernelOf JarvisJudiceNinke `shouldEqual` jarvisJudiceNinke
+      kernelOf Stucki `shouldEqual` stucki
+      kernelOf Burkes `shouldEqual` burkes
+      kernelOf Sierra3 `shouldEqual` sierra3
+      kernelOf Sierra2 `shouldEqual` sierra2
+      kernelOf SierraLite `shouldEqual` sierraLite
+      kernelOf Fan `shouldEqual` fan
+      kernelOf ShiauFan `shouldEqual` shiauFan
+      kernelOf ShiauFan2 `shouldEqual` shiauFan2
 
     it "maps each of the Spectrum's palettes to the library's screen mode" do
       -- A mode holds a function, so it's compared by its cell size and candidates.

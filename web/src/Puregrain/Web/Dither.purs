@@ -21,7 +21,7 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
 import Partial.Unsafe (unsafeCrashWith)
-import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, c64, cga16, evenRamp, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, threshold, websafe216, zxSpectrum)
+import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
 import Puregrain.Cells (CellMode, CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Machine.ZxSpectrum as Zx
 import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName, MachinePaletteName(..), PaletteName(..), Settings, Target(..))
@@ -63,6 +63,14 @@ kernelOf = case _ of
   FloydSteinberg -> floydSteinberg
   Atkinson -> atkinson
   JarvisJudiceNinke -> jarvisJudiceNinke
+  Stucki -> stucki
+  Burkes -> burkes
+  Sierra3 -> sierra3
+  Sierra2 -> sierra2
+  SierraLite -> sierraLite
+  Fan -> fan
+  ShiauFan -> shiauFan
+  ShiauFan2 -> shiauFan2
 
 paletteOf :: PaletteName -> NonEmptyArray RGB
 paletteOf = case _ of
