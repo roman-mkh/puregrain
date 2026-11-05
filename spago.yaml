@@ -1,8 +1,8 @@
 package:
   name: puregrain
-  description: "Error-diffusion and ordered (Bayer) dithering for PureScript:
-    Floyd-Steinberg, Atkinson, JJN and custom kernels, retro palettes; in
-    memory, streaming or row by row."
+  description: "Error-diffusion and ordered (Bayer) dithering for PureScript: 11
+    kernels or your own, retro palettes, ZX Spectrum and C64 hires screens with
+    their file formats; in memory, streaming or row by row."
   publish:
     version: 0.2.1
     license: MIT
