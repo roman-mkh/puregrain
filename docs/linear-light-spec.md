@@ -499,9 +499,10 @@ clients read. Other values occur too:
 - **the last resort's back conversion** (`quantize f`), for every
   corrected value.
 
-All of them go through the two functions. A separate question, for the
-implementation: whether fractional levels should be rounded to the byte
-that's written, so that the error is measured against it.
+All of them go through the two functions. Whether fractional levels
+should be rounded to the byte that's written, so that the error is
+measured against it, is a separate task (`TODO.md`, "Levels that aren't
+whole numbers"): the mismatch exists today, without linear light.
 
 ## Exact checks
 

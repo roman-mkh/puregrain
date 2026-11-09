@@ -87,6 +87,13 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Algorithms
 
+- [ ] **Levels that aren't whole numbers, rounded before dithering** (2026-11-09): with 3 levels, the middle
+      level is 127.5 and the file stores 128, but the error is measured against 127.5. Measured on a flat gray of
+      120 with Floyd–Steinberg: the file comes out 0.47 too bright (120.62, where the dithering aimed at 120.15).
+      With the levels rounded first (0, 128, 255), the two agree. It affects every level count with fractional
+      levels (3, 5, 7 to 15, …), not 2, 4, 6, 16, 18, 52, 86 and 256. To decide: whether `evenRamp` rounds itself
+      (it's public) or the clients round its levels. It changes a few pictures slightly, so it belongs in a minor
+      release. With dithering in linear light, every level would then be a byte, converted through the table.
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a
@@ -221,6 +228,17 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       presets are, a `NonEmptyArray RGB` that `nearestColor` takes like any preset. Never computed on the fly
       inside `quantize`, which sees one pixel at a time, so the dithering core stays as it is. The CLI (an option)
       and the web UI (an entry in the colors menu) share it.
+- [ ] **Other color spaces, after dithering in linear light** (the user, 2026-11-09): pictures in Display P3, Adobe
+      RGB or Apple RGB, converted to sRGB's light before dithering, in a module of the library's own that users
+      import separately. Display P3 first: the most common today (iPhones, Macs), and it uses sRGB's curve, so it
+      only needs its colors converted, a 3×3 matrix in linear light. Adobe RGB (a curve of 563/256) and Apple RGB
+      (1.8) need their curves too, and the matrix: a curve alone fixes only the brightness, and an Adobe RGB
+      picture would still look dull, since its green is more saturated than sRGB's (at 0.21, 0.71 against 0.30,
+      0.60 in the standard's coordinates). The curves from exact operations, as sRGB's: Apple RGB's from the same
+      fifth and cube roots, Adobe RGB's from square roots, with its way back found by halving an interval, since
+      563 is prime. Each verified as sRGB's was, and the self-check extended to it. Colors outside sRGB's range
+      need a rule, clamping say. Most useful once a client reads the file's color profile: few users know a
+      picture's color space.
 - [ ] Effectful quantizers and row sources (pipes/coroutines): postponed until someone needs them. Quantizers
       stay pure; if ever, as an extension package. For row sources, a generic driver on top of the stepper
       would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)
