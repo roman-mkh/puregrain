@@ -601,6 +601,59 @@ linear light picks 85. Over the 256 grays, against the same referee:
   by light, since that's an amount of light; `threshold` is the same
   either way.
 
+## Decision 4: the gray conversion
+
+Settled 2026-11-10: luminance, sRGB's own weights on linear values, as the
+final default; the opt-out keeps today's luma.
+
+**Today:** `luma`, Rec. 601's weights (0.299 R + 0.587 G + 0.114 B) on
+stored values, exact for neutral pixels. It's used by `--gray`, by the
+gray pipeline (a threshold on a color picture), and by the web UI ("Turn
+the picture gray first"), which copies the CLI's `luma`, `isNeutral` and
+`toNeutral`.
+
+**Measured** (2026-11-10), with OKLab lightness as the referee:
+
+| Color | Its perceived lightness | Today (luma): gray, lightness | Luminance: gray, lightness |
+|---|---:|---:|---:|
+| red | 0.628 | 76, 0.417 | 127, 0.597 |
+| green | 0.866 | 150, 0.672 | 220, 0.894 |
+| blue | 0.452 | 29, 0.231 | 76, 0.416 |
+| magenta | 0.702 | 105, 0.522 | 145, 0.658 |
+| skin (224, 172, 140) | 0.784 | 184, 0.782 | 183, 0.779 |
+| sky (120, 170, 230) | 0.726 | 162, 0.712 | 167, 0.727 |
+
+Over 140,608 colors, today's luma misses the color's perceived lightness
+by 0.047 on average, luminance by 0.015, and luminance is closer for 85%
+of them. The gray moves by 13 steps on average, and by more than 20 for a
+quarter of the colors, the saturated ones.
+
+**The decision:**
+
+- **Luminance, 0.2126 R + 0.7152 G + 0.0722 B on linear values, the final
+  default.** The gray gives off as much light as the color, so the dots'
+  average light matches it: an amount of light, which stays linear
+  (decision 3's rule). It also keeps CIELAB's lightness, which depends
+  only on luminance; the remaining 0.015 is where OKLab and CIELAB
+  disagree, since OKLab also weighs hue and saturation, a goal of
+  matching appearance. Saturated colors come out visibly lighter than
+  today (pure blue 76 instead of 29); natural colors such as skin and sky
+  barely change.
+- **The opt-out keeps today's luma** (the user, 2026-11-10): it gives
+  exactly today's pictures, as decision 1 promises, so the byte-for-byte
+  check covers the color-to-gray configurations too; and luma on stored
+  values is the classic conversion, for those who choose the old look.
+- **One helper in the library,** chosen by the conversion (luminance with
+  `srgb`, luma with `asStored`), used by both clients in place of their
+  copies. How its output meets the drivers' conversion is a detail of the
+  implementation.
+- **Neutral pixels stay exactly as they are,** as today: the weights add
+  up to 1, but in floating point the luminance of 79 of the 256 neutral
+  grays isn't exactly their light (for today's luma, 65 of them). The
+  logo's `--gray` inputs are gray, so the formula doesn't touch them.
+- **OKLab lightness** at most as an option later, not a replacement:
+  changing the default again would change every gray picture again.
+
 ## Exact checks
 
 Expected to hold as they do today, to be confirmed by running them:
@@ -631,9 +684,8 @@ To settle one at a time; each leaning is only a starting point.
    2](#decision-2-exactness-across-browsers).
 3. **The nearest color or level:** settled, see [Decision
    3](#decision-3-the-nearest-color-or-level).
-4. **Gray conversion.** `--gray` uses Rec. 601 on stored values today;
-   linear light would normally use the weights above, which changes gray
-   results.
+4. **The gray conversion:** settled, see [Decision
+   4](#decision-4-the-gray-conversion).
 5. **Machine screens.** Artists of the time worked by eye, so the
    recommended 2×2 patterns may look different. Compare before keeping it
    on for them.
@@ -650,12 +702,14 @@ To settle one at a time; each leaning is only a starting point.
 1. **Settle the open decisions** in this file.
 2. **Library:** the conversions, machine cells included, with the new
    exact checks as properties; the self-check and its stored digest, run
-   in Node by the tests.
-3. **CLI:** on by default, with the opt-out, and the self-check's mode.
-   The logo's script gets the opt-out, and `npm run logo` must then
-   report every file unchanged.
+   in Node by the tests; the gray helper (decision 4).
+3. **CLI:** on by default, with the opt-out, and the self-check's mode;
+   the gray helper in place of its `luma`, and `--gray`'s help text
+   ("luma" no longer). The logo's script gets the opt-out, and
+   `npm run logo` must then report every file unchanged.
 4. **Web UI:** the same default and the switch, and the self-check in a
-   worker of its own, with a notice. In the same branch as the CLI:
+   worker of its own, with a notice; the gray helper in place of its
+   copies. In the same branch as the CLI:
    `check:web` compares the page with the CLI, so the two change
    together, and it runs the self-check in the three browsers.
 5. **Measure:** the benchmarks, a look at the test images, and the
