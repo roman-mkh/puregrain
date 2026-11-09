@@ -68,9 +68,9 @@ conversion:
 
 ```
 threshold t               becomes  threshold (toLinear t)
-nearestLevel levels       becomes  nearestLevel (map toLinear levels)
+nearestLevel levels       becomes  the nearest by stored values, output in linear light (decision 3)
 ordered bayerMap levels   becomes  ordered bayerMap (map toLinear levels)
-nearestColor palette      becomes  nearestColor (map toLinear palette)
+nearestColor palette      becomes  the nearest by stored values, output in linear light (decision 3)
 ```
 
 What the driver does, for black and white; the caller only writes
@@ -139,9 +139,9 @@ much light each channel gives, not how much the eye values it.
 - **A threshold without diffusion gives the same picture as today:** the
   curve keeps the order of the values, so what's below 128 stays below
   the converted 128.
-- **Levels without diffusion change:** the nearest level is now the
-  nearest in light. Stored 130 goes to 170 today, and to 85 in linear
-  light.
+- **Levels and palettes without diffusion give today's picture too:** the
+  nearest level or color is chosen on stored values ([decision
+  3](#decision-3-the-nearest-color-or-level)).
 - **A custom quantizer** (`quantize f`): see [decision
   1](#custom-quantizers-and-runquantize).
 - **`RGBA` needs its own handling:** its `mapChannels` includes alpha,
@@ -504,6 +504,103 @@ should be rounded to the byte that's written, so that the error is
 measured against it, is a separate task (`TODO.md`, "Levels that aren't
 whole numbers"): the mismatch exists today, without linear light.
 
+## Decision 3: the nearest color or level
+
+Settled 2026-11-09 for palettes, and extended to levels on 2026-11-10:
+the nearest color or level is chosen by distance on stored values, while
+the error stays in linear light; OKLab later. The rule: **a "nearest"
+choice compares on stored values; amounts of light stay linear** (the
+error, and ordered dithering's fraction between two levels).
+
+**The problem:** in linear light, dark colors bunch up near zero. On the
+0–255 scale, stored 0, 32 and 64 become 0, 3.7 and 13.1, while the step
+from 192 to 255 becomes 121 wide, so plain RGB distance in linear light
+barely sees the difference between two dark colors. On the C64 palette, a
+dark blue (0, 0, 130) gets C64 blue (39, 36, 196) by distance on stored
+values and by OKLab, but the dark grey (71, 71, 71) by distance in linear
+light: the wrong hue.
+
+**Measured** (2026-11-09) over 140,608 stored colors, every 5th value per
+channel, with OKLab (Ottosson's published constants) as the perceptual
+referee:
+
+| Palette | Agrees with OKLab: stored | Agrees: linear | Perceptual distance to the choice, dark targets: stored | Same: linear |
+|---|---:|---:|---:|---:|
+| `websafe216` | 69.4% | 64.2% | 0.044 | 0.046 |
+| `cga16` | 70.5% | 70.2% | 0.124 | 0.144 |
+| `ansi16` | 62.7% | 61.1% | 0.199 | 0.272 |
+| `c64` | 72.5% | 70.1% | 0.100 | 0.117 |
+| `zx15` | 63.6% | 54.6% | 0.222 | 0.310 |
+| `ansi256` | 65.5% | 70.7% | 0.060 | 0.059 |
+
+Distance on stored values chooses closer to perception for 6 of the 7
+palettes, most clearly among dark colors; only `ansi256` slightly prefers
+linear light. Two caveats: OKLab as the referee would itself "win" by
+construction, so this only ranks the two cheap options; and these are
+single choices, not whole ditherings. With error diffusion, the error in
+linear light keeps the tones right whatever is chosen; the choice decides
+which dots are mixed, and so how noisy the result looks.
+
+**The decision:**
+
+- **Distance on stored values, the error in linear light.** The sRGB curve
+  roughly follows how the eye sees lightness, which makes distance on
+  stored values a cheap stand-in for perception, and it's today's choice.
+  The quantizer converts the corrected value back to stored values for the
+  comparison only, and outputs the chosen color in linear light:
+
+  ```purescript
+  nearestColor palette = quantizeLinear \enc ->
+    let lights = map (toLinear enc) palette                         -- the outputs, once
+    in \_ x -> lights at (nearestIndex palette (toStored enc x))    -- compared on stored values
+  ```
+
+  (`at` and `nearestIndex` are illustrative.)
+- **`--palette` with `--kernel none` gives exactly today's picture:** the
+  corrected value is then a table value, which the way back finds exactly.
+- **The cost:** one back conversion per channel per pixel, about 36 ns
+  each, small next to the palette search itself (`websafe216` takes about
+  10 µs per pixel).
+- **OKLab later,** as `TODO.md`'s item on CIELAB and OKLab distances: it
+  chooses best, but it's a feature of its own, with its own verification.
+  It needs two matrices and three cube roots per pixel, and the exact cube
+  root of decision 2 makes those the same everywhere.
+- **The cells' choice** for machine screens belongs to decision 5.
+
+### Levels too (2026-11-10)
+
+The same question for `--levels`, which picks the nearest level per
+channel. Gray 130 has a perceptual lightness of 0.607, nearer to 170's
+(0.738) than to 85's (0.450): stored values pick 170, rightly, and
+linear light picks 85. Over the 256 grays, against the same referee:
+
+| Levels | Agrees with OKLab: stored | Agrees: linear |
+|---:|---:|---:|
+| 2 | 228 / 256 | 168 / 256 |
+| 3 | 235 / 256 | 194 / 256 |
+| 4 | 239 / 256 | 207 / 256 |
+| 6 | 243 / 256 | 222 / 256 |
+| 8 | 241 / 256 | 227 / 256 |
+| 16 | 250 / 256 | 245 / 256 |
+
+- **Decisive: an exact check depends on it.** `--palette websafe216` and
+  `--levels 6` give byte-identical files (check 1 in `check-cli.sh`, and
+  a property in `PaletteSpec`), because the web-safe palette is the full
+  6 × 6 × 6 cube, whose nearest color is each channel's nearest level, as
+  long as both are measured the same way.
+- **`--levels` without diffusion gives today's picture.** The visible
+  change, the right tones, comes from the error in linear light.
+- **No cost per pixel.** The nearer of two neighbouring levels on stored
+  values is decided by their midpoint, and the curve keeps the order of
+  values, so the midpoints are converted to linear light once, before the
+  first pixel, and each pixel compares its linear value with them. Today's
+  rule for exact ties, where the earlier level wins, carries over.
+  Palettes have no such shortcut in three dimensions, so they keep the
+  back conversion per pixel.
+- **Unchanged:** ordered dithering picks its two levels and its fraction
+  by light, since that's an amount of light; `threshold` is the same
+  either way.
+
 ## Exact checks
 
 Expected to hold as they do today, to be confirmed by running them:
@@ -511,8 +608,9 @@ Expected to hold as they do today, to be confirmed by running them:
 - an image made only of a palette's colors or of levels comes back
   unchanged, with any kernel (the same conversion on both sides, so the
   error is zero);
-- `--palette websafe216` equals `--levels 6`, byte for byte (the cube's
-  nearest color is still each channel's nearest level);
+- `--palette websafe216` equals `--levels 6`, byte for byte (both choose
+  on stored values, decision 3, so the cube's nearest color is still each
+  channel's nearest level);
 - a picture of valid machine cells comes back unchanged (the grays that
   decide the cells' order stay on the gray axis);
 - a neutral pixel stays neutral where it does today.
@@ -531,8 +629,8 @@ To settle one at a time; each leaning is only a starting point.
    1](#decision-1-the-librarys-api).
 2. **Exactness across browsers:** settled, see [Decision
    2](#decision-2-exactness-across-browsers).
-3. **Palette distance.** Plain RGB distance in linear light may choose
-   dark colors poorly (not measured). OKLab could help later.
+3. **The nearest color or level:** settled, see [Decision
+   3](#decision-3-the-nearest-color-or-level).
 4. **Gray conversion.** `--gray` uses Rec. 601 on stored values today;
    linear light would normally use the weights above, which changes gray
    results.
