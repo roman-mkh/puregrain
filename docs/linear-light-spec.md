@@ -9,9 +9,10 @@ the merge it's deleted: what lasts moves to the reference docs,
 Read first: `CLAUDE.md` (the project's decisions and conventions) and
 `CONTRIBUTING.md` (branches, checks, versions, releases).
 
-**Status:** the architecture is settled. The [open
-decisions](#open-decisions) come next, one at a time. No code yet, and
-nothing here has been prototyped except the measurements it quotes.
+**Status:** the architecture is settled, and so are all the [open
+decisions](#open-decisions) (2026-11-12 to 14), written in here. Next is
+the [plan](#plan)'s implementation. No code yet, and nothing here has
+been prototyped except the measurements it quotes.
 
 ## The problem
 
@@ -26,16 +27,57 @@ like 131 with 6.
 
 ## Decided
 
-- **On by default, with an option to turn it off** (the user, 2026-10-21).
+- **A choice of curve, `--gamma`, off by default** (the user,
+  2026-11-12; it replaces "on by default, with an option to turn it off"
+  of 2026-10-21). Five values, the same in the CLI, the web UI and the
+  library's presets:
+  - `off`, the default (`1` and `1.0` too): no conversion, today's
+    results bit for bit; the identity, not computed;
+  - `1.2`, `1.5` and `1.8`: power curves, light = (byte / 255)^γ;
+  - `srgb`: linear light, the standard's curve.
+
+  "Gamma" here doesn't adjust the picture, as an editor's gamma slider
+  does: it says how the screen turns numbers into light, and the
+  dithering keeps that light. Its docs get a page of their own.
+- **Why off by default** (measured 2026-11-10 and 11 on the gray
+  composite and the machine screens, with scratch scripts, and judged by
+  the user):
+  - Linear light gives the right brightness only where the dots reach the
+    eye as they are: at 1:1, and from a distance. Views that scale with
+    smoothing (HiDPI screens, phones, pictures fitted into a page)
+    average the stored values, and there today's dithering looks right
+    and linear light too dark. The user's own view behaved like a gamma
+    between 1.0 and 1.5 (a chart of line patches, half of white's light,
+    in fields of gray), and there gamma 1.5 looked closest to the
+    original.
+  - Dark tones turn black as the gamma rises, in the file, so on any
+    screen: a Bayer map or Atkinson can't place a dot below some gray.
+    Flat grays come out all black up to:
+
+    | Gamma | Half the light at byte | Bayer 2 | Bayer 4 | Atkinson |
+    |---|---:|---:|---:|---:|
+    | off | 127.5 | 31 | 7 | 32 |
+    | 1.2 | 143.1 | 45 | 14 | 40 |
+    | 1.5 | 160.6 | 63 | 25 | 50 |
+    | 1.8 | 173.5 | 80 | 37 | 59 |
+    | srgb | 187.5 | 99 | 49 | 65 |
+
+    Floyd–Steinberg, and every kernel but Atkinson, loses none at any
+    gamma: they pass all the error on, so every gray above 0 gets dots.
+- **Recommended:** `off` for machine screens (the look of the time, and
+  Bayer 2's dark tones) and with Atkinson; `srgb` for pictures seen at
+  1:1 from a distance; the values between to taste. The default may be
+  revisited, perhaps per target, once the user has tried the web UI on
+  other monitors and pictures (2026-11-12).
 - **When:** after the web UI's v2, before v3 (2026-10-21). The web UI gets
-  the switch too.
+  the same five values.
 - **Every picture counts as sRGB** (2026-11-06). Neither client reads
   color profiles: both dither the stored numbers, the web UI on purpose,
-  so that its results match the CLI's. A Display P3 picture has the same
-  curve, so its light comes out right, and its colors are as slightly off
-  as they are today. Adobe RGB (a curve of about 2.2) and Apple RGB (1.8)
-  come out a little off in brightness too. The docs state it as a limit;
-  converting profiles would be a separate feature.
+  so that its results match the CLI's. With `srgb`, a Display P3 picture,
+  which has the same curve, gets its light right, and its colors are as
+  slightly off as they are today. Adobe RGB (a curve of about 2.2) and
+  Apple RGB (1.8) come out a little off in brightness too. The docs state
+  it as a limit; converting profiles would be a separate feature.
 - **CIELAB and OKLab come later, on top** (2026-11-06). Linear light says
   how much light there is, and the error stays in it; these two say which
   color looks nearest, so they only matter where a nearest color is
@@ -150,71 +192,93 @@ much light each channel gives, not how much the eye values it.
   opaque, so `Puregrain.Cells` or the machine modules need a way to do
   that. The line between a cell's two colors is a true mix of light in
   linear values.
-- **`channelToStored` must round to whole numbers:** `Zx.toScr` and the
-  C64's writers compare each pixel with its cell's colors exactly, and
-  rounding brings all 256 bytes back exactly (tested 2026-11-06).
+- **What's written must come back as whole bytes:** `Zx.toScr` and the
+  C64's writers compare each pixel with its cell's colors exactly. The
+  way back finds each target's byte in the table (decision 2, "The five
+  curves"), so it's exact by construction. Rounding the formula's result
+  also brought all 256 bytes back for `srgb` (tested 2026-11-06), but a
+  level that isn't a byte could round the other way.
 
 ## Decision 1: the library's API
 
-Settled 2026-11-08. The conversion is the driver's choice, not the
-quantizer's: it describes the picture, how its numbers relate to light.
+Settled 2026-11-08; amended 2026-11-12 for the gamma (see
+[Decided](#decided)): no conversion by default, five presets, and
+nothing breaks, so the release is 0.2.2. The conversion is the driver's
+choice, not the quantizer's: it describes the picture, how its numbers
+relate to light.
 
-- **One value holds both directions,** so they can't be mismatched. Two
-  presets: `srgb`, the default, and `asStored`, today's behaviour (the
-  identity both ways). Other curves, such as Adobe RGB's (a power of
-  about 2.2) or Apple RGB's (1.8), come through a checked constructor, as
-  `fromOffsets` checks kernels: the two functions must be each other's
-  inverse, rise steadily, and keep 0 as 0 and 255 as 255 (`threshold`
-  outputs exactly those, and the machines' files need their colors back
-  exactly).
-- **The drivers default to `srgb`** and keep their names and arguments:
-  from 0.3.0 on, `ditherImage`, `ditherRows`, `initDithering`,
-  `ditherCells` and `ditherBands` give other pictures from the same
+- **One value holds both directions,** so they can't be mismatched. Five
+  presets, as `--gamma`'s values: `asStored` (`off`, the default: today's
+  behaviour, the identity both ways), the power curves of 1.2, 1.5 and
+  1.8, and `srgb`. No constructor for other curves for now (2026-11-14,
+  start closed): nothing needs one, and the self-check couldn't vouch for
+  its curves. If one comes, it checks its two functions as `fromOffsets`
+  checks kernels: each other's inverse, rising steadily, and keeping 0 as
+  0 and 255 as 255 (`threshold` outputs exactly those, and the machines'
+  files need their colors back exactly).
+- **The drivers convert nothing by default,** and keep their names,
+  arguments and types: `ditherImage`, `ditherRows`, `initDithering`,
+  `ditherCells` and `ditherBands` give today's pictures from the same
   code. Each has a twin that takes the conversion first:
   `ditherImageWith`, `ditherRowsWith`, `initDitheringWith`,
   `ditherCellsWith` and `ditherBandsWith`. `ditherRow` needs none, since
   the stepper's state holds the conversion. The internal
   `ditherImageWith` and `ditherRowsWith` of `Puregrain.Internal.Image`
   get other names.
-- **`Quantize` takes the conversion from the driver.** It's opaque, so its
-  inside can change, and callers still write `threshold 128.0`. The
+- **`Quantize` takes the conversion from the driver,** as ready-made
+  functions: one pair for the pixel type, and the curve itself, for
+  single channels (`perChannel`'s scalar quantizers). It's opaque, so
+  its inside can change, and callers still write `threshold 128.0`. The
   driver passes the conversion once, before the first pixel, and keeps
   the resulting function: passed per pixel, the targets would be
   converted again for every pixel, since PureScript shares nothing by
   itself. The cells' quantizer and palettes work the same way.
-- **The drivers need one more constraint,** to convert channel by channel
-  (`MapChannels`, or a class of its own): `RGBA`'s alpha isn't on any
-  light curve, so it must not be converted.
-- **Release 0.3.0,** and the CHANGELOG says it loudly: the same code gives
-  other pictures, and `…With asStored` gives the old ones.
-- **Pinned by tests:** `…With asStored` equals the test reference, as
-  `ditherImage` does today. Before the merge, the CLI's opt-out must give
-  today's files byte for byte for a set of configurations, as the reshape
-  of 2026-10-04 was checked.
+- **Only the twins need one more constraint,** to convert channel by
+  channel (`MapChannels`, or a class of its own): `RGBA`'s alpha isn't on
+  any light curve, so it must not be converted. The default drivers
+  convert nothing, and `quantize` and `quantizeWith` get the conversion
+  as functions, so none of them needs it: a pixel type of the caller's
+  own, with `Ring` and `Scalable` but no `MapChannels`, works as before.
+- **Release 0.2.2, a compatible change** (amended 2026-11-12, from 0.3.0;
+  the rules in `CONTRIBUTING.md`): the same code gives the same pictures,
+  and every existing signature still compiles. The renamed internal
+  `ditherImageWith` and `ditherRowsWith` are in `Puregrain.Internal.*`,
+  documented as unstable.
+- **Pinned by tests:** the default drivers and `…With asStored` equal the
+  test reference, as `ditherImage` does today. Before the merge, the
+  CLI's default, `--gamma off`, must give today's files byte for byte
+  for a set of configurations, as the reshape of 2026-10-04 was checked.
 
 ```purescript
 -- both directions, per channel, on the 0–255 scale (opaque)
 data Encoding
-srgb     :: Encoding
-asStored :: Encoding
-encoding :: (Number -> Number) -> (Number -> Number) -> Either String Encoding
+asStored :: Encoding                          -- off: the identity, the default
+gamma12, gamma15, gamma18, srgb :: Encoding
 
 -- applying it to a pixel, a level or a color, channel by channel
 toLinear :: forall a. MapChannels a => Encoding -> a -> a
 toStored :: forall a. MapChannels a => Encoding -> a -> a
 
-ditherImage
-  :: forall a. Ring a => Scalable a => MapChannels a
+-- what a driver hands the quantizer (internal)
+type Conversion a = { toLinear :: a -> a, toStored :: a -> a, curve :: Encoding }
+noConversion  :: forall a. Conversion a       -- the identity, curve asStored
+conversionFor :: forall a. MapChannels a => Encoding -> Conversion a
+
+ditherImage                                   -- unchanged: no new constraint
+  :: forall a. Ring a => Scalable a
   => Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
-ditherImage = ditherImageWith srgb
+ditherImage = ditherImageVia noConversion
 
 ditherImageWith
   :: forall a. Ring a => Scalable a => MapChannels a
   => Encoding -> Kernel -> Quantize a -> Array (Array a) -> Array (Array a)
+ditherImageWith enc = ditherImageVia (conversionFor enc)
 ```
 
-`Encoding`, `srgb`, `asStored`, `encoding`, `toLinear` and `toStored` are
-placeholders, to be named in decision 7.
+`Encoding`, its presets, `toLinear` and `toStored` are placeholders,
+named in [decision 7](#decision-7-names) (`Gamma`, `gammaOff` …,
+`toLight`, `fromLight`). `Conversion`, `noConversion`, `conversionFor`
+and `ditherImageVia` are internal.
 
 ### Custom quantizers and `runQuantize`
 
@@ -223,7 +287,7 @@ pixel:
 
 ```purescript
 -- inside the library; opaque, as today
-newtype Quantize a = Quantize (Encoding -> Context -> a -> a)
+newtype Quantize a = Quantize (Conversion a -> Context -> a -> a)
 ```
 
 The driver gets the per-pixel function the same way for every
@@ -231,9 +295,12 @@ quantizer, once per run, through an internal function (`quantizerFor`,
 the name agreed with the user):
 
 ```purescript
-quantizerFor :: forall a. Encoding -> Quantize a -> Context -> a -> a
-quantizerFor enc (Quantize q) = q enc
+quantizerFor :: forall a. Conversion a -> Quantize a -> Context -> a -> a
+quantizerFor conv (Quantize q) = q conv
 ```
+
+`perChannel` hands its scalar quantizer a conversion made from the
+curve (`conv.curve`), which is why the curve comes along.
 
 What that function still does for each pixel, besides deciding, depends
 on how the quantizer was built:
@@ -258,7 +325,7 @@ is enough:
 
 ```purescript
 quantizeLinear :: forall a. (Encoding -> Context -> a -> a) -> Quantize a
-quantizeLinear = Quantize
+quantizeLinear f = Quantize \conv -> f conv.curve
 
 threshold t = quantizeLinear \enc ->
   let t' = toLinear enc t                 -- 128 becomes 55, once
@@ -285,6 +352,17 @@ coefficients would be converted again for every pixel, since PureScript
 shares nothing by itself. With `asStored`, every quantizer built this
 way behaves exactly as today.
 
+**Values kept as they are** (2026-11-14): a quantizer built with
+`quantizeLinear` that ignores the curve it's handed takes its numbers as
+they are, in whatever space the driver dithers in: bytes with `asStored`,
+light with any curve. That's the author's responsibility, and what's
+written then comes back through the formula, so the file's values are
+exact only where the numbers are the light of whole bytes. Numbers made
+for one curve are converted for another with `toLinear` and `toStored`,
+once, before the first pixel. No flag or tag on `Quantize` for either
+case (the user, 2026-11-14): a mismatch found by a tag could only crash,
+since the drivers have no error channel.
+
 **The last resort: `quantize f` and `quantizeWith f`,** for an `f` whose
 coefficients the library can't see. `f` keeps its meaning, stored values
 in and out, as the docs say today: the library converts each pixel back
@@ -293,24 +371,25 @@ from `Invariant`, a line inside the library, with no new dependency and
 nothing for the author to implement. The error still stays in linear
 light, so with any kernel the tones come out right, and without
 diffusion `f` decides as today. The price: both directions for every
-pixel, so it's slower, and decision 2's exactness question applies. Both
-constructors gain the constraint the drivers gain, for the conversion:
+pixel, so it's slower, and decision 2's exactness question applies.
+Neither constructor needs a new constraint, since the driver hands them
+the conversion as functions:
 
 ```purescript
-quantize :: forall a. MapChannels a => (a -> a) -> Quantize a
-quantize f = Quantize \enc _ x -> toLinear enc (f (toStored enc x))
+quantize :: forall a. (a -> a) -> Quantize a                -- unchanged type
+quantize f = Quantize \conv _ x -> conv.toLinear (f (conv.toStored x))
 ```
 
-**`runQuantize` answers for a stored value:** it converts in and out,
-with `srgb` by default, and `runQuantizeWith` takes the conversion. With
-`asStored`, it's today's `runQuantize`. Both are built on
-`quantizerFor`:
+**`runQuantize` answers for a stored value:** it converts nothing by
+default, so it's today's `runQuantize`, and `runQuantizeWith` takes the
+conversion. Both are built on `quantizerFor`:
 
 ```purescript
 runQuantizeWith :: forall a. MapChannels a => Encoding -> Quantize a -> Context -> a -> a
-runQuantizeWith enc q ctx v = toStored enc (quantizerFor enc q ctx (toLinear enc v))
+runQuantizeWith enc q ctx v = toStored enc (quantizerFor (conversionFor enc) q ctx (toLinear enc v))
 
-runQuantize = runQuantizeWith srgb
+runQuantize :: forall a. Quantize a -> Context -> a -> a   -- unchanged type
+runQuantize = quantizerFor noConversion
 ```
 
 ## Decision 2: exactness across browsers
@@ -390,7 +469,10 @@ problems        :: PlatformReport -> Array String -- one sentence per failed che
 ```
 
 The report also holds the first value whose results differed, for
-diagnosis. The names are placeholders, for decision 7.
+diagnosis. The names are placeholders, named in [decision
+7](#decision-7-names) (`checkEngine`, `EngineReport`), which also gives
+the self-check a module of its own, `Puregrain.SelfCheck`, and the exact
+roots `Puregrain.Internal.Exact`.
 
 - **The fingerprint's inputs are fixed:** the 256 bytes, the fractional
   levels of 2 to 16 levels, special values (thresholds such as 96.5, the
@@ -442,6 +524,17 @@ diagnosis. The names are placeholders, for decision 7.
 - **Honest wording:** a passing check means "this engine computed the
   reference values exactly". That's strong evidence, not proof for every
   possible value, so the docs say "checked", not "guaranteed".
+- **No native path** (the user's question, 2026-11-14): even on an
+  engine whose `Math.pow` matched the digest, the library keeps its own
+  roots. The standard lets native functions differ between engines
+  (Node 22's `Math.pow` and the browsers' differ on about 10% of values),
+  and our roots aren't always the correctly rounded value either, so a
+  native function would practically never match. A match would also
+  prove less: only the exact operations are the same everywhere by the
+  standard, so agreeing on the samples says little about other values.
+  And there's nothing to gain: pixels and targets go through the table,
+  and the formula runs only for the palette comparison, about 36 ns per
+  channel.
 
 ### Research (2026-11-08)
 
@@ -503,6 +596,51 @@ All of them go through the two functions. Whether fractional levels
 should be rounded to the byte that's written, so that the error is
 measured against it, is a separate task (`TODO.md`, "Levels that aren't
 whole numbers"): the mismatch exists today, without linear light.
+
+### The five curves (2026-11-12)
+
+`--gamma`'s values (see [Decided](#decided)), each built from exact
+operations only, as the prototype's sRGB curve is. On the 0–1 scale, x
+is a stored value and L its light:
+
+| Curve | To light | Back |
+|---|---|---|
+| `off` | x, not computed | L, not computed |
+| 1.2 | x · ⁵√x | √L · ∛L |
+| 1.5 | x · √x | (∛L)² |
+| 1.8 | x · (⁵√x)⁴ | (∛(∛L))⁵ |
+| `srgb` | the prototype's | the prototype's |
+
+- **The roots are the prototype's:** the square root, exact by ECMA-262,
+  and the fifth and cube roots by a fixed number of Newton's steps. Each
+  curve's steps are checked over its whole range, as the prototype's
+  were. A pure power has no straight piece near 0, so the roots need a
+  good start there (from the table, say), checked like the rest.
+- **Negative values are mirrored,** f(−x) = −f(x), for every curve, as
+  the W3C's sample code (CSS Color 4) extends sRGB's (the user,
+  2026-11-12). Only the way back meets them: error diffusion pushes
+  corrected values below 0 in dark areas, and decision 3's palette
+  comparison converts them. The prototype's `srgb` continued its straight
+  piece below 0; the mirror replaces that, one rule for every curve.
+  Values above 255 need nothing: the powers work there as they are.
+- **Each curve keeps one table** of 256 light values, built when it's
+  first used, not when its module loads (a top-level value would be
+  computed at every start, `--help` included): the CLI builds it once
+  per run, the web UI's worker once per change of the gamma.
+- **What's written goes back through the table, not the formula.** The
+  light value of a target, a palette color, a machine color or a level,
+  is one of the table's entries, so the way back finds its byte exactly:
+  no rounding can make a color the palette doesn't have, and the library
+  returns exactly 85, not 85.00000000000001. The formula back only serves
+  comparing (decision 3's palette choice), never what's written.
+- **A level that isn't a byte** (127.5 for 3 levels) is rounded to one
+  first when a curve is chosen, so that it's a table entry too: through
+  the formula, 127.5 could come back as 127.49999999999999 and be written
+  as 127, not today's 128. With `off` nothing changes; `TODO.md`'s item
+  on such levels covers `off` later, in a minor release, since it changes
+  pictures.
+- **The self-check covers the four computed curves** (`srgb`, 1.2, 1.5
+  and 1.8) in its one stored digest; `off` needs none.
 
 ## Decision 3: the nearest color or level
 
@@ -601,10 +739,82 @@ linear light picks 85. Over the 256 grays, against the same referee:
   by light, since that's an amount of light; `threshold` is the same
   either way.
 
+### Under any gamma (2026-11-12)
+
+The rule holds for every curve: choices on stored values, amounts of
+light in the curve's light.
+
+- **`threshold N` keeps N a stored value,** converted to the curve's
+  light once, so `--threshold 100` cuts at the same gray under every
+  gamma, as in any image editor.
+- **A cut at half of white's light instead** (the user's question,
+  2026-11-11), measured with `srgb`, black and white, on the gray
+  composite, against the converted 128:
+
+  | | Floyd–Steinberg: converted / half | Atkinson: converted / half |
+  |---|---|---|
+  | Light given off (the original: 37.8%) | 37.9% / 37.8% | 42.3% / 37.3% |
+  | Difference from the original, blurred in light (RMS) | 1.62% / 1.59% | 8.01% / 5.60% |
+  | Flat grays all black up to | 3 / 7 | 65 / 99 |
+
+  (The blur: Gaussian, 1.5 pixels, on both pictures' light.) For
+  Floyd–Steinberg, which passes all the error on, the cut hardly matters.
+  Atkinson drops a quarter of every error, and with the converted cut the
+  errors are lopsided (a white dot leaves up to −200, a black one at most
+  +55), so it keeps light it shouldn't: the picture comes out too bright.
+  The cut at half keeps its light right, but turns more dark tones black,
+  and it would make `--threshold N` cut at another gray under each gamma.
+- **Kept: the converted cut** (the user, 2026-11-12), and the docs
+  recommend `off` with Atkinson, whose dropped error is a trick made for
+  stored values.
+
+### Levels even in light? (2026-11-13)
+
+The user's question: in linear light, equal steps are equal steps of
+light, so should `--levels` spread its levels evenly in light, and cut
+between them halfway in light? Measured with `srgb` and 4 levels on the
+composites, in three variants, the error in light in all three:
+
+- **(a) decision 3:** the levels even in bytes, 0, 85, 170 and 255 (in
+  light 0, 23.2, 102.5 and 255), cut at the sRGB midpoints converted
+  (6.0, 54.6 and 168.8 in light);
+- **(b)** the same levels, cut halfway in light (11.6, 62.8 and 178.8);
+- **(c)** the levels even in light, 0, 85, 170 and 255 in light, which
+  are written as the bytes 0, 156, 213 and 255, cut halfway in light.
+
+| | Gray, Floyd–Steinberg: error in L* | Color, Floyd–Steinberg: ΔE, whole / sphere | Color, Atkinson: ΔE, whole / sphere |
+|---|---:|---:|---:|
+| (a) | 0.88 | 1.56 / 1.96 | 4.18 / 3.72 |
+| (b) | 0.83 | 1.62 / 2.07 | 5.06 / 5.27 |
+| (c) | 1.79 | 3.49 / 6.02 | 9.27 / 15.27 |
+
+(Both pictures blurred in light, Gaussian, 1.5 pixels, then compared as
+CIE L* for gray and as CIELAB ΔE 1976 for color; RMS. With
+Floyd–Steinberg all three give off the original's light within 0.1
+points.)
+
+- **Levels even in light look uneven:** their L* is 0, 64, 85 and 100,
+  against 0, 36, 70 and 100 for levels even in bytes. The first step
+  covers almost two thirds of the way to white, so shadows get sparse
+  light dots on black, in color specks of single channels. sRGB spaces
+  its values so that equal steps look roughly equal, the same reason
+  pictures are stored in sRGB, not in light.
+- **(a) against (b):** a wash with Floyd–Steinberg ((b) a little ahead in
+  gray, behind in color); with Atkinson, which drops error, (a) clearly
+  ahead. The user's eye agreed, from 4 m: (a) best.
+- **Kept** (the user, 2026-11-13): levels and thresholds always in sRGB
+  bytes. With a curve, the levels and the cut points (the sRGB
+  midpoints, and a threshold) are converted to its light, and the error
+  stays in light; what's written is each level's own byte.
+- **An idea, not planned:** explicit levels, `--levels a,b,c`, always
+  bytes, under every gamma. They'd also reach levels even in light
+  (`--levels 0,156,213,255`) without a mode of their own.
+
 ## Decision 4: the gray conversion
 
-Settled 2026-11-10: luminance, sRGB's own weights on linear values, as the
-final default; the opt-out keeps today's luma.
+Settled 2026-11-10; amended 2026-11-12 for the gamma: luminance, sRGB's
+own weights, on the light of any curve but `off`; `off`, the default,
+keeps today's luma.
 
 **Today:** `luma`, Rec. 601's weights (0.299 R + 0.587 G + 0.114 B) on
 stored values, exact for neutral pixels. It's used by `--gray`, by the
@@ -630,8 +840,10 @@ quarter of the colors, the saturated ones.
 
 **The decision:**
 
-- **Luminance, 0.2126 R + 0.7152 G + 0.0722 B on linear values, the final
-  default.** The gray gives off as much light as the color, so the dots'
+- **Luminance, 0.2126 R + 0.7152 G + 0.0722 B, on the curve's light,**
+  with every curve but `off` (its weights are linear light's; on 1.2 to
+  1.8 they're used as they are). With `srgb`, the gray gives off as much
+  light as the color, so the dots'
   average light matches it: an amount of light, which stays linear
   (decision 3's rule). It also keeps CIELAB's lightness, which depends
   only on luminance; the remaining 0.015 is where OKLab and CIELAB
@@ -639,14 +851,14 @@ quarter of the colors, the saturated ones.
   matching appearance. Saturated colors come out visibly lighter than
   today (pure blue 76 instead of 29); natural colors such as skin and sky
   barely change.
-- **The opt-out keeps today's luma** (the user, 2026-11-10): it gives
-  exactly today's pictures, as decision 1 promises, so the byte-for-byte
-  check covers the color-to-gray configurations too; and luma on stored
-  values is the classic conversion, for those who choose the old look.
-- **One helper in the library,** chosen by the conversion (luminance with
-  `srgb`, luma with `asStored`), used by both clients in place of their
-  copies. How its output meets the drivers' conversion is a detail of the
-  implementation.
+- **`off` keeps today's luma** (the user, 2026-11-10): it gives exactly
+  today's pictures, as decision 1 promises, so the byte-for-byte check
+  covers the color-to-gray configurations too; and luma on stored values
+  is the classic conversion, for those who choose the old look.
+- **One helper in the library,** chosen by the conversion (luma with
+  `asStored`, luminance on the curve's light with any other), used by
+  both clients in place of their copies. How its output meets the
+  drivers' conversion is a detail of the implementation.
 - **Neutral pixels stay exactly as they are,** as today: the weights add
   up to 1, but in floating point the luminance of 79 of the 256 neutral
   grays isn't exactly their light (for today's luma, 65 of them). The
@@ -654,9 +866,112 @@ quarter of the colors, the saturated ones.
 - **OKLab lightness** at most as an option later, not a replacement:
   changing the default again would change every gray picture again.
 
+## Decision 5: machine screens
+
+Settled 2026-11-12: nothing special. Machine screens take `--gamma` like
+everything else, with the same default, `off`, and the same rules:
+
+1. **Each cell's two colors** are chosen from the original pixels, on
+   stored values: which pair fits best is a choice (decision 3).
+2. **Inside the cell,** Bayer's fraction between the cell's two colors is
+   an amount of light, measured in the curve's light; with a kernel, the
+   nearer of the two is a choice, compared on stored values.
+3. **The error** stays in the curve's light.
+
+- **Exact under every curve:** a picture made only of valid cells comes
+  back unchanged (the choice finds its pair with a score of 0, every
+  pixel is one of its colors, every error is 0), and the files get the
+  machine's own bytes, through the table (decision 2).
+- **Measured** (2026-11-10; the cells chosen by the library, the rest
+  emulated, which gave today's CLI output exactly with no conversion):
+  with linear light, the ZX Spectrum's Bayer 2 lost the grays around the
+  sphere (the user: "no go"), its Bayer 4 looked better, and the C64's
+  screens barely changed, coming out a little closer to the original.
+- **Recommended:** `off` for machine screens, the look of the time (see
+  [Decided](#decided)); the docs mention `srgb` with Bayer 4 for photos,
+  as something to try.
+
+## Decision 6: the web UI's fit and background
+
+Settled 2026-11-12: both follow the chosen curve. With `off` they stay as
+they are; with another curve, the fit's area averaging (decision 22 in
+`web/ROADMAP.md`) and the flattening of transparent parts (decision 27)
+mix in the curve's light, and each result goes back to a byte, so that
+the CLI dithers the same picture.
+
+- **Why:** one setting says how numbers become light, and every step that
+  mixes colors uses it, or one step undoes another. Fine black and white
+  lines shrunk 2× for the ZX Spectrum's screen: averaged as stored values
+  they become gray 128, which `srgb` dithers to 22% white dots; averaged
+  in light, gray 188, dithered to 50%, the lines' own brightness. Half-
+  transparent black over white gives 128 or 188 the same way.
+- **Shared:** the flattening becomes the library helper that the CLI's
+  planned `--background` uses too (`TODO.md`), with the same rule; a
+  later `--fit` in the CLI would follow it as well.
+- **Exact:** today's fit is exact through whole-number weights; in light
+  it sums table values in a fixed order, the same on every engine, and
+  goes back through the exact way back before rounding.
+
+## Decision 7: names
+
+Settled 2026-11-12 for the clients and 2026-11-14 for the library.
+
+- **The option is `--gamma`,** with `off` (the default; `1` and `1.0`
+  mean the same), `1.2`, `1.5`, `1.8` and `srgb`. It replaces
+  `--linear-light on|off`, agreed on 2026-11-10 and never written in.
+  `off`, because in color management "gamma 1.0" means the values already
+  are linear light, so `--gamma 1.0` alone could be read as linear light,
+  the opposite of what it does.
+- **"Gamma"** is the usual word. Strictly, sRGB's curve is a transfer
+  function, a straight piece and a power, but Wikipedia's sRGB article
+  heads it "Transfer function ("gamma")". The docs' first sentence says
+  it doesn't adjust the picture.
+- **The web UI** offers the same five values. The (i) text comes with
+  v3's (i) for every setting, a task of its own.
+- **The library's names** replace the placeholders of decisions 1 and 2,
+  which keep them, so that their reasoning reads as it was written:
+
+  | Placeholder | Name |
+  |---|---|
+  | `Encoding` | `Gamma` |
+  | `asStored`, the curves of 1.2, 1.5 and 1.8, `srgb` | `gammaOff`, `gamma1p2`, `gamma1p5`, `gamma1p8`, `gammaSrgb` |
+  | `toLinear`, `toStored` | `toLight`, `fromLight` |
+  | `quantizeLinear` | `quantizeInLight` |
+  | `encoding`, the checked constructor for other curves | none for now (decision 1) |
+  | `checkPlatform`, `PlatformReport` | `checkEngine`, `EngineReport` |
+  | `exactArithmetic`, `problems` | kept |
+  | the CLI's mode for the self-check | `--check-engine` |
+
+  "p" stands for the point, as in names such as `v1p2`: a name can't
+  hold a dot (the compiler rejects `gamma1.2` and `gamma1·2`), the user
+  didn't want underscores, and look-alike Unicode letters would compile
+  but couldn't be typed or searched, the reason the project keeps code to
+  the ASCII hyphen. "Engine" in `checkEngine` is the JavaScript engine
+  (V8, SpiderMonkey, JavaScriptCore): its arithmetic and its optimizing
+  compiler, as the doc comment says. The twins' `…With` and the internal
+  `quantizerFor` were settled in decision 1.
+- **Modules:**
+  - `Puregrain.Gamma`: `Gamma`, the five presets, `toLight` and
+    `fromLight`; the curves' inside in `Puregrain.Internal.Gamma`;
+  - `quantizeInLight` and `runQuantizeWith` in `Puregrain.Quantize`,
+    next to `quantize`, `quantizeWith` and `runQuantize`;
+  - `Puregrain.SelfCheck`: `checkEngine`, `EngineReport`,
+    `exactArithmetic` and `problems`. A module of its own, not
+    `Puregrain.Gamma`, since it checks the engine's arithmetic, which
+    OKLab's distance (`TODO.md`) would use too, joining the same report;
+    moved later, it would break users' imports. Not `Puregrain.Engine…`:
+    the project already calls its dithering core "the engine";
+  - the exact roots in `Puregrain.Internal.Exact`, used by
+    `Puregrain.Internal.Gamma` now and by OKLab later.
+- **The facade** (`Puregrain`) re-exports `Gamma`, the five presets and
+  the `…With` twins, which a typical application needs. `toLight`,
+  `fromLight`, `quantizeInLight` and the self-check are building blocks
+  and stay in their modules, as `compilePalette` does.
+
 ## Exact checks
 
-Expected to hold as they do today, to be confirmed by running them:
+Expected to hold under every curve, as they do today, to be confirmed by
+running them:
 
 - an image made only of a palette's colors or of levels comes back
   unchanged, with any kernel (the same conversion on both sides, so the
@@ -670,13 +985,18 @@ Expected to hold as they do today, to be confirmed by running them:
 
 New:
 
-- with Floyd–Steinberg, a flat 128 gets about 21.6% white dots;
-- with pure Bayer 8, a flat 128 gets exactly 14 of 64 white dots;
+- with `off`, every result is today's, byte for byte;
+- with `srgb` and Floyd–Steinberg, a flat 128 gets about 21.6% white
+  dots;
+- with `srgb` and pure Bayer 8, a flat 128 gets exactly 14 of 64 white
+  dots;
+- every target comes back as its own byte under every curve;
 - the self-check passes in Node, Chromium, Firefox and WebKit.
 
 ## Open decisions
 
-To settle one at a time; each leaning is only a starting point.
+All seven are settled (2026-11-12 to 14), with the gamma's amendments to
+decisions 1 to 4.
 
 1. **The library's API:** settled, see [Decision
    1](#decision-1-the-librarys-api).
@@ -686,50 +1006,61 @@ To settle one at a time; each leaning is only a starting point.
    3](#decision-3-the-nearest-color-or-level).
 4. **The gray conversion:** settled, see [Decision
    4](#decision-4-the-gray-conversion).
-5. **Machine screens.** Artists of the time worked by eye, so the
-   recommended 2×2 patterns may look different. Compare before keeping it
-   on for them.
-6. **The web UI's fit and background.** Do the area averaging and the
-   flattening (decisions 22 and 27 in `web/ROADMAP.md`) also move to
-   linear light?
-7. **Names:** the twins' `…With` is settled (decision 1). Still open: the
-   conversion's type and presets, their module, and the option that turns
-   it off in the CLI and the web UI; the self-check's function, report
-   and accessors (decision 2), and the CLI option that runs it.
+5. **Machine screens:** settled, see [Decision
+   5](#decision-5-machine-screens).
+6. **The web UI's fit and background:** settled, see [Decision
+   6](#decision-6-the-web-uis-fit-and-background).
+7. **Names:** settled, see [Decision 7](#decision-7-names).
 
 ## Plan
 
 1. **Settle the open decisions** in this file.
-2. **Library:** the conversions, machine cells included, with the new
-   exact checks as properties; the self-check and its stored digest, run
-   in Node by the tests; the gray helper (decision 4).
-3. **CLI:** on by default, with the opt-out, and the self-check's mode;
-   the gray helper in place of its `luma`, and `--gray`'s help text
-   ("luma" no longer). The logo's script gets the opt-out, and
-   `npm run logo` must then report every file unchanged.
-4. **Web UI:** the same default and the switch, and the self-check in a
+2. **Library:** the five curves and their tables (decision 2), no
+   conversion by default, the conversions, machine cells included, with
+   the new exact checks as properties; the self-check and its stored
+   digest, run in Node by the tests; the gray helper (decision 4).
+3. **CLI:** `--gamma` with its five values, `off` by default, and the
+   self-check's mode; the gray helper in place of its `luma`, and
+   `--gray`'s help text (luma only with `off`). The logo's script,
+   `logo/make-logo.mjs`, passes `--gamma off` in its CLI call, since it
+   gives every setting, and its comment there, which still calls linear
+   light the planned default, is updated; `npm run logo` must then
+   report every file unchanged.
+4. **Web UI:** the same five values and default, the fit and the
+   flattening in the curve's light (decision 6), and the self-check in a
    worker of its own, with a notice; the gray helper in place of its
    copies. In the same branch as the CLI:
    `check:web` compares the page with the CLI, so the two change
    together, and it runs the self-check in the three browsers.
 5. **Measure:** the benchmarks, a look at the test images, and the
    machine screens' recommendations again.
-6. **Docs and release:** see below, then the release, and this file is
-   deleted. The docs include how to write an efficient quantizer: with
-   `quantizeLinear`, the coefficients converted in the outer `let`, once,
-   not in the per-pixel function. In `quantizeLinear`'s doc comment, which
-   Pursuit shows, and in the reference docs.
+6. **Docs and release:** see below, then the release, 0.2.2 (decision
+   1), and this file is deleted. The docs include how to write an
+   efficient quantizer: with `quantizeLinear`, the coefficients converted
+   in the outer `let`, once, not in the per-pixel function. In
+   `quantizeLinear`'s doc comment, which Pursuit shows, and in the
+   reference docs. They also show decision 1's two cases for authors: a
+   quantizer whose values are kept as they are, and numbers made for one
+   curve converted for another.
 
 ## Docs to update at the end
 
+- `docs/gamma.md`, new (the user, 2026-11-12): what `--gamma` means (it
+  doesn't adjust the picture), which value for which view, the table of
+  dark tones lost, `off` with Atkinson and for machine screens; linked
+  from the READMEs, and later from the web UI's (i);
 - `README.md`, "You need the best photo quality";
-- `cli/README.md` and `web/README.md`, their limitations and options;
+- `cli/README.md` and `web/README.md`, their limitations and options
+  (`cli/README.md`'s "fixing this is planned" becomes `--gamma`);
 - `docs/ordered-dithering.md` (its formulas and exact properties),
   `docs/error-diffusion.md`, `docs/test-images.md`,
   `docs/machine-screens/README.md`;
 - `TODO.md`: the item goes, with its "skews mid-tones slightly", and
   `web/ROADMAP.md`;
-- `CHANGELOG.md`, `CLAUDE.md`.
+- `logo/README.md`, "How it's made": the CLI settings it lists gain
+  `--gamma off`;
+- `CHANGELOG.md`, `CLAUDE.md` (its logo entry asks for the opt-out; it
+  then says the script passes `--gamma off`).
 
 ## Sources
 

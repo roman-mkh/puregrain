@@ -72,8 +72,10 @@ users is a separate task, see TODO.md.)
   Phase B, this), was deleted at the end, as planned: its content lives
   on in `docs/error-diffusion.md`, here, and in the pull requests.
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
-  the default, with a switch to turn it off, released as the library's
-  0.3.0. The web UI then gets the switch too.
+  a choice of curve, `--gamma`, off by default (`docs/linear-light-spec.md`
+  on the branch `linear-light`; on 2026-11-12 it replaced "the default,
+  with a switch to turn it off"), released as the library's 0.2.2. The
+  web UI then gets the same choice.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side. On a new branch from `master` (decision 20). From
   v2's design review (decisions 29 to 34): the gallery in a strip under
@@ -108,7 +110,16 @@ users is a separate task, see TODO.md.)
   "Compact PNG output", for the CLI; the page would write them itself,
   since a canvas writes no indexed PNGs): with today's 8-bit PNGs it
   would mostly show growth, the test composite going from 62 KB to
-  227 KB with `ansi16`.
+  227 KB with `ansi16`. And a chart for choosing the gamma (the user
+  found it very useful, 2026-11-12), once the gamma setting exists
+  (`docs/linear-light-spec.md`, on the branch `linear-light`):
+  black-and-white line patches, half of white's light, in fields of the
+  grays where half the light lies for each gamma offered (127.5 for 1.0,
+  143 for 1.2, 161 for 1.5, 174 for 1.8, 187.5 for sRGB); seen from a
+  distance, the patches melt into the field of the gamma that this
+  screen and this view have. Drawn at the screen's own pixels, as the
+  zoom draws pictures (any scaling with smoothing averages the stored
+  values and makes 1.0 match), perhaps from the gamma's (i).
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
@@ -347,8 +358,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     user's idea). Download names get `bg-RRGGBB` when the background
     shows and isn't white. The page's part comes in phase 2, its formula
     a pure function of the web package; the library's helper and the
-    CLI's flag come on `master` with linear light, before v3 (which
-    decides whether to flatten in linear light), and the page then takes
+    CLI's flag come on `master` with linear light, before v3 (flattening
+    in the chosen gamma's light: decision 6 in
+    `docs/linear-light-spec.md`), and the page then takes
     the library's helper, as planned for `luma`. Until then the clients
     differ on a picture with transparency: the CLI dithers the colors
     stored under transparent parts.
@@ -399,9 +411,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
       `LICENSE` stays plain MIT, so GitHub still shows "MIT" (it reads
       only the root); the README's License section names the exception.
     - **`npm run logo`** makes it again: the script gives every setting of
-      the CLI, so a change of the defaults can't change the logo (for
-      dithering in linear light, its opt-out goes into the script once
-      the CLI has it), and it writes a file only when its pixels changed.
+      the CLI, so a change of the defaults can't change the logo (it
+      will pass `--gamma off` once the CLI has the option), and it writes
+      a file only when its pixels changed.
     - **In the root README** (phase 7, 2026-11-01, the user's choice):
       the ZX lockup as the README's heading, an SVG at twice its size,
       one picture for GitHub's light and dark pages and for Pursuit's
