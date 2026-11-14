@@ -1160,6 +1160,33 @@ decisions 1 to 4.
    gives every setting, and its comment there, which still calls linear
    light the planned default, is updated; `npm run logo` must then
    report every file unchanged.
+
+   **As built** (2026-11-14, agreed with the user):
+   - `--gamma NAME`, `off` by default; the help shows "off (the
+     default, also 1.0)", and `1` is accepted silently too. Any other
+     value is rejected with the five names. It combines with every mode.
+     `Main` always calls the `…With` drivers; the report line names the
+     gamma only when it isn't `off` ("…, threshold 128.0, gamma srgb,
+     gray"), so with `off` it stays as it was.
+   - `--gray` and the gray pipeline use `toGray`; `toNeutral` takes the
+     gamma; the CLI's `luma` is gone.
+   - `--check-engine`, a mode of its own: optparse has two
+     alternatives, so `parseOptions` returns `CheckEngine | Dither
+     Options`, and the usage line shows both; with other arguments it's
+     rejected. It prints "Engine check passed: …" and exits with 0, or
+     "Engine check failed:" and the problems, with 1.
+   - The logo's script passes `--gamma off`, and `logo/README.md` says
+     so: `npm run logo` wrote nothing, 28 files unchanged.
+   - `check:cli`, four new checks: 13, `--gamma off`, `1.0` and `1`
+     byte-identical to no `--gamma` (gray, per channel, a ZX `.scr`);
+     14, checks 1, 2, 4 and 6 under each curve, with two kernels where
+     the error is zero; 15, exact dot counts with `srgb` and pure Bayer
+     8 through each pipeline, a flat 128 at 14 in 64 in gray and per
+     channel and 20 on a ZX screen (0.314 of the way to white 216 in
+     light; 32 and 38 without a curve), which caught each of the three
+     pipelines' gamma dropped in `Main` (the exact checks can't: an
+     unchanged picture stays unchanged under any curve); 16,
+     `--check-engine`. `check:cli` takes 70 s instead of 39.
 4. **Web UI:** the same five values and default, the fit and the
    flattening in the curve's light (decision 6), and the self-check in a
    worker of its own, with a notice; the gray helper in place of its
@@ -1185,7 +1212,14 @@ decisions 1 to 4.
   from the READMEs, and later from the web UI's (i);
 - `README.md`, "You need the best photo quality";
 - `cli/README.md` and `web/README.md`, their limitations and options
-  (`cli/README.md`'s "fixing this is planned" becomes `--gamma`);
+  (`cli/README.md`'s "fixing this is planned" becomes `--gamma`). The
+  CLI's (step 3): `--gamma` (the help shows "off (the default, also
+  1.0)"; `1` is accepted too), `--check-engine` (a mode, with its exit
+  codes in the table), `--gray`'s meaning under a curve, and the
+  report line, which names the gamma when it isn't `off` ("Output and
+  timing" keeps its example);
+- `docs/test-images.md`, "Exact checks": `check-cli.sh`'s checks 13 to
+  16;
 - `docs/ordered-dithering.md` (its formulas and exact properties),
   `docs/error-diffusion.md`, `docs/test-images.md`,
   `docs/machine-screens/README.md`;
@@ -1194,7 +1228,8 @@ decisions 1 to 4.
 - `logo/README.md`, "How it's made": the CLI settings it lists gain
   `--gamma off`;
 - `CHANGELOG.md`, `CLAUDE.md` (its logo entry asks for the opt-out; it
-  then says the script passes `--gamma off`; its documentation map gets
+  then says the script passes `--gamma off`; its CLI entry gains
+  `--gamma`, `--check-engine` and the `Command` type; its documentation map gets
   `docs/exact-arithmetic.md`, written in sub-step 2a, with the curves'
   and the self-check's sections added as they come).
 

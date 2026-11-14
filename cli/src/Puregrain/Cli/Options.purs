@@ -6,18 +6,22 @@ module Puregrain.Cli.Options
   , MachineName(..)
   , MachinePaletteName(..)
   , FormatName(..)
+  , GammaName(..)
   , QuantizerChoice(..)
   , Options
+  , Command(..)
   , allKernels
   , allPalettes
   , allMachines
   , allFormats
+  , allGammas
   , kernelName
   , paletteName
   , machineName
   , machinePaletteName
   , allMachinePalettes
   , formatName
+  , gammaName
   , splitFileName
   , describeQuantizer
   , parseOptions
@@ -35,7 +39,7 @@ import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), Replacement(..), joinWith, replaceAll, split, toLower)
 import Data.String.CodeUnits as CodeUnits
 import Data.Tuple (Tuple(..), fst)
-import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, strArgument, switch, (<**>))
+import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, flag', fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, strArgument, switch, value, (<**>))
 
 -- | `NoDiffusion` is the empty kernel: each pixel is quantized on its
 -- | own, so `--bayer` with it gives pure ordered dithering (the default
@@ -98,6 +102,15 @@ derive instance Generic FormatName _
 instance Show FormatName where
   show = genericShow
 
+-- | How the stored values turn into light, which the dithering then
+-- | keeps: the library's five presets, `gammaOff` to `gammaSrgb`.
+data GammaName = GammaOff | Gamma1p2 | Gamma1p5 | Gamma1p8 | GammaSrgb
+
+derive instance Eq GammaName
+derive instance Generic GammaName _
+instance Show GammaName where
+  show = genericShow
+
 -- | Which quantizer to build — and so, which kind of error diffusion
 -- | runs: a threshold always works on gray; levels work per channel
 -- | (scalarED) on color input; a palette picks the nearest palette color
@@ -126,7 +139,11 @@ type Options =
   , quantizer :: QuantizerChoice
   , format :: FormatName
   , gray :: Boolean
+  , gamma :: GammaName
   }
+
+-- | What a command line asks for: the engine's self-check, or dithering.
+data Command = CheckEngine | Dither Options
 
 -- | Every kernel and palette the CLI offers. Each command-line name lives
 -- | only in `kernelName`/`paletteName`: the parse tables and the help
@@ -149,6 +166,9 @@ allMachinePalettes = [ FullPalette, NormalPalette, BrightPalette ]
 allFormats :: Array FormatName
 allFormats = [ Png, Scr, Tap, Prg, Art ]
 
+allGammas :: Array GammaName
+allGammas = [ GammaOff, Gamma1p2, Gamma1p5, Gamma1p8, GammaSrgb ]
+
 kernels :: Array (Tuple String KernelName)
 kernels = map (\k -> Tuple (kernelName k) k) allKernels
 
@@ -163,6 +183,9 @@ machinePalettes = map (\p -> Tuple (machinePaletteName p) p) allMachinePalettes
 
 formats :: Array (Tuple String FormatName)
 formats = map (\f -> Tuple (formatName f) f) allFormats
+
+gammas :: Array (Tuple String GammaName)
+gammas = map (\g -> Tuple (gammaName g) g) allGammas
 
 -- | "a, b or c"
 orList :: Array String -> String
@@ -224,6 +247,18 @@ formatName = case _ of
   Prg -> "prg"
   Art -> "art"
 
+-- | `off`, not "1.0": in color management, gamma 1.0 means the values
+-- | already are light, so "--gamma 1.0" alone could be read as linear
+-- | light, the opposite of what it does. "1.0" and "1" are accepted for it
+-- | (see `gammaChoice`).
+gammaName :: GammaName -> String
+gammaName = case _ of
+  GammaOff -> "off"
+  Gamma1p2 -> "1.2"
+  Gamma1p5 -> "1.5"
+  Gamma1p8 -> "1.8"
+  GammaSrgb -> "srgb"
+
 describeQuantizer :: QuantizerChoice -> String
 describeQuantizer = case _ of
   Threshold t -> "threshold " <> show t
@@ -257,6 +292,14 @@ bayerSide = eitherReader \s ->
     Just n | Array.elem n [ 2, 4, 8, 16 ] -> Right n
     _ -> Left ("bayer must be a power of 2 from 2 to 16 (the matrix side), got \"" <> s <> "\"")
 
+-- | A gamma's name, or "1.0" or "1" for `off`. A mistake lists the five
+-- | names only.
+gammaChoice :: ReadM GammaName
+gammaChoice = eitherReader \s ->
+  case Array.find (\(Tuple name _) -> name == s) (gammas <> [ Tuple "1.0" GammaOff, Tuple "1" GammaOff ]) of
+    Just (Tuple _ g) -> Right g
+    Nothing -> Left ("unknown gamma \"" <> s <> "\"; use one of: " <> joinWith ", " (map fst gammas))
+
 -- | At most one of --threshold, --levels and --palette; none means the
 -- | default, which depends on --bayer (see `resolve`).
 quantizer :: Parser (Maybe QuantizerChoice)
@@ -283,6 +326,7 @@ type RawOptions =
   , machinePalette :: Maybe MachinePaletteName
   , format :: Maybe FormatName
   , gray :: Boolean
+  , gamma :: GammaName
   }
 
 rawOptions :: Parser RawOptions
@@ -330,11 +374,33 @@ rawOptions = ado
               <> " on a 320x200 image"
           )
     )
-  gray <- switch (long "gray" <> help "convert a color input to gray (luma) first")
-  in { input, output, kernel, quantizer: q, bayer, machine, machinePalette, format, gray }
+  gray <- switch
+    ( long "gray"
+        <> help ("convert a color input to gray first: luma with --gamma " <> gammaName GammaOff <> ", else the gray that gives off as much light as the color")
+    )
+  gamma <- option gammaChoice
+    ( long "gamma" <> metavar "NAME" <> value GammaOff
+        <> help
+          ( "how the stored values turn into light, which the dithering then keeps: " <> gammaName GammaOff
+              <> " (the default, also 1.0), " <> orList (map gammaName (Array.drop 1 allGammas))
+              <> " (linear light); it doesn't adjust the picture"
+          )
+    )
+  in { input, output, kernel, quantizer: q, bayer, machine, machinePalette, format, gray, gamma }
 
-parserInfo :: ParserInfo RawOptions
-parserInfo = info (rawOptions <**> helper)
+-- | The engine's self-check, a mode of its own, or dithering.
+data RawCommand = RawCheckEngine | RawDither RawOptions
+
+rawCommand :: Parser RawCommand
+rawCommand =
+  flag' RawCheckEngine
+    ( long "check-engine"
+        <> help "check that this JavaScript engine computes the light curves (--gamma) exactly as the reference does, then exit: 0 if it does, 1 if not"
+    )
+    <|> (RawDither <$> rawOptions)
+
+parserInfo :: ParserInfo RawCommand
+parserInfo = info (rawCommand <**> helper)
   ( fullDesc
       <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
@@ -346,7 +412,8 @@ parserInfo = info (rawOptions <**> helper)
             <> "screen, two colors per 8x8 cell; as .scr or .tap it writes the Spectrum's own screen file "
             <> "or a tape image. --machine c64-hires dithers to the Commodore 64's hires screen, also "
             <> "two colors per 8x8 cell; as .prg it writes a C64 program that shows it, as .art an "
-            <> "Art Studio picture."
+            <> "Art Studio picture. --gamma keeps the light by a curve instead of the stored values' average; "
+            <> "--check-engine checks the curves' arithmetic on this JavaScript engine."
         )
   )
 
@@ -373,7 +440,7 @@ resolve raw = ado
       if isJust raw.machinePalette then Left "--machine-palette needs --machine: it picks among a machine's colors"
       else quantizerChoice
   format <- formatOf raw.format raw.output >>= formatChoice
-  in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray }
+  in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray, gamma: raw.gamma }
   where
   defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
   machineChoice m = case raw.quantizer of
@@ -439,12 +506,14 @@ splitFileName path = case CodeUnits.lastIndexOf (Pattern ".") file of
   file = fromMaybe path (Array.last (split (Pattern "/") (replaceAll (Pattern "\\") (Replacement "/") path)))
 
 -- | Parses a command line (without the program name): optparse's own
--- | checks, then `resolve`. A rejection by `resolve` becomes an ordinary
--- | optparse failure, so it's reported, and exits, like any other.
-parseOptions :: Array String -> ParserResult Options
+-- | checks, then `resolve` for dithering. A rejection by `resolve` becomes
+-- | an ordinary optparse failure, so it's reported, and exits, like any
+-- | other.
+parseOptions :: Array String -> ParserResult Command
 parseOptions args = case execParserPure defaultPrefs parserInfo args of
-  Success raw -> case resolve raw of
-    Right opts -> Success opts
+  Success RawCheckEngine -> Success CheckEngine
+  Success (RawDither raw) -> case resolve raw of
+    Right opts -> Success (Dither opts)
     Left message -> Failure (parserFailure defaultPrefs parserInfo (ErrorMsg message) [])
   Failure failure -> Failure failure
   CompletionInvoked completion -> CompletionInvoked completion

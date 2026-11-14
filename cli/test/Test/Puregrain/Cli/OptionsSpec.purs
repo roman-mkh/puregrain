@@ -13,7 +13,7 @@ import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
 import ExitCodes as ExitCode
 import Options.Applicative (ParserResult(..), renderFailure)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, kernelName, machineName, machinePaletteName, paletteName, parseOptions)
+import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allGammas, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, gammaName, kernelName, machineName, machinePaletteName, paletteName, parseOptions)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -21,7 +21,8 @@ import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 -- | no exit. `Left` carries the text optparse would print for a failure.
 parse :: Array String -> Either String Options
 parse args = case parseOptions args of
-  Success opts -> Right opts
+  Success (Dither opts) -> Right opts
+  Success CheckEngine -> Left "unexpected --check-engine"
   Failure failure -> Left (fst (renderFailure failure "puregrain-cli"))
   CompletionInvoked _ -> Left "unexpected shell-completion request"
 
@@ -33,13 +34,25 @@ exitCodeOf args = case parseOptions args of
   Failure failure -> let Tuple _ code = renderFailure failure "puregrain-cli" in Right code
   _ -> Left "the command line parsed successfully"
 
+-- | Whether a command line asks for the engine's self-check.
+checksEngine :: Array String -> Boolean
+checksEngine args = case parseOptions args of
+  Success CheckEngine -> true
+  _ -> false
+
+-- | The text optparse prints for --help.
+helpText :: String
+helpText = case parseOptions [ "--help" ] of
+  Failure failure -> fst (renderFailure failure "puregrain-cli")
+  _ -> ""
+
 failsWith :: String -> Either String Options -> Boolean
 failsWith text = case _ of
   Left message -> contains (Pattern text) message
   Right _ -> false
 
 defaults :: Options
-defaults = { input: "in.png", output: "out.png", kernel: FloydSteinberg, quantizer: Threshold 128.0, format: Png, gray: false }
+defaults = { input: "in.png", output: "out.png", kernel: FloydSteinberg, quantizer: Threshold 128.0, format: Png, gray: false, gamma: GammaOff }
 
 files :: Array String
 files = [ "in.png", "out.png" ]
@@ -52,7 +65,7 @@ spec :: Spec Unit
 spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.md)" do
 
   describe "defaults" do
-    it "INPUT and OUTPUT alone: Floyd-Steinberg, --threshold 128, a PNG, no --gray" do
+    it "INPUT and OUTPUT alone: Floyd-Steinberg, --threshold 128, a PNG, no --gray, --gamma off" do
       parse files `shouldEqual` Right defaults
 
   describe "every option" do
@@ -234,6 +247,35 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse [ "in.png", "out.png", "extra.png" ] `shouldSatisfy` isLeft
       parse (files <> [ "--bogus" ]) `shouldSatisfy` isLeft
 
+  describe "--gamma" do
+    it "takes each gamma's name, and 1.0 and 1 for off" do
+      for_ allGammas \g -> parse (files <> [ "--gamma", gammaName g ]) `shouldEqual` Right (defaults { gamma = g })
+      map gammaName allGammas `shouldEqual` [ "off", "1.2", "1.5", "1.8", "srgb" ]
+      parse (files <> [ "--gamma", "1.0" ]) `shouldEqual` Right defaults
+      parse (files <> [ "--gamma", "1" ]) `shouldEqual` Right defaults
+
+    it "works with every mode, --gray included" do
+      for_ [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "cga16" ], [ "--bayer", "4" ], [ "--machine", "zx-spectrum" ], [ "--machine", "c64-hires", "--bayer", "2" ], [ "--gray" ] ] \mode ->
+        map _.gamma (parse (files <> mode <> [ "--gamma", "srgb" ])) `shouldEqual` Right GammaSrgb
+
+    it "rejects another value, listing the five names" do
+      parse (files <> [ "--gamma", "2.2" ]) `shouldSatisfy` failsWith "use one of: off, 1.2, 1.5, 1.8, srgb"
+
+    it "is in the help, with off as the default, also 1.0" do
+      helpText `shouldSatisfy` contains (Pattern "--gamma NAME")
+      helpText `shouldSatisfy` contains (Pattern "off (the default, also 1.0)")
+
+  describe "--check-engine" do
+    it "asks for the engine's self-check, alone" do
+      checksEngine [ "--check-engine" ] `shouldEqual` true
+
+    it "doesn't combine with a dithering's arguments" do
+      checksEngine [ "--check-engine", "in.png", "out.png" ] `shouldEqual` false
+      parse [ "--check-engine", "in.png", "out.png" ] `shouldSatisfy` isLeft
+
+    it "is in the help" do
+      helpText `shouldSatisfy` contains (Pattern "--check-engine")
+
   describe "exit codes (the README's table)" do
     it "--help exits with 0" do
       case exitCodeOf [ "--help" ] of
@@ -241,7 +283,7 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
         Left why -> fail why
 
     it "a rejected command line exits with 1" do
-      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ], [ "in.png", "out.jpg" ], files <> [ "--machine-palette", "normal" ] ] \args ->
+      for_ [ [], files <> [ "--levels", "1" ], files <> [ "--bogus" ], files <> [ "--bayer", "4", "--palette", "bw" ], files <> [ "--machine", "zx-spectrum", "--levels", "4" ], files <> [ "--format", "scr" ], [ "in.png", "out.jpg" ], files <> [ "--machine-palette", "normal" ], files <> [ "--gamma", "2.2" ], [ "--check-engine", "in.png", "out.png" ] ] \args ->
         case exitCodeOf args of
           Right code -> code `shouldEqual` ExitCode.Error
           Left why -> fail why

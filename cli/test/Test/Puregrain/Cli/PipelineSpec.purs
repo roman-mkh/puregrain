@@ -9,11 +9,13 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Data.Ord (abs)
-import Puregrain (Context, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
+import Data.Tuple (Tuple(..))
+import Puregrain (Context, Gamma, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb)
 import Effect.Aff (Aff)
+import Puregrain.Gamma (toLight)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
-import Puregrain.Cli.Pipeline (DitheredScreen(..), Pipeline(..), ditherScreen, isNeutral, kernelOf, luma, paletteOf, pipelineFor, programFile, artStudioFile, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Options (FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..))
+import Puregrain.Cli.Pipeline (DitheredScreen(..), Pipeline(..), ditherScreen, gammaOf, isNeutral, kernelOf, paletteOf, pipelineFor, programFile, artStudioFile, screenFile, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
 import Test.Spec (Spec, describe, it)
@@ -77,8 +79,8 @@ shouldBeScreen pipeline machine palette expected = case pipeline of
   Screen s -> do
     s.machine `shouldEqual` machine
     s.palette `shouldEqual` palette
-    ditherScreen s.machine s.palette noDiffusion s.rule screenProbe
-      `shouldEqual` ditherScreen s.machine s.palette noDiffusion expected screenProbe
+    ditherScreen gammaOff s.machine s.palette noDiffusion s.rule screenProbe
+      `shouldEqual` ditherScreen gammaOff s.machine s.palette noDiffusion expected screenProbe
   Gray _ -> fail "expected a machine's screen, got gray processing"
   Color _ -> fail "expected a machine's screen, got RGB processing"
 
@@ -142,23 +144,23 @@ spec = describe "Puregrain.Cli.Pipeline" do
 
   describe "screens" do
     it "zx-spectrum dithers with the library's ZX Spectrum screen mode, with the given kernel and rule" do
-      ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe
+      ditherScreen gammaOff ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe
         `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.screen screenProbe)
       withBayer 8 \m ->
-        ditherScreen ZxSpectrumScreen FullPalette atkinson (orderedInCell m) screenProbe
+        ditherScreen gammaOff ZxSpectrumScreen FullPalette atkinson (orderedInCell m) screenProbe
           `shouldEqual` ZxDithered (ditherCells atkinson (orderedInCell m) Zx.screen screenProbe)
 
     it "c64-hires dithers with the library's C64 hires screen mode, with the given kernel and rule" do
-      ditherScreen C64HiresScreen FullPalette atkinson nearestInCell screenProbe
+      ditherScreen gammaOff C64HiresScreen FullPalette atkinson nearestInCell screenProbe
         `shouldEqual` C64HiresDithered (ditherCells atkinson nearestInCell C64.hiresScreen screenProbe)
       withBayer 8 \m ->
-        ditherScreen C64HiresScreen FullPalette atkinson (orderedInCell m) screenProbe
+        ditherScreen gammaOff C64HiresScreen FullPalette atkinson (orderedInCell m) screenProbe
           `shouldEqual` C64HiresDithered (ditherCells atkinson (orderedInCell m) C64.hiresScreen screenProbe)
 
     it "zx-spectrum's normal and bright palettes are the library's normalScreen and brightScreen" do
-      ditherScreen ZxSpectrumScreen NormalPalette atkinson nearestInCell screenProbe
+      ditherScreen gammaOff ZxSpectrumScreen NormalPalette atkinson nearestInCell screenProbe
         `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.normalScreen screenProbe)
-      ditherScreen ZxSpectrumScreen BrightPalette atkinson nearestInCell screenProbe
+      ditherScreen gammaOff ZxSpectrumScreen BrightPalette atkinson nearestInCell screenProbe
         `shouldEqual` ZxDithered (ditherCells atkinson nearestInCell Zx.brightScreen screenProbe)
 
     it "zx-spectrum's screen file is the library's .scr, 6912 bytes, and its tape the library's .tap" do
@@ -170,7 +172,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
       tapeFile "picture" (ZxDithered out) `shouldEqual` Zx.toTap "picture" out
       map Array.length (tapeFile "picture" (ZxDithered out)) `shouldEqual` Right 6980
       -- A C64 screen has neither; the options never ask for them.
-      let c64Screen = ditherScreen C64HiresScreen FullPalette atkinson nearestInCell screenProbe
+      let c64Screen = ditherScreen gammaOff C64HiresScreen FullPalette atkinson nearestInCell screenProbe
       screenFile c64Screen `shouldSatisfy` isLeft
       tapeFile "picture" c64Screen `shouldSatisfy` isLeft
 
@@ -181,7 +183,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
       programFile (C64HiresDithered out) `shouldEqual` C64.toHiresPrg out
       map Array.length (programFile (C64HiresDithered out)) `shouldEqual` Right 14145
       -- The options never ask for it.
-      programFile (ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
+      programFile (ditherScreen gammaOff ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
 
     it "c64-hires's Art Studio file is the library's .art, 9009 bytes; a ZX Spectrum screen has none" do
       let
@@ -189,7 +191,7 @@ spec = describe "Puregrain.Cli.Pipeline" do
         out = ditherCells atkinson nearestInCell C64.hiresScreen image
       artStudioFile (C64HiresDithered out) `shouldEqual` C64.toArtStudio out
       map Array.length (artStudioFile (C64HiresDithered out)) `shouldEqual` Right 9009
-      artStudioFile (ditherScreen ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
+      artStudioFile (ditherScreen gammaOff ZxSpectrumScreen FullPalette atkinson nearestInCell screenProbe) `shouldSatisfy` isLeft
 
     it "names the tape after the output file: no directory or extension, printable ASCII only, at most 10" do
       tapeName "samples/zx-bayer8.tap" `shouldEqual` "zx-bayer8"
@@ -245,21 +247,35 @@ spec = describe "Puregrain.Cli.Pipeline" do
       paletteOf C64 `shouldEqual` c64
       paletteOf ZxSpectrum `shouldEqual` zxSpectrum
 
-  describe "luma (gray conversion)" do
+  describe "gammaOf" do
+    -- A Gamma can't be compared directly; its light on a few values can.
+    it "gives the library's preset for each name" do
+      let
+        lightOf :: Gamma -> Array Number
+        lightOf g = map (toLight g) [ 0.0, 37.5, 100.0, 128.0, 255.0 ]
+      for_ [ Tuple GammaOff gammaOff, Tuple Gamma1p2 gamma1p2, Tuple Gamma1p5 gamma1p5, Tuple Gamma1p8 gamma1p8, Tuple GammaSrgb gammaSrgb ] \(Tuple name preset) ->
+        lightOf (gammaOf name) `shouldEqual` lightOf preset
+
+  describe "toNeutral (--gray)" do
+    let grayOf g c = case toNeutral g c of RGB p -> p.r
+
     -- Regression test: with the Rec. 601 weights applied to r = g = b = v,
     -- 65 of the 256 levels (128 among them) come out one float step low —
     -- which is how the old JS CLI converted every pixel.
-    it "is exact for every neutral pixel, all 256 levels" do
+    it "keeps every neutral pixel exactly, all 256 levels, under every gamma" do
       let levels = map toNumber (0 .. 255)
-      map (\v -> luma (RGB { r: v, g: v, b: v })) levels `shouldEqual` levels
+      for_ [ gammaOff, gamma1p2, gamma1p5, gamma1p8, gammaSrgb ] \g ->
+        map (\v -> toNeutral g (RGB { r: v, g: v, b: v })) levels `shouldEqual` map (\v -> RGB { r: v, g: v, b: v }) levels
 
-    it "is Rec. 601 luma (0.299 R + 0.587 G + 0.114 B) for colored pixels" do
-      luma (RGB { r: 255.0, g: 0.0, b: 0.0 }) `shouldSatisfy` approx 76.245
-      luma (RGB { r: 0.0, g: 255.0, b: 0.0 }) `shouldSatisfy` approx 149.685
-      luma (RGB { r: 0.0, g: 0.0, b: 255.0 }) `shouldSatisfy` approx 29.07
-      luma (RGB { r: 128.0, g: 64.0, b: 200.0 }) `shouldSatisfy` approx 98.64
+    it "with gammaOff, is Rec. 601 luma (0.299 R + 0.587 G + 0.114 B) for colored pixels, as before" do
+      grayOf gammaOff (RGB { r: 255.0, g: 0.0, b: 0.0 }) `shouldSatisfy` approx 76.245
+      grayOf gammaOff (RGB { r: 0.0, g: 255.0, b: 0.0 }) `shouldSatisfy` approx 149.685
+      grayOf gammaOff (RGB { r: 0.0, g: 0.0, b: 255.0 }) `shouldSatisfy` approx 29.07
+      grayOf gammaOff (RGB { r: 128.0, g: 64.0, b: 200.0 }) `shouldSatisfy` approx 98.64
 
-    it "toNeutral gives a neutral pixel at the luma value" do
-      let px = toNeutral (RGB { r: 128.0, g: 64.0, b: 200.0 })
-      px `shouldSatisfy` isNeutral
-      luma px `shouldSatisfy` approx 98.64
+    it "with gammaSrgb, gives the gray with the color's light: pure blue about 76, not 29" do
+      grayOf gammaSrgb (RGB { r: 0.0, g: 0.0, b: 255.0 }) `shouldSatisfy` approx 75.96269735836901
+
+    it "gives a neutral pixel" do
+      toNeutral gammaOff (RGB { r: 128.0, g: 64.0, b: 200.0 }) `shouldSatisfy` isNeutral
+      toNeutral gammaSrgb (RGB { r: 128.0, g: 64.0, b: 200.0 }) `shouldSatisfy` isNeutral

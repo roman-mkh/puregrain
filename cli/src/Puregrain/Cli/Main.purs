@@ -11,7 +11,8 @@ import Data.Array as Array
 import Data.Either (Either(..), either)
 import Data.Maybe (maybe)
 import Data.Number.Format (fixed, toStringWith)
-import Puregrain (RGB(..), ditherImage)
+import Data.String (joinWith)
+import Puregrain (RGB(..), ditherImageWith, toGray)
 import Effect (Effect)
 import Effect.Console (error, log)
 import Effect.Exception (catchException, message, throw, try)
@@ -19,29 +20,47 @@ import Node.Buffer as Buffer
 import Node.FS.Sync (writeFile)
 import Node.Process (argv, exit')
 import Options.Applicative (handleParseResult)
-import Puregrain.Cli.Options (FormatName(..), Options, describeQuantizer, kernelName, parseOptions)
-import Puregrain.Cli.Pipeline (Pipeline(..), artStudioFile, ditherScreen, isNeutral, kernelOf, luma, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), Options, describeQuantizer, gammaName, kernelName, parseOptions)
+import Puregrain.Cli.Pipeline (Pipeline(..), artStudioFile, ditherScreen, gammaOf, isNeutral, kernelOf, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
+-- A specialty module, outside the facade, imported directly as an
+-- application would.
+import Puregrain.SelfCheck (checkEngine, exactArithmetic, problems)
 import Safe.Coerce (coerce)
 
 main :: Effect Unit
 main = do
   args <- argv
-  opts <- handleParseResult (parseOptions (Array.drop 2 args))
-  result <- try (run opts)
-  case result of
-    Left err -> do
-      error (message err)
-      exit' 1
-    Right _ -> pure unit
+  command <- handleParseResult (parseOptions (Array.drop 2 args))
+  case command of
+    CheckEngine -> checkTheEngine
+    Dither opts -> do
+      result <- try (run opts)
+      case result of
+        Left err -> do
+          error (message err)
+          exit' 1
+        Right _ -> pure unit
+
+-- | `--check-engine`: runs the library's self-check, says what it found,
+-- | and exits with 1 on a problem.
+checkTheEngine :: Effect Unit
+checkTheEngine = do
+  report <- checkEngine
+  if exactArithmetic report then
+    log "Engine check passed: this JavaScript engine computes the light curves exactly as the reference does."
+  else do
+    error (joinWith "\n  " ([ "Engine check failed:" ] <> problems report))
+    exit' 1
 
 run :: Options -> Effect Unit
 run opts = do
   rows <- readRgbRows opts.input
   let
+    gamma = gammaOf opts.gamma
     image :: Array (Array RGB)
-    image = (if opts.gray then map (map toNeutral) else identity) (coerce rows)
+    image = (if opts.gray then map (map (toNeutral gamma)) else identity) (coerce rows)
     grayImage = Array.all (Array.all isNeutral) image
     kernel = kernelOf opts.kernel
     width = maybe 0 Array.length (Array.head image)
@@ -52,19 +71,19 @@ run opts = do
       -- `timed` gets the input separately, so the gray conversion is done
       -- before the clock starts: only the dithering is measured (see
       -- Puregrain.Cli.Timing).
-      { ms, result: out } <- timed (ditherImage kernel q) (map (map luma) image)
+      { ms, result: out } <- timed (ditherImageWith gamma kernel q) (map (map (toGray gamma)) image)
       report ms "gray"
       writeGrayRows opts.output out
       log $ "Wrote " <> opts.output <> " (grayscale PNG)"
     Color q -> do
-      { ms, result: out } <- timed (ditherImage kernel q) image
+      { ms, result: out } <- timed (ditherImageWith gamma kernel q) image
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"
     Screen { machine, palette, rule } -> do
       note <- either throw pure (screenSizeCheck opts.format machine width (Array.length image))
       maybe (pure unit) log note
-      { ms, result: out } <- timed (ditherScreen machine palette kernel rule) image
+      { ms, result: out } <- timed (ditherScreen gamma machine palette kernel rule) image
       report ms "RGB"
       case opts.format of
         Png -> do
@@ -88,7 +107,9 @@ run opts = do
           log $ "Wrote " <> opts.output <> " (Art Studio picture, " <> show (Array.length bytes) <> " bytes)"
   where
   report ms space = log $ "Dithered in " <> toStringWith (fixed 1) ms <> " ms ("
-    <> kernelName opts.kernel <> ", " <> describeQuantizer opts.quantizer <> ", " <> space <> ")"
+    <> kernelName opts.kernel <> ", " <> describeQuantizer opts.quantizer <> gammaPart <> ", " <> space <> ")"
+  -- Named only when it isn't off, so that the line stays as it was.
+  gammaPart = if opts.gamma == GammaOff then "" else ", gamma " <> gammaName opts.gamma
 
 -- | Writes bytes to a file. An error names the file, as the PNG writer's
 -- | do.
