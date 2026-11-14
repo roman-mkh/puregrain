@@ -936,6 +936,40 @@ quarter of the colors, the saturated ones.
 - **OKLab lightness** at most as an option later, not a replacement:
   changing the default again would change every gray picture again.
 
+### As built (sub-step 2g, 2026-11-14)
+
+- **`toGray :: Gamma -> RGB -> Number`** in `Puregrain.Gamma`, also in
+  the facade (the name agreed with the user). A neutral color gives its
+  own value under every gamma; `gammaOff` gives luma as the CLI and the
+  web UI compute it, in the same order of operations; a curve gives
+  0.2126 R + 0.7152 G + 0.0722 B on the channels' light, brought back
+  with `fromLight` (table first).
+- **A stored value, not light** (agreed): it works with every driver as
+  it is, and with `RGB v v v` for the color pipelines after "gray
+  first". The price, measured with `gammaSrgb` in Node on a million
+  colors: the luminance takes 140 ns per pixel, and going back to a
+  stored value and the driver taking it to light again about 550 ns
+  more, roughly a quarter of gray dithering's time; only for color
+  pictures dithered in gray under a curve. Step 5 measures it on real
+  pictures; faster roots (the same results) or a light path (more API)
+  are the remedies if it matters.
+- **The round trip** comes back to the luminance exactly for 9% (1.8) to
+  44% (1.2) of colors, otherwise within 21 units in the last place
+  (1.8; sRGB 10, 1.5 7, 1.2 5), at most 2.6 × 10⁻¹⁵ of the light
+  (636,000 colors per curve).
+- **Exact operations only** (the curves, then + and ×), so the same on
+  every engine; the self-check needs no new digest.
+- **Pinned by properties** (`GammaSpec`): `gammaOff` equal to a copy of
+  today's luma; the 256 neutral grays (and random neutral values) exact
+  under every gamma; never darker when a channel rises; under every
+  curve, the gray's light the color's by the `pow` definition within
+  10⁻¹², and through the library's own conversion within 10⁻¹⁴; and this
+  decision's table, rounded, with `gammaOff` and `gammaSrgb`. Mutations:
+  luma's weights under a curve failed 9 tests, the neutral case dropped
+  1 (the neutral test).
+- **The clients** keep their `luma` until steps 3 and 4, which replace it
+  with `toGray`; `isNeutral` and `toNeutral` stay theirs.
+
 ## Decision 5: machine screens
 
 Settled 2026-11-12: nothing special. Machine screens take `--gamma` like

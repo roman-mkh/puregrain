@@ -13,7 +13,7 @@
 -- | - `ditherImageWith`, `ditherRowsWith` and `initDitheringWith`, the
 -- |   same with a gamma curve, `gammaOff`, `gamma1p2`, `gamma1p5`,
 -- |   `gamma1p8` or `gammaSrgb`, which says how the stored numbers turn
--- |   into light;
+-- |   into light; and `toGray`, a color's gray by that curve;
 -- | - the pixel types `RGB` and `RGBA`, and the types for signatures.
 -- |
 -- | Import it qualified, as names like `threshold` or `c64` are short:
@@ -42,7 +42,7 @@ module Puregrain
   ) where
 
 import Puregrain.Dither (Dithering, ditherImage, ditherImageWith, ditherRow, ditherRows, ditherRowsWith, initDithering, initDitheringWith)
-import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb)
+import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, toGray)
 import Puregrain.Kernel (Kernel, Offset, atkinson, burkes, fan, floydSteinberg, jarvisJudiceNinke, noDiffusion, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)
 import Puregrain.Palette (nearestColor)

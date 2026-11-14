@@ -19,12 +19,15 @@ module Puregrain.Gamma
   , gammaSrgb
   , toLight
   , fromLight
+  , toGray
   ) where
 
+import Prelude
+
 import Puregrain.Internal.Gamma (Gamma) as Exports
-import Puregrain.Internal.Gamma (Gamma, fromLightValue, toLightValue)
+import Puregrain.Internal.Gamma (Gamma, fromLightValue, isOff, toLightValue)
 import Puregrain.Internal.Gamma as Internal
-import Puregrain.Pixel (class ColorChannels, mapColorChannels)
+import Puregrain.Pixel (class ColorChannels, RGB(..), mapColorChannels)
 
 -- | No conversion: the stored numbers are taken as amounts of light, as
 -- | dithering has always taken them. The default.
@@ -84,3 +87,36 @@ toLight gamma = mapColorChannels (toLightValue gamma)
 -- | ```
 fromLight :: forall a. ColorChannels a => Gamma -> a -> a
 fromLight gamma = mapColorChannels (fromLightValue gamma)
+
+-- | A color's gray, for dithering a color picture in gray.
+-- |
+-- | - `Gamma`: the curve, which decides the formula; give the dithering
+-- |   the same one.
+-- | - `RGB`: the color, as stored.
+-- |
+-- | Returns the gray as a stored value, 0 to 255. A neutral color, with
+-- | red, green and blue equal, gives exactly that value. With `gammaOff`,
+-- | the gray is luma, 0.299 R + 0.587 G + 0.114 B on the stored values, the
+-- | classic conversion. With a curve, it's the gray that gives off as much
+-- | light as the color: 0.2126 R + 0.7152 G + 0.0722 B on the channels'
+-- | light (luminance, with `gammaSrgb`), brought back to a stored value.
+-- | Saturated colors then come out lighter than with luma, pure blue 76
+-- | instead of 29 with `gammaSrgb`; natural colors such as skin barely
+-- | change.
+-- |
+-- | ```purescript
+-- | toGray gammaOff (RGB { r: 0.0, g: 0.0, b: 255.0 })    -- 29.07
+-- | toGray gammaSrgb (RGB { r: 0.0, g: 0.0, b: 255.0 })   -- 75.96…
+-- |
+-- | ditherImageWith gammaSrgb floydSteinberg (threshold 128.0)
+-- |   (map (map (toGray gammaSrgb)) image)
+-- | ```
+-- The neutral case first: the weights add up to 1, but in floating point
+-- their sum with three equal values isn't always that value (65 of the
+-- 256 bytes for luma, 79 in sRGB's light). The order of operations is
+-- part of the result, as in the curves.
+toGray :: Gamma -> RGB -> Number
+toGray gamma (RGB p) =
+  if p.r == p.g && p.g == p.b then p.r
+  else if isOff gamma then 0.299 * p.r + 0.587 * p.g + 0.114 * p.b
+  else fromLightValue gamma (0.2126 * toLightValue gamma p.r + 0.7152 * toLightValue gamma p.g + 0.0722 * toLightValue gamma p.b)

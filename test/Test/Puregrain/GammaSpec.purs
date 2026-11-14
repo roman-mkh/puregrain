@@ -6,17 +6,18 @@ import Data.Array ((..))
 import Data.Array as Array
 import Data.Foldable (and, for_)
 import Data.Int (toNumber)
-import Data.Number (pow)
+import Data.Number (pow, round)
 import Data.Ord (abs)
 import Test.QuickCheck ((<?>), (===))
-import Test.QuickCheck.Gen (Gen, choose)
+import Test.QuickCheck.Gen (Gen, choose, chooseInt)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Gamma (Gamma, fromLight, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, toLight)
+import Puregrain.Gamma (Gamma, fromLight, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, toGray, toLight)
 import Puregrain.Internal.Gamma (fromLightFormula, lightTable, toLightFormula, toLightValue)
 import Puregrain.Pixel (RGB(..), RGBA(..))
+import Test.Puregrain.Arbitrary (TestRGB(..), genByteRGB)
 
 bytes :: Array Number
 bytes = map toNumber (0 .. 255)
@@ -44,6 +45,15 @@ closeTo expected actual = abs (actual - expected) <= 1.0e-12 * abs expected
 -- | A value anywhere on the scale, mostly not a whole number.
 genValue :: Gen Number
 genValue = choose 0.01 255.0
+
+-- | Luma as the CLI and the web UI compute it today, written out here:
+-- | a neutral color its own value, any other Rec. 601 weights on the
+-- | stored values.
+luma :: RGB -> Number
+luma (RGB p) = if p.r == p.g && p.g == p.b then p.r else 0.299 * p.r + 0.587 * p.g + 0.114 * p.b
+
+allGammas :: Array Gamma
+allGammas = [ gammaOff, gamma1p2, gamma1p5, gamma1p8, gammaSrgb ]
 
 spec :: Spec Unit
 spec = describe "Puregrain.Gamma" do
@@ -114,3 +124,57 @@ spec = describe "Puregrain.Gamma" do
         RGBA q = fromLight gamma1p5 (RGBA { r: 10.0, g: 20.0, b: 30.0, a: 128.0 })
       [ p.r, p.g, p.b, p.a ] `shouldEqual` [ toLight gamma1p5 10.0, toLight gamma1p5 20.0, toLight gamma1p5 30.0, 128.0 ]
       [ q.r, q.g, q.b, q.a ] `shouldEqual` [ fromLight gamma1p5 10.0, fromLight gamma1p5 20.0, fromLight gamma1p5 30.0, 128.0 ]
+
+  describe "toGray" do
+    it "with gammaOff, is luma on the stored values, as the CLI and the web UI have it" do
+      quickCheck \(TestRGB color) -> toGray gammaOff color === luma color
+
+    it "gives a neutral color exactly its own value, under every gamma" do
+      for_ allGammas \gamma ->
+        Array.filter (\v -> toGray gamma (RGB { r: v, g: v, b: v }) /= v) bytes `shouldEqual` []
+      quickCheck \v -> and (map (\gamma -> toGray gamma (RGB { r: v, g: v, b: v }) == v) allGammas)
+
+    it "never gives a darker gray when a channel rises, under every gamma" do
+      for_ allGammas \gamma -> quickCheck do
+        color@(RGB p) <- genByteRGB
+        channel <- chooseInt 0 2
+        rise <- toNumber <$> chooseInt 1 255
+        let
+          up v = min 255.0 (v + rise)
+          brighter = case channel of
+            0 -> RGB p { r = up p.r }
+            1 -> RGB p { g = up p.g }
+            _ -> RGB p { b = up p.b }
+        pure ((toGray gamma brighter >= toGray gamma color) <?> ("darker: " <> show brighter <> " from " <> show color))
+
+    for_ curves \c -> describe c.name do
+      it "gives the gray whose light is the color's, by the curve's definition, within 10^-12" do
+        quickCheck do
+          RGB p <- genByteRGB
+          let
+            expected = 0.2126 * c.to p.r + 0.7152 * c.to p.g + 0.0722 * c.to p.b
+            actual = c.to (toGray c.gamma (RGB p))
+          pure ((abs (actual - expected) <= 1.0e-12 * max 1.0 expected) <?> ("light " <> show actual <> ", not " <> show expected))
+
+      it "gives a gray that the dithering takes back to the color's light, within 10^-14 of it" do
+        quickCheck do
+          RGB p <- genByteRGB
+          let
+            light = 0.2126 * toLight c.gamma p.r + 0.7152 * toLight c.gamma p.g + 0.0722 * toLight c.gamma p.b
+            again = toLight c.gamma (toGray c.gamma (RGB p))
+          pure ((abs (again - light) <= 1.0e-14 * light) <?> ("light " <> show again <> ", not " <> show light))
+
+    -- Decision 4's table in docs/linear-light-spec.md, measured
+    -- independently: red, green, blue, magenta, skin, sky.
+    it "gives decision 4's grays: with gammaOff luma's, with gammaSrgb lighter saturated colors" do
+      let
+        colors =
+          [ RGB { r: 255.0, g: 0.0, b: 0.0 }
+          , RGB { r: 0.0, g: 255.0, b: 0.0 }
+          , RGB { r: 0.0, g: 0.0, b: 255.0 }
+          , RGB { r: 255.0, g: 0.0, b: 255.0 }
+          , RGB { r: 224.0, g: 172.0, b: 140.0 }
+          , RGB { r: 120.0, g: 170.0, b: 230.0 }
+          ]
+      map (round <<< toGray gammaOff) colors `shouldEqual` [ 76.0, 150.0, 29.0, 105.0, 184.0, 162.0 ]
+      map (round <<< toGray gammaSrgb) colors `shouldEqual` [ 127.0, 220.0, 76.0, 145.0, 183.0, 167.0 ]

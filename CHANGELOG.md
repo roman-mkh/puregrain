@@ -15,6 +15,10 @@ raises the minor version (0.1 → 0.2).
   curves give the same results on every JavaScript engine, and the light
   of a whole number from 0 to 255 comes back exactly; why and how in
   [docs/exact-arithmetic.md](https://github.com/roman-mkh/puregrain/blob/master/docs/exact-arithmetic.md).
+  And `toGray`, also in the facade, a color's gray by the curve: luma on
+  the stored values with `gammaOff`, as the CLI has always made it, and
+  with a curve the gray that gives off as much light as the color, which
+  makes saturated colors lighter.
 - `Puregrain.Pixel`: `ColorChannels`, a pixel type whose color channels
   can be mapped one by one, alpha excepted (`RGBA` keeps its alpha), for
   the conversion to light; with instances for `Number`, `RGB` and `RGBA`.
