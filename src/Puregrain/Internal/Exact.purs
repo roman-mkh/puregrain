@@ -42,11 +42,17 @@ cubeRootSteps = 9
 -- | negative of its magnitude's root. 0, the infinities and NaN come back
 -- | as they are.
 fifthRoot :: Number -> Number
-fifthRoot = rootBy 32.0 fifthRootSteps fifthRootStep
+fifthRoot x =
+  if x == 0.0 || not (isFinite x) then x
+  else if x < 0.0 then negate (fifthRoot (negate x))
+  else fifthDown 1.0 x
 
 -- | The cube root of any number, as `fifthRoot` is the fifth.
 cubeRoot :: Number -> Number
-cubeRoot = rootBy 8.0 cubeRootSteps cubeRootStep
+cubeRoot x =
+  if x == 0.0 || not (isFinite x) then x
+  else if x < 0.0 then negate (cubeRoot (negate x))
+  else cubeDown 1.0 x
 
 -- | One of Newton's steps towards the fifth root of `m`, from `y`.
 fifthRootStep :: Number -> Number -> Number
@@ -58,27 +64,46 @@ fifthRootStep m y = (4.0 * y + m / (y2 * y2)) / 5.0
 cubeRootStep :: Number -> Number -> Number
 cubeRootStep m y = (2.0 * y + m / (y * y)) / 3.0
 
--- `base` is 2 to the power of the root's degree (32 or 8), so dividing
--- the input by `base` halves the root, exactly.
-rootBy :: Number -> Int -> (Number -> Number -> Number) -> Number -> Number
-rootBy base steps step x =
-  if x == 0.0 || not (isFinite x) then x
-  else if x < 0.0 then negate (rootBy base steps step (negate x))
-  else scaleDown base steps step 1.0 x
+-- Each root has its own loops, with its Newton step written out, rather
+-- than one general loop taking the step and the base as arguments: purs
+-- compiles every call of a function passed as an argument into curried
+-- calls that build a closure each, about 20 per root, which made the roots
+-- three times slower (2026-11-14). The operations and their order are the
+-- steps' above, so the results are the same, bit for bit: checked against
+-- the general version over 2 million inputs of every size.
 
--- Into [1/base, 1): down for 1 and above, then up for values below
--- 1/base; `scale` keeps the matching power of 2.
-scaleDown :: Number -> Int -> (Number -> Number -> Number) -> Number -> Number -> Number
-scaleDown base steps step scale m =
-  if m >= 1.0 then scaleDown base steps step (scale * 2.0) (m / base)
-  else scaleUp base steps step scale m
+-- Into [1/32, 1): down for 1 and above, then up for values below 1/32;
+-- `scale` keeps the matching power of 2. 32 = 2^5, so dividing the input
+-- by 32 halves its fifth root, exactly.
+fifthDown :: Number -> Number -> Number
+fifthDown scale m =
+  if m >= 1.0 then fifthDown (scale * 2.0) (m / 32.0)
+  else fifthUp scale m
 
-scaleUp :: Number -> Int -> (Number -> Number -> Number) -> Number -> Number -> Number
-scaleUp base steps step scale m =
-  if m < 1.0 / base then scaleUp base steps step (scale / 2.0) (m * base)
-  else scale * newton step steps m 1.0
+fifthUp :: Number -> Number -> Number
+fifthUp scale m =
+  if m < 1.0 / 32.0 then fifthUp (scale / 2.0) (m * 32.0)
+  else scale * fifthNewton fifthRootSteps m 1.0
 
-newton :: (Number -> Number -> Number) -> Int -> Number -> Number -> Number
-newton step n m y =
+-- `fifthRootStep`, written out: (y * y) * (y * y) is its y2 * y2.
+fifthNewton :: Int -> Number -> Number -> Number
+fifthNewton n m y =
   if n <= 0 then y
-  else newton step (n - 1) m (step m y)
+  else fifthNewton (n - 1) m ((4.0 * y + m / (y * y * (y * y))) / 5.0)
+
+-- As for the fifth root, with 8 = 2^3 and [1/8, 1).
+cubeDown :: Number -> Number -> Number
+cubeDown scale m =
+  if m >= 1.0 then cubeDown (scale * 2.0) (m / 8.0)
+  else cubeUp scale m
+
+cubeUp :: Number -> Number -> Number
+cubeUp scale m =
+  if m < 1.0 / 8.0 then cubeUp (scale / 2.0) (m * 8.0)
+  else scale * cubeNewton cubeRootSteps m 1.0
+
+-- `cubeRootStep`, written out.
+cubeNewton :: Int -> Number -> Number -> Number
+cubeNewton n m y =
+  if n <= 0 then y
+  else cubeNewton (n - 1) m ((2.0 * y + m / (y * y)) / 3.0)

@@ -539,8 +539,8 @@ roots `Puregrain.Internal.Exact`.
   prove less: only the exact operations are the same everywhere by the
   standard, so agreeing on the samples says little about other values.
   And there's nothing to gain: pixels and targets go through the table,
-  and the formula runs only for the palette comparison, about 36 ns per
-  channel.
+  and the formula runs only for the palette comparison, about 150 to
+  270 ns per channel with the library's roots (decision 3, "The cost").
 
 ### Research (2026-11-08)
 
@@ -709,9 +709,13 @@ which dots are mixed, and so how noisy the result looks.
   (`at` and `nearestIndex` are illustrative.)
 - **`--palette` with `--kernel none` gives exactly today's picture:** the
   corrected value is then a table value, which the way back finds exactly.
-- **The cost:** one back conversion per channel per pixel, about 36 ns
-  each, small next to the palette search itself (`websafe216` takes about
-  10 µs per pixel).
+- **The cost:** one back conversion per channel per pixel, small next to
+  the palette search itself (`websafe216` takes about 10 µs per pixel).
+  The prototype's formula took about 36 ns; the library's, built on
+  `Puregrain.Internal.Exact`'s roots, takes about 150 ns per channel for
+  `srgb`, 1.2 and 1.5 and 270 ns for 1.8, which needs two cube roots
+  (measured 2026-11-14, after the roots were specialized): about 0.5 µs
+  per RGB pixel, and only with a curve other than `gammaOff`.
 - **OKLab later,** as `TODO.md`'s item on CIELAB and OKLab distances: it
   chooses best, but it's a feature of its own, with its own verification.
   It needs two matrices and three cube roots per pixel, and the exact cube
