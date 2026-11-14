@@ -234,11 +234,14 @@ relate to light.
   converted again for every pixel, since PureScript shares nothing by
   itself. The cells' quantizer and palettes work the same way.
 - **Only the twins need one more constraint,** to convert channel by
-  channel (`MapChannels`, or a class of its own): `RGBA`'s alpha isn't on
-  any light curve, so it must not be converted. The default drivers
-  convert nothing, and `quantize` and `quantizeWith` get the conversion
-  as functions, so none of them needs it: a pixel type of the caller's
-  own, with `Ring` and `Scalable` but no `MapChannels`, works as before.
+  channel: `ColorChannels`, a class of its own (sub-step 2b, the user's
+  agreement 2026-11-14), since `MapChannels` maps alpha too, which
+  `perChannel` needs, but `RGBA`'s alpha isn't on any light curve and
+  must not be converted. The default drivers convert nothing, and
+  `quantize` and `quantizeWith` get the conversion as functions, so none
+  of them needs it: a pixel type of the caller's own, with `Ring` and
+  `Scalable` but neither class, works as before. (The code below still
+  writes `MapChannels` for it.)
 - **Release 0.2.2, a compatible change** (amended 2026-11-12, from 0.3.0;
   the rules in `CONTRIBUTING.md`): the same code gives the same pictures,
   and every existing signature still compiles. The renamed internal
@@ -603,8 +606,10 @@ whole numbers"): the mismatch exists today, without linear light.
 ### The five curves (2026-11-12)
 
 `--gamma`'s values (see [Decided](#decided)), each built from exact
-operations only, as the prototype's sRGB curve is. On the 0–1 scale, x
-is a stored value and L its light:
+operations only, as the prototype's sRGB curve is. Written in sub-step
+2b (`Puregrain.Gamma`, `Puregrain.Internal.Gamma`; measurements and
+tests in `docs/exact-arithmetic.md`, "The light curves"). On the 0–1
+scale, x is a stored value and L its light:
 
 | Curve | To light | Back |
 |---|---|---|

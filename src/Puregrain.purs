@@ -10,6 +10,8 @@
 -- | - the quantizers `threshold`, `nearestLevel` with `evenRamp`, and
 -- |   `perChannel` for color; `nearestColor` with the palette presets;
 -- |   `bayer` and `ordered` for ordered dithering;
+-- | - the gamma curves `gammaOff`, `gamma1p2`, `gamma1p5`, `gamma1p8` and
+-- |   `gammaSrgb`, which say how the stored numbers turn into light;
 -- | - the pixel types `RGB` and `RGBA`, and the types for signatures.
 -- |
 -- | Import it qualified, as names like `threshold` or `c64` are short:
@@ -23,11 +25,12 @@
 -- | The building blocks for your own variants (distance metrics, threshold
 -- | maps, custom quantizers) are in the modules they come from:
 -- | `Puregrain.Palette`, `Puregrain.Ordered`, `Puregrain.Quantize`,
--- | `Puregrain.Pixel` and `Puregrain.Kernel`. Dithering with cells, as on
+-- | `Puregrain.Pixel`, `Puregrain.Kernel` and `Puregrain.Gamma`. Dithering with cells, as on
 -- | the screens of 8-bit machines, is in `Puregrain.Cells` and
 -- | `Puregrain.Machine.ZxSpectrum`, outside this module.
 module Puregrain
   ( module Puregrain.Dither
+  , module Puregrain.Gamma
   , module Puregrain.Kernel
   , module Puregrain.Ordered
   , module Puregrain.Palette
@@ -37,9 +40,10 @@ module Puregrain
   ) where
 
 import Puregrain.Dither (Dithering, ditherImage, ditherRow, ditherRows, initDithering)
+import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb)
 import Puregrain.Kernel (Kernel, Offset, atkinson, burkes, fan, floydSteinberg, jarvisJudiceNinke, noDiffusion, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)
 import Puregrain.Palette (nearestColor)
 import Puregrain.Palette.Presets (ansi16, ansi256, blackWhite, c64, cga16, websafe216, zxSpectrum)
-import Puregrain.Pixel (class MapChannels, class Scalable, Gray, RGB(..), RGBA(..))
+import Puregrain.Pixel (class ColorChannels, class MapChannels, class Scalable, Gray, RGB(..), RGBA(..))
 import Puregrain.Quantize (Context, Quantize, evenRamp, nearestLevel, perChannel, quantize, quantizeWith, runQuantize, threshold)

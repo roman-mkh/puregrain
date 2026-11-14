@@ -120,10 +120,47 @@ had found no larger input giving a smaller result over a million sorted
 values: random values almost never land next to each other, so it missed
 this.
 
+## The light curves
+
+`Puregrain.Gamma` turns stored values into light and back, on the same
+0–255 scale, for `--gamma`'s values. Each curve is built from the roots
+above and the square root, in a fixed order of operations; x is a stored
+value divided by 255, L a light value divided by 255:
+
+| Curve | To light | Back |
+|---|---|---|
+| `gammaOff` | x, not computed | L, not computed |
+| `gamma1p2` | x · ⁵√x | √L · ∛L |
+| `gamma1p5` | x · √x | (∛L)² |
+| `gamma1p8` | x · (⁵√x)⁴ | (∛(∛L))⁵ |
+| `gammaSrgb` | x / 12.92 up to 0.04045, above it y² · (⁵√y)² with y = (x + 0.055) / 1.055 | 12.92 · L up to 0.0031308, above it 1.055 · √√L · √∛L − 0.055 |
+
+- **Negative values are mirrored:** the curve of −v is minus the curve of
+  v, as the W3C's sample code (CSS Color 4) extends sRGB's. Dithering
+  pushes corrected values below 0 in dark areas.
+- **A table per curve:** the light of the 256 bytes, built the first time
+  a curve is used and shared by all channels. A byte gets its light from
+  the table, any other value from the formula, with the same result.
+- **What's written goes back through the table.** The light of a byte is
+  one of the table's entries, so the way back finds that byte exactly (8
+  comparisons); any other value goes through the formula. The formula
+  alone isn't enough: measured on 2026-11-14, it brings back every byte
+  after rounding, but exactly only 37 to 130 of the 256, depending on the
+  curve; `gammaSrgb` brings 255 back as 254.99999999999997. Through the
+  table, a palette's colors and a ramp's levels come back as they were.
+- **Order:** for every curve, the bytes and the halves between them rise
+  strictly, which is what the dithering's comparisons rely on.
+- **Alpha** isn't light: the conversion touches only the color channels
+  (`Puregrain.Pixel`'s `ColorChannels`).
+
+The tests (`test/Test/Puregrain/GammaSpec.purs`) check each of these, and
+that the formulas match a reference written with `Math.pow` within 10⁻¹²;
+a deliberate breakage of the table lookup was caught by five of them.
+
 ## Built on these roots
 
-The light curves of `--gamma` and the engine's self-check use these roots;
-their sections come with them.
+The engine's self-check uses these roots and curves; its section comes
+with it.
 
 ## Sources
 

@@ -6,6 +6,19 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Added
+
+- `Puregrain.Gamma`: `Gamma`, how a picture's stored numbers turn into
+  light, with five curves: `gammaOff`, `gamma1p2`, `gamma1p5`, `gamma1p8`
+  and `gammaSrgb` (linear light), also in the `Puregrain` facade; and
+  `toLight` and `fromLight`, which convert a pixel's color channels. The
+  curves give the same results on every JavaScript engine, and the light
+  of a whole number from 0 to 255 comes back exactly; why and how in
+  [docs/exact-arithmetic.md](https://github.com/roman-mkh/puregrain/blob/master/docs/exact-arithmetic.md).
+- `Puregrain.Pixel`: `ColorChannels`, a pixel type whose color channels
+  can be mapped one by one, alpha excepted (`RGBA` keeps its alpha), for
+  the conversion to light; with instances for `Number`, `RGB` and `RGBA`.
+
 ## 0.2.1 - 2026-11-05
 
 ### Added
