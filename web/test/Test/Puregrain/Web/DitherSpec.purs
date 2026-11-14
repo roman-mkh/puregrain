@@ -7,12 +7,13 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Effect.Aff (Aff)
-import Puregrain (Quantize, RGB(..), atkinson, bayer, burkes, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216)
+import Puregrain (Gamma, Quantize, RGB(..), gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, atkinson, bayer, burkes, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
-import Puregrain.Web.Dither (Pipeline(..), kernelOf, luma, pipelineFor, toNeutral, zxModeOf)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseTarget, initial)
+import Puregrain.Gamma (toLight)
+import Puregrain.Web.Dither (Pipeline(..), gammaOf, kernelOf, pipelineFor, toNeutral, zxModeOf)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 
@@ -140,12 +141,25 @@ spec = describe "Puregrain.Web.Dither" do
       same (zxModeOf NormalPalette) Zx.normalScreen
       same (zxModeOf BrightPalette) Zx.brightScreen
 
-  describe "luma, as the CLI's" do
-    it "is exact for every neutral pixel" do
-      for_ (0 .. 255) \i -> do
-        let v = toNumber i
-        luma (RGB { r: v, g: v, b: v }) `shouldEqual` v
+  describe "gammaOf" do
+    -- A Gamma can't be compared directly; its light on a few values can.
+    it "gives the library's preset for each name" do
+      let
+        lightOf :: Gamma -> Array Number
+        lightOf g = map (toLight g) [ 0.0, 37.5, 100.0, 128.0, 255.0 ]
+        presets = [ { name: GammaOff, gamma: gammaOff }, { name: Gamma1p2, gamma: gamma1p2 }, { name: Gamma1p5, gamma: gamma1p5 }, { name: Gamma1p8, gamma: gamma1p8 }, { name: GammaSrgb, gamma: gammaSrgb } ]
+      for_ presets \p -> lightOf (gammaOf p.name) `shouldEqual` lightOf p.gamma
 
-    it "is Rec. 601 luma for a colored pixel, and toNeutral gives that gray" do
-      luma (RGB { r: 100.0, g: 150.0, b: 200.0 }) `shouldEqual` (0.299 * 100.0 + 0.587 * 150.0 + 0.114 * 200.0)
-      toNeutral (RGB { r: 0.0, g: 255.0, b: 0.0 }) `shouldEqual` RGB { r: 0.587 * 255.0, g: 0.587 * 255.0, b: 0.587 * 255.0 }
+  describe "toNeutral, as the CLI's" do
+    it "keeps every neutral pixel exactly, under every gamma" do
+      for_ [ gammaOff, gamma1p2, gamma1p5, gamma1p8, gammaSrgb ] \g -> for_ (0 .. 255) \i -> do
+        let v = toNumber i
+        toNeutral g (RGB { r: v, g: v, b: v }) `shouldEqual` RGB { r: v, g: v, b: v }
+
+    it "gives Rec. 601 luma's gray with gammaOff, as before" do
+      toNeutral gammaOff (RGB { r: 0.0, g: 255.0, b: 0.0 }) `shouldEqual` RGB { r: 0.587 * 255.0, g: 0.587 * 255.0, b: 0.587 * 255.0 }
+      toNeutral gammaOff (RGB { r: 100.0, g: 150.0, b: 200.0 }) `shouldEqual`
+        let v = 0.299 * 100.0 + 0.587 * 150.0 + 0.114 * 200.0 in RGB { r: v, g: v, b: v }
+
+    it "gives the gray with the color's light with gammaSrgb: pure blue 75.96, not 29.07" do
+      toNeutral gammaSrgb (RGB { r: 0.0, g: 0.0, b: 255.0 }) `shouldEqual` RGB { r: 75.96269735836901, g: 75.96269735836901, b: 75.96269735836901 }

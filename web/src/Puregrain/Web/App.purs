@@ -40,7 +40,7 @@ import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
 import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, placementOn, screenToFit, white)
 import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
 import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
 import Puregrain.Web.Status (Run(..), held, progressDelay, resultShows)
@@ -344,6 +344,8 @@ handleAction = case _ of
     if value == "none" then change (chooseBayer Nothing)
     else for_ (Int.fromString value) \side -> change (chooseBayer (Just side))
   GrayChosen gray -> change (chooseGray gray)
+  GammaChosen value ->
+    for_ (Array.find (\g -> gammaId g == value) allGammas) \g -> change (chooseGamma g)
   Cancel -> cancel
   FromWorker id reply -> do
     s <- H.get

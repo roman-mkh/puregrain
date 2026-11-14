@@ -16,7 +16,7 @@ import Data.String.Pattern (Pattern(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Puregrain.Web.Prepare (Background, backgroundHex)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachinePaletteName(..), Settings, Target(..), kernelId, machineId, machinePaletteId, paletteId)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachinePaletteName(..), Settings, Target(..), kernelId, machineId, machinePaletteId, paletteId)
 import Web.HTML.HTMLElement (HTMLElement)
 
 -- | A file's name for the result: the picture's name without its
@@ -34,7 +34,7 @@ import Web.HTML.HTMLElement (HTMLElement)
 -- | ```
 fileName :: String -> Settings -> { fitted :: Boolean, background :: Maybe Background } -> String -> String
 fileName name s prepared extension =
-  joinWith "-" ([ stem name ] <> target <> fit <> background <> colors <> kernel <> bayer <> gray) <> "." <> extension
+  joinWith "-" ([ stem name ] <> target <> fit <> background <> colors <> kernel <> bayer <> gamma <> gray) <> "." <> extension
   where
   target = case s.target of
     AnyScreen -> []
@@ -50,6 +50,14 @@ fileName name s prepared extension =
     MachineColors p -> [ machinePaletteId p ]
   kernel = if s.kernel == NoDiffusion then [] else [ kernelId s.kernel ]
   bayer = maybe [] (\side -> [ "bayer" <> show side ]) s.bayer
+  -- `gamma1.5`, like `levels4`, but sRGB's curve as `srgb` alone (the
+  -- user's choice); nothing for off.
+  gamma = case s.gamma of
+    GammaOff -> []
+    Gamma1p2 -> [ "gamma1.2" ]
+    Gamma1p5 -> [ "gamma1.5" ]
+    Gamma1p8 -> [ "gamma1.8" ]
+    GammaSrgb -> [ "srgb" ]
   gray = if s.gray then [ "gray" ] else []
 
 -- | The name on a ZX Spectrum tape, by the CLI's rule, from the picture's

@@ -52,15 +52,27 @@ const SETTINGS = [
   // shape: it reaches three columns to the left (v2.2 in web/ROADMAP.md).
   { what: '4 levels, Shiau-Fan 2', colors: 'levels', levels: '4', kernel: 'shiau-fan-2',
     cli: ['--levels', '4', '--kernel', 'shiau-fan-2'], name: 'levels4-shiau-fan-2' },
+  // Under a curve (docs/linear-light-spec.md, step 4a): the page's gamma
+  // segments, and "gray first", which turns a picture gray by the curve.
+  { what: '4 levels, Atkinson, sRGB', colors: 'levels', levels: '4', kernel: 'atkinson', gamma: 'srgb',
+    cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'], name: 'levels4-atkinson-srgb' },
+  { what: 'the CGA palette, Floyd-Steinberg, gray first, gamma 1.5', colors: 'cga16', kernel: 'floyd-steinberg', gamma: '1.5', gray: true,
+    cli: ['--palette', 'cga16', '--kernel', 'floyd-steinberg', '--gamma', '1.5', '--gray'], name: 'cga16-floyd-steinberg-gamma1.5-gray' },
 ];
+// `dir` keeps each entry's CLI files apart; the names in it are the
+// picture's, so that a tape's name is the page's.
 const MACHINES = [
-  { what: 'the ZX Spectrum, Bayer 8', picture: 'color-256x192', target: 'zx-spectrum', formats: ['png', 'scr', 'tap'] },
-  { what: 'the C64, Bayer 8', picture: 'color-320x200', target: 'c64-hires', formats: ['png', 'prg', 'art'] },
+  { what: 'the ZX Spectrum, Bayer 8', picture: 'color-256x192', target: 'zx-spectrum', bayer: '8', formats: ['png', 'scr', 'tap'],
+    dir: 'zx-spectrum', name: 'zx-spectrum-bayer8', cli: [] },
+  { what: 'the C64, Bayer 8', picture: 'color-320x200', target: 'c64-hires', bayer: '8', formats: ['png', 'prg', 'art'],
+    dir: 'c64-hires', name: 'c64-hires-bayer8', cli: [] },
+  { what: 'the ZX Spectrum, Bayer 4, sRGB', picture: 'color-256x192', target: 'zx-spectrum', bayer: '4', gamma: 'srgb', formats: ['png', 'scr'],
+    dir: 'zx-spectrum-srgb', name: 'zx-spectrum-bayer4-srgb', cli: ['--gamma', 'srgb'] },
 ];
 const PICTURE = 'color-320x200';
 
 fs.rmSync(out, { recursive: true, force: true });
-for (const dir of ['downloads', ...MACHINES.map((m) => m.target)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
+for (const dir of ['downloads', ...MACHINES.map((m) => m.dir)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
 for (const size of ['320x200', '256x192']) {
   execFileSync('node', ['scripts/generate-images.mjs', '--pattern', 'color', '--size', size, '--out', out]);
 }
@@ -69,7 +81,7 @@ for (const s of SETTINGS) cli(`${out}/${PICTURE}.png`, `${out}/cli-${s.name}.png
 // The tape's name comes from the output file's name: the picture's, as on the page.
 for (const m of MACHINES) {
   for (const format of m.formats) {
-    cli(`${out}/${m.picture}.png`, `${out}/${m.target}/${m.picture}.${format}`, ['--machine', m.target, '--bayer', '8']);
+    cli(`${out}/${m.picture}.png`, `${out}/${m.dir}/${m.picture}.${format}`, ['--machine', m.target, '--bayer', m.bayer, ...m.cli]);
   }
 }
 
@@ -268,6 +280,8 @@ const checksIn = async (engine, page) => {
     if (s.levels) await page.locator('.stepper input[type=number]').fill(s.levels);
     if (s.kernel) await page.locator('select').nth(1).selectOption(s.kernel);
     if (s.bayer) await pick('bayer', s.bayer);
+    if (s.gamma) await pick('gamma', s.gamma);
+    if (s.gray) await page.locator('input[role=switch]').evaluate((toggle) => toggle.click());
     await finished(before);
     const expected = `${PICTURE}-${s.name}.png`;
     const file = await download(() => page.locator('.downloads button').first().click());
@@ -287,12 +301,13 @@ const checksIn = async (engine, page) => {
     await open(m.picture);
     const before = await runs();
     await pick('target', m.target);
-    await pick('bayer', '8');
+    await pick('bayer', m.bayer);
+    if (m.gamma) await pick('gamma', m.gamma);
     await finished(before);
     for (const format of m.formats) {
-      const expected = `${m.picture}-${m.target}-bayer8.${format}`;
+      const expected = `${m.picture}-${m.name}.${format}`;
       const file = await download(fromList(format));
-      const reference = fs.readFileSync(`${out}/${m.target}/${m.picture}.${format}`);
+      const reference = fs.readFileSync(`${out}/${m.dir}/${m.picture}.${format}`);
       const diff = format === 'png' ? differing(pixelsOf(file.bytes), pixelsOf(reference)) : null;
       const same = format === 'png' ? diff === 0 : file.bytes.equals(reference);
       const how = format === 'png'

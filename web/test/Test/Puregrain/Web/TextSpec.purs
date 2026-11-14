@@ -3,7 +3,7 @@ module Test.Puregrain.Web.TextSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -17,6 +17,12 @@ spec = describe "Puregrain.Web.Text" do
       `shouldEqual` "Web-safe, 216 colors, Jarvis-Judice-Ninke, gray first"
     texts.describe (chooseGray true (chooseBayer (Just 8) (chooseColors (Levels 2) initial)))
       `shouldEqual` "2 levels, ordered dithering 8×8, gray first"
+
+  it "names a gamma other than off, after the Bayer map" do
+    texts.describe (chooseGamma GammaSrgb (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson, gamma sRGB"
+    texts.describe (chooseGamma Gamma1p5 (chooseGray true (chooseBayer (Just 8) (chooseColors (Levels 2) initial))))
+      `shouldEqual` "2 levels, ordered dithering 8×8, gamma 1.5, gray first"
+    texts.describe (chooseGamma GammaOff (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson"
 
   it "names a machine and its colors" do
     let zx = chooseTarget (Machine ZxSpectrumScreen) initial

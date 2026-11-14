@@ -9,7 +9,7 @@ import Data.String.Common (joinWith)
 import Puregrain.Web.Download (Format(..))
 import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), screenSizeOf)
 
 texts
   :: { title :: String
@@ -81,6 +81,8 @@ texts
      , bayerOff :: String
      , bayerSide :: Int -> String
      , bayerNeedsLevels :: String
+     , gamma :: String
+     , gammaName :: GammaName -> String
      , flatCells :: String
      , gray :: String
      , originalShown :: String
@@ -144,6 +146,7 @@ texts =
               )
             <> (if settings.kernel == NoDiffusion then [] else [ texts.kernelName settings.kernel ])
             <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
+            <> (if settings.gamma == GammaOff then [] else [ "gamma " <> texts.gammaName settings.gamma ])
             <> (if settings.gray then [ "gray first" ] else [])
         )
   , versions: \library -> "puregrain lab v2.2" <> (if library == "" then "" else ", built on puregrain " <> library)
@@ -251,6 +254,13 @@ texts =
   , bayerOff: "None"
   , bayerSide: \side -> show side <> "×" <> show side
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
+  , gamma: "Gamma"
+  , gammaName: case _ of
+      GammaOff -> "Off"
+      Gamma1p2 -> "1.2"
+      Gamma1p5 -> "1.5"
+      Gamma1p8 -> "1.8"
+      GammaSrgb -> "sRGB"
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 2×2, the look of the time; 4×4 for smoother tones."
   , gray: "Turn the picture gray first"
   , originalShown: "The original is shown. Choose colors or a method to dither it."

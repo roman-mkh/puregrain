@@ -879,6 +879,13 @@ points.)
   palette colors as outputs; with `gammaSrgb`, a flat 128 at about 21.6%
   white with Floyd–Steinberg and 14 of 64 with the 8×8 Bayer map. Cut
   points at the midpoints in light instead failed 9 of them.
+- **Fixed 2026-11-15:** with a level given twice, a tie at a midpoint
+  was decided by the later copy's place: levels [35, 143, 35] gave 143
+  for 89, the plain scan 35. Found by the "without diffusion" property on
+  a new seed (182268069) during step 4a's checks. Of equal levels, given
+  twice or made equal by rounding, only the one given first is kept now;
+  a test pins the four orders under every curve, and fails without the
+  fix.
 
 ## Decision 4: the gray conversion
 
@@ -1193,6 +1200,29 @@ decisions 1 to 4.
    copies. In the same branch as the CLI:
    `check:web` compares the page with the CLI, so the two change
    together, and it runs the self-check in the three browsers.
+
+   Split into three sub-steps (agreed 2026-11-15): 4a, the gamma through
+   the dithering, with its control; 4b, the fit and the background in
+   the curve's light, back to a byte by the converted half-steps,
+   `toLight(b + 0.5)` (the nearest byte on stored values, as
+   `nearestLevel`'s cuts; the user chose it over `fromLight` and
+   rounding); 4c, the self-check, shown as an icon left of Help (gray
+   while it runs, a green circle with ✓, a yellow triangle with !), with
+   a short tooltip and the details in the README. The flattening stays in
+   the web UI until the CLI's `--background` needs it (start closed).
+
+   **As built, 4a** (2026-11-15):
+   - `Settings` has `gamma`, sent to the worker by the CLI's names and
+     checked there; "Gamma" segments in step 4, after the Bayer map and
+     before "gray first": Off, 1.2, 1.5, 1.8, sRGB.
+   - The worker dithers with `initDitheringWith` and `ditherBandsWith`;
+     gray by `toGray`, so the web UI's copies of `luma` are gone.
+   - The result's name and "Done:" say "gamma 1.5" or "gamma sRGB"; the
+     download names `gamma1.2`, `gamma1.5`, `gamma1.8` and `srgb` (the
+     user's choice), after the Bayer map; nothing for Off.
+   - `RunSpec` adds 5 settings and 3 machine settings under curves
+     against the CLI's path; dropping the gamma from each of the three
+     paths was caught. `check:web`: 72 checks, 4 new per engine.
 5. **Measure:** the benchmarks, a look at the test images, and the
    machine screens' recommendations again.
 6. **Docs and release:** see below, then the release, 0.2.2 (decision

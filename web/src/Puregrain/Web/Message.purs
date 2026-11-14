@@ -56,13 +56,14 @@ jobMessage job = unsafeWrap (job { settings = toMessage job.settings })
 readJob :: Foreign -> Except (NonEmptyList ForeignError) Job
 readJob message = do
   s <- readProp "settings" message
-  settingsMessage <- { target: _, colors: _, amount: _, kernel: _, bayer: _, gray: _ }
+  settingsMessage <- { target: _, colors: _, amount: _, kernel: _, bayer: _, gray: _, gamma: _ }
     <$> (readProp "target" s >>= readString)
     <*> (readProp "colors" s >>= readString)
     <*> (readProp "amount" s >>= readInt)
     <*> (readProp "kernel" s >>= readString)
     <*> (readProp "bayer" s >>= readInt)
     <*> (readProp "gray" s >>= readBoolean)
+    <*> (readProp "gamma" s >>= readString)
   settings <- maybe (fail (ForeignError ("settings the page wouldn't send: " <> show settingsMessage))) pure (fromMessage settingsMessage)
   width <- readProp "width" message >>= readInt
   height <- readProp "height" message >>= readInt

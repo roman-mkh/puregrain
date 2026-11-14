@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Puregrain.Web.Save (fileName, tapeName)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -39,6 +39,16 @@ spec = describe "Puregrain.Web.Save" do
         `shouldEqual` "logo-bg-2a5ac8-levels4.png"
       fileName "icon.png" (chooseBayer (Just 8) zx) { fitted: true, background: Just { r: 0, g: 0, b: 0 } } "scr"
         `shouldEqual` "icon-zx-spectrum-fit-bg-000000-bayer8.scr"
+
+    it "names a gamma after the Bayer map: gamma1.5, like levels4, but srgb alone; nothing for off" do
+      let s = chooseGray true (chooseBayer (Just 4) (chooseColors (Levels 4) initial))
+      fileName "photo.jpg" (chooseGamma Gamma1p2 s) asIs "png" `shouldEqual` "photo-levels4-bayer4-gamma1.2-gray.png"
+      fileName "photo.jpg" (chooseGamma Gamma1p5 s) asIs "png" `shouldEqual` "photo-levels4-bayer4-gamma1.5-gray.png"
+      fileName "photo.jpg" (chooseGamma Gamma1p8 s) asIs "png" `shouldEqual` "photo-levels4-bayer4-gamma1.8-gray.png"
+      fileName "photo.jpg" (chooseGamma GammaSrgb s) asIs "png" `shouldEqual` "photo-levels4-bayer4-srgb-gray.png"
+      fileName "photo.jpg" (chooseGamma GammaOff s) asIs "png" `shouldEqual` "photo-levels4-bayer4-gray.png"
+      fileName "photo.jpg" (chooseGamma GammaSrgb (chooseBayer (Just 4) (chooseTarget (Machine ZxSpectrumScreen) initial))) asIs "scr"
+        `shouldEqual` "photo-zx-spectrum-bayer4-srgb.scr"
 
     it "leaves out the settings at none" do
       fileName "photo.jpg" (initial { colors = Threshold 128 }) asIs "png" `shouldEqual` "photo-threshold128.png"

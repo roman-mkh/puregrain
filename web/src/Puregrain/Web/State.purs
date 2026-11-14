@@ -145,6 +145,7 @@ data Action
   | KernelChosen String
   | BayerChosen String
   | GrayChosen Boolean
+  | GammaChosen String
   | Cancel
   | FromWorker Int Foreign
   | SplitPressed Event

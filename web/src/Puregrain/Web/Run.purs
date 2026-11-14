@@ -20,11 +20,11 @@ import Data.Tuple (Tuple(..))
 import Data.Unfoldable (unfoldr)
 import Effect (Effect, untilE)
 import Effect.Ref as Ref
-import Puregrain (class Scalable, Dithering, RGB, ditherRow, initDithering)
-import Puregrain.Cells (CellMode, ditherBands)
+import Puregrain (class Scalable, Dithering, RGB, ditherRow, initDitheringWith, toGray)
+import Puregrain.Cells (CellMode, ditherBandsWith)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
-import Puregrain.Web.Dither (Pipeline(..), kernelOf, luma, pipelineFor, toNeutral, zxModeOf)
+import Puregrain.Web.Dither (Pipeline(..), gammaOf, kernelOf, pipelineFor, toNeutral, zxModeOf)
 import Puregrain.Web.Message (FileBytes, Job)
 import Puregrain.Web.Pixels (allNeutral, bytesOf, newPixels, readRow, rowAt, writeGrayRow, writeRgbRow)
 import Puregrain.Web.Settings (MachineName(..), screenSizeOf)
@@ -50,11 +50,12 @@ ditherPicture job progress = do
       out <- newPixels (job.width * job.height * 4)
       let
         kernel = kernelOf job.settings.kernel
-        gray = if job.settings.gray then map toNeutral else identity
+        gamma = gammaOf job.settings.gamma
+        gray = if job.settings.gray then map (toNeutral gamma) else identity
         rgbRow y = gray <$> readRow job.pixels job.width y
       case pipeline of
-        Gray q -> plain out =<< ditherRows job.height (initDithering kernel q) (map (map luma) <<< rgbRow) (writeGrayRow out job.width) progress
-        Color q -> plain out =<< ditherRows job.height (initDithering kernel q) rgbRow (writeRgbRow out job.width) progress
+        Gray q -> plain out =<< ditherRows job.height (initDitheringWith gamma kernel q) (map (map (toGray gamma)) <<< rgbRow) (writeGrayRow out job.width) progress
+        Color q -> plain out =<< ditherRows job.height (initDitheringWith gamma kernel q) rgbRow (writeRgbRow out job.width) progress
         Screen screen -> do
           let
             -- The rows as the bands need them (the job's pixels don't
@@ -66,7 +67,7 @@ ditherPicture job progress = do
             rowsFrom _ = unfoldr (\y -> if y < job.height then Just (Tuple (gray (rowAt job.pixels job.width y)) (y + 1)) else Nothing) 0
             atSize = { width: job.width, height: job.height } == screenSizeOf screen.machine
             bands :: forall c. CellMode c -> Effect { cells :: Array (Array c), image :: Array (Array RGB) }
-            bands mode = bandsInto (\_ -> ditherBands kernel screen.rule mode (rowsFrom unit)) out job.width job.height atSize progress
+            bands mode = bandsInto (\_ -> ditherBandsWith gamma kernel screen.rule mode (rowsFrom unit)) out job.width job.height atSize progress
           files <- case screen.machine of
             ZxSpectrumScreen -> do
               dithered <- bands (zxModeOf screen.palette)

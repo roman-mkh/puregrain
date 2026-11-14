@@ -1,17 +1,16 @@
 -- | The settings as library values, as the CLI builds them from its
--- | options. `isNeutral`, `luma` and `toNeutral` are copied from the CLI's
--- | `Puregrain.Cli.Pipeline`, so both clients turn a picture gray alike;
--- | after v1 they're a candidate for the library (web/ROADMAP.md, phase 0
--- | results). The machines' modules aren't in the `Puregrain` facade, so
--- | they're imported directly, as the CLI does.
+-- | options. A picture turns gray by the library's `toGray`, as in the
+-- | CLI, so both clients turn it gray alike; `isNeutral` and `toNeutral`
+-- | are the CLI's too. The machines' modules aren't in the `Puregrain`
+-- | facade, so they're imported directly, as the CLI does.
 module Puregrain.Web.Dither
   ( Pipeline(..)
   , pipelineFor
   , kernelOf
   , paletteOf
   , zxModeOf
+  , gammaOf
   , isNeutral
-  , luma
   , toNeutral
   ) where
 
@@ -21,10 +20,10 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
 import Partial.Unsafe (unsafeCrashWith)
-import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
+import Puregrain (Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, zxSpectrum)
 import Puregrain.Cells (CellMode, CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Machine.ZxSpectrum as Zx
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName, MachinePaletteName(..), PaletteName(..), Settings, Target(..))
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName, MachinePaletteName(..), PaletteName(..), Settings, Target(..))
 
 -- | Dither in one gray channel, in RGB, or to a machine's screen (RGB,
 -- | cell by cell, with the machine's palette and a rule inside the cells).
@@ -96,16 +95,19 @@ bayerOf side = case bayer side of
   Just m -> m
   Nothing -> unsafeCrashWith ("Puregrain.Web.Dither.bayerOf: no Bayer map of side " <> show side)
 
+gammaOf :: GammaName -> Gamma
+gammaOf = case _ of
+  GammaOff -> gammaOff
+  Gamma1p2 -> gamma1p2
+  Gamma1p5 -> gamma1p5
+  Gamma1p8 -> gamma1p8
+  GammaSrgb -> gammaSrgb
+
 isNeutral :: RGB -> Boolean
 isNeutral (RGB p) = p.r == p.g && p.g == p.b
 
--- | A pixel's gray value: exact for a neutral pixel, Rec. 601 luma
--- | (0.299 R + 0.587 G + 0.114 B) on the stored sRGB values otherwise, as
--- | in the CLI (see its `Puregrain.Cli.Pipeline.luma` for why exact).
-luma :: RGB -> Number
-luma px@(RGB p)
-  | isNeutral px = p.r
-  | otherwise = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b
-
-toNeutral :: RGB -> RGB
-toNeutral px = let v = luma px in RGB { r: v, g: v, b: v }
+-- | A neutral pixel at the color's gray, by the gamma, as the CLI's
+-- | `toNeutral`: luma on the stored values with `gammaOff`, else the
+-- | gray with the color's light; a neutral pixel stays exactly as it is.
+toNeutral :: Gamma -> RGB -> RGB
+toNeutral gamma px = let v = toGray gamma px in RGB { r: v, g: v, b: v }

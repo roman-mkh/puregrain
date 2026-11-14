@@ -10,7 +10,7 @@ import Foreign (unsafeToForeign)
 import Puregrain (RGB(..))
 import Puregrain.Web.Message (Reply(..), doneMessage, errorMessage, jobMessage, progressMessage, readJob, readReply)
 import Puregrain.Web.Pixels (byteArray, bytesOf, newPixels, readRow, writeRgbRow)
-import Puregrain.Web.Settings (Colors(..), MachineName(..), Target(..), chooseBayer, chooseColors, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), MachineName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Web.Worker.Types (unwrap)
@@ -20,7 +20,7 @@ spec = describe "Puregrain.Web.Message" do
   it "reads back a job as the page sends it" do
     pixels <- liftEffect (newPixels (3 * 1 * 4))
     liftEffect (writeRgbRow pixels 3 0 [ RGB { r: 1.0, g: 2.0, b: 3.0 }, RGB { r: 4.0, g: 5.0, b: 6.0 }, RGB { r: 7.0, g: 8.0, b: 9.0 } ])
-    let settings = chooseBayer (Just 4) (chooseColors (Levels 6) initial)
+    let settings = chooseGamma GammaSrgb (chooseBayer (Just 4) (chooseColors (Levels 6) initial))
     case runExcept (readJob (unsafeToForeign (unwrap (jobMessage { settings, width: 3, height: 1, pixels, tapeName: "photo" })))) of
       Left errors -> fail (show errors)
       Right job -> do
@@ -35,6 +35,7 @@ spec = describe "Puregrain.Web.Message" do
     -- (A job has no Show instance: its pixels are a typed array.)
     isLeft (runExcept (readJob (unsafeToForeign { settings: good.settings, width: 1, pixels }))) `shouldEqual` true
     isLeft (runExcept (readJob (unsafeToForeign (good { settings = good.settings { bayer = 3 } })))) `shouldEqual` true
+    isLeft (runExcept (readJob (unsafeToForeign (good { settings = good.settings { gamma = "2.2" } })))) `shouldEqual` true
     isLeft (runExcept (readJob (unsafeToForeign { settings: good.settings, width: 1, height: 1, pixels: [ 1, 2, 3, 4 ], tapeName: "photo" }))) `shouldEqual` true
 
   it "reads back a machine's settings" do

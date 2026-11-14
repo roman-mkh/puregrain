@@ -19,7 +19,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaId, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
@@ -173,7 +173,7 @@ colorsStep s shownThreshold =
     _ -> []
 
 -- | The error diffusion's menu, the Bayer map's segments with the notes
--- | on them, and "gray first" as a toggle switch.
+-- | on them, the gamma's segments, and "gray first" as a toggle switch.
 methodStep :: forall w. Settings -> Array (HH.HTML w Action)
 methodStep s =
   [ HH.label [ HP.class_ (H.ClassName "field") ]
@@ -198,4 +198,12 @@ methodStep s =
           ]
         else []
       )
-    <> [ toggleSwitch { label: texts.gray, checked: s.gray, toggle: GrayChosen } ]
+    <>
+      [ HH.div [ HP.class_ (H.ClassName "field") ]
+          [ HH.span [ HP.id "gamma-label", HP.class_ (H.ClassName "label") ] [ HH.text texts.gamma ]
+          , segments
+              { name: "gamma", labelledBy: "gamma-label", selected: gammaId s.gamma, disabled: false, pick: GammaChosen }
+              (map (\g -> { value: gammaId g, text: texts.gammaName g }) allGammas)
+          ]
+      , toggleSwitch { label: texts.gray, checked: s.gray, toggle: GrayChosen }
+      ]

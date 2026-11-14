@@ -45,13 +45,13 @@ checklist in step.
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
   the choices, the target among them, the CLI's rules for them, and
   their message form), `Puregrain.Web.Dither` (pure: the settings as
-  library values, as the CLI's `Pipeline` builds them; its gray
-  conversion copied from there), `Puregrain.Web.Message` (the page's and
-  the worker's messages, decoded with `foreign`), `Puregrain.Web.Pixels`
-  (reading and writing rows of the RGBA bytes, rounding as the CLI's PNG
-  writer, and a file's bytes; FFI), `Puregrain.Web.Run` (the row loop
-  with the stepper, and a machine's band loop with its files, progress as
-  a callback), `Puregrain.Web.Save` (the files' names and the tape's,
+  library values, as the CLI's `Pipeline` builds them; gray by the
+  library's `toGray`, as the CLI's), `Puregrain.Web.Message` (the
+  page's and the worker's messages, decoded with `foreign`),
+  `Puregrain.Web.Pixels` (reading and writing rows of the RGBA bytes,
+  rounding as the CLI's PNG writer, and a file's bytes; FFI),
+  `Puregrain.Web.Run` (the row loop with the stepper, and a machine's
+  band loop with its files, progress as a callback), `Puregrain.Web.Save` (the files' names and the tape's,
   pure, and the downloads; FFI), `Puregrain.Web.Worker` (the worker's
   entry: only its messaging). The page and the worker import the library
   through the `Puregrain` facade, and the specialty modules outside it
@@ -70,14 +70,16 @@ checklist in step.
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
-  to the CLI's path: the same bytes as `ditherImage` on the whole
-  picture, with the CLI's gray conversion and rounding, for 8 settings;
-  and the band loop: the same pixels and files as `ditherCells` and the
-  machines' writers, for 6 machine settings, with progress after each
-  band. Seven deliberate breakages were all caught (v2's phase 1); one
-  first slipped through, the Spectrum's normal colors mapped to its
-  bright screen mode, since both sides used the same mapping: a spec
-  pins the mapping against the library's modes now.
+  to the CLI's path: the same bytes as `ditherImageWith` on the whole
+  picture, with the CLI's gray conversion and rounding, for 13 settings,
+  5 of them under a curve; and the band loop: the same pixels and files
+  as `ditherCellsWith` and the machines' writers, for 9 machine
+  settings, 3 under a curve, with progress after each band. Dropping the
+  gamma from the gray, the color or the band path was caught each time
+  (linear light, step 4a). Seven deliberate breakages were all caught
+  (v2's phase 1); one first slipped through, the Spectrum's normal
+  colors mapped to its bright screen mode, since both sides used the
+  same mapping: a spec pins the mapping against the library's modes now.
 - **A run:** each change of the picture or a setting ends the worker and
   starts a new one with the settings, the size and a copy of the pixels
   (transferred), and the name for a ZX Spectrum tape; the worker answers
@@ -590,6 +592,12 @@ stay on the host.
   handle"): it failed in WebKit only before the fix, selecting the
   column's, the bar's and the header's text, and passes in all three
   after it: 51 checks.
+- **The gamma** (2026-11-15, linear light's step 4a): the settings can
+  pick a gamma in its segments (`name="gamma"`, the CLI's names as
+  values) and turn "gray first" on (`input[role=switch]`); 4 levels
+  with Atkinson under `srgb`, the CGA palette gray first under 1.5, and
+  the ZX Spectrum's screen with Bayer 4 under `srgb` (its PNG and
+  `.scr`) give the CLI's pixels and file in all three engines: 72 checks.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in
