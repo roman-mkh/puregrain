@@ -15,11 +15,22 @@ import Data.Ord (abs)
 import Data.List.Lazy as LL
 import Partial.Unsafe (unsafePartial)
 
+import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaSrgb)
 import Puregrain.Kernel (Kernel, Offset, fromOffsets)
 import Puregrain.Ordered (ThresholdMap, bayer, compileThresholdMap)
 import Puregrain.Pixel (RGB(..))
 import Puregrain.Quantize (Quantize, runQuantize)
 import Puregrain.Internal.State (RowLayer)
+
+-- | The four curves other than `gammaOff`, by name, for tests that run
+-- | under each.
+curves :: Array { name :: String, gamma :: Gamma }
+curves =
+  [ { name: "gamma1p2", gamma: gamma1p2 }
+  , { name: "gamma1p5", gamma: gamma1p5 }
+  , { name: "gamma1p8", gamma: gamma1p8 }
+  , { name: "gammaSrgb", gamma: gammaSrgb }
+  ]
 
 approxEqual :: Number -> Number -> Boolean
 approxEqual a b = abs (a - b) < 0.0001

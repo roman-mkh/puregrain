@@ -17,37 +17,22 @@ import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Dither (Dithering, ditherImage, ditherImageWith, ditherRow, ditherRowsWith, initDitheringWith)
-import Puregrain.Gamma (Gamma, fromLight, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, toLight)
+import Puregrain.Gamma (fromLight, gammaOff, gammaSrgb, toLight)
 import Puregrain.Internal.Gamma (conversionFor)
 import Puregrain.Internal.Quantize (quantizerFor)
 import Puregrain.Kernel (floydSteinberg, noDiffusion)
 import Puregrain.Ordered (ordered)
 import Puregrain.Palette (nearestColor)
 import Puregrain.Palette.Presets (websafe216)
-import Puregrain.Pixel (RGB(..))
+import Puregrain.Pixel (RGB)
 import Puregrain.Quantize (Quantize, evenRamp, nearestLevel, perChannel, quantizeWith, runQuantize, runQuantizeWith, threshold)
-import Test.Puregrain.Arbitrary (genImage, genKernel, genLevels, genPalette, genRGBImage)
+import Test.Puregrain.Arbitrary (genByte, genByteRGB, genImage, genKernel, genLevels, genPalette, genRGBImage)
 import Test.Puregrain.Reference (referenceDitherResolved)
-import Test.Puregrain.Util (bayerMap)
-
-curves :: Array { name :: String, gamma :: Gamma }
-curves =
-  [ { name: "gamma1p2", gamma: gamma1p2 }
-  , { name: "gamma1p5", gamma: gamma1p5 }
-  , { name: "gamma1p8", gamma: gamma1p8 }
-  , { name: "gammaSrgb", gamma: gammaSrgb }
-  ]
-
--- | A whole byte, 0 to 255.
-genByte :: Gen Number
-genByte = toNumber <$> chooseInt 0 255
+import Test.Puregrain.Util (bayerMap, curves)
 
 -- | 1 to 8 levels, whole bytes, in any order, repeats allowed.
 genByteLevels :: Gen (NonEmptyArray Number)
 genByteLevels = NEA.cons' <$> genByte <*> (chooseInt 0 7 >>= \n -> vectorOf n genByte)
-
-genByteRGB :: Gen RGB
-genByteRGB = (\r g b -> RGB { r, g, b }) <$> genByte <*> genByte <*> genByte
 
 -- | 1 to 8 colors of whole bytes.
 genBytePalette :: Gen (NonEmptyArray RGB)

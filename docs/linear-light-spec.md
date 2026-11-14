@@ -961,6 +961,36 @@ everything else, with the same default, `off`, and the same rules:
   [Decided](#decided)); the docs mention `srgb` with Bayer 4 for photos,
   as something to try.
 
+### As built (sub-step 2f, 2026-11-14)
+
+- **`ditherCellsWith` and `ditherBandsWith`** in `Puregrain.Cells`, the
+  twins of `ditherCells` and `ditherBands`, which convert nothing and give
+  today's results (the 21 CLI outputs byte for byte).
+- **The cells** are chosen from the stored rows, as before. Each band's
+  rows then go to light on the way in and back on the way out, as in the
+  drivers (sub-step 2d). `orderedInCell` takes the band's cell colors to
+  light once per band; `nearestInCell` brings each pixel back (table
+  first), picks the nearer color on stored values, and takes it to light
+  through the table.
+- **Exact when the cells' colors are whole bytes,** as every machine's
+  are: through the table, each comes back as its own byte. Colors that
+  aren't whole numbers, possible with a hand-made `CellMode`, go through
+  the formulas and may come back a unit in the last place off; the doc
+  comment promises exactness only for bytes.
+- **Pinned by properties** under every curve: `gammaOff` giving the plain
+  functions' results; the same cells; every pixel one of its cell's
+  colors (byte colors); the stream equal to memory; `nearestInCell`
+  without diffusion giving `ditherCells`'s picture; `orderedInCell`
+  without diffusion following an independent per-pixel rule in light;
+  ZX Spectrum and C64 pictures of valid cells unchanged, with any kernel
+  and rule (`ZxSpectrumSpec`, `C64Spec`); and with `gammaSrgb`, `toScr`
+  and `toHiresPrg` accepting the result, and a flat 128 between black and
+  white (216) getting one white dot in four from the 2×2 Bayer map, not
+  two. Mutations: comparing `nearestInCell` in light failed the
+  no-diffusion property under all four curves; measuring `orderedInCell`
+  on stored values failed the light property under all four, and the
+  example.
+
 ## Decision 6: the web UI's fit and background
 
 Settled 2026-11-12: both follow the chosen curve. With `off` they stay as

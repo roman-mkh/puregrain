@@ -6,6 +6,7 @@ import Data.Array ((..))
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
+import Data.Int (toNumber)
 import Data.Traversable (traverse)
 import Puregrain.Cells (CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Kernel (Kernel, Offset)
@@ -81,6 +82,14 @@ genRGB = do
   g <- choose 0.0 255.0
   b <- choose 0.0 255.0
   pure (RGB { r, g, b })
+
+-- | A whole byte, 0 to 255: the values whose light comes back exactly.
+genByte :: Gen Number
+genByte = toNumber <$> chooseInt 0 255
+
+-- | A color of whole bytes.
+genByteRGB :: Gen RGB
+genByteRGB = (\r g b -> RGB { r, g, b }) <$> genByte <*> genByte <*> genByte
 
 newtype TestRGB = TestRGB RGB
 

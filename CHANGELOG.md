@@ -29,6 +29,13 @@ raises the minor version (0.1 → 0.2).
   color is still chosen on stored values. With `gammaOff` they give the
   plain drivers' results; the plain drivers convert nothing and give the
   same results as before.
+- `Puregrain.Cells`: `ditherCellsWith` and `ditherBandsWith`, the same with
+  a `Gamma` first for machine screens: the cells are chosen as before, and
+  their rows dithered in light. `orderedInCell` measures where a pixel
+  lies between its cell's two colors in light, while `nearestInCell` still
+  picks the nearer color on stored values. With colors of whole numbers,
+  as a machine's are, every pixel comes out as exactly one of its cell's
+  colors, so `toScr`, `toHiresPrg` and the other writers take the result.
 - `Puregrain.Quantize`: `quantizeInLight`, for quantizers that work in
   light, as the ready-made ones now do; and `runQuantizeWith`, which runs
   a quantizer for a stored value as the drivers do with a gamma.
