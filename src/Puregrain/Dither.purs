@@ -36,8 +36,10 @@ import Data.CatQueue (CatQueue)
 import Data.Either (Either)
 import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
-import Puregrain.Internal.Image (ditherImageWith, ditherRowsWith)
+import Puregrain.Internal.Gamma (Conversion, noConversion)
+import Puregrain.Internal.Image (ditherImageVia, ditherRowsVia, rowsIn, rowsOut)
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
+import Puregrain.Internal.Quantize (Quantizer, quantizerFor)
 import Puregrain.Internal.Row (stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Kernel (Kernel)
@@ -64,7 +66,7 @@ ditherImage
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-ditherImage = ditherImageWith (Proxy :: Proxy CatQueue)
+ditherImage = ditherImageVia (Proxy :: Proxy CatQueue) noConversion
 
 -- | Dithers a lazy stream of rows.
 -- |
@@ -85,7 +87,7 @@ ditherRows
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
-ditherRows = ditherRowsWith (Proxy :: Proxy CatQueue)
+ditherRows = ditherRowsVia (Proxy :: Proxy CatQueue) noConversion
 
 -- | An image being dithered one row at a time, for `ditherRow`: the
 -- | kernel, the quantizer, and the error waiting for the rows still to
@@ -93,9 +95,12 @@ ditherRows = ditherRowsWith (Proxy :: Proxy CatQueue)
 -- |
 -- | An immutable value: keep and reuse one, for an undo, say. Dithering a
 -- | row from it again redoes that row's work, and no more.
+-- The quantizer is kept resolved, once for the whole image, with the
+-- conversion that brings each row to light and back.
 newtype Dithering a = Dithering
   { compiled :: CompiledKernel
-  , quantize :: Quantize a
+  , quantizer :: Quantizer a
+  , conversion :: Conversion a
   , state :: DitherState CatQueue a
   }
 
@@ -104,9 +109,13 @@ newtype Dithering a = Dithering
 -- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
 -- | - `Quantize a`: picks each pixel's output value.
 -- |
--- | Computes nothing yet; the first row fixes the image's width.
+-- | Dithers nothing yet; the first row fixes the image's width.
 initDithering :: forall a. Kernel -> Quantize a -> Dithering a
-initDithering kernel quantize = Dithering { compiled, quantize, state: initState compiled }
+initDithering = initDitheringVia noConversion
+
+initDitheringVia :: forall a. Conversion a -> Kernel -> Quantize a -> Dithering a
+initDitheringVia conversion kernel quantize =
+  Dithering { compiled, quantizer: quantizerFor conversion quantize, conversion, state: initState compiled }
   where
     compiled = compileKernel kernel
 
@@ -127,5 +136,5 @@ ditherRow
   -> Array a
   -> Either String { row :: Array a, next :: Dithering a }
 ditherRow (Dithering d) pixels =
-  stepRow d.compiled d.quantize d.state pixels <#> \(Tuple state dithered) ->
-    { row: dithered, next: Dithering d { state = state } }
+  stepRow d.compiled d.quantizer d.state (rowsIn d.conversion pixels) <#> \(Tuple state dithered) ->
+    { row: rowsOut d.conversion dithered, next: Dithering d { state = state } }

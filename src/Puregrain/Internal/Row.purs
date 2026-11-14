@@ -18,10 +18,10 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Partial.Unsafe (unsafeCrashWith)
 import Puregrain.Internal.Fifo (class Fifo, replace)
 import Puregrain.Internal.Kernel (CompiledKernel, skipFor)
+import Puregrain.Internal.Quantize (Quantizer)
 import Puregrain.Internal.State (DelayLine, DitherState, RowLayer, RowState, freshLayer)
 import Puregrain.Internal.Step (step)
 import Puregrain.Pixel (class Scalable)
-import Puregrain.Quantize (Quantize)
 
 extractMatured :: forall f a. Array (DelayLine f a) -> Tuple (Array (RowLayer f a)) (Array (DelayLine f a))
 extractMatured delayLines =
@@ -60,17 +60,20 @@ commitBuilding compiled building shortenedDelayLines =
 -- | length is a caller's bug: `Left` with a message naming the row,
 -- | rather than reading past the queued error or leaving it misaligned
 -- | for the rows below. The state isn't touched, so the caller can retry.
+-- |
+-- | The quantizer comes resolved (`Puregrain.Internal.Quantize.quantizerFor`),
+-- | once per run by the caller, not once per row or pixel.
 stepRow
   :: forall f a
    . Fifo f
   => Ring a
   => Scalable a
   => CompiledKernel
-  -> Quantize a
+  -> Quantizer a
   -> DitherState f a
   -> Array a
   -> Either String (Tuple (DitherState f a) (Array a))
-stepRow compiled quantize state pixels =
+stepRow compiled quantizer state pixels =
   -- The check comes first, and the row's work lives in the branch after
   -- it: PureScript evaluates `where` bindings before the body, so work
   -- placed there would run (and, for a longer row, crash) before the check.
@@ -102,7 +105,7 @@ stepRow compiled quantize state pixels =
     length = Array.length pixels
 
     stepAdapter rowState px =
-      let Tuple rowState' q = step compiled quantize rowState px
+      let Tuple rowState' q = step compiled quantizer rowState px
       in { accum: rowState', value: q }
 
 -- | The other half of `stepRow`'s contract: its `Left` (a row of a

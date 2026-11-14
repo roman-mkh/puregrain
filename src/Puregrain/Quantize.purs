@@ -9,8 +9,7 @@
 -- | in `Puregrain.Ordered`. Build your own with `quantize` (position-blind)
 -- | or `quantizeWith` (uses the position).
 module Puregrain.Quantize
-  ( Quantize
-  , Context
+  ( module Exports
   , quantize
   , quantizeWith
   , runQuantize
@@ -27,26 +26,11 @@ import Data.Array.NonEmpty as NEA
 import Data.Int (toNumber)
 import Data.Ord (abs)
 import Data.Tuple (Tuple(..), fst)
+import Puregrain.Internal.Gamma (conversionFor, isOff, noConversion)
+import Puregrain.Internal.Quantize (Context, Quantize) as Exports
+import Puregrain.Internal.Quantize (Context, Quantize(..), quantizerFor)
 import Puregrain.Internal.Util (safeRange)
 import Puregrain.Pixel (class MapChannels, mapChannels)
-
--- | A quantizer: picks a pixel's output value; `a` is the pixel type.
--- | Build one with `quantize`, or `quantizeWith` when the decision depends
--- | on the pixel's position; run one with `runQuantize`. Opaque, so its
--- | representation can change without breaking anyone.
--- |
--- | It gets the pixel's corrected value, with the error diffused into it
--- | already added, and must be total: accumulated error pushes values
--- | beyond the nominal range, below 0 or above 255, and the quantizer must
--- | still return a sensible value. `ditherImage` diffuses the difference
--- | between the corrected value and the output to the neighbours.
-newtype Quantize a = Quantize (Context -> a -> a)
-
--- | Where the pixel being quantized sits: column `x` and row `y`, from 0
--- | at the top-left. A record so it can grow, with a seed say, without
--- | breaking quantizers: a helper that needs only some fields can take
--- | `forall r. { x :: Int, y :: Int | r }`.
-type Context = { x :: Int, y :: Int }
 
 -- | A quantizer that ignores the pixel's position, the common case.
 -- |
@@ -57,7 +41,9 @@ type Context = { x :: Int, y :: Int }
 -- | quantize \v -> if v < 100.0 then 0.0 else 255.0
 -- | ```
 quantize :: forall a. (a -> a) -> Quantize a
-quantize f = Quantize \_ -> f
+quantize f = Quantize \conversion ->
+  if isOff conversion.gamma then \_ -> f
+  else \_ x -> conversion.toLight (f (conversion.fromLight x))
 
 -- | A quantizer that also gets the pixel's position: ordered or noise
 -- | dithering, say, or a lookup in per-pixel data such as a mask.
@@ -71,7 +57,9 @@ quantize f = Quantize \_ -> f
 -- |   if v < (if (x + y) `mod` 2 == 0 then 64.0 else 192.0) then 0.0 else 255.0
 -- | ```
 quantizeWith :: forall a. (Context -> a -> a) -> Quantize a
-quantizeWith = Quantize
+quantizeWith f = Quantize \conversion ->
+  if isOff conversion.gamma then f
+  else \context x -> conversion.toLight (f context (conversion.fromLight x))
 
 -- | Runs a quantizer.
 -- |
@@ -79,9 +67,11 @@ quantizeWith = Quantize
 -- | - `Context`: the pixel's position.
 -- | - `a`: the corrected value.
 -- |
--- | Returns the output value.
+-- | Returns the output value. For many pixels, apply it to the quantizer
+-- | once and keep the result, `let q = runQuantize quantizer`, then call
+-- | `q` for each pixel: some quantizers prepare things first.
 runQuantize :: forall a. Quantize a -> Context -> a -> a
-runQuantize (Quantize f) = f
+runQuantize = quantizerFor noConversion
 
 -- | Runs a one-channel quantizer on every channel of a pixel,
 -- | independently, each with the pixel's position.
@@ -99,7 +89,13 @@ runQuantize (Quantize f) = f
 -- | perChannel (nearestLevel (evenRamp 4)) :: Quantize RGB
 -- | ```
 perChannel :: forall a. MapChannels a => Quantize Number -> Quantize a
-perChannel (Quantize q) = Quantize \ctx -> mapChannels (q ctx)
+perChannel (Quantize q) = Quantize \conversion ->
+  let
+    -- the one-channel quantizer, resolved once with the curve's own
+    -- conversion of single values
+    channel = q (conversionFor conversion.gamma)
+  in
+    \context -> mapChannels (channel context)
 
 -- | The classic 1-bit quantizer: 0 (black) below the threshold, 255
 -- | (white) at or above it.

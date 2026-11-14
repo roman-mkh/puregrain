@@ -283,6 +283,19 @@ named in [decision 7](#decision-7-names) (`Gamma`, `gammaOff` …,
 `toLight`, `fromLight`). `Conversion`, `noConversion`, `conversionFor`
 and `ditherImageVia` are internal.
 
+**As built** (sub-step 2d, 2026-11-14): `Quantize` moved to
+`Puregrain.Internal.Quantize`, which `Puregrain.Quantize` re-exports
+opaquely; `Conversion` (with the curve under `gamma`), `noConversion` and
+`conversionFor` are in `Puregrain.Internal.Gamma`; the internal drivers
+are `ditherImageVia` and `ditherRowsVia`, the queue backend first; the
+core takes the quantizer resolved once per run, and `quantize` and
+`quantizeWith` check the gamma once, so with `gammaOff` they're exactly
+today's functions. The public twins, `quantizeInLight` and
+`runQuantizeWith` come in 2e with the presets (the user, 2026-11-14): a
+twin gives right results only once the presets convert their targets.
+No result changed: every test, 21 CLI configurations byte for byte, and
+`check:cli`.
+
 ### Custom quantizers and `runQuantize`
 
 `Quantize` gets the conversion from the driver, once, before the first

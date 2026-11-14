@@ -69,7 +69,7 @@ import Puregrain.Kernel (Kernel)
 import Puregrain.Ordered (ThresholdMap, thresholdAt)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
-import Puregrain.Quantize (Quantize, quantizeWith)
+import Puregrain.Internal.Quantize (Quantizer)
 
 -- | The size of a cell in pixels, for `CellMode`. A width or height below
 -- | 1 counts as 1.
@@ -290,12 +290,12 @@ bandCells setup rows = map (\cx -> bestCandidate setup.candidates (cellPixels cx
   -- The cell's pixels, row by row; fewer at the right edge.
   cellPixels cx = Array.concatMap (Array.slice (cx * cw) (cx * cw + cw)) rows
 
--- | The quantizer for a band's rows: each pixel becomes one of its cell's
--- | colors, by the rule.
-bandQuantize :: CellQuantizer -> Int -> Array CellPalette -> Quantize RGB
+-- | The quantizer for a band's rows, resolved: each pixel becomes one of
+-- | its cell's colors, by the rule.
+bandQuantize :: CellQuantizer -> Int -> Array CellPalette -> Quantizer RGB
 bandQuantize rule cellWidth palettes = case rule of
-  NearestRule -> quantizeWith \position v -> nearest (paletteAt position.x) v
-  OrderedRule m -> quantizeWith \position v -> ordered (thresholdAt m position) (paletteAt position.x) v
+  NearestRule -> \position v -> nearest (paletteAt position.x) v
+  OrderedRule m -> \position v -> ordered (thresholdAt m position) (paletteAt position.x) v
   where
   paletteAt x = case Array.index palettes (x / cellWidth) of
     Just palette -> palette

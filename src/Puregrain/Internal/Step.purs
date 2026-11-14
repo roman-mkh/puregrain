@@ -16,8 +16,8 @@ import Puregrain.Internal.Fifo (class Fifo, dequeue, enqueue)
 import Puregrain.Internal.Kernel (CompiledKernel)
 import Puregrain.Internal.State (RowLayer, RowState)
 import Puregrain.Kernel (Offset)
+import Puregrain.Internal.Quantize (Quantizer)
 import Puregrain.Pixel (class Scalable, scale)
-import Puregrain.Quantize (Quantize, runQuantize)
 
 dequeueOne :: forall f a. Fifo f => f a -> Tuple a (f a)
 dequeueOne fifo = case dequeue fifo of
@@ -41,11 +41,11 @@ step
   => Ring a
   => Scalable a
   => CompiledKernel
-  -> Quantize a
+  -> Quantizer a
   -> RowState f a
   -> a
   -> Tuple (RowState f a) a
-step compiled quantize { current, matured, building, x, y } pixel =
+step compiled quantizer { current, matured, building, x, y } pixel =
   let
     Tuple currentErrs current' = dequeueAllLayer current
 
@@ -59,7 +59,7 @@ step compiled quantize { current, matured, building, x, y } pixel =
         + Array.foldl (\acc errs -> acc + sumErrors errs) zero maturedErrs
 
     corrected = pixel + incomingError
-    quantized = runQuantize quantize { x, y } corrected
+    quantized = quantizer { x, y } corrected
     outErr    = corrected - quantized
 
     current'' = Array.zipWith (enqueueWeighted outErr) compiled.currentOffsets current'

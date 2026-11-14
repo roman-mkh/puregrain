@@ -4,6 +4,10 @@
 module Puregrain.Internal.Gamma
   ( Gamma(..)
   , CurveParts
+  , Conversion
+  , noConversion
+  , conversionFor
+  , isOff
   , curve
   , off
   , power1p2
@@ -27,6 +31,7 @@ import Data.Number (sqrt)
 import Partial.Unsafe (unsafePartial)
 
 import Puregrain.Internal.Exact (cubeRoot, fifthRoot)
+import Puregrain.Pixel (class ColorChannels, mapColorChannels)
 
 -- | A curve between a picture's stored values and light: one of
 -- | `Puregrain.Gamma`'s presets, `gammaOff`, `gamma1p2`, `gamma1p5`,
@@ -41,6 +46,30 @@ type CurveParts =
   , fromLight :: Number -> Number
   , table :: Lazy (Array Number)
   }
+
+-- | What a driver hands a quantizer: a pixel type's two conversions, and
+-- | the curve itself, for quantizers of single channels (`perChannel`).
+type Conversion a =
+  { toLight :: a -> a
+  , fromLight :: a -> a
+  , gamma :: Gamma
+  }
+
+-- | No conversion, for `gammaOff`: the drivers and the quantizers check
+-- | `isOff` once per run and then skip converting altogether, so the
+-- | identities here are never called per pixel.
+noConversion :: forall a. Conversion a
+noConversion = { toLight: identity, fromLight: identity, gamma: Off }
+
+-- | The conversion of a pixel type's color channels by a curve.
+conversionFor :: forall a. ColorChannels a => Gamma -> Conversion a
+conversionFor Off = noConversion
+conversionFor gamma = { toLight: mapColorChannels (toLightValue gamma), fromLight: mapColorChannels (fromLightValue gamma), gamma }
+
+-- | Whether the curve is `Off`, the identity.
+isOff :: Gamma -> Boolean
+isOff Off = true
+isOff _ = false
 
 -- | A curve from its two formulas on the 0–1 scale, defined for 0 and up:
 -- | scaled to 0–255 and mirrored for negative values, f(-v) = -f(v), as the
