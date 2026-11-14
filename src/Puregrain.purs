@@ -10,8 +10,10 @@
 -- | - the quantizers `threshold`, `nearestLevel` with `evenRamp`, and
 -- |   `perChannel` for color; `nearestColor` with the palette presets;
 -- |   `bayer` and `ordered` for ordered dithering;
--- | - the gamma curves `gammaOff`, `gamma1p2`, `gamma1p5`, `gamma1p8` and
--- |   `gammaSrgb`, which say how the stored numbers turn into light;
+-- | - `ditherImageWith`, `ditherRowsWith` and `initDitheringWith`, the
+-- |   same with a gamma curve, `gammaOff`, `gamma1p2`, `gamma1p5`,
+-- |   `gamma1p8` or `gammaSrgb`, which says how the stored numbers turn
+-- |   into light;
 -- | - the pixel types `RGB` and `RGBA`, and the types for signatures.
 -- |
 -- | Import it qualified, as names like `threshold` or `c64` are short:
@@ -39,7 +41,7 @@ module Puregrain
   , module Puregrain.Quantize
   ) where
 
-import Puregrain.Dither (Dithering, ditherImage, ditherRow, ditherRows, initDithering)
+import Puregrain.Dither (Dithering, ditherImage, ditherImageWith, ditherRow, ditherRows, ditherRowsWith, initDithering, initDitheringWith)
 import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb)
 import Puregrain.Kernel (Kernel, Offset, atkinson, burkes, fan, floydSteinberg, jarvisJudiceNinke, noDiffusion, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)

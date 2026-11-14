@@ -145,8 +145,9 @@ toLightFormula :: Gamma -> Number -> Number
 toLightFormula Off v = v
 toLightFormula (Curve c) v = c.toLight v
 
--- | The formula back, without the table: for comparing, where a value is
--- | practically never a byte's light.
+-- | The formula back, without the table: for the self-check and the
+-- | tests. The dithering's comparisons use `fromLightValue`, table first,
+-- | so that a byte's light comes back as exactly that byte.
 fromLightFormula :: Gamma -> Number -> Number
 fromLightFormula Off l = l
 fromLightFormula (Curve c) l = c.fromLight l

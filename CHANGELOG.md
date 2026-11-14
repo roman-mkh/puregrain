@@ -21,6 +21,17 @@ raises the minor version (0.1 → 0.2).
 - `Puregrain.SelfCheck`: `checkEngine`, which checks that the JavaScript
   engine at hand computes the light curves exactly as the reference does,
   with `exactArithmetic` and `problems` to read its `EngineReport`.
+- `Puregrain.Dither`: `ditherImageWith`, `ditherRowsWith` and
+  `initDitheringWith`, also in the `Puregrain` facade: the drivers with a
+  `Gamma` first. They keep the amount of light by that curve rather than
+  the average of the stored numbers: the error and ordered dithering's
+  patterns are measured in light, while the nearest level or palette
+  color is still chosen on stored values. With `gammaOff` they give the
+  plain drivers' results; the plain drivers convert nothing and give the
+  same results as before.
+- `Puregrain.Quantize`: `quantizeInLight`, for quantizers that work in
+  light, as the ready-made ones now do; and `runQuantizeWith`, which runs
+  a quantizer for a stored value as the drivers do with a gamma.
 
 ### Changed
 

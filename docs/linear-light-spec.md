@@ -671,8 +671,12 @@ scale, x is a stored value and L its light:
   light value of a target, a palette color, a machine color or a level,
   is one of the table's entries, so the way back finds its byte exactly:
   no rounding can make a color the palette doesn't have, and the library
-  returns exactly 85, not 85.00000000000001. The formula back only serves
-  comparing (decision 3's palette choice), never what's written.
+  returns exactly 85, not 85.00000000000001. The palette comparison
+  (decision 3) goes back the same way, table first (sub-step 2e, agreed
+  with the user 2026-11-14; at first this note said "formula only"): a
+  pixel that's exactly a byte's light comes back as that byte, so a
+  palette without diffusion gives today's picture. The formula serves
+  only the values that aren't a byte's light.
 - **A level that isn't a byte** (127.5 for 3 levels) is rounded to one
   first when a curve is chosen, so that it's a table entry too: through
   the formula, 127.5 could come back as 127.49999999999999 and be written
@@ -853,6 +857,28 @@ points.)
 - **An idea, not planned:** explicit levels, `--levels a,b,c`, always
   bytes, under every gamma. They'd also reach levels even in light
   (`--levels 0,156,213,255`) without a mode of their own.
+
+### As built (sub-step 2e, 2026-11-14)
+
+- **`threshold`, `nearestLevel` and `ordered`** are built with
+  `quantizeInLight`: the threshold, the levels and the cut points are
+  converted once per image. `nearestLevel` keeps its scan with
+  `gammaOff`, and with a curve compares with the sRGB midpoints between
+  the sorted levels, converted to light; on an exact tie the level given
+  earlier wins, as with the scan.
+- **`nearestColor` needed no change:** it's built with `quantize`, whose
+  wrapper (sub-step 2d) brings each pixel back with `fromLight`, table
+  first, compares on stored values, and takes the chosen color to light
+  through the table. That's this decision's rule as it stands.
+- **Pinned by properties** under every curve (`InLightSpec`), besides
+  `gammaOff` giving the plain drivers' rows: an independent reference on
+  rows taken to light and back; the stream and the stepper; pictures made
+  only of levels or colors coming back unchanged; `websafe216` equal to
+  `--levels 6`; no diffusion giving `ditherImage`'s picture for
+  `threshold`, `nearestLevel` and palettes; only rounded levels and
+  palette colors as outputs; with `gammaSrgb`, a flat 128 at about 21.6%
+  white with Floyd–Steinberg and 14 of 64 with the 8×8 Bayer map. Cut
+  points at the midpoints in light instead failed 9 of them.
 
 ## Decision 4: the gray conversion
 
