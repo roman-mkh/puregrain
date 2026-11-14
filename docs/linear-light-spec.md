@@ -480,6 +480,20 @@ diagnosis. The names are placeholders, named in [decision
 the self-check a module of its own, `Puregrain.SelfCheck`, and the exact
 roots `Puregrain.Internal.Exact`.
 
+**As built** (sub-step 2c, 2026-11-14; the user agreed to the two
+changes): the four computed curves, both ways; 200,000 generator values
+per curve, not in all; and **eight stored digests, one per curve and
+direction,** in place of one, so that a failure names its curve and
+direction ("gammaSrgb, back: the results differ from the reference")
+rather than "the first value" (which would need every reference value
+stored). A second check needs no reference: every byte back exactly from
+its light, naming the byte. It takes about 0.45 s in Node 22 and 0.43
+to 0.61 s in the browsers, and gave the same eight digests in Node 22.14
+and 26.13, Chromium 156, Firefox 157 and WebKit 27.2. Details in
+`docs/exact-arithmetic.md`, "The engine self-check". The bullets below
+were written before; where they differ (one constant, 20 ms), this
+paragraph holds.
+
 - **The fingerprint's inputs are fixed:** the 256 bytes, the fractional
   levels of 2 to 16 levels, special values (thresholds such as 96.5, the
   curve's switch points, values just outside 0–255), and 200,000 values

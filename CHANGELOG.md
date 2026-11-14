@@ -18,6 +18,14 @@ raises the minor version (0.1 → 0.2).
 - `Puregrain.Pixel`: `ColorChannels`, a pixel type whose color channels
   can be mapped one by one, alpha excepted (`RGBA` keeps its alpha), for
   the conversion to light; with instances for `Number`, `RGB` and `RGBA`.
+- `Puregrain.SelfCheck`: `checkEngine`, which checks that the JavaScript
+  engine at hand computes the light curves exactly as the reference does,
+  with `exactArithmetic` and `problems` to read its `EngineReport`.
+
+### Changed
+
+- The library now depends on `effect` directly, for `checkEngine`. It
+  was already among its dependencies' own, so nothing new is installed.
 
 ## 0.2.1 - 2026-11-05
 

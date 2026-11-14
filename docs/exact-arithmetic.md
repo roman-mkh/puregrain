@@ -157,10 +157,52 @@ The tests (`test/Test/Puregrain/GammaSpec.purs`) check each of these, and
 that the formulas match a reference written with `Math.pow` within 10⁻¹²;
 a deliberate breakage of the table lookup was caught by five of them.
 
-## Built on these roots
+## The engine self-check
 
-The engine's self-check uses these roots and curves; its section comes
-with it.
+The standard requires every engine to compute the curves' operations
+alike, but an engine can have a fault, and an optimizing compiler can
+break the rules, for example by fusing a multiplication and an addition
+into one step, which the standard forbids. `Puregrain.SelfCheck` checks
+the engine at hand: `checkEngine` runs the curves and compares the
+results with a stored reference.
+
+- **What it computes:** each of the four computed curves, both ways, for
+  the bytes and the halves between them, the levels of 2 to 16 with their
+  midpoints, sRGB's two switch points, a fractional threshold (96.5),
+  values just outside 0–255, and 200,000 values from Park and Miller's
+  "minimal standard" generator (next = 48271 × x mod (2³¹ − 1), with a
+  fixed seed), scaled to [−20, 300]. That many, so that the engines'
+  optimizing compilers, where such faults would show, run too.
+- **The digests:** each result is taken apart exactly (its sign, its
+  power of 2, and its 53-bit mantissa as two whole numbers, by halving,
+  doubling and splitting, which lose nothing) and folded into a whole
+  number: h becomes (h × 48271 + part) mod (2³¹ − 1), exact in a
+  JavaScript number since every value stays below 2⁵³. Never the printed
+  digits, whose last place the standard leaves open. One digest per curve
+  and direction: eight.
+- **The reference:** the eight digests as Node 22.14 computed them,
+  confirmed identical on 2026-11-14 in Node 26.13, Chromium 156, Firefox
+  157 and WebKit 27.2. They change only when a curve changes on purpose,
+  in the same commit and with a CHANGELOG line, since pictures dithered
+  with that curve change too; never just to make a check pass.
+- **A check without a reference:** under every curve, every byte must
+  come back exactly from its light, through the table.
+- **The report:** `exactArithmetic` says whether everything passed, and
+  `problems` gives a sentence for each failure, naming the curve and
+  direction ("gammaSrgb, back: the results differ from the reference") or
+  the byte.
+- **Time:** about 0.45 s in Node 22, 0.43 to 0.61 s in the browsers. It
+  runs only when called: the command-line tool will have a mode for it,
+  and the web app a worker of its own, apart from the dithering.
+- **A pass** means that this engine computed the reference values
+  exactly: strong evidence, not proof for every value, so the docs say
+  "checked", not "guaranteed".
+
+The tests (`test/Test/Puregrain/SelfCheckSpec.purs`) run it in Node, and
+check that a wrong digest is reported with its curve and direction. A
+deliberate change of one curve's operation order, which moved some
+results by their last bit, failed the self-check and nothing else: the
+other tests compare with a tolerance, the digest compares bits.
 
 ## Sources
 
