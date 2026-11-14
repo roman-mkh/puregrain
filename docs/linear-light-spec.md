@@ -452,7 +452,10 @@ image, in Node and three browsers.
 - **Round trip and order:** every byte comes back exactly after rounding
   (before rounding, within 6 × 10⁻¹⁴). The table rises strictly, and so
   do the halves between bytes. Over a million sorted values, no larger
-  input gave a smaller result, in either direction.
+  input gave a smaller result, in either direction. (Neighbouring
+  numbers can, by up to two units in the last place, found in sub-step
+  2a: see `docs/exact-arithmetic.md`. Random values almost never land
+  next to each other.)
 - **Speed** (Node 22, rough): the whole table 7 µs; a lookup 0.9 ns; our
   formula 37 ns, `Math.pow` 48 ns; back, a target found in the table
   11 ns, the formula 36 ns. Dithering costs about 1,900 ns per pixel.
@@ -611,11 +614,16 @@ is a stored value and L its light:
 | 1.8 | x · (⁵√x)⁴ | (∛(∛L))⁵ |
 | `srgb` | the prototype's | the prototype's |
 
-- **The roots are the prototype's:** the square root, exact by ECMA-262,
-  and the fifth and cube roots by a fixed number of Newton's steps. Each
-  curve's steps are checked over its whole range, as the prototype's
-  were. A pure power has no straight piece near 0, so the roots need a
-  good start there (from the table, say), checked like the rest.
+- **The roots** (written in sub-step 2a, `Puregrain.Internal.Exact`; why
+  and how in `docs/exact-arithmetic.md`): the square root, exact by
+  ECMA-262, and the fifth and cube roots, reduced into [1/32, 1) and
+  [1/8, 1) by exact powers of 2, then 10 and 9 of Newton's steps from 1
+  (at most 9 and 8 measured, plus one of margin). The same counts fit
+  every input, near 0 included, so the pure powers need no start of
+  their own. The results are within two units in the last place of the
+  nearest number, mostly that number itself: two neighbouring inputs can
+  get roots up to two units apart in either order, which no comparison
+  in the dithering meets (the user, 2026-11-14).
 - **Negative values are mirrored,** f(−x) = −f(x), for every curve, as
   the W3C's sample code (CSS Color 4) extends sRGB's (the user,
   2026-11-12). Only the way back meets them: error diffusion pushes
@@ -1060,7 +1068,9 @@ decisions 1 to 4.
 - `logo/README.md`, "How it's made": the CLI settings it lists gain
   `--gamma off`;
 - `CHANGELOG.md`, `CLAUDE.md` (its logo entry asks for the opt-out; it
-  then says the script passes `--gamma off`).
+  then says the script passes `--gamma off`; its documentation map gets
+  `docs/exact-arithmetic.md`, written in sub-step 2a, with the curves'
+  and the self-check's sections added as they come).
 
 ## Sources
 
