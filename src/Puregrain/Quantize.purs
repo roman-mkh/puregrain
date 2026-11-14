@@ -219,11 +219,15 @@ nearestLevel levels = quantizeInLight \gamma ->
 -- The levels rounded to whole bytes and sorted, each with its place in
 -- the given order; the cut between two neighbours is their midpoint on
 -- stored values, converted to light once. A value exactly at a cut takes
--- the level given earlier, as the scan with `gammaOff` does.
+-- the level given earlier, as the scan with `gammaOff` does. Of equal
+-- levels (given twice, or made equal by rounding) only the one given
+-- first is kept, as the scan finds it first: a later copy would decide a
+-- tie with its own place (levels [35, 143, 35] gave 143 for 89, the scan
+-- 35; found by a property, 2026-11-15).
 nearestInLight :: Gamma -> NonEmptyArray Number -> Number -> Number
 nearestInLight gamma levels =
   let
-    sorted = Array.sortBy (comparing _.stored <> comparing _.index)
+    sorted = Array.nubBy (comparing _.stored) $ Array.sortBy (comparing _.stored <> comparing _.index)
       (Array.mapWithIndex (\index level -> { stored: round level, index }) (NEA.toArray levels))
     lights = map (\level -> toLightValue gamma level.stored) sorted
     cuts = Array.zipWith

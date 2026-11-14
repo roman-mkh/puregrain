@@ -139,6 +139,14 @@ spec = describe "Dithering in light (ditherImageWith and the presets)" do
         palette <- genBytePalette
         pure (ditherImageWith c.gamma noDiffusion (nearestColor palette) image === ditherImage noDiffusion (nearestColor palette) image)
 
+    -- 89 lies exactly halfway between 35 and 143. Found by the property
+    -- above (seed 182268069): a repeated level decided the tie by its
+    -- later place.
+    it "takes the level given first on an exact tie, also when a level is given twice" do
+      for_ [ NEA.cons' 35.0 [ 143.0, 35.0 ], NEA.cons' 143.0 [ 35.0, 143.0 ], NEA.cons' 35.0 [ 35.0, 143.0 ], NEA.cons' 143.0 [ 143.0, 35.0 ] ] \levels -> do
+        ditherImageWith c.gamma noDiffusion (nearestLevel levels) [ [ 89.0 ] ] `shouldEqual` [ [ NEA.head levels ] ]
+        ditherImage noDiffusion (nearestLevel levels) [ [ 89.0 ] ] `shouldEqual` [ [ NEA.head levels ] ]
+
     it "outputs only its levels, rounded to whole numbers, and only the palette's colors" do
       quickCheck do
         kernel <- genKernel
