@@ -60,7 +60,8 @@ fills the page, and the settings open over it (see below).
      one of the palettes; for the Spectrum all its 15 colors, the normal
      ones only or the bright ones only; for the C64 its 16;
    - **the method** (step 4): error diffusion with one of 11 kernels
-     (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke and eight more),
+     (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke first, and eight
+     more, grouped in the menu under the one each derives from),
      ordered dithering with a Bayer map (2×2 to 16×16), or both. A Bayer map works over levels, or inside a
      machine's cells, so it isn't offered with a threshold or a palette,
      and a note beside it says why. For black and white with a Bayer map,

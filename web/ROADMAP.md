@@ -56,8 +56,9 @@ users is a separate task, see TODO.md.)
   for this release). Improvements published between the roadmap's
   versions count up after the dot.
 - **v2.2** (2026-11-05): the eight kernels of the library's 0.2.1 in the
-  kernel menu. The menu stays one flat list, of 12 entries, in the CLI's
-  order with None first: None, Floyd-Steinberg, Atkinson,
+  kernel menu (grouped since 2026-11-15, see below). The menu stays one
+  flat list, of 12 entries, in the CLI's order with None first: None,
+  Floyd-Steinberg, Atkinson,
   Jarvis-Judice-Ninke, Stucki, Burkes, Sierra 3, Sierra 2, Sierra Lite,
   Fan, Shiau-Fan, Shiau-Fan 2 (the user's choice: a group like the colors
   menu's "Palettes" saves no room, its heading even adds a row, and
@@ -71,6 +72,18 @@ users is a separate task, see TODO.md.)
   specification, `docs/kernels-spec.md` (Phase A, the library's 0.2.1;
   Phase B, this), was deleted at the end, as planned: its content lives
   on in `docs/error-diffusion.md`, here, and in the pull requests.
+- **The kernel menu grouped** (2026-11-15, on the branch `linear-light`;
+  the user's choice, revising v2.2's flat list): None and the three
+  originals, Floyd-Steinberg, Atkinson and Jarvis-Judice-Ninke, first;
+  then two groups, "Like Floyd-Steinberg" (Sierra Lite, Fan, Shiau-Fan,
+  Shiau-Fan 2) and "Like Jarvis-Judice-Ninke" (Stucki, Burkes, Sierra 3,
+  Sierra 2), by the original each derives from as its sources say
+  (`docs/error-diffusion.md`). Why now: a newcomer faced 12 names with
+  no hint where to start. v2.2's second reason no longer holds, since
+  the groups aren't names of our own but the sources' lineage; its
+  first still does, the two headings add two rows to the open list.
+  "Main" means history and lineage, not quality measured here (TODO.md,
+  "The eight kernels of 0.2.1, measured and compared").
 - **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
   a choice of curve, `--gamma`, off by default (`docs/linear-light-spec.md`
   on the branch `linear-light`; on 2026-11-12 it replaced "the default,
@@ -88,7 +101,17 @@ users is a separate task, see TODO.md.)
   disclosure like the download's ▾, since `popover` needs Safari 17;
   the texts taken from the docs, not written anew, so that the page
   claims nothing the docs don't; the links to the docs on GitHub, as the
-  footer's are; a high-contrast theme (the user's idea); the zoom
+  footer's are; and for them to lead to, a user guide (the user's idea,
+  2026-11-15): a short document for the page's users, one section per
+  setting (target, colors, method, gamma, background…), without the
+  developers' material (building, checks, the checklist), linking to the
+  project's docs for the advanced topics (error diffusion, gamma, machine
+  screens). "Help" leads there, and the engine check's "Details in Help"
+  (linear light, step 4c) moves from the README's section to the
+  guide's, so that `web/README.md` goes back to being the developers' and
+  the project's page. Where the guide lives is open: a Markdown file on
+  GitHub, as the README, or a page served with the site, at the page's
+  own address; a high-contrast theme (the user's idea); the zoom
   as a menu once there are more values. From the checks on devices
   (2026-11-03, the user's ideas): on phones, "Choose another picture"
   next to the download button, opening the file chooser at once and

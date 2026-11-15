@@ -15,6 +15,7 @@ module Puregrain.Web.Settings
   , Settings
   , initial
   , allKernels
+  , kernelMenu
   , allPalettes
   , allMachines
   , machinePalettesOf
@@ -141,11 +142,26 @@ type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, baye
 initial :: Settings
 initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false, gamma: GammaOff }
 
--- | The kernel menu's order: the CLI's, with None first (v2.2 in
+-- | Every kernel, in the CLI's order with None first (v2.2 in
 -- | ROADMAP.md).
 allKernels :: Array KernelName
 allKernels =
   [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke, Stucki, Burkes, Sierra3, Sierra2, SierraLite, Fan, ShiauFan, ShiauFan2 ]
+
+-- | The kernel menu (the user's choice, 2026-11-15; ROADMAP.md, "Between
+-- | v2 and v3"): None and the three originals first, then the others in
+-- | two groups, by the original each derives from, as its sources say
+-- | (docs/error-diffusion.md). Every kernel once.
+kernelMenu
+  :: { main :: Array KernelName
+     , likeFloydSteinberg :: Array KernelName
+     , likeJarvisJudiceNinke :: Array KernelName
+     }
+kernelMenu =
+  { main: [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke ]
+  , likeFloydSteinberg: [ SierraLite, Fan, ShiauFan, ShiauFan2 ]
+  , likeJarvisJudiceNinke: [ Stucki, Burkes, Sierra3, Sierra2 ]
+  }
 
 allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]

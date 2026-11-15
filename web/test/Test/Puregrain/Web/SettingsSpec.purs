@@ -2,9 +2,10 @@ module Test.Puregrain.Web.SettingsSpec (spec) where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, gammaActs, gammaId, initial, isOriginal, kernelId, machinePalettesOf, toMessage)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, gammaActs, gammaId, initial, isOriginal, kernelId, kernelMenu, machinePalettesOf, toMessage)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -109,6 +110,15 @@ spec = describe "Puregrain.Web.Settings" do
     it "names the kernels as the CLI does, in the CLI's order with none first" do
       map kernelId allKernels `shouldEqual`
         [ "none", "floyd-steinberg", "atkinson", "jjn", "stucki", "burkes", "sierra-3", "sierra-2", "sierra-lite", "fan", "shiau-fan", "shiau-fan-2" ]
+
+    -- The menu's structure (the user's choice, 2026-11-15), written out;
+    -- and no kernel lost from it, or shown twice.
+    it "shows None and the three originals first, then the others grouped by the original they derive from" do
+      map kernelId kernelMenu.main `shouldEqual` [ "none", "floyd-steinberg", "atkinson", "jjn" ]
+      map kernelId kernelMenu.likeFloydSteinberg `shouldEqual` [ "sierra-lite", "fan", "shiau-fan", "shiau-fan-2" ]
+      map kernelId kernelMenu.likeJarvisJudiceNinke `shouldEqual` [ "stucki", "burkes", "sierra-3", "sierra-2" ]
+      Array.sort (map kernelId (kernelMenu.main <> kernelMenu.likeFloydSteinberg <> kernelMenu.likeJarvisJudiceNinke))
+        `shouldEqual` Array.sort (map kernelId allKernels)
 
     it "names the gammas as the CLI's --gamma does, off first" do
       map gammaId allGammas `shouldEqual` [ "off", "1.2", "1.5", "1.8", "srgb" ]

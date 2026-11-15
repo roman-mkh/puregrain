@@ -42,6 +42,8 @@ texts
      , pictureSize :: { width :: Int, height :: Int } -> String
      , targetLine :: Target -> String
      , palettesGroup :: String
+     , kernelsLikeFloydSteinberg :: String
+     , kernelsLikeJarvisJudiceNinke :: String
      , fewerLevels :: String
      , moreLevels :: String
      , method :: String
@@ -185,6 +187,9 @@ texts =
         in
           show s.width <> " × " <> show s.height <> ", 2 colors per 8×8 cell"
   , palettesGroup: "Palettes"
+  -- The kernel menu's groups, by the original each kernel derives from.
+  , kernelsLikeFloydSteinberg: "Like Floyd-Steinberg"
+  , kernelsLikeJarvisJudiceNinke: "Like Jarvis-Judice-Ninke"
   , fewerLevels: "Fewer levels"
   , moreLevels: "More levels"
   , method: "Method"

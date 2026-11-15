@@ -19,7 +19,7 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
@@ -174,7 +174,8 @@ colorsStep s shownThreshold =
       ]
     _ -> []
 
--- | The error diffusion's menu, the Bayer map's segments with the notes
+-- | The error diffusion's menu (`kernelMenu`: the originals, then two
+-- | groups, as the colors' menu has "Palettes"), the Bayer map's segments with the notes
 -- | on them, the gamma's segments with a note when it can't change the
 -- | picture (`gammaIdle`), and "gray first" as a toggle switch.
 methodStep :: forall w. Settings -> Boolean -> Array (HH.HTML w Action)
@@ -182,7 +183,11 @@ methodStep s gammaIdle =
   [ HH.label [ HP.class_ (H.ClassName "field") ]
       [ HH.span [ HP.class_ (H.ClassName "label") ] [ HH.text texts.kernel ]
       , HH.select [ HE.onValueChange KernelChosen ]
-          (map (\k -> option (kernelId k) (texts.kernelName k) (k == s.kernel)) allKernels)
+          ( map kernelOption kernelMenu.main
+              <> [ kernelGroup texts.kernelsLikeFloydSteinberg kernelMenu.likeFloydSteinberg
+                 , kernelGroup texts.kernelsLikeJarvisJudiceNinke kernelMenu.likeJarvisJudiceNinke
+                 ]
+          )
       ]
   , HH.div [ HP.class_ (H.ClassName "field") ]
       [ HH.span [ HP.id "bayer-label", HP.class_ (H.ClassName "label") ] [ HH.text texts.bayer ]
@@ -211,3 +216,7 @@ methodStep s gammaIdle =
       ]
     <> (if gammaIdle then [ note [ HH.text texts.gammaNoEffect ] ] else [])
     <> [ toggleSwitch { label: texts.gray, checked: s.gray, toggle: GrayChosen } ]
+  where
+  kernelOption :: KernelName -> HH.HTML w Action
+  kernelOption k = option (kernelId k) (texts.kernelName k) (k == s.kernel)
+  kernelGroup label kernels = HH.optgroup [ HP.attr (H.AttrName "label") label ] (map kernelOption kernels)
