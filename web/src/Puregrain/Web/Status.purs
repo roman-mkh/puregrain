@@ -47,9 +47,20 @@ data Run
 
 -- | How long a run goes on, in milliseconds, before its progress shows: a
 -- | second, Jakob Nielsen's limit for the flow of thought; below it, no
--- | feedback is needed (decision 30 B).
-progressDelay :: Number
-progressDelay = 1000.0
+-- | feedback is needed (decision 30 B). At once for a picture of
+-- | `largePicture` pixels or more, which no setting dithers in under a
+-- | second (the user, 2026-11-15).
+-- |
+-- | - `Int`: the picture's pixels.
+progressDelay :: Int -> Number
+progressDelay pixels = if pixels >= largePicture then 0.0 else 1000.0
+
+-- | Two megapixels: the fastest setting, ordered dithering without
+-- | diffusion, takes about 0.7 µs per pixel in the CLI
+-- | (docs/benchmarks-dithering.md), so 1.4 s or more here, and the page's
+-- | own work adds to it.
+largePicture :: Int
+largePicture = 2000000
 
 -- | Whether the result shows over the original, split with it: a
 -- | finished run's result, and during a run the result before it, so

@@ -99,7 +99,16 @@ checklist in step.
   has gone on for a second (`progressDelay`), by a timer the run starts
   (`H.fork` with `delay`, dropped when `runs` has moved on), not at the
   next progress report: a large picture's first hundredth of the rows
-  can take longer.
+  can take longer. On a picture of 2 megapixels or more the delay is 0
+  (2026-11-15): no setting dithers it in under a second. While a run
+  goes, `.layers` has the class `working`, and the stylesheet turns the
+  picture's frame to the accent from 0.3 s on (a run that ends sooner
+  shows nothing), so the picture shown reads as not final yet. Steady on
+  purpose: a breathing frame, animated on every frame of the screen, made
+  a run about a quarter slower in Firefox (21 s against 17 s, the user's
+  measurement with `ui.prefersReducedMotion` off and on), since the
+  browser repaints it each time, and headless browsers, which barely
+  paint, didn't show it. No per-frame animation near the picture.
 - **Loading** (decision 30 C): `loading` holds the file's name while it
   decodes, `notAPicture` the name of one that couldn't be, until the next
   load or setting (`restart` clears it). The picture shown and its run
@@ -638,7 +647,11 @@ stay on the host.
   "Engine check: passed", opens its sentence with the link to the
   README's section, and Escape closes it, the focus back on the icon,
   as does a click elsewhere: 86 checks. And the note under the gamma
-  shows after loading and goes once a kernel dithers: 89 checks. Its failure was seen once by hand, with a stored digest
+  shows after loading and goes once a kernel dithers: 89 checks. And
+  on a 2048 × 1024 picture (2026-11-15): the progress at once, the frame
+  marked during the run, a new gamma keeping the result before on show
+  on this opaque picture, and Escape ending the mark: 92 checks; with the
+  gamma re-preparing every picture, as before, it failed in all three. Its failure was seen once by hand, with a stored digest
   changed: the warning triangle, its sentence, the alert region saying
   it, and the problem in the console, in both themes, on a desktop and a
   phone (where the popup, first right-aligned, went off the screen's left

@@ -33,8 +33,9 @@ spec = describe "Puregrain.Web.Status" do
     resultShows (running { progressShown: false, keepsPrevious: resultShows (RunFailed "out of memory") }) `shouldEqual` false
     resultShows Idle `shouldEqual` false
 
-  it "shows a run's progress only once it has gone on for a second" do
-    progressDelay `shouldEqual` 1000.0
+  it "shows a run's progress only once it has gone on for a second, at once on a picture of 2 megapixels or more" do
+    map progressDelay [ 320 * 200, 1999999 ] `shouldEqual` [ 1000.0, 1000.0 ]
+    map progressDelay [ 2000000, 4096 * 3072 ] `shouldEqual` [ 0.0, 0.0 ]
     runNote (running { progressShown: false, keepsPrevious: true }) `shouldEqual` Nothing
     runNote (running { progressShown: true, keepsPrevious: true }) `shouldEqual` Just (Progress { done: 10, total: 200, left: Nothing })
 

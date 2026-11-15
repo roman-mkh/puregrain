@@ -14,7 +14,7 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int as Int
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.String.Common (joinWith)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
@@ -537,15 +537,23 @@ download format = do
     _, _ -> pure unit
 
 -- | A change of the settings; a real change restarts the dithering, and
--- | a new target or gamma prepares the picture again, as it may fit it or
--- | mix it in another light.
+-- | a new target prepares the picture again, as it may fit it. So does a
+-- | new gamma, for a picture it mixes while preparing it, put onto the
+-- | background or fitted (decision 6 of docs/linear-light-spec.md); for
+-- | any other picture the preparing doesn't change, and the result before
+-- | stays on show during the run, as for the other settings.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
 change f = do
-  old <- H.gets _.settings
-  let new = f old
+  s <- H.get
+  let
+    old = s.settings
+    new = f old
+    mixed = case s.load of
+      Loaded l -> l.picture.transparent || isJust l.prepared.fitted
+      _ -> false
   when (new /= old) do
     H.modify_ _ { settings = new }
-    if new.target /= old.target || new.gamma /= old.gamma then refresh else restart
+    if new.target /= old.target || (new.gamma /= old.gamma && mixed) then refresh else restart
 
 -- | The picture as it's shown and dithered (decisions 22 and 27): put
 -- | onto the background, if it has transparency, and fitted to a
@@ -621,19 +629,6 @@ restart = do
       else startRun l s.settings
     _ -> H.modify_ _ { run = Idle }
 
--- | A new worker, given the settings, the size and a copy of the prepared
--- | picture's pixels; its answers come back as `FromWorker`, with this
--- | run's number. The result before it stays on show, if it shows
--- | (`resultShows`); the progress shows after `progressDelay`, unless
--- | the run is over by then (decision 30 B).
--- |
--- | Each run needs a fresh worker, since cancelling a run ends its worker
--- | (decision 11). It starts from the copy of `worker.js` kept in memory
--- | (`workerScript`, fetched once by `Initialize`; the file itself until
--- | then, or if the fetch failed). Started from the file, every run would
--- | fetch it again: no run without a server (the dev server stopped, the
--- | network gone), and after a new version is published, an open page
--- | could get a newer worker than itself, which may not understand it.
 -- | The engine check's worker (linear light, step 4c): one more worker
 -- | from the copy of worker.js in memory, asked for the check once. Its
 -- | answer comes as `EngineReplied`; a worker that can't start, or fails,
@@ -653,6 +648,19 @@ startEngineCheck = do
           Worker.postMessage checkMessage worker
         H.modify_ _ { engineWorker = Just worker }
 
+-- | A new worker, given the settings, the size and a copy of the prepared
+-- | picture's pixels; its answers come back as `FromWorker`, with this
+-- | run's number. The result before it stays on show, if it shows
+-- | (`resultShows`); the progress shows after `progressDelay`, at once on
+-- | a large picture, unless the run is over by then (decision 30 B).
+-- |
+-- | Each run needs a fresh worker, since cancelling a run ends its worker
+-- | (decision 11). It starts from the copy of `worker.js` kept in memory
+-- | (`workerScript`, fetched once by `Initialize`; the file itself until
+-- | then, or if the fetch failed). Started from the file, every run would
+-- | fetch it again: no run without a server (the dev server stopped, the
+-- | network gone), and after a new version is published, an open page
+-- | could get a newer worker than itself, which may not understand it.
 startRun :: forall o m. MonadAff m => { picture :: Picture, prepared :: Prepared } -> Settings -> H.HalogenM State Action () o m Unit
 startRun { picture: p, prepared } settings = do
   s <- H.get
@@ -669,7 +677,7 @@ startRun { picture: p, prepared } settings = do
       , run = Running { done: 0, total: prepared.height, started, left: Nothing, progressShown: false, keepsPrevious: resultShows s.run }
       }
     void $ H.fork do
-      liftAff (delay (Milliseconds progressDelay))
+      liftAff (delay (Milliseconds (progressDelay (prepared.width * prepared.height))))
       now <- H.get
       case now.run of
         Running r | now.runs == id -> do

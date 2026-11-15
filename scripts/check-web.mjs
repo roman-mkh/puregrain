@@ -88,7 +88,7 @@ const PREPARED = [
 
 fs.rmSync(out, { recursive: true, force: true });
 for (const dir of ['downloads', 'prepared', ...MACHINES.map((m) => m.dir)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
-for (const size of ['320x200', '256x192', '512']) {
+for (const size of ['320x200', '256x192', '512', '2048x1024']) {
   execFileSync('node', ['scripts/generate-images.mjs', '--pattern', 'color', '--size', size, '--out', out]);
 }
 {
@@ -357,6 +357,32 @@ const checksIn = async (engine, page) => {
     report(state === 'passed' && name === 'Engine check: passed' && shown && sentence.startsWith('Engine check passed:')
       && link.endsWith('/web/README.md#the-engine-check') && closed && focused && reopened && clickedAway,
       `${engine}: the engine check ${state}; its icon, "${name}", opens "${sentence}" with a link to Help${closed && focused ? ', and Escape closes it, the focus back on the icon' : ', but Escape doesn\'t close it, or the focus is lost'}${reopened && clickedAway ? ', as does a click elsewhere' : ', but a click elsewhere doesn\'t close it'}`);
+  }
+
+  // A long run, on 2 megapixels (2026-11-15): its progress shows at once,
+  // and the picture's frame is marked as working while it goes. A gamma
+  // changed after it, on this opaque picture, keeps the result before on
+  // show during the next run (not the original); Escape cancels, and the
+  // mark goes.
+  {
+    await open('color-2048x1024');
+    let before = await runs();
+    const t0 = Date.now();
+    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    const progressAt = await page.waitForFunction(() => document.querySelector('.progress:not([hidden])') !== null, null, { timeout: 5000 })
+      .then(() => Date.now() - t0, () => null);
+    const working = await page.locator('.layers.working').count() === 1;
+    await finished(before);
+    const doneUnmarked = await page.locator('.layers.working').count() === 0;
+    before = await runs();
+    await pick('gamma', 'srgb');
+    await page.waitForFunction((n) => window.__runs.length > n, before);
+    const keptResult = await page.evaluate(() => document.querySelector('canvas.result')?.hidden === false && document.querySelector('.layers.working') !== null);
+    await page.keyboard.press('Escape');
+    const cancelledUnmarked = await page.waitForFunction(() => document.querySelector('.layers.working') === null, null, { timeout: 5000 }).then(() => true, () => false);
+    report(progressAt !== null && progressAt < 700 && working && doneUnmarked && keptResult && cancelledUnmarked,
+      `${engine}: on 2 megapixels, a run's progress shows at once (${progressAt} ms) and its frame is marked while it goes${doneUnmarked ? '' : ' (still marked when done)'}; ` +
+      `a new gamma keeps the result before on show${keptResult ? '' : ' (NOT: the original shows)'}; Escape cancels${cancelledUnmarked ? '' : ' (the mark stays)'}`);
   }
 
   // Under the gamma, a note while it can't change the picture: after

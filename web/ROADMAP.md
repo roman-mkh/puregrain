@@ -72,6 +72,21 @@ users is a separate task, see TODO.md.)
   specification, `docs/kernels-spec.md` (Phase A, the library's 0.2.1;
   Phase B, this), was deleted at the end, as planned: its content lives
   on in `docs/error-diffusion.md`, here, and in the pull requests.
+- **A run you can see at once** (2026-11-15, on the branch `linear-light`;
+  the user's ideas, from using the page): during the run's first second,
+  before the progress shows (decision 30 B), nothing said that a run was
+  going. Now the picture's frame turns to the accent while a run goes,
+  from 0.3 s on, so instant runs show nothing; and on a picture of 2
+  megapixels or more the progress
+  shows at once, since no setting dithers it in under a second. A toast
+  over the picture was considered and left out: it would cover what's
+  awaited, and flash on short runs. The frame first breathed, and the
+  user measured a run about a quarter slower with it (21 s against 17 s,
+  Firefox, animations on and off); marching ants would cost the same, as
+  any animation repainted on every frame does, so it's steady. With it, a fix: a new gamma prepared
+  every picture again (step 4b), so the original showed during the run;
+  now only a picture the gamma mixes while preparing it, put onto the
+  background or fitted, is prepared again.
 - **The kernel menu grouped** (2026-11-15, on the branch `linear-light`;
   the user's choice, revising v2.2's flat list): None and the three
   originals, Floyd-Steinberg, Atkinson and Jarvis-Judice-Ninke, first;

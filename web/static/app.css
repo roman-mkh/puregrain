@@ -323,6 +323,14 @@ input[type="color"] {
    exactly zoom × zoom screen pixels (Puregrain.Web.Zoom), drawn without
    smoothing. */
 .layers { position: relative; flex: none; margin: auto; line-height: 0; box-shadow: 0 0 0 1px var(--line); }
+/* While a run goes, the picture's frame turns to the accent (the user,
+   2026-11-15), so the picture shown, the original or the result before,
+   reads as not final yet. From 0.3 s on, so a run that ends sooner shows
+   nothing. Steady, not breathing: a frame animated on every frame of the
+   screen made a run about a quarter slower in Firefox (21 s against 17 s,
+   the user's measurement), since the browser repaints it each time. */
+.layers.working { animation: working 1ms step-end 0.3s forwards; }
+@keyframes working { to { box-shadow: 0 0 0 3px var(--accent); } }
 .picture { display: block; image-rendering: pixelated; }
 .result { position: absolute; top: 0; left: 0; }
 
