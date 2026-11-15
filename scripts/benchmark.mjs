@@ -11,6 +11,12 @@
 // Output: markdown tables on stdout, ready for docs/benchmarks-dithering.md;
 // progress on stderr; all raw run times as JSON with --json (the input for
 // scripts/plot-benchmarks.mjs). Build first: npm run build.
+//
+// The gamma suite (--suite gamma; linear light's step 5 in
+// docs/linear-light-spec.md) compares each configuration with --gamma off
+// and --gamma srgb, run back to back, the order alternating by round, as
+// --builds compares builds: what the light curve adds to each path it
+// touches. It isn't part of --suite all.
 
 import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -41,15 +47,40 @@ const KERNELS = ['floyd-steinberg', 'atkinson', 'jjn'];
 // composite, without diffusion (kernel none) and combined with
 // Floyd-Steinberg. Floyd-Steinberg with the threshold is the reference.
 const BAYER = { id: 'bayer8', label: 'Bayer 8', image: 'gray', args: ['--bayer', '8'] };
-const ALL_MODES = [...MODES, BAYER];
-const SUITES = ['all', 'modes', 'kernels', 'ordered'];
+
+// The gamma suite: the paths the curve adds work to. Gray with a threshold
+// (the rows to light and back, the cut converted once), levels per channel
+// (nearestLevel's cuts), the web-safe palette (the comparison on stored
+// values, so a way back from light for each channel of each pixel: the
+// costly one), Bayer 8 (ordered, in light), a color picture turned gray
+// (toGray's luminance; its conversion happens before the timed part, so the
+// table also gives the whole process), and the ZX Spectrum's screen, with
+// Bayer 4 and with error diffusion (nearestInCell on stored values).
+const GRAY_FIRST = { id: 'gray-first', label: 'threshold 128 after --gray (color picture)', image: 'color', args: ['--gray', '--threshold', '128'] };
+const ZX_BAYER4 = { id: 'zx-bayer4', label: 'ZX Spectrum, Bayer 4', image: 'color', args: ['--machine', 'zx-spectrum', '--bayer', '4'] };
+const ZX_DIFFUSION = { id: 'zx-diffusion', label: 'ZX Spectrum, error diffusion', image: 'color', args: ['--machine', 'zx-spectrum'] };
+const GAMMAS = ['off', 'srgb'];
+const GAMMA_SQUARES = [
+  ['floyd-steinberg', MODES[0]],
+  ['floyd-steinberg', MODES[2]],
+  ['floyd-steinberg', MODES[3]],
+  ['none', BAYER],
+  ['floyd-steinberg', GRAY_FIRST],
+];
+const GAMMA_SCREENS = [['none', ZX_BAYER4], ['floyd-steinberg', ZX_DIFFUSION]];
+const SCREEN_SIZE = '256x192';
+
+const ALL_MODES = [...MODES, BAYER, GRAY_FIRST, ZX_BAYER4, ZX_DIFFUSION];
+const SUITES = ['all', 'modes', 'kernels', 'ordered', 'gamma'];
 const inSuite = (suite, name) => suite === 'all' || suite === name;
 
 const USAGE = `Usage: node scripts/benchmark.mjs [options]
 
   --runs <n>      runs per configuration; the median is reported (default: 5)
-  --sizes <list>  square image sides, comma-separated (default: 64,128,256,512,1024)
-  --suite <s>     modes, kernels, ordered or all (default: all)
+  --sizes <list>  square image sides, comma-separated (default: 64,128,256,512,1024;
+                  256,512,1024 for the gamma suite)
+  --suite <s>     modes, kernels, ordered or all (default: all), or gamma: each configuration
+                  with --gamma off and srgb back to back (not part of all)
   --builds <list> build directories to compare, comma-separated (default: output). Each
                   configuration runs with every build back to back, the order alternating
                   by round; output-es is built by npm run build:es (purs-backend-es)
@@ -103,7 +134,16 @@ function environment(builds) {
 // The configurations to measure. Floyd-Steinberg with the threshold is in
 // every suite (the kernels' first row, the ordered suite's reference), and
 // is measured once.
+function gammaConfigurations(sizes) {
+  const entry = (size, kernel, mode) => ({ key: `${size}-${kernel}-${mode.id}`, size, kernel, mode, times: [] });
+  return [
+    ...sizes.flatMap((size) => GAMMA_SQUARES.map(([kernel, mode]) => entry(size, kernel, mode))),
+    ...GAMMA_SCREENS.map(([kernel, mode]) => entry(SCREEN_SIZE, kernel, mode)),
+  ];
+}
+
 function configurations(suite, sizes) {
+  if (suite === 'gamma') return gammaConfigurations(sizes);
   const byKey = new Map();
   const add = (size, kernel, mode) => {
     const key = `${size}-${kernel}-${mode.id}`;
@@ -125,11 +165,13 @@ function ditherOnce(config) {
   const input = path.join(benchDir, `${config.mode.image}-${config.size}.png`);
   const output = path.join(benchDir, `out-${config.key.replace(':', '-')}.png`);
   // The launcher runs the build that PUREGRAIN_OUTPUT names (cli/bin).
-  const stdout = execFileSync(process.execPath, [cli, input, output, '--kernel', config.kernel, ...config.mode.args],
+  const began = performance.now();
+  const stdout = execFileSync(process.execPath, [cli, input, output, '--kernel', config.kernel, ...config.mode.args, ...(config.gamma ? ['--gamma', config.gamma] : [])],
     { encoding: 'utf8', env: { ...process.env, PUREGRAIN_OUTPUT: config.build } }).trim();
+  const wall = performance.now() - began;
   const match = /Dithered in ([0-9.]+) ms/.exec(stdout);
   if (!match) throw new Error(`No timing in the CLI output for ${config.key}:\n${stdout}`);
-  return Number(match[1]);
+  return { ms: Number(match[1]), wall };
 }
 
 const median = (xs) => {
@@ -141,12 +183,12 @@ const spread = (xs) => (Math.max(...xs) - Math.min(...xs)) / median(xs);
 const ms = (x) => (x < 100 ? x.toFixed(1) : Math.round(x).toLocaleString('en-US'));
 const minutes = (msTotal) => `${Math.round(msTotal / 60000)} min`;
 
-function table(header, rows) {
+function table(header, rows, { leftFirst = false } = {}) {
   const line = (cells) => `| ${cells.join(' | ')} |`;
-  return [line(header), line(header.map((h, i) => (i === 0 ? '---:' : '---:'))), ...rows.map(line)].join('\n');
+  return [line(header), line(header.map((h, i) => (i === 0 && leftFirst ? ':---' : '---:'))), ...rows.map(line)].join('\n');
 }
 
-function environmentLines(env, runs, builds) {
+function environmentLines(env, runs, builds, suite) {
   const out = ['**Environment:**', ''];
   out.push(`- Date: ${env.date}; commit ${env.commit}`);
   out.push(`- CPU: ${env.cpu}; memory: ${env.memory}`);
@@ -156,6 +198,9 @@ function environmentLines(env, runs, builds) {
   if (builds.length > 1) {
     out.push(`- Builds: ${builds.map((b) => `\`${b}\``).join(', ')}; each configuration runs with every build back to ` +
       'back, the order alternating by round');
+  }
+  if (suite === 'gamma') {
+    out.push(`- Gammas: ${GAMMAS.map((g) => `\`${g}\``).join(' and ')}; each configuration runs with both back to back, the order alternating by round`);
   }
   out.push(`- ${runs} runs per configuration, interleaved; median reported`);
   out.push('');
@@ -187,9 +232,54 @@ function comparison(configs, sizes, builds) {
   return out.join('\n');
 }
 
+// The gamma suite: each configuration's median with --gamma off and with
+// --gamma srgb, their ratio, what srgb adds per pixel, and the same ratio for
+// the whole process, which counts what the timed part leaves out (--gray's
+// conversion) and PNG reading and writing, the same for both.
+function gammaTables(configs, sizes, runs) {
+  const pixels = (size) => (typeof size === 'number' ? size * size : size.split('x').reduce((a, b) => a * Number(b), 1));
+  const sizeLabel = (size) => (typeof size === 'number' ? `${size}²` : size);
+  const find = (gamma, c) => configs.find((x) => x.gamma === gamma && x.size === c.size && x.kernel === c.kernel && x.mode.id === c.mode.id);
+  const pairs = configs.filter((c) => c.gamma === GAMMAS[0]).map((off) => ({ off, on: find(GAMMAS[1], off) }));
+  // By configuration, then size.
+  const order = [...new Map(pairs.map((p) => [`${p.off.kernel}|${p.off.mode.id}`, true])).keys()];
+  pairs.sort((a, b) => order.indexOf(`${a.off.kernel}|${a.off.mode.id}`) - order.indexOf(`${b.off.kernel}|${b.off.mode.id}`));
+  const signed = (x) => `${x < 0 ? '−' : '+'}${Math.abs(x).toFixed(2)}`;
+  const ratio = (p) => p.on.median / p.off.median;
+  const wholeRatio = (p) => median(p.on.walls) / median(p.off.walls);
+  const rows = pairs.map((p) => [
+    `${KERNEL_LABELS[p.off.kernel] ?? p.off.kernel}, ${p.off.mode.label}`,
+    sizeLabel(p.off.size),
+    ms(p.off.median),
+    ms(p.on.median),
+    `×${ratio(p).toFixed(2)}`,
+    signed(((p.on.median - p.off.median) * 1000) / pixels(p.off.size)),
+    `×${wholeRatio(p).toFixed(2)}`,
+  ]);
+  const out = [
+    `**What \`--gamma srgb\` adds** (median ms of the dithering, then the whole process):`, '',
+    table(['Configuration', 'Size', 'off, ms', 'srgb, ms', 'srgb ÷ off', 'srgb − off, µs per pixel', 'whole process, srgb ÷ off'], rows, { leftFirst: true }), '',
+  ];
+  const squares = sizes.filter((s) => typeof s === 'number');
+  const big = squares[squares.length - 1];
+  const atBig = pairs.filter((p) => p.off.size === big);
+  if (atBig.length > 0) {
+    const r = atBig.map(ratio);
+    const w = atBig.map(wholeRatio);
+    out.push(`At ${big}²: the dithering takes ×${median(r).toFixed(2)} as long with srgb in the median over the configurations ` +
+      `(×${Math.min(...r).toFixed(2)} to ×${Math.max(...r).toFixed(2)}), the whole process ×${median(w).toFixed(2)} ` +
+      `(×${Math.min(...w).toFixed(2)} to ×${Math.max(...w).toFixed(2)}).`, '');
+  }
+  const upper = sizes.slice(-3);
+  out.push(...noiseLines(configs, upper, `${upper[0]}²→${upper[upper.length - 1]}²`, runs));
+  return out.join('\n');
+}
+
 function report(env, configs, sizes, runs, suite, builds) {
-  const out = [environmentLines(env, runs, builds)];
-  if (builds.length === 1) {
+  const out = [environmentLines(env, runs, builds, suite)];
+  if (suite === 'gamma') {
+    out.push(gammaTables(configs, sizes, runs));
+  } else if (builds.length === 1) {
     out.push(tables(configs, sizes, runs, suite));
   } else {
     for (const build of builds) {
@@ -198,6 +288,35 @@ function report(env, configs, sizes, runs, suite, builds) {
     out.push('#### Comparison', '', comparison(configs, sizes, builds));
   }
   return out.join('\n');
+}
+
+// The run-to-run spread, and which round held the slowest runs.
+function noiseLines(configs, upper, upperLabel, runs) {
+  const out = [];
+  // Spread for the large sizes separately: at the small ones a ~0.1 s
+  // timing is mostly cold start, which says little about the dithering.
+  const spreadLine = (cs) => {
+    const s = cs.map((c) => ({ key: c.key, s: spread(c.times) })).sort((a, b) => a.s - b.s);
+    return `median ${(median(s.map((x) => x.s)) * 100).toFixed(0)}%, largest ${(s[s.length - 1].s * 100).toFixed(0)}% (${s[s.length - 1].key})`;
+  };
+  out.push(`**Run-to-run spread** ((max − min) ÷ median): ${upperLabel}: ${spreadLine(configs.filter((c) => upper.includes(c.size)))}; ` +
+    `all sizes: ${spreadLine(configs)}.`);
+
+  // Rounds are interleaved, so something else slowing the machine down for
+  // a few minutes shows up as one round holding the slowest run of most
+  // configurations. Medians ignore one bad round; this makes it visible.
+  if (runs >= 3) {
+    const large = configs.filter((c) => upper.includes(c.size));
+    const slowest = Array(runs).fill(0);
+    for (const c of large) slowest[c.times.indexOf(Math.max(...c.times))]++;
+    const worst = slowest.indexOf(Math.max(...slowest));
+    const line = `**Slowest run by round** (${upperLabel}, rounds 1-${runs}): ${slowest.join(' / ')}`;
+    out.push('', slowest[worst] > large.length / 2
+      ? `${line}. Round ${worst + 1} was slowest for ${slowest[worst]} of ${large.length} configurations: likely an outside ` +
+        `disturbance during that round. The medians are unaffected; the spread figures include it.`
+      : `${line}. No single round stands out.`);
+  }
+  return out;
 }
 
 function tables(configs, sizes, runs, suite) {
@@ -263,29 +382,7 @@ function tables(configs, sizes, runs, suite) {
     out.push(table(['Side N', 'no diffusion', 'with FS', 'FS, threshold 128', 'no diffusion ÷ FS', 'with FS ÷ FS'], rows), '');
   }
 
-  // Spread for the large sizes separately: at the small ones a ~0.1 s
-  // timing is mostly cold start, which says little about the dithering.
-  const spreadLine = (cs) => {
-    const s = cs.map((c) => ({ key: c.key, s: spread(c.times) })).sort((a, b) => a.s - b.s);
-    return `median ${(median(s.map((x) => x.s)) * 100).toFixed(0)}%, largest ${(s[s.length - 1].s * 100).toFixed(0)}% (${s[s.length - 1].key})`;
-  };
-  out.push(`**Run-to-run spread** ((max − min) ÷ median): ${upperLabel}: ${spreadLine(configs.filter((c) => upper.includes(c.size)))}; ` +
-    `all sizes: ${spreadLine(configs)}.`);
-
-  // Rounds are interleaved, so something else slowing the machine down for
-  // a few minutes shows up as one round holding the slowest run of most
-  // configurations. Medians ignore one bad round; this makes it visible.
-  if (runs >= 3) {
-    const large = configs.filter((c) => upper.includes(c.size));
-    const slowest = Array(runs).fill(0);
-    for (const c of large) slowest[c.times.indexOf(Math.max(...c.times))]++;
-    const worst = slowest.indexOf(Math.max(...slowest));
-    const line = `**Slowest run by round** (${upperLabel}, rounds 1-${runs}): ${slowest.join(' / ')}`;
-    out.push('', slowest[worst] > large.length / 2
-      ? `${line}. Round ${worst + 1} was slowest for ${slowest[worst]} of ${large.length} configurations: likely an outside ` +
-        `disturbance during that round. The medians are unaffected; the spread figures include it.`
-      : `${line}. No single round stands out.`);
-  }
+  out.push(...noiseLines(configs, upper, upperLabel, runs));
   return out.join('\n');
 }
 
@@ -295,7 +392,7 @@ function main() {
     ({ values } = parseArgs({
       options: {
         runs: { type: 'string', default: '5' },
-        sizes: { type: 'string', default: '64,128,256,512,1024' },
+        sizes: { type: 'string' },
         suite: { type: 'string', default: 'all' },
         builds: { type: 'string', default: 'output' },
         json: { type: 'string' },
@@ -313,17 +410,18 @@ function main() {
   if (values.report) {
     const saved = JSON.parse(fs.readFileSync(values.report, 'utf8'));
     // Runs saved before --builds existed measured the purs build only.
-    const configs = saved.results.map((r) => ({ ...r, build: r.build ?? 'output', mode: ALL_MODES.find((m) => m.id === r.mode) }));
+    const configs = saved.results.map((r) => ({ ...r, build: r.build ?? 'output', mode: ALL_MODES.find((m) => m.id === r.mode) ?? { id: r.mode, label: r.label, image: r.image, args: r.args } }));
     console.log(report(saved.environment, configs, saved.sizes, saved.runs, saved.suite, saved.builds ?? ['output']));
     return;
   }
   const runs = Number(values.runs);
   if (!Number.isInteger(runs) || runs < 1) fail(`Invalid --runs "${values.runs}": a whole number >= 1.`);
-  const sizes = values.sizes.split(',').map(Number);
+  const sizes = (values.sizes ?? (values.suite === 'gamma' ? '256,512,1024' : '64,128,256,512,1024')).split(',').map(Number);
   if (sizes.some((s) => !Number.isInteger(s) || s < 1)) fail(`Invalid --sizes "${values.sizes}": whole numbers >= 1.`);
   if (!SUITES.includes(values.suite)) fail(`Invalid --suite "${values.suite}".`);
   const builds = values.builds.split(',').map((b) => b.trim()).filter((b) => b !== '');
   if (builds.length === 0 || new Set(builds).size !== builds.length) fail(`Invalid --builds "${values.builds}".`);
+  if (values.suite === 'gamma' && builds.length > 1) fail('--suite gamma compares the gammas: give one build.');
   for (const build of builds) {
     if (!fs.existsSync(path.join(root, build, 'Puregrain.Cli.Main', 'index.js'))) {
       fail(`No build in ${build}/: run ${build === 'output-es' ? 'npm run build:es' : 'npm run build'} first.`);
@@ -332,26 +430,32 @@ function main() {
 
   const env = environment(builds);
   run(process.execPath, [generator, '--pattern', 'all', '--sizes', sizes.join(','), '--out', benchDir]);
+  if (values.suite === 'gamma') run(process.execPath, [generator, '--pattern', 'color', '--size', SCREEN_SIZE, '--out', benchDir]);
 
-  // One entry per configuration and build, the builds of a configuration
+  // One entry per configuration and variant, the variants of a configuration
   // next to each other: they run back to back, so slow drift during the
   // session affects both alike, and alternating which goes first spreads
-  // any effect of the order over both.
+  // any effect of the order over both. The variants are the builds, or, for
+  // the gamma suite, the gammas.
+  const variants = values.suite === 'gamma'
+    ? GAMMAS.map((gamma) => ({ name: gamma, build: builds[0], gamma }))
+    : builds.map((build) => ({ name: build, build }));
   const base = configurations(values.suite, sizes);
   const configs = base.flatMap((c) =>
-    builds.map((build) => ({ ...c, key: builds.length > 1 ? `${build}:${c.key}` : c.key, build, times: [] })));
+    variants.map((v) => ({ ...c, key: variants.length > 1 ? `${v.name}:${c.key}` : c.key, build: v.build, gamma: v.gamma, times: [], walls: [] })));
   const started = Date.now();
   for (let r = 1; r <= runs; r++) {
-    const order = r % 2 === 1 ? builds : [...builds].reverse();
+    const order = r % 2 === 1 ? variants : [...variants].reverse();
     let n = 0;
     for (let i = 0; i < base.length; i++) {
-      for (const build of order) {
-        const config = configs[i * builds.length + builds.indexOf(build)];
-        const t = ditherOnce(config);
+      for (const v of order) {
+        const config = configs[i * variants.length + variants.indexOf(v)];
+        const { ms: t, wall } = ditherOnce(config);
         config.times.push(t);
+        config.walls.push(wall);
         n++;
-        console.error(`[round ${r}/${runs}, ${n}/${configs.length}] ${builds.length > 1 ? `${build}, ` : ''}` +
-          `${config.size}² ${config.kernel}, ${config.mode.label}: ${ms(t)} ms`);
+        console.error(`[round ${r}/${runs}, ${n}/${configs.length}] ${variants.length > 1 ? `${v.name}, ` : ''}` +
+          `${config.size}${typeof config.size === 'number' ? '²' : ''} ${config.kernel}, ${config.mode.label}: ${ms(t)} ms`);
       }
     }
     if (r === 1 && runs > 1) {
@@ -363,8 +467,8 @@ function main() {
   console.log(report(env, configs, sizes, runs, values.suite, builds));
 
   if (values.json) {
-    const results = configs.map(({ key, build, size, kernel, mode, times, median: m }) =>
-      ({ key, build, size, kernel, mode: mode.id, label: mode.label, image: mode.image, args: mode.args, times, median: m }));
+    const results = configs.map(({ key, build, gamma, size, kernel, mode, times, walls, median: m }) =>
+      ({ key, build, gamma, size, kernel, mode: mode.id, label: mode.label, image: mode.image, args: mode.args, times, walls, median: m }));
     fs.writeFileSync(values.json, JSON.stringify({ environment: env, runs, sizes, suite: values.suite, builds, results }, null, 2));
     console.error(`Wrote ${values.json}`);
   }

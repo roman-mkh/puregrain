@@ -1153,6 +1153,134 @@ decisions 1 to 4.
    6](#decision-6-the-web-uis-fit-and-background).
 7. **Names:** settled, see [Decision 7](#decision-7-names).
 
+## Measured, as built (step 5, 2026-11-15)
+
+`node scripts/measure-gamma.mjs` (after `npm run build`) dithers the test
+images through the real CLI under each gamma and measures the results.
+The tables below are its output; it leaves the pictures in
+`samples/gamma/` (gitignored). The measure is the one of "Levels even in
+light?" above: both pictures blurred (Gaussian, 1.5 pixels), then
+compared as CIE L* for gray and as CIELAB ΔE 1976 for color, RMS. With a
+second view, since the pictures are seen in two ways:
+
+- **light:** the blur averages the pixels' light, as the eye does at 1:1
+  from a distance, the dots reaching it as they are;
+- **stored:** the blur averages the stored values, as a scaler that
+  smooths does (HiDPI screens, phones, a picture fitted into a page),
+  and the average is then shown through sRGB's curve.
+
+Both take sRGB's curve as the screen, whatever the gamma of the
+dithering: the gamma says what the dithering keeps, not what the screen
+is.
+
+**It reproduces the emulation of November 10 to 13.** All 15 values of
+the flat grays equal the table of "Decided". The original's light is
+37.8% and Floyd–Steinberg under sRGB gives off 37.9%, as before. The
+color composite under sRGB gives ΔE 1.58 / 1.95 for Floyd–Steinberg and
+4.18 / 3.65 for Atkinson, against the 1.56 / 1.96 and 4.18 / 3.72
+measured then, and the gray composite's L* error 0.90 against 0.88:
+within 3%.
+
+**Flat grays that come out all black** (the largest byte, at 64 × 64; Floyd–Steinberg and every kernel but Atkinson lose none):
+
+| Gamma | Half the light at byte | Bayer 2 | Bayer 4 | Atkinson |
+| :--- | ---: | ---: | ---: | ---: |
+| off | 127.5 | 31 | 7 | 32 |
+| 1.2 | 143.1 | 45 | 14 | 40 |
+| 1.5 | 160.6 | 63 | 25 | 50 |
+| 1.8 | 173.5 | 80 | 37 | 59 |
+| sRGB | 187.5 | 99 | 49 | 65 |
+
+**The gray composite, black and white** (512²; error in L* after blurring, RMS, as: viewed in light / viewed on stored values):
+
+| Gamma | Floyd–Steinberg | Atkinson | Bayer 2 | Bayer 4 | 4 levels, Floyd–Steinberg |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| off | 18.00 / 1.54 | 15.01 / 6.26 | 17.44 / 6.31 | 18.25 / 2.25 | 3.77 / 0.49 |
+| 1.2 | 14.09 / 4.72 | 12.49 / 7.61 | 14.72 / 7.28 | 14.12 / 5.00 | 2.82 / 1.09 |
+| 1.5 | 9.18 / 9.97 | 9.31 / 10.91 | 10.94 / 13.32 | 9.63 / 9.77 | 1.70 / 2.19 |
+| 1.8 | 5.48 / 14.21 | 8.13 / 13.59 | 9.97 / 16.84 | 5.69 / 14.10 | 1.06 / 3.12 |
+| sRGB | 3.81 / 18.87 | 9.06 / 17.02 | 11.26 / 19.51 | 4.12 / 19.49 | 0.90 / 3.83 |
+
+**What Floyd–Steinberg's picture gives off** (the original: 37.8% of white's light, mean stored value 135.5):
+
+| Gamma | Light, % of white | Mean stored value |
+| :--- | ---: | ---: |
+| off | 53.2 | 135.5 |
+| 1.2 | 49.5 | 126.3 |
+| 1.5 | 45.2 | 115.2 |
+| 1.8 | 41.7 | 106.4 |
+| sRGB | 37.9 | 96.7 |
+
+**The color composite, 4 levels per channel** (512²; ΔE after blurring, RMS, as: whole picture / the sphere):
+
+| Gamma | Floyd–Steinberg, in light | Floyd–Steinberg, stored | Atkinson, in light | Atkinson, stored |
+| :--- | ---: | ---: | ---: | ---: |
+| off | 5.01 / 7.05 | 1.17 / 1.24 | 5.86 / 7.99 | 3.95 / 3.44 |
+| 1.2 | 3.89 / 5.44 | 1.91 / 2.61 | 5.12 / 6.37 | 4.17 / 3.93 |
+| 1.5 | 2.51 / 3.31 | 3.37 / 5.02 | 4.51 / 4.88 | 4.81 / 5.38 |
+| 1.8 | 1.75 / 2.12 | 4.67 / 7.10 | 4.28 / 4.15 | 5.55 / 6.99 |
+| sRGB | 1.58 / 1.95 | 5.46 / 8.09 | 4.18 / 3.65 | 6.01 / 7.41 |
+
+**The machine screens** (the test image at the screen's size; ΔE after blurring, RMS over the whole picture, as: viewed in light / viewed on stored values):
+
+| Gamma | ZX Spectrum, Bayer 2 | ZX Spectrum, Bayer 4 | ZX Spectrum, Atkinson | C64, Bayer 2 | C64, Bayer 4 | C64, Atkinson |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| off | 22.67 / 13.93 | 23.42 / 11.92 | 21.12 / 13.34 | 22.30 / 19.83 | 22.69 / 19.40 | 20.62 / 19.40 |
+| 1.2 | 20.53 / 14.47 | 20.81 / 12.57 | 18.78 / 14.80 | 22.03 / 20.21 | 22.02 / 19.52 | 20.09 / 19.80 |
+| 1.5 | 19.08 / 16.64 | 17.85 / 16.01 | 16.75 / 17.53 | 21.50 / 20.88 | 21.55 / 20.49 | 19.69 / 20.59 |
+| 1.8 | 18.96 / 19.67 | 16.32 / 19.20 | 16.08 / 20.36 | 21.38 / 21.86 | 21.40 / 21.58 | 19.56 / 21.46 |
+| sRGB | 19.28 / 24.93 | 16.25 / 23.35 | 16.82 / 24.41 | 21.86 / 23.64 | 21.55 / 23.22 | 19.49 / 22.72 |
+
+**What they show:**
+
+- **The two views disagree, and the curve is the lever between them.**
+  Black-and-white Floyd–Steinberg: seen in light, the error falls from
+  18.0 (off) to 3.8 (sRGB); seen on stored values, it rises from 1.5 to
+  18.9. Off gives off 53.2% of white's light where the original has 37.8%
+  (at 1:1 the picture is too light), but its stored values average the
+  original's 135.5 exactly. sRGB gives 37.9% of the light, but its stored
+  values average 96.7: scaled by a smoothing viewer, it is too dark by 39
+  steps. So "off" by default isn't arbitrary: it is exact for every view
+  that averages stored values, most views of a picture on a page.
+- **1.5 is the compromise.** For all five gray methods, and for both
+  kernels at 4 levels in color, the larger of the two errors is smallest
+  at 1.5: Floyd–Steinberg 10.0, against 18.0 off and 18.9 sRGB; Bayer 4
+  9.8, against 18.3 and 19.5; color Floyd–Steinberg 3.4, against 5.0 and
+  5.5. That agrees with the user's own view (2026-11-11), which behaved
+  like a gamma between 1.0 and 1.5, where 1.5 looked closest. An input
+  for revisiting the default later; not decided here.
+- **Dark tones aren't in those errors.** A dark area turned black adds
+  little to a root mean square. The table of flat grays and the pictures
+  carry it: with Bayer 2 under sRGB every gray up to 99 comes out black,
+  with Atkinson up to 65, and the sphere's shadow side and background
+  vanish (`samples/linear-light/as-built/gray-sphere-grid.png`), although
+  ΔE says 1.8 and sRGB improve the light view.
+- **Machine screens: the errors are the two colors per cell's** (ΔE 16 to
+  23 under any gamma). On the ZX Spectrum the light view improves by 16%
+  (Bayer 2, at 1.8), 31% (Bayer 4, sRGB) and 24% (Atkinson, 1.8), while
+  the stored view worsens by 79%, 96% and 83% at sRGB. On the C64 the
+  light view improves by only 4% to 6%, and the stored view worsens by
+  17% to 20%. With Bayer 2 under sRGB the ZX sphere's body goes black
+  (`zx-grid.png`). **The recommendation stands:** `off` for machine
+  screens (the look of the time, the dark tones exact, and the best when
+  scaled), and `1.5` or `srgb` with Bayer 4 only as something to try for
+  a picture seen at 1:1.
+- **The web UI's preparing costs next to nothing under a curve:** the
+  fit to 256 × 192 takes ×1.07 (46 → 49 ms) for 12.6 megapixels and ×1.06
+  (170 → 181 ms) for 48, and flattening onto white ×1.18 (58 → 69 ms) and
+  ×1.01 (223 → 225 ms); in Node, with the page's compiled code.
+
+Montages of these pictures, labeled, for looking: `gray-sphere-grid.png`,
+`color-sphere-grid.png`, `zx-grid.png`, `c64-grid.png` and
+`gray-shadow-5x.png` in `samples/linear-light/as-built/`.
+
+**The timings** are in `docs/benchmarks-dithering.md`, "2026-11-15 — What
+a gamma costs": sRGB takes about a third longer at 1024² (×1.34 in the
+median over the configurations): gray with a threshold ×1.2, levels per
+channel about nothing, the web-safe palette ×1.4 to ×2.0 (its `off` runs
+switch between two speeds), Bayer 8 ×1.5, a picture turned gray ×1.57 for
+the whole process, and the ZX Spectrum's screen 0.1 to 0.2 s more.
+
 ## Plan
 
 1. **Settle the open decisions** in this file.
@@ -1278,7 +1406,8 @@ decisions 1 to 4.
      `data-engine-check` for `check:web`, which expects `passed` in all
      three engines: 86 checks.
 5. **Measure:** the benchmarks, a look at the test images, and the
-   machine screens' recommendations again.
+   machine screens' recommendations again (the quality measurements are
+   in [Measured, as built](#measured-as-built-step-5-2026-11-15)).
 6. **Docs and release:** see below, then the release, 0.2.2 (decision
    1), and this file is deleted. The docs include how to write an
    efficient quantizer: with `quantizeLinear`, the coefficients converted

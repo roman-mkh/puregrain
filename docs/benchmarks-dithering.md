@@ -27,8 +27,8 @@ npm run clean:bench   # delete the generated images in samples/bench/ (keeps the
 ```
 
 Options: `--runs` (default 5), `--sizes` (default `64,128,256,512,1024`),
-`--suite modes|kernels|ordered|all` (default `all`), and `--builds` (default
-`output`). Plug the laptop in, close other programs, and leave the machine
+`--suite modes|kernels|ordered|all|gamma` (default `all`, which leaves out
+`gamma`), and `--builds` (default `output`). Plug the laptop in, close other programs, and leave the machine
 alone until the run ends; see [Noise](#noise-1) for why.
 
 To compare two builds of the same code (since 2026-10-10):
@@ -38,6 +38,14 @@ configuration with both, back to back, the order alternating by round. The
 report then has the tables per build and a table of the ratios between
 them. The chart script takes the build to plot as a third argument (by
 default the first).
+
+To measure what a gamma costs (since 2026-11-15): `npm run bench -- --suite
+gamma` runs each configuration with `--gamma off` and `--gamma srgb`, back to
+back, the order alternating by round, at 256², 512² and 1024² (its default
+sizes) and the ZX Spectrum's screen, 256 × 192; about 6 minutes on mains.
+Its report is one table of both medians, their ratio, what sRGB adds per
+pixel, and the ratio for the whole process, which also counts what the
+timed part leaves out, such as `--gray`'s conversion.
 
 To measure an older commit, for example as the baseline for a change,
 check it out in a separate git worktree, link `node_modules` from the
@@ -861,3 +869,121 @@ all 27 configurations is the figure to go by.
 - **Large images** get a suite of their own, up to 3072², with the test
   reference as a third series; documented in a separate file,
   `benchmarks-large.md`.
+
+---
+
+## 2026-11-15 — What a gamma costs (linear light)
+
+The first run of the gamma suite: each configuration with `--gamma off`
+and with `--gamma srgb`, back to back, on the paths the curve adds work
+to (`docs/linear-light-spec.md`, on the branch `linear-light`): gray with
+a threshold (the rows to light and back, the cut converted once), levels
+per channel (the cuts converted), the web-safe palette (the comparison on
+stored values, so each pixel brought back from light through the curve's
+roots), Bayer 8 (ordered dithering in light), a color picture turned gray
+first (`toGray`), and the ZX Spectrum's screen with Bayer 4 and with error
+diffusion. `off` runs the code as before, so its times are this
+doc's earlier numbers again.
+
+Two runs before this one were set aside. In the first the laptop was in
+use. The second took 15 minutes for 6.3 minutes of processes: during its
+first round the screen switched off and the machine paused, and the
+system log shows a jump of the clock ("Clock change detected"). Its runs
+showed no trace of it (no run over 3 times its median, a spread of 7%),
+but it was repeated with the laptop left alone: 6 minutes 16 seconds.
+
+**Environment:**
+
+- Date: 2026-11-15; commit 09a10df (branch `linear-light`), plus the uncommitted suite in `scripts/benchmark.mjs` and the measurement script; no change to the library or the CLI
+- CPU: Intel(R) Core(TM) Ultra 9 185H (11 logical cores); memory: 38 GiB
+- Power: mains (AC)
+- OS: Linux 6.8.0-1070-azure (x64)
+- Node v22.14.0; purs 0.15.16; spago 1.0.4
+- Gammas: `off` and `srgb`; each configuration runs with both back to back, the order alternating by round
+- 5 runs per configuration, interleaved; median reported
+
+### Results
+
+**What `--gamma srgb` adds** (median ms of the dithering, then the whole process):
+
+| Configuration | Size | off, ms | srgb, ms | srgb ÷ off | srgb − off, µs per pixel | whole process, srgb ÷ off |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Floyd-Steinberg, threshold 128 | 256² | 122 | 157 | ×1.29 | +0.54 | ×1.11 |
+| Floyd-Steinberg, threshold 128 | 512² | 477 | 608 | ×1.27 | +0.50 | ×1.14 |
+| Floyd-Steinberg, threshold 128 | 1024² | 2,095 | 2,573 | ×1.23 | +0.46 | ×1.18 |
+| Floyd-Steinberg, levels 6 (RGB) | 256² | 280 | 316 | ×1.13 | +0.55 | ×1.07 |
+| Floyd-Steinberg, levels 6 (RGB) | 512² | 1,148 | 1,219 | ×1.06 | +0.27 | ×1.07 |
+| Floyd-Steinberg, levels 6 (RGB) | 1024² | 5,674 | 5,226 | ×0.92 | −0.43 | ×0.93 |
+| Floyd-Steinberg, websafe216 | 256² | 594 | 820 | ×1.38 | +3.44 | ×1.26 |
+| Floyd-Steinberg, websafe216 | 512² | 1,745 | 3,462 | ×1.98 | +6.55 | ×1.83 |
+| Floyd-Steinberg, websafe216 | 1024² | 8,363 | 15,441 | ×1.85 | +6.75 | ×1.80 |
+| no diffusion, Bayer 8 | 256² | 61.0 | 105 | ×1.72 | +0.67 | ×1.12 |
+| no diffusion, Bayer 8 | 512² | 201 | 310 | ×1.54 | +0.42 | ×1.16 |
+| no diffusion, Bayer 8 | 1024² | 805 | 1,241 | ×1.54 | +0.42 | ×1.36 |
+| Floyd-Steinberg, threshold 128 after --gray (color picture) | 256² | 121 | 156 | ×1.29 | +0.53 | ×1.27 |
+| Floyd-Steinberg, threshold 128 after --gray (color picture) | 512² | 495 | 641 | ×1.29 | +0.56 | ×1.41 |
+| Floyd-Steinberg, threshold 128 after --gray (color picture) | 1024² | 2,259 | 3,032 | ×1.34 | +0.74 | ×1.57 |
+| no diffusion, ZX Spectrum, Bayer 4 | 256x192 | 154 | 265 | ×1.72 | +2.26 | ×1.26 |
+| Floyd-Steinberg, ZX Spectrum, error diffusion | 256x192 | 247 | 458 | ×1.86 | +4.31 | ×1.38 |
+
+At 1024²: the dithering takes ×1.34 as long with srgb in the median over the configurations (×0.92 to ×1.85), the whole process ×1.36 (×0.93 to ×1.80).
+
+**Run-to-run spread** ((max − min) ÷ median): 256²→1024²: median 9%, largest 45% (off:512-floyd-steinberg-websafe216); all sizes: median 9%, largest 45% (off:512-floyd-steinberg-websafe216).
+
+**Slowest run by round** (256²→1024², rounds 1-5): 8 / 6 / 3 / 3 / 10. No single round stands out.
+
+### Analysis
+
+**sRGB takes about a third longer at 1024²** (×1.34 in the median over the
+configurations; the whole process ×1.36), by path:
+
+- **Gray with a threshold: ×1.20 to ×1.29, about +0.5 µs per pixel.** The
+  steadiest configuration: ×1.20 and ×1.21 at 1024², paired round by
+  round, in this run and in the paused one.
+- **Levels per channel: about nothing,** ×0.92 to ×1.13 here and ×1.02 to
+  ×1.06 in the paused run. The converted cuts are lookups, small next to
+  the RGB arithmetic, and lost in the `off` runs' own variation (below).
+- **The web-safe palette: the costliest, ×1.4 to ×2.0, about +4 to +7 µs
+  per pixel.** For the search, every pixel goes back from light through
+  the curve's formula, three channels of roots, since the nearest color
+  is chosen on stored values (the spec's decision 3).
+- **Bayer 8 without diffusion: ×1.54, +0.4 µs per pixel:** a large ratio
+  on a small time, 0.8 s against 1.2 s at 1024².
+- **A color picture turned gray: ×1.29 to ×1.34 for the dithering, ×1.57
+  for the whole process at 1024².** The conversion, the luminance in
+  light and its way back to a stored value, happens before the timed part;
+  the whole process shows it.
+- **The ZX Spectrum's screen: ×1.72 and ×1.86,** but at 256 × 192 that's
+  0.11 s and 0.21 s more.
+
+**The `off` runs of two configurations switch between two speeds,** from
+one process to the next: the web-safe palette at 1024² took either 7.5 to
+8.4 s or 10.6 to 11.5 s, and levels 6 either 5.1 or 5.7 s, while their
+`srgb` runs stayed within 2% (15.1 to 15.5 s, and 5.2 to 5.4 s, in both
+sessions). So their ratio depends on how many `off` runs hit the fast
+speed: the web-safe palette came out ×1.85 here and ×1.43 in the paused
+run, and its ratios paired round by round range from ×1.33 to ×2.01.
+Probably V8 compiling the `off` path two ways; not investigated. Read
+its cost as ×1.4 to ×2.0, and levels 6's as none to ×1.1.
+
+**The web UI's own extra work under a curve,** preparing a picture
+(fitting it to a screen and flattening transparency in light), is small:
+measured once in Node with the page's compiled code, the fit of 12.6 and
+48 megapixels to 256 × 192 takes ×1.07 and ×1.06 (46 → 49 ms, 170 → 181
+ms), the flattening ×1.18 and ×1.01 (58 → 69 ms, 223 → 225 ms).
+
+No chart this time: the result is a ratio per configuration, which the
+table gives better than a plot of time against size.
+
+### Next steps
+
+- **No change needed now:** `off` stays the default and costs nothing, and
+  sRGB's third more is a fair price where it's chosen.
+- **If the palette's cost ever matters:** unrolling the roots' loops gives
+  the same results about 1.4 times faster (164 → 117 ns per root,
+  measured in the spec's step 2a, where the loops were kept); a search in
+  light instead would change the results, which decision 3 rules out.
+- **The bimodal `off` runs** are worth a look with the large-image suite
+  ([TODO.md](../TODO.md)), since they make single comparisons of the
+  palette unreliable.
+
