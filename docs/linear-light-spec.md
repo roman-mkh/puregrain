@@ -1223,6 +1223,31 @@ decisions 1 to 4.
    - `RunSpec` adds 5 settings and 3 machine settings under curves
      against the CLI's path; dropping the gamma from each of the three
      paths was caught. `check:web`: 72 checks, 4 new per engine.
+
+   **As built, 4b** (2026-11-15):
+   - With off, `Prepare.js`'s integer loops are unchanged. With a curve,
+     `lightTables` gives each byte's light and each half-step's,
+     `toLight(b + 0.5)`, by the library's public `toLight`; the
+     flattening mixes `light[color] × a + light[background] × (1 − a)`,
+     the fit sums each pixel's light by the same whole-number overlaps
+     in the same order, and both go back to a byte by counting the
+     half-steps at or below (`byteOfLight`). A gamma's change prepares
+     the picture again.
+   - `PrepareSpec`: every byte back from its light, a half-step going
+     up; alpha 0 and 255 exact; the loops as the rules, for every value
+     and alpha and for five fits, under every curve; decision 6's
+     examples, lines halved to 188 (128 with off) and half-transparent
+     black over white to 188 or 187. Mutations: the flattening ignoring
+     light and the fit summing stored values were caught; the half-step
+     rounded down at first wasn't (the whole pictures never hit a
+     half-step exactly), so `byteOfLight` became the loops' own
+     JavaScript function, whose tests then caught it.
+   - `check:web` found that WebKit read semi-transparent colors off,
+     before any curve and with off too: its `ImageBitmap` stays
+     premultiplied. The page now reads such a picture as an `<img>`
+     through WebGL, exact in all three engines, accepted only if it
+     agrees with the canvas's exact bytes (web/CLAUDE.md,
+     "Transparency"). `check:web`: 83 checks.
 5. **Measure:** the benchmarks, a look at the test images, and the
    machine screens' recommendations again.
 6. **Docs and release:** see below, then the release, 0.2.2 (decision

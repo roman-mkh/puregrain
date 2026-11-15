@@ -37,7 +37,7 @@ import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
 import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
-import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, placementOn, screenToFit, white)
+import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, lightTables, placementOn, screenToFit, white)
 import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
@@ -488,24 +488,26 @@ download format = do
     _, _ -> pure unit
 
 -- | A change of the settings; a real change restarts the dithering, and
--- | a new target prepares the picture again, as it may fit it.
+-- | a new target or gamma prepares the picture again, as it may fit it or
+-- | mix it in another light.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
 change f = do
   old <- H.gets _.settings
   let new = f old
   when (new /= old) do
     H.modify_ _ { settings = new }
-    if new.target /= old.target then refresh else restart
+    if new.target /= old.target || new.gamma /= old.gamma then refresh else restart
 
 -- | The picture as it's shown and dithered (decisions 22 and 27): put
 -- | onto the background, if it has transparency, and fitted to a
--- | machine's screen, if asked.
-prepare :: Picture -> Target -> Boolean -> Background -> Effect Prepared
-prepare p target fit background = do
-  opaque <- if p.transparent then flatten p.pixels background else pure p.pixels
-  case screenToFit target fit size of
+-- | machine's screen, if asked; both in the gamma's light (decision 6 in
+-- | docs/linear-light-spec.md).
+prepare :: Picture -> Settings -> Boolean -> Background -> Effect Prepared
+prepare p settings fit background = do
+  opaque <- if p.transparent then flatten tables p.pixels background else pure p.pixels
+  case screenToFit settings.target fit size of
     Just screen -> do
-      pixels <- fitOnto opaque size screen background
+      pixels <- fitOnto tables opaque size screen background
       image <- toImageData pixels screen.width screen.height
       pure { width: screen.width, height: screen.height, image, fitted: Just { screen, placement: placementOn screen size } }
     Nothing -> do
@@ -513,8 +515,9 @@ prepare p target fit background = do
       pure { width: p.width, height: p.height, image, fitted: Nothing }
   where
   size = { width: p.width, height: p.height }
+  tables = lightTables settings.gamma
 
--- | Prepares the loaded picture again, for a new target, fit or
+-- | Prepares the loaded picture again, for a new target, gamma, fit or
 -- | background: shows it as the original (the split back in the middle
 -- | when its size changed), and dithers it afresh.
 refresh :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
@@ -523,7 +526,7 @@ refresh = do
   case s.load of
     Loaded l -> do
       stopWorker
-      prepared <- liftEffect (prepare l.picture s.settings.target s.fit s.background)
+      prepared <- liftEffect (prepare l.picture s.settings s.fit s.background)
       let resized = prepared.width /= l.prepared.width || prepared.height /= l.prepared.height
       H.modify_ _ { load = Loaded { picture: l.picture, prepared }, split = if resized then prepared.width / 2 else s.split, splitDrag = Nothing, run = Idle }
       drawOriginal prepared
@@ -648,7 +651,7 @@ loadFile file = do
       Right p -> do
         stopWorker
         s <- H.get
-        prepared <- liftEffect (prepare p s.settings.target s.fit s.background)
+        prepared <- liftEffect (prepare p s.settings s.fit s.background)
         H.modify_ _ { load = Loaded { picture: p, prepared }, loading = Nothing, split = prepared.width / 2, splitDrag = Nothing, run = Idle }
         say (texts.loadedPicture { name: p.name, width: p.width, height: p.height })
         -- The first picture took away the button that had the focus: it

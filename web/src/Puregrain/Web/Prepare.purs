@@ -3,14 +3,20 @@
 -- | and, for a machine's screen, the picture fitted to the screen. Our own
 -- | code, not the browser's compositing or scaling, so the result is the
 -- | same in every browser, and can become the CLI's too (with the library,
--- | later). The loops over a whole picture are in `Prepare.js`, for speed;
--- | specs pin them to the rules here.
+-- | later). With a gamma other than off, both mix in the curve's light
+-- | (decision 6 in docs/linear-light-spec.md), with `LightTables`. The
+-- | loops over a whole picture are in `Prepare.js`, for speed; specs pin
+-- | them to the rules here.
 module Puregrain.Web.Prepare
   ( Background
   , white
   , backgroundHex
   , backgroundFromHex
   , flattenChannel
+  , LightTables
+  , lightTables
+  , byteOfLight
+  , flattenChannelIn
   , Placement
   , screenToFit
   , placementOn
@@ -26,13 +32,18 @@ module Puregrain.Web.Prepare
 import Prelude
 
 import Data.ArrayBuffer.Types (Uint8ClampedArray)
+import Data.Array ((..))
+import Data.Array as Array
 import Data.Int (fromStringAs, hexadecimal, round, toNumber, toStringAs)
 import Data.Maybe (Maybe(..), maybe)
 import Data.String.CodeUnits as CodeUnits
 import Data.String.Common (joinWith, toLower)
 import Data.Traversable (traverse)
 import Effect (Effect)
-import Puregrain.Web.Settings (Target(..), screenSizeOf)
+import Partial.Unsafe (unsafePartial)
+import Puregrain.Gamma (toLight)
+import Puregrain.Web.Dither (gammaOf)
+import Puregrain.Web.Settings (GammaName(..), Target(..), screenSizeOf)
 
 -- | A background color, each channel 0 to 255.
 type Background = { r :: Int, g :: Int, b :: Int }
@@ -71,6 +82,45 @@ flattenChannel color alpha background =
   round (toNumber color * a + toNumber background * (1.0 - a))
   where
   a = toNumber alpha / 255.0
+
+-- | A curve's light, for preparing a picture in it: `light`, each byte's
+-- | light (0 to 255), and `cuts`, the light of each half-step between two
+-- | bytes, b + 0.5 for b = 0 to 254, where a mixed light goes from one byte
+-- | to the next.
+type LightTables = { light :: Array Number, cuts :: Array Number }
+
+-- | The tables for a gamma, by the library's `toLight`; `Nothing` for off,
+-- | which mixes the stored values as they are.
+lightTables :: GammaName -> Maybe LightTables
+lightTables = case _ of
+  GammaOff -> Nothing
+  name ->
+    let
+      gamma = gammaOf name
+    in
+      Just { light: map (\b -> toLight gamma (toNumber b)) (0 .. 255), cuts: map (\b -> toLight gamma (toNumber b + 0.5)) (0 .. 254) }
+
+-- | A light back to a byte: the one whose half-steps enclose it, the count
+-- | of cuts at or below it. The nearest byte on stored values, as
+-- | `Math.round` gives it, a half-step going up; each byte's own light
+-- | gives that byte. The loops' own function, in `Prepare.js`, so that
+-- | its tests test theirs (a light exactly at a half-step never came up in
+-- | the whole pictures, so a copy here left the loops' unchecked there).
+byteOfLight :: LightTables -> Number -> Int
+byteOfLight t = byteOfLightImpl t.cuts
+
+foreign import byteOfLightImpl :: Array Number -> Number -> Int
+
+-- | `flattenChannel`, in a curve's light with tables: the color's light ×
+-- | alpha + the background's × (1 − alpha), back to a byte; without, as
+-- | `flattenChannel`.
+flattenChannelIn :: Maybe LightTables -> Int -> Int -> Int -> Int
+flattenChannelIn tables color alpha background = case tables of
+  Nothing -> flattenChannel color alpha background
+  Just t -> byteOfLight t (lightAt t color * a + lightAt t background * (1.0 - a))
+  where
+  a = toNumber alpha / 255.0
+  lightAt t i = unsafePartial (Array.unsafeIndex t.light i)
 
 -- | The screen to fit a picture to: a machine's, when fitting is asked
 -- | for and the picture isn't the screen's size (decision 22). Only a
@@ -131,14 +181,20 @@ backgroundShows transparent fitted = transparent || maybe false (\f -> leavesBac
 foreign import hasTransparency :: Uint8ClampedArray -> Effect Boolean
 
 foreign import flattenImpl :: Uint8ClampedArray -> Int -> Int -> Int -> Effect Uint8ClampedArray
+foreign import flattenLightImpl :: Uint8ClampedArray -> Array Number -> Array Number -> Int -> Int -> Int -> Effect Uint8ClampedArray
 
--- | The RGBA bytes put onto the background, by `flattenChannel`: new
+-- | The RGBA bytes put onto the background, by `flattenChannelIn`: new
 -- | bytes, every pixel opaque.
-flatten :: Uint8ClampedArray -> Background -> Effect Uint8ClampedArray
-flatten pixels c = flattenImpl pixels c.r c.g c.b
+flatten :: Maybe LightTables -> Uint8ClampedArray -> Background -> Effect Uint8ClampedArray
+flatten tables pixels c = case tables of
+  Nothing -> flattenImpl pixels c.r c.g c.b
+  Just t -> flattenLightImpl pixels t.light t.cuts c.r c.g c.b
 
 foreign import fitImpl
   :: Uint8ClampedArray -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Effect Uint8ClampedArray
+
+foreign import fitLightImpl
+  :: Uint8ClampedArray -> Array Number -> Array Number -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Int -> Effect Uint8ClampedArray
 
 -- | The opaque picture (`picture`'s size) fitted to the screen as
 -- | `placementOn` places it: new bytes of the screen's size, the
@@ -147,14 +203,18 @@ foreign import fitImpl
 -- | covers, weighted by how much of each it covers. The weights are whole
 -- | numbers (the overlaps, counted in a fine enough unit), so every sum is
 -- | exact and the result doesn't depend on the order of adding; the mean
--- | is rounded with `Math.round`.
+-- | is rounded with `Math.round`. With tables, the same in light: each
+-- | pixel's light, weighted by the same overlaps and summed in a fixed
+-- | order, and the mean back to a byte with `byteOfLight`.
 fitOnto
-  :: Uint8ClampedArray
+  :: Maybe LightTables
+  -> Uint8ClampedArray
   -> { width :: Int, height :: Int }
   -> { width :: Int, height :: Int }
   -> Background
   -> Effect Uint8ClampedArray
-fitOnto pixels picture screen c =
-  fitImpl pixels picture.width picture.height screen.width screen.height p.width p.height p.left p.top c.r c.g c.b
+fitOnto tables pixels picture screen c = case tables of
+  Nothing -> fitImpl pixels picture.width picture.height screen.width screen.height p.width p.height p.left p.top c.r c.g c.b
+  Just t -> fitLightImpl pixels t.light t.cuts picture.width picture.height screen.width screen.height p.width p.height p.left p.top c.r c.g c.b
   where
   p = placementOn screen picture

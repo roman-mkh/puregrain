@@ -70,15 +70,74 @@ const MACHINES = [
     dir: 'zx-spectrum-srgb', name: 'zx-spectrum-bayer4-srgb', cli: ['--gamma', 'srgb'] },
 ];
 const PICTURE = 'color-320x200';
+// With a gamma, the page fits and flattens in the curve's light (decision 6
+// of docs/linear-light-spec.md, step 4b). The reference prepares the same
+// picture in Node with the page's own compiled code (Puregrain.Web.Prepare),
+// and the CLI dithers that: the page's results must be the CLI's. The
+// transparent picture's channels are only 0 or 255, which come back exactly
+// from a canvas too, should a browser here lack WebGL (web/CLAUDE.md,
+// "Transparency"); black over white at every alpha still mixes in light.
+const PREPARED = [
+  { what: 'the 512x512 composite fitted to the ZX Spectrum, Bayer 4, sRGB', picture: 'color-512', target: 'zx-spectrum',
+    fit: { width: 256, height: 192 }, bayer: '4', gamma: 'srgb', formats: ['png', 'scr'], name: 'zx-spectrum-fit-bayer4-srgb',
+    cli: ['--machine', 'zx-spectrum', '--bayer', '4', '--gamma', 'srgb'] },
+  { what: 'eight colors at every alpha on white, 4 levels, Atkinson, sRGB', picture: 'alpha-ramps',
+    colors: 'levels', levels: '4', kernel: 'atkinson', gamma: 'srgb', formats: ['png'], name: 'levels4-atkinson-srgb',
+    cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'] },
+];
 
 fs.rmSync(out, { recursive: true, force: true });
-for (const dir of ['downloads', ...MACHINES.map((m) => m.dir)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
-for (const size of ['320x200', '256x192']) {
+for (const dir of ['downloads', 'prepared', ...MACHINES.map((m) => m.dir)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
+for (const size of ['320x200', '256x192', '512']) {
   execFileSync('node', ['scripts/generate-images.mjs', '--pattern', 'color', '--size', size, '--out', out]);
+}
+{
+  // Eight colors of 0s and 255s, a band of 8 rows each, at alpha 0 to 255
+  // from left to right.
+  const png = new PNG({ width: 256, height: 64 });
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 256; x++) {
+      const c = y >> 3;
+      png.data.set([c & 4 ? 255 : 0, c & 2 ? 255 : 0, c & 1 ? 255 : 0, x], (y * 256 + x) * 4);
+    }
+  }
+  fs.writeFileSync(`${out}/alpha-ramps.png`, PNG.sync.write(png, { colorType: 6 }));
+}
+{
+  // Every value at every alpha (v2's phase 2): red down the rows, alpha
+  // across, green and blue other orders of the values.
+  const png = new PNG({ width: 256, height: 256 });
+  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) png.data.set([y, 255 - y, (y * 37) % 256, x], (y * 256 + x) * 4);
+  fs.writeFileSync(`${out}/every-alpha.png`, PNG.sync.write(png, { colorType: 6 }));
 }
 const cli = (input, output, options) => execFileSync('node', ['cli/bin/puregrain-cli.mjs', input, output, ...options]);
 for (const s of SETTINGS) cli(`${out}/${PICTURE}.png`, `${out}/cli-${s.name}.png`, s.cli);
 // The tape's name comes from the output file's name: the picture's, as on the page.
+{
+  const Prepare = await import(path.resolve('output/Puregrain.Web.Prepare/index.js'));
+  const Settings = await import(path.resolve('output/Puregrain.Web.Settings/index.js'));
+  const gammas = { srgb: Settings.GammaSrgb.value, off: Settings.GammaOff.value };
+  for (const p of PREPARED) {
+    const picture = PNG.sync.read(fs.readFileSync(`${out}/${p.picture}.png`));
+    const pixels = new Uint8ClampedArray(picture.data);
+    const size = { width: picture.width, height: picture.height };
+    const tables = Prepare.lightTables(gammas[p.gamma]);
+    const prepared = p.fit
+      ? { ...p.fit, pixels: Prepare.fitOnto(tables)(pixels)(size)(p.fit)(Prepare.white)() }
+      : { ...size, pixels: Prepare.flatten(tables)(pixels)(Prepare.white)() };
+    const png = new PNG({ width: prepared.width, height: prepared.height });
+    png.data = Buffer.from(prepared.pixels);
+    fs.writeFileSync(`${out}/prepared/${p.picture}.png`, PNG.sync.write(png, { colorType: 2 }));
+    for (const format of p.formats) cli(`${out}/prepared/${p.picture}.png`, `${out}/prepared/${p.picture}-dithered.${format}`, p.cli);
+  }
+  // The file's own values flattened onto white, in Node, with off and srgb:
+  // what the page must show as the original.
+  const every = PNG.sync.read(fs.readFileSync(`${out}/every-alpha.png`));
+  for (const gamma of ['off', 'srgb']) {
+    const flat = Prepare.flatten(Prepare.lightTables(gammas[gamma]))(new Uint8ClampedArray(every.data))(Prepare.white)();
+    fs.writeFileSync(`${out}/prepared/every-alpha-${gamma}.rgba`, Buffer.from(flat));
+  }
+}
 for (const m of MACHINES) {
   for (const format of m.formats) {
     cli(`${out}/${m.picture}.png`, `${out}/${m.dir}/${m.picture}.${format}`, ['--machine', m.target, '--bayer', m.bayer, ...m.cli]);
@@ -314,6 +373,76 @@ const checksIn = async (engine, page) => {
         ? (diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`)
         : (same ? "the CLI's file, byte for byte" : `not the CLI's file (${file.bytes.length} bytes, the CLI's ${reference.length})`);
       report(file.name === expected && same, `${engine}: ${m.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${how}`);
+    }
+  }
+
+  for (const p of PREPARED) {
+    await open(p.picture);
+    const before = await runs();
+    if (p.target) await pick('target', p.target);
+    if (p.fit) await page.locator('label.check input[type=checkbox]').setChecked(true);
+    if (p.colors) await page.locator('select').nth(0).selectOption(p.colors);
+    if (p.levels) await page.locator('.stepper input[type=number]').fill(p.levels);
+    if (p.kernel) await page.locator('select').nth(1).selectOption(p.kernel);
+    if (p.bayer) await pick('bayer', p.bayer);
+    await pick('gamma', p.gamma);
+    await finished(before);
+    for (const format of p.formats) {
+      const expected = `${p.picture}-${p.name}.${format}`;
+      const file = await download(p.target ? fromList(format) : () => page.locator('.downloads button').first().click());
+      const reference = fs.readFileSync(`${out}/prepared/${p.picture}-dithered.${format}`);
+      const diff = format === 'png' ? differing(pixelsOf(file.bytes), pixelsOf(reference)) : null;
+      const same = format === 'png' ? diff === 0 : file.bytes.equals(reference);
+      const how = format === 'png'
+        ? (diff === 0 ? "the CLI's pixels on the picture prepared in Node" : `${diff} pixels differ from the CLI's on the picture prepared in Node`)
+        : (same ? "the CLI's file, byte for byte" : `not the CLI's file (${file.bytes.length} bytes, the CLI's ${reference.length})`);
+      report(file.name === expected && same, `${engine}: ${p.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${how}`);
+    }
+  }
+
+  // A picture with transparency is read exactly, through an <img> and
+  // WebGL (see Puregrain.Web.Picture): the original the page shows, put onto
+  // white with off and with srgb, is the file's own values put onto white in
+  // Node. Without WebGL, the page reads the canvas's rounded values, by
+  // design not exact: then the line says so instead of failing.
+  {
+    // The original as drawn, read in the page: whether it's drawn (opaque),
+    // a hash of its bytes, to see it drawn again, and how many values
+    // differ from the expected ones when they're given (sent once, at the
+    // end, rather than the canvas copied out at every look).
+    const shown = (b64) => page.evaluate((expected) => {
+      const c = document.querySelector('canvas.picture:not(.result)');
+      const got = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const want = expected === null ? null : Uint8Array.from(atob(expected), (ch) => ch.charCodeAt(0));
+      let hash = 0;
+      let differ = 0;
+      for (let i = 0; i < got.length; i++) {
+        hash = (hash * 31 + got[i]) >>> 0;
+        if (want !== null && got[i] !== want[i]) differ++;
+      }
+      return { drawn: got[3] === 255, hash, differ };
+    }, b64);
+    const webgl = await page.evaluate(() => document.createElement('canvas').getContext('webgl') !== null);
+    await open('every-alpha');
+    const results = [];
+    let before = null;
+    for (const gamma of ['off', 'srgb']) {
+      if (gamma !== 'off') await pick('gamma', gamma);
+      // Drawn, and with another gamma drawn again: until then, or 5 s.
+      let now = await shown(null);
+      for (let waited = 0; waited < 5000 && (!now.drawn || now.hash === before); waited += 100) {
+        await sleep(100);
+        now = await shown(null);
+      }
+      before = now.hash;
+      const { differ } = await shown(fs.readFileSync(`${out}/prepared/every-alpha-${gamma}.rgba`).toString('base64'));
+      results.push(`${gamma} ${differ === 0 ? 'exact' : `${differ} values off`}`);
+    }
+    const exact = results.every((r) => r.endsWith('exact'));
+    if (webgl || exact) {
+      report(exact, `${engine}: every value at every alpha, put onto white: the shown original is the file's values put onto white in Node (${results.join(', ')})`);
+    } else {
+      console.log(`NOTE  ${engine}: no WebGL here, so a picture with transparency is read from the canvas, rounded by design (${results.join(', ')})`);
     }
   }
 

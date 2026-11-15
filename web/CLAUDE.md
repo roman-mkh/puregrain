@@ -214,7 +214,10 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6: `app.js` 173.6 KB, 43.3 KB gzipped
+- **Sizes** after linear light's step 4b (2026-11-15, in bytes): `app.js`
+  185,177, 46,304 gzipped, and `worker.js` 83,188, 21,591 gzipped, both
+  with the library's curves now. After v2's phase 6: `app.js` 173.6 KB,
+  43.3 KB gzipped
   (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen; 137.0
   KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's phase 6,
   step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since
@@ -332,6 +335,12 @@ checklist in step.
   number below 2^53, exact in a double whatever the order of adding, and
   the mean rounded with `Math.round`. A later PureScript version, for
   the CLI's `--fit`, gives the same bytes if it keeps these weights.
+  With a gamma other than off (linear light's step 4b), the fit and the
+  flattening mix in the curve's light: each byte's light from a table,
+  the same weights and order, then back to a byte by the light of the
+  half-steps (`byteOfLight`, the loops' own function in `Prepare.js`).
+  Not whole numbers then, but in a fixed order, and JavaScript forbids
+  fusing a multiply and an add: the same bits in every engine.
 
 ## Building
 
@@ -422,13 +431,24 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   back rounded: measured in Firefox (v2's phase 2) on a picture with
   every alpha for every value, 97,155 of 195,840 color values were off,
   by up to 254 at low alpha. The page reads such a picture through
-  WebGL: `createImageBitmap` with `premultiplyAlpha: "none"`, a texture
+  WebGL: the file decoded again as an `<img>`, uploaded as a texture
   with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` false and no color conversion,
   attached to a framebuffer and read with `readPixels`: every value
-  exact (WebGL 1 and 2; textures up to 16,384 on a side here). Without
-  WebGL (`webgl.disabled`, checked) it falls back to the canvas, and
-  the flattened values are off by 1 in 37% of them. An opaque picture is
-  read from the canvas, exactly.
+  exact. Until 2026-11-15 it uploaded the `createImageBitmap` bitmap
+  (`premultiplyAlpha: "none"`), exact in Firefox (phase 2) and
+  Chromium, but WebKit keeps a bitmap premultiplied whatever it's asked:
+  in Playwright's WebKit 27.2, values off by up to 254, even 255 read as
+  254 at some alphas; found by `check:web` in linear light's step 4b.
+  For an `<img>` the browsers decode the file again unpremultiplied:
+  exact in Chromium 156, Firefox 157 (the system's, with WebGL) and
+  WebKit 27.2, a `gAMA` chunk ignored, and the orientation the same as
+  the bitmap's in all three (WebKit ignores a PNG's `eXIf` everywhere).
+  The read is accepted only if it agrees with the canvas's bytes, which
+  are exact for every alpha and every opaque pixel's color; otherwise,
+  and without WebGL (`webgl.disabled`, checked; Playwright's Firefox in
+  Docker has none), it falls back to the canvas, and the flattened values
+  are off by 1 in 37% of them. Real Safari is unchecked. An opaque
+  picture is read from the canvas, exactly.
 - **The browser's own compositing isn't the formula:** filling a canvas
   with a color and drawing a semi-transparent picture over it gave
   values off by 1 or 2 from color × alpha + background × (1 − alpha),
@@ -598,6 +618,16 @@ stay on the host.
   with Atkinson under `srgb`, the CGA palette gray first under 1.5, and
   the ZX Spectrum's screen with Bayer 4 under `srgb` (its PNG and
   `.scr`) give the CLI's pixels and file in all three engines: 72 checks.
+- **Preparing in light** (2026-11-15, step 4b): the 512 × 512 composite
+  fitted to the ZX Spectrum's screen with Bayer 4 under `srgb` (its PNG
+  and `.scr`), and a picture of eight colors at every alpha on white
+  under `srgb`, against the same pictures prepared in Node by the page's
+  own compiled `Puregrain.Web.Prepare` and dithered by the CLI; and every
+  value at every alpha put onto white with off and `srgb`, the shown
+  original read back from its canvas against Node's. In the container's
+  Firefox, without WebGL, that last one is a NOTE (the canvas's rounded
+  values, by design), not a check: 83 checks. With the old reading
+  (the bitmap through WebGL), both WebKit checks failed.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

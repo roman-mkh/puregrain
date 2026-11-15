@@ -38,12 +38,14 @@ package:
       - aff
       - arraybuffer-types
       - arrays
+      - console
       - effect
       - either
       - foldable-traversable
       - foreign
       - integers
       - maybe
+      - numbers
       - puregrain
       - refs
       - spec

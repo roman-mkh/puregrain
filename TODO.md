@@ -164,6 +164,12 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Future directions (not in scope now)
 
+- [ ] Check the web UI's reading of transparency in real Safari (2026-11-15): the page reads a picture with
+      transparency as an `<img>` through WebGL, exact in Chromium, Firefox and Playwright's WebKit (Linux),
+      while WebKit's `ImageBitmap` lost up to 254 there (web/CLAUDE.md, "Transparency"). Safari on a Mac is
+      unchecked. If it differs, decode PNGs with transparency ourselves in the page (inflate and the PNG
+      filters), exact by construction in every browser; WebP and AVIF would still go through the browser.
+
 - [ ] Keeping transparency in the output, for icons and sprites (moved here from `web/ROADMAP.md`'s later
       ideas, 2026-10-25): the library has `RGBA` and dithers it per channel already, but palettes are RGB
       only, and the CLI ignores alpha. Transparency could be kept as on or off per pixel; the machines have
