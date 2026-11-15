@@ -4,6 +4,7 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Status (EngineCheck(..))
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -23,6 +24,21 @@ spec = describe "Puregrain.Web.Text" do
     texts.describe (chooseGamma Gamma1p5 (chooseGray true (chooseBayer (Just 8) (chooseColors (Levels 2) initial))))
       `shouldEqual` "2 levels, ordered dithering 8×8, gamma 1.5, gray first"
     texts.describe (chooseGamma GammaOff (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson"
+
+  it "names the lab's version, and the library's that powers it when the build gives it" do
+    texts.versions "0.2.1" `shouldEqual` "puregrain lab v2.2, powered by puregrain 0.2.1"
+    texts.versions "" `shouldEqual` "puregrain lab v2.2"
+
+  it "names the engine check's states for screen readers, and says each in a sentence" do
+    map texts.engineName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]
+      `shouldEqual` [ "Engine check: running", "Engine check: passed", "Engine check: failed", "Engine check: couldn't run" ]
+    map texts.engineStatus [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]
+      `shouldEqual`
+        [ "Checking this browser's arithmetic…"
+        , "Engine check passed: with a gamma, the same results as the command-line tool."
+        , "Engine check failed: with a gamma, results here may differ from the command-line tool's."
+        , "Engine check couldn't run."
+        ]
 
   it "names a machine and its colors" do
     let zx = chooseTarget (Machine ZxSpectrumScreen) initial

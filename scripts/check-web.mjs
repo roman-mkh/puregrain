@@ -332,6 +332,45 @@ const checksIn = async (engine, page) => {
       `${engine}: a click on "Result" moves the split to ${toResult}, on "Original" to ${toOriginal} (the width, ${width})`);
   };
 
+  // The engine check (linear light, step 4c): this engine passes it, and
+  // the icon left of Help says so, opens its sentence with a link to the
+  // README's section, and Escape closes it, the focus back on the icon.
+  {
+    await page.goto(pageUrl);
+    await page.waitForFunction(() => ['passed', 'failed', 'not-run'].includes(document.documentElement.dataset.engineCheck), null, { timeout: 30000 });
+    const state = await page.evaluate(() => document.documentElement.dataset.engineCheck);
+    const button = page.locator('.top .engine-button');
+    const name = (await button.textContent()).trim();
+    await button.click();
+    const box = page.locator('.top .engine-box');
+    const shown = await box.isVisible();
+    const sentence = shown ? (await box.locator('p').textContent()).trim() : '';
+    const link = await box.locator('a').getAttribute('href');
+    await page.keyboard.press('Escape');
+    const closed = await box.isHidden();
+    const focused = await page.evaluate(() => document.activeElement?.classList.contains('engine-button') ?? false);
+    // Opened again, a click elsewhere on the page closes it too.
+    await button.click();
+    const reopened = await box.isVisible();
+    await page.mouse.click(20, 400);
+    const clickedAway = await box.isHidden();
+    report(state === 'passed' && name === 'Engine check: passed' && shown && sentence.startsWith('Engine check passed:')
+      && link.endsWith('/web/README.md#the-engine-check') && closed && focused && reopened && clickedAway,
+      `${engine}: the engine check ${state}; its icon, "${name}", opens "${sentence}" with a link to Help${closed && focused ? ', and Escape closes it, the focus back on the icon' : ', but Escape doesn\'t close it, or the focus is lost'}${reopened && clickedAway ? ', as does a click elsewhere' : ', but a click elsewhere doesn\'t close it'}`);
+  }
+
+  // Under the gamma, a note while it can't change the picture: after
+  // loading (no colors, no method), and gone once a kernel dithers.
+  {
+    await open(PICTURE);
+    const note = page.locator('.note', { hasText: 'Gamma changes the picture only' });
+    const shown = await note.isVisible();
+    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    await page.waitForFunction(() => ![...document.querySelectorAll('.note')].some((n) => n.textContent.startsWith('Gamma changes')), null, { timeout: 5000 }).catch(() => {});
+    const gone = await note.count() === 0;
+    report(shown && gone, `${engine}: the note under the gamma ${shown ? 'shows after loading' : "doesn't show after loading"} and ${gone ? 'goes once a kernel dithers' : 'stays with a kernel'}`);
+  }
+
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();

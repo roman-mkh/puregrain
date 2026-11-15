@@ -1,7 +1,7 @@
 -- | Small icons, inline SVG drawn in the text's color (decision 34): a
 -- | character such as ☾ or ☼ would look different from system to system,
 -- | and as emoji on some.
-module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight, caretDown, sliders, cross) where
+module Puregrain.Web.View.Icon (sun, moon, chevronsLeft, chevronsRight, leftRight, caretDown, sliders, cross, engineChecking, enginePassed, engineFailed) where
 
 import Prelude
 
@@ -48,6 +48,33 @@ cross = icon [ "M3.4 2 8 6.6 12.6 2 14 3.4 9.4 8 14 12.6 12.6 14 8 9.4 3.4 14 2 
 -- | ▾ : a list opens from the button.
 caretDown :: forall w i. HH.HTML w i
 caretDown = icon [ "M3.5 6h9L8 11z" ]
+
+-- | The engine check (linear light, step 4c): a disc while it runs, a disc
+-- | with a check mark when it passed, a triangle with ! when it failed.
+-- | The marks are cut out, so the background shows through them, and the
+-- | shape takes the button's color, which says the state too.
+engineChecking :: forall w i. HH.HTML w i
+engineChecking = holed "M8 1a7 7 0 1 1 0 14a7 7 0 1 1 0-14z"
+
+enginePassed :: forall w i. HH.HTML w i
+enginePassed = holed "M8 1a7 7 0 1 1 0 14a7 7 0 1 1 0-14zM3.9 8.4L5.2 7.1L7 8.9L10.8 5.1L12.1 6.4L7 11.5z"
+
+engineFailed :: forall w i. HH.HTML w i
+engineFailed = holed "M8 1.2L15.3 14.4H0.7zM7.15 5.6h1.7v4.6h-1.7zM7.15 11.2h1.7v1.7h-1.7z"
+
+-- | One shape with holes, in the text's color, as `icon` draws.
+holed :: forall w i. String -> HH.HTML w i
+holed d =
+  HH.elementNS svg (HH.ElemName "svg")
+    [ HP.attr (HH.AttrName "viewBox") "0 0 16 16"
+    , HP.attr (HH.AttrName "width") "16"
+    , HP.attr (HH.AttrName "height") "16"
+    , HP.attr (HH.AttrName "aria-hidden") "true"
+    , HP.attr (HH.AttrName "focusable") "false"
+    ]
+    [ HH.elementNS svg (HH.ElemName "path") [ HP.attr (HH.AttrName "d") d, HP.attr (HH.AttrName "fill") "currentColor", HP.attr (HH.AttrName "fill-rule") "evenodd" ] [] ]
+  where
+  svg = HH.Namespace "http://www.w3.org/2000/svg"
 
 -- | 16 × 16, hidden from screen readers: the button it's in has a name.
 icon :: forall w i. Array String -> HH.HTML w i

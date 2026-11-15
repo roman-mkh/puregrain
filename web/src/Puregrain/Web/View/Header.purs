@@ -1,7 +1,8 @@
 -- | The page's header (decisions 29, 30 E and 32): the logo's lockup in
--- | the theme's set, "lab" after it, the tagline, the links, on phones the
--- | button that opens the settings' panel, and the switch between the
--- | light and the dark theme.
+-- | the theme's set, "lab" after it, the tagline, the engine check's icon
+-- | (on a desktop; on a phone it's in the footer), the links, on phones
+-- | the button that opens the settings' panel, and the switch between
+-- | the light and the dark theme.
 module Puregrain.Web.View.Header (header) where
 
 import Prelude
@@ -11,16 +12,19 @@ import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Puregrain.Web.State (Action(..), settingsButtonRef)
+import Puregrain.Web.Status (EngineCheck)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (Theme(..))
+import Puregrain.Web.View.Engine (engineCheck)
 import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.View.Parts (helpUrl, inert, repositoryUrl)
 
 -- | `settings`: whether the settings' button shows, which needs a
 -- | picture, and whether its panel is open, which makes the header
--- | `inert`. The stylesheet shows the button on phones only.
-header :: forall w. { theme :: Theme, settings :: Boolean, panelOpen :: Boolean } -> HH.HTML w Action
-header { theme, settings, panelOpen } =
+-- | `inert`. The stylesheet shows the button on phones only. `engine` and
+-- | `engineOpen`: the engine check's state, and whether its popup shows.
+header :: forall w. { theme :: Theme, settings :: Boolean, panelOpen :: Boolean, engine :: EngineCheck, engineOpen :: Boolean } -> HH.HTML w Action
+header { theme, settings, panelOpen, engine, engineOpen } =
   HH.header [ HP.class_ (H.ClassName "top"), inert panelOpen ]
     -- The page's heading, "puregrain lab": both sets of the logo, at
     -- their size, the stylesheet showing the theme's, and "lab". Not a
@@ -35,7 +39,8 @@ header { theme, settings, panelOpen } =
         , HH.span [ HP.class_ (H.ClassName "short") ] [ HH.text texts.taglineShort ]
         ]
     , HH.nav [ HP.class_ (H.ClassName "links"), HP.attr (HH.AttrName "aria-label") texts.linksLabel ]
-        [ HH.a [ HP.href helpUrl ] [ HH.text texts.help ]
+        [ engineCheck { check: engine, open: engineOpen, place: "top" }
+        , HH.a [ HP.href helpUrl ] [ HH.text texts.help ]
         , HH.a [ HP.href repositoryUrl ] [ HH.text texts.source ]
         -- Hidden rather than left out, so the theme's switch keeps its
         -- place (Halogen matches children by position).

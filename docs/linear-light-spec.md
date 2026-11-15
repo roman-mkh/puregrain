@@ -1223,6 +1223,15 @@ decisions 1 to 4.
    - `RunSpec` adds 5 settings and 3 machine settings under curves
      against the CLI's path; dropping the gamma from each of the three
      paths was caught. `check:web`: 72 checks, 4 new per engine.
+   - Follow-up (2026-11-15, after the user's manual test): a note under
+     the gamma while it can't change the picture (`gammaActs`): without
+     colors, or without a method, gray first and a picture mixed while
+     it's prepared, each pixel takes the nearest color on stored values,
+     which no curve changes. Two states that look alike in step 4, after
+     loading and after a Bayer map chosen and set back to none (which
+     keeps its 2 levels), both show it. The segments keep their order,
+     Off to sRGB, a scale (the user agreed); a hint to try sRGB for
+     photos goes into the README's settings (step 6).
 
    **As built, 4b** (2026-11-15):
    - With off, `Prepare.js`'s integer loops are unchanged. With a curve,
@@ -1248,6 +1257,26 @@ decisions 1 to 4.
      through WebGL, exact in all three engines, accepted only if it
      agrees with the canvas's exact bytes (web/CLAUDE.md,
      "Transparency"). `check:web`: 83 checks.
+
+   **As built, 4c** (2026-11-15):
+   - Once the page has its copy of `worker.js` in memory, a worker of
+     its own runs the library's `checkEngine` (the request `{ kind:
+     "check" }`; a job has no `kind`) and answers whether it passed,
+     with the problems; the page then ends it. A worker that can't
+     start, or fails, leaves the check "couldn't run", gray, not failed.
+   - The icon left of Help (in the footer on a phone): a gray disc while
+     it runs, a disc with a check mark in the accent when it passed, a
+     triangle with ! in `--warn` when it failed, the C64's orange
+     `#9f4815` in the light theme and the ZX Spectrum's yellow `#d8d800`
+     in the dark (the mockups agreed with the user; contrast 6.2 and
+     11.6). The marks are cut out of the shapes. A button with the state
+     as its name opens a popup, as the list of formats opens: the
+     sentence and "Details in Help", the README's new section "The
+     engine check"; Escape and a click outside close it.
+   - On a failure the alert region says the sentence once, and the
+     console lists the problems. The page's root has
+     `data-engine-check` for `check:web`, which expects `passed` in all
+     three engines: 86 checks.
 5. **Measure:** the benchmarks, a look at the test images, and the
    machine screens' recommendations again.
 6. **Docs and release:** see below, then the release, 0.2.2 (decision

@@ -10,6 +10,7 @@ import Puregrain.Web.Download (Format(..))
 import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), screenSizeOf)
+import Puregrain.Web.Status (EngineCheck(..))
 
 texts
   :: { title :: String
@@ -19,6 +20,9 @@ texts
      , help :: String
      , source :: String
      , darkTheme :: String
+     , engineName :: EngineCheck -> String
+     , engineStatus :: EngineCheck -> String
+     , engineDetails :: String
      , linksLabel :: String
      , settingsLabel :: String
      , pictureLabel :: String
@@ -81,6 +85,7 @@ texts
      , bayerOff :: String
      , bayerSide :: Int -> String
      , bayerNeedsLevels :: String
+     , gammaNoEffect :: String
      , gamma :: String
      , gammaName :: GammaName -> String
      , flatCells :: String
@@ -118,6 +123,19 @@ texts =
   , help: "Help"
   , source: "Source"
   , darkTheme: "Dark theme"
+  -- The engine check (linear light, step 4c): the icon's name for screen
+  -- readers, and its popup's sentence, also said once when it fails.
+  , engineName: case _ of
+      EngineChecking -> "Engine check: running"
+      EnginePassed -> "Engine check: passed"
+      EngineFailed _ -> "Engine check: failed"
+      EngineNotRun -> "Engine check: couldn't run"
+  , engineStatus: case _ of
+      EngineChecking -> "Checking this browser's arithmetic…"
+      EnginePassed -> "Engine check passed: with a gamma, the same results as the command-line tool."
+      EngineFailed _ -> "Engine check failed: with a gamma, results here may differ from the command-line tool's."
+      EngineNotRun -> "Engine check couldn't run."
+  , engineDetails: "Details in Help"
   , linksLabel: "Links"
   , settingsLabel: "Settings"
   , pictureLabel: "The picture"
@@ -149,7 +167,7 @@ texts =
             <> (if settings.gamma == GammaOff then [] else [ "gamma " <> texts.gammaName settings.gamma ])
             <> (if settings.gray then [ "gray first" ] else [])
         )
-  , versions: \library -> "puregrain lab v2.2" <> (if library == "" then "" else ", built on puregrain " <> library)
+  , versions: \library -> "puregrain lab v2.2" <> (if library == "" then "" else ", powered by puregrain " <> library)
   , codeLicense: "The code: MIT"
   , logoLicense: "The logo: its own terms"
   , onGitHub: "puregrain on GitHub"
@@ -255,6 +273,8 @@ texts =
   , bayerSide: \side -> show side <> "×" <> show side
   , bayerNeedsLevels: "Ordered dithering works over levels, not with a threshold or a palette. For black and white, choose 2 levels and \"Turn the picture gray first\"."
   , gamma: "Gamma"
+  -- Under the gamma, when it can't change anything (`gammaActs`).
+  , gammaNoEffect: "Gamma changes the picture only when it's dithered with an error diffusion or a Bayer map."
   , gammaName: case _ of
       GammaOff -> "Off"
       Gamma1p2 -> "1.2"

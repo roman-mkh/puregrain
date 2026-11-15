@@ -1,7 +1,7 @@
 -- | The run's state, and what the picture area and the bar show for it
 -- | (decision 30 in web/ROADMAP.md): which picture shows, when the
--- | progress shows, and the bar's message about the run. Pure, so specs
--- | test it.
+-- | progress shows, and the bar's message about the run; and the engine
+-- | check's state. Pure, so specs test it.
 module Puregrain.Web.Status
   ( Run(..)
   , progressDelay
@@ -9,6 +9,8 @@ module Puregrain.Web.Status
   , resultShows
   , RunNote(..)
   , runNote
+  , EngineCheck(..)
+  , engineCheckName
   ) where
 
 import Prelude
@@ -97,3 +99,29 @@ runNote = case _ of
   Finished r -> if r.saveFailed then Just SaveFailed else Nothing
   Cancelled -> Just RunCancelled
   RunFailed reason -> Just (DitherFailed reason)
+
+-- | The engine check (linear light, step 4c in docs/linear-light-spec.md):
+-- | whether this browser computes the light curves exactly as the
+-- | reference, so that a gamma gives the command-line tool's results.
+-- | Checking at first, then passed, failed with the problems found, or
+-- | not run, when its worker couldn't run it at all (then the arithmetic
+-- | isn't known to differ, so it isn't a failure).
+data EngineCheck
+  = EngineChecking
+  | EnginePassed
+  | EngineFailed (Array String)
+  | EngineNotRun
+
+derive instance Eq EngineCheck
+derive instance Generic EngineCheck _
+instance Show EngineCheck where
+  show = genericShow
+
+-- | Its name on the page's root, `data-engine-check`, for checks of the
+-- | page from outside (`scripts/check-web.mjs`).
+engineCheckName :: EngineCheck -> String
+engineCheckName = case _ of
+  EngineChecking -> "checking"
+  EnginePassed -> "passed"
+  EngineFailed _ -> "failed"
+  EngineNotRun -> "not-run"

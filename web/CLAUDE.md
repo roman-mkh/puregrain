@@ -18,12 +18,15 @@ checklist in step.
   page's parts, decision 29), `.Controls` (the settings' controls,
   decision 31: a numbered step, cards and segments, a stepper, a toggle
   switch, a note, a file chooser like a button), `.Parts` (a menu's
-  option, the `inert` property, the project's links) and `.Icon`
+  option, the `inert` property, the project's links), `.Engine` (the
+  engine check's icon and its popup, in the header on a desktop and in
+  the footer on a phone; linear light's step 4c) and `.Icon`
   (inline SVG icons),
   `Puregrain.Web.Theme` (pure: the
   two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
-  root's `data-theme`, the version's meta element, whether the layout
-  is a phone's; FFI),
+  root's `data-theme` and `data-engine-check`, the version's meta
+  element, whether the layout is a phone's, a warning in the console;
+  FFI),
   `Puregrain.Web.Picture`
   (decoding and reading a picture with its transparency, exactly, drawing
   pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
@@ -32,7 +35,8 @@ checklist in step.
   `PrepareSpec`), `Puregrain.Web.Estimate` (the time left, decision 23:
   pure, with the page's clock, `Effect.Now`),
   `Puregrain.Web.Status` (pure: the run's states, which picture shows,
-  when the progress shows, the bar's note on the run; decision 30),
+  when the progress shows, the bar's note on the run; decision 30; and
+  the engine check's state),
   `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
   decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
   the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
@@ -214,9 +218,10 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after linear light's step 4b (2026-11-15, in bytes): `app.js`
-  185,177, 46,304 gzipped, and `worker.js` 83,188, 21,591 gzipped, both
-  with the library's curves now. After v2's phase 6: `app.js` 173.6 KB,
+- **Sizes** after linear light's step 4c (2026-11-15, in bytes): `app.js`
+  191,573, 47,662 gzipped, and `worker.js` 87,148, 22,837 gzipped, both
+  with the library's curves now, the worker with the engine check too
+  (after step 4b, 185,177 and 83,188). After v2's phase 6: `app.js` 173.6 KB,
   43.3 KB gzipped
   (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen; 137.0
   KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's phase 6,
@@ -628,6 +633,16 @@ stay on the host.
   Firefox, without WebGL, that last one is a NOTE (the canvas's rounded
   values, by design), not a check: 83 checks. With the old reading
   (the bitmap through WebGL), both WebKit checks failed.
+- **The engine check** (2026-11-15, step 4c): in each engine, the page's
+  root says `passed` (`data-engine-check`), and the header's icon, named
+  "Engine check: passed", opens its sentence with the link to the
+  README's section, and Escape closes it, the focus back on the icon,
+  as does a click elsewhere: 86 checks. And the note under the gamma
+  shows after loading and goes once a kernel dithers: 89 checks. Its failure was seen once by hand, with a stored digest
+  changed: the warning triangle, its sentence, the alert region saying
+  it, and the problem in the console, in both themes, on a desktop and a
+  phone (where the popup, first right-aligned, went off the screen's left
+  edge: it opens to the right in the footer now).
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

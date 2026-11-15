@@ -3,13 +3,17 @@ module Test.Puregrain.Web.StatusSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Status (Run(..), RunNote(..), held, progressDelay, resultShows, runNote)
+import Puregrain.Web.Status (EngineCheck(..), Run(..), RunNote(..), engineCheckName, held, progressDelay, resultShows, runNote)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = describe "Puregrain.Web.Status" do
+  it "names the engine check's states on the page's root, for check:web" do
+    map engineCheckName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]
+      `shouldEqual` [ "checking", "passed", "failed", "not-run" ]
+
   let
     running r = Running { done: 10, total: 200, started: 0.0, left: Nothing, progressShown: r.progressShown, keepsPrevious: r.keepsPrevious }
     finished = Finished { files: [], saveFailed: false }

@@ -20,6 +20,7 @@
   --accent: #2724c4;
   --on-accent: #ffffff;
   --danger: #96282e;
+  --warn: #9f4815;
   --stage: #e3e3dd;
   --radius: 3px;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
@@ -38,6 +39,7 @@
     --accent: #00d800;
     --on-accent: #00140a;
     --danger: #ff6b6b;
+    --warn: #d8d800;
     --stage: #090a0d;
   }
 }
@@ -54,6 +56,7 @@
   --accent: #00d800;
   --on-accent: #00140a;
   --danger: #ff6b6b;
+  --warn: #d8d800;
   --stage: #090a0d;
 }
 
@@ -150,6 +153,36 @@ input[type="color"] {
 .links a:hover { color: var(--accent); text-decoration: underline; }
 
 .theme, .settings-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
+
+/* The engine check (linear light, step 4c): an icon left of Help that
+   opens a sentence about it, as the list of formats opens. Its colors,
+   at 3:1 and more against the panels: the page's gray while it runs, the
+   accent when it passed, and when it failed a warning color from the
+   logo's machines, the C64's orange in the light theme (a yellow light
+   enough to read as yellow vanishes on white), the ZX Spectrum's yellow
+   in the dark. The header's on a desktop, the footer's on a phone (see
+   the end). */
+.engine { position: relative; display: inline-flex; }
+.engine-button {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+  background: none; border-color: transparent;
+}
+.engine-button.checking { color: var(--muted); }
+.engine-button.passed { color: var(--accent); }
+.engine-button.failed { color: var(--warn); }
+.engine-box {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  width: max-content; max-width: min(320px, calc(100vw - 28px));
+  padding: 10px 12px; font-size: 13.5px; line-height: 1.4; text-align: left;
+  color: var(--text); background: var(--panel); border: 1px solid var(--control); border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.engine-box p { margin: 0 0 6px; }
+.links .engine-box a, .foot .engine-box a { color: var(--accent); text-decoration: underline; }
+.foot .engine { display: none; }
+/* In the footer, on a phone, the icon starts its row of links: its popup
+   opens upwards and to the right, within the screen. */
+.foot .engine-box { top: auto; right: auto; bottom: calc(100% + 6px); left: 0; }
 
 /* The button that opens the settings' panel, and the panel's Apply: on
    phones only (see the end). */
@@ -447,6 +480,9 @@ input[type="color"] {
   .tagline .long { display: none; }
   .tagline .short { display: inline; }
   .links a { display: none; }
+  /* The engine check's icon goes to the footer, with Help. */
+  .top .engine { display: none; }
+  .foot .engine { display: inline-flex; align-self: center; }
   .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
   .column-tab { display: none; }
   .settings-button { display: grid; }

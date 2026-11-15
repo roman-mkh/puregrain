@@ -30,6 +30,7 @@ module Puregrain.Web.Settings
   , colorsAllowed
   , bayerAllowed
   , flatCells
+  , gammaActs
   , chooseTarget
   , chooseColors
   , chooseKernel
@@ -252,6 +253,17 @@ flatCells :: Settings -> Boolean
 flatCells s = case s.colors of
   MachineColors _ -> s.kernel == NoDiffusion && s.bayer == Nothing
   _ -> false
+
+-- | Whether the gamma can change the picture: where light is spread, by a
+-- | kernel passing the error on or a Bayer map placing dots, and in the
+-- | gray that "gray first" makes, all only once there are colors to
+-- | dither with; and when the picture is mixed while it's prepared
+-- | (`mixed`: put onto a background, or fitted to a screen). Otherwise
+-- | each pixel takes the nearest of the colors, chosen on stored values,
+-- | which no curve changes (decision 3 in docs/linear-light-spec.md), so
+-- | the page says so under the gamma.
+gammaActs :: Boolean -> Settings -> Boolean
+gammaActs mixed s = mixed || (not (isOriginal s) && (s.gray || s.kernel /= NoDiffusion || s.bayer /= Nothing))
 
 -- | A new target. The colors start again: none for any screen, and all of
 -- | a machine's colors for a machine, so that its screen is dithered at

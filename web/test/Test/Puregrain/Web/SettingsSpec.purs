@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, gammaId, initial, isOriginal, kernelId, machinePalettesOf, toMessage)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, gammaActs, gammaId, initial, isOriginal, kernelId, machinePalettesOf, toMessage)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -25,6 +25,26 @@ spec = describe "Puregrain.Web.Settings" do
       isOriginal (chooseBayer Nothing initial) `shouldEqual` true
       isOriginal (chooseGray true initial) `shouldEqual` true
       isOriginal (chooseGamma GammaSrgb initial) `shouldEqual` true
+
+    -- The two states the user compared (2026-11-15): after loading, and
+    -- after a Bayer map chosen and set back to none, which keeps the 2
+    -- levels it chose. In both, the gamma can't change the picture.
+    it "says the gamma acts only with a method, gray first, or a picture mixed while it's prepared" do
+      let
+        afterLoad = initial
+        afterBayerAndBack = chooseBayer Nothing (chooseBayer (Just 2) initial)
+      afterBayerAndBack.colors `shouldEqual` Levels 2
+      map (gammaActs false) [ afterLoad, afterBayerAndBack ] `shouldEqual` [ false, false ]
+      gammaActs false (chooseGray true afterBayerAndBack) `shouldEqual` true
+      gammaActs false (chooseKernel Atkinson afterBayerAndBack) `shouldEqual` true
+      gammaActs false (chooseBayer (Just 4) afterBayerAndBack) `shouldEqual` true
+      -- Without colors nothing is dithered, a kernel or gray first or not.
+      gammaActs false (chooseColors Original (chooseKernel FloydSteinberg initial)) `shouldEqual` false
+      gammaActs false (chooseGray true afterLoad) `shouldEqual` false
+      -- Put onto a background or fitted: mixed in the gamma's light.
+      map (gammaActs true) [ afterLoad, afterBayerAndBack ] `shouldEqual` [ true, true ]
+      -- A machine's flat cells: the nearer of each cell's colors.
+      gammaActs false (chooseTarget (Machine ZxSpectrumScreen) initial) `shouldEqual` false
 
     it "takes any gamma with any settings, and changes nothing else" do
       let s = chooseKernel Atkinson (chooseBayer (Just 4) (chooseColors (Levels 4) initial))

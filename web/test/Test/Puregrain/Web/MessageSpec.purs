@@ -8,7 +8,7 @@ import Data.Maybe (Maybe(..))
 import Effect.Class (liftEffect)
 import Foreign (unsafeToForeign)
 import Puregrain (RGB(..))
-import Puregrain.Web.Message (Reply(..), doneMessage, errorMessage, jobMessage, progressMessage, readJob, readReply)
+import Puregrain.Web.Message (Reply(..), Request(..), checkMessage, doneMessage, engineMessage, errorMessage, jobMessage, progressMessage, readJob, readReply, readRequest)
 import Puregrain.Web.Pixels (byteArray, bytesOf, newPixels, readRow, writeRgbRow)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), MachineName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
@@ -45,6 +45,18 @@ spec = describe "Puregrain.Web.Message" do
       Left errors -> fail (show errors)
       Right job -> job.settings `shouldEqual` settings
 
+  it "reads the page's request for the engine check, a job without a kind, and rejects another kind" do
+    case runExcept (readRequest (unsafeToForeign (unwrap checkMessage))) of
+      Right CheckEngine -> pure unit
+      _ -> fail "expected the engine check"
+    pixels <- liftEffect (newPixels 4)
+    case runExcept (readRequest (unsafeToForeign (unwrap (jobMessage { settings: chooseColors (Levels 6) initial, width: 1, height: 1, pixels, tapeName: "photo" })))) of
+      Right (DitherJob job) -> { width: job.width, tapeName: job.tapeName } `shouldEqual` { width: 1, tapeName: "photo" }
+      _ -> fail "expected a job"
+    case runExcept (readRequest (unsafeToForeign { kind: "chat" })) of
+      Left _ -> pure unit
+      Right _ -> fail "expected an unknown kind of request to be rejected"
+
   it "reads back the worker's progress, result and errors, and rejects an unknown reply" do
     pixels <- liftEffect (newPixels 4)
     case runExcept (readReply (unsafeToForeign (unwrap (progressMessage { done: 3, total: 10 })))) of
@@ -68,3 +80,9 @@ spec = describe "Puregrain.Web.Message" do
     case runExcept (readReply (unsafeToForeign { kind: "chat" })) of
       Left _ -> pure unit
       Right _ -> fail "expected an unknown reply to be rejected"
+    case runExcept (readReply (unsafeToForeign (unwrap (engineMessage { passed: false, problems: [ "gammaSrgb, back: the results differ" ] })))) of
+      Right (Engine r) -> r `shouldEqual` { passed: false, problems: [ "gammaSrgb, back: the results differ" ] }
+      _ -> fail "expected the engine check's answer"
+    case runExcept (readReply (unsafeToForeign { kind: "engine", passed: true, problems: [ 1 ] })) of
+      Left _ -> pure unit
+      Right _ -> fail "expected problems that aren't sentences to be rejected"

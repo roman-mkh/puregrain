@@ -210,6 +210,30 @@ November 2026 in Firefox 157 on Linux, Chrome 156, Edge 156 and Brave
 1.98 on Windows, Safari 16.6 on macOS, and Chrome 156 and Brave 1.98 on
 Android phones; not yet in Safari on an iPhone.
 
+## The engine check
+
+With a gamma other than Off, the page computes light curves, and it
+gives the command-line tool's results only if the browser does that
+arithmetic exactly as the reference does. The curves use only the
+operations that JavaScript defines exactly, so every correct browser
+does; when the page opens, it checks this one, once, in the background,
+in about half a second. The icon left of Help (in the footer on a phone)
+shows the result, and a click on it says it in a sentence:
+
+- **A gray disc:** the check is running, or couldn't run.
+- **A disc with a check mark:** passed. With any gamma, the results here
+  are the command-line tool's, and those of every browser that passes.
+- **A triangle with an exclamation mark:** failed. Everything still
+  works, but with a gamma other than Off, results in this browser may
+  differ from the command-line tool's and other browsers'. With Off,
+  nothing the check covers is used.
+
+A pass means that this browser computed the reference values exactly:
+strong evidence, checked rather than guaranteed. If the check fails,
+please report it with the browser and its version; the browser's console
+lists what differed. Why and how the curves are exact:
+[docs/exact-arithmetic.md](../docs/exact-arithmetic.md).
+
 ## Accessibility
 
 The page aims at level AA of the W3C's
