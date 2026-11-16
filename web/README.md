@@ -67,7 +67,21 @@ fills the page, and the settings open over it (see below).
      and a note beside it says why. For black and white with a Bayer map,
      choose 2 levels and "Turn the picture gray first" (the command-line
      tool's `--bayer 8 --gray`): 2 levels per channel would give a color
-     picture 8 colors.
+     picture 8 colors;
+   - **the gamma** (step 4, under the method): Off, 1.2, 1.5, 1.8 or
+     sRGB, how the screen turns the picture's numbers into light, which
+     the dithering then keeps. Off, the default, keeps the numbers'
+     average, as dithering traditionally does: right for a picture that
+     will be scaled before it's seen (on a phone, a HiDPI screen, fitted
+     into a page). sRGB keeps the light: right for a picture seen at
+     100%, one dot per screen pixel, where Off looks too light. 1.5 is the
+     compromise between the two, and for a machine's screen Off is best.
+     Which to choose, measured: [gamma](../docs/gamma.md). A note under
+     it says when it can't change the picture: with the colors at "none",
+     or with neither a method (an error diffusion or a Bayer map) nor
+     "Turn the picture gray first". With a gamma other than Off, the page also puts
+     a transparent picture onto its background, and fits a picture to a
+     machine's screen, in the curve's light.
 
    "Turn the picture gray first" does that before dithering. Choosing a
    machine dithers its screen at once, with all its colors. Choosing a
@@ -78,11 +92,13 @@ fills the page, and the settings open over it (see below).
    button that chooses it.
 3. **Dithering starts by itself** with each change, in the background, so
    the page keeps responding. A run that takes more than a second shows a
-   progress bar, × to cancel it, and the rows done: "Dithering: 465/1536
-   rows"; a change during a run starts it over. A run that looks like it
+   progress bar (at once for a picture of 2 megapixels or more), × to
+   cancel it, and the rows done: "Dithering: 465/1536 rows"; a change during a run starts it over. A run that looks like it
    will take over 10 seconds shows the time left first, from the pace so
    far: "Dithering: about 45 s left (465/1536 rows)", "about 2 min 30 s
-   left", "a few seconds left". Meanwhile the result before it stays on show;
+   left", "a few seconds left". Meanwhile the result before it stays on show,
+   and the picture's frame takes the accent color, so it reads as not
+   final yet;
    the original shows until a picture's first result is there, again
    after a new target, fit or background, and after Cancel.
 4. **Compare.** The original shows left of the split and the result right
@@ -158,7 +174,8 @@ chosen, is in the command-line tool's documentation:
 [error diffusion](../docs/error-diffusion.md)),
 [ordered dithering](../cli/README.md#ordered-dithering),
 [palettes](../cli/README.md#palettes),
-[how the output is chosen](../cli/README.md#how-the-output-is-chosen).
+[how the output is chosen](../cli/README.md#how-the-output-is-chosen),
+[gamma](../docs/gamma.md).
 
 ## The same settings in the command-line tool
 
@@ -172,6 +189,7 @@ chosen, is in the command-line tool's documentation:
 | Error diffusion | `--kernel NAME` (`none`, `floyd-steinberg`, `atkinson`, `jjn`, `stucki`, `burkes`, `sierra-3`, `sierra-2`, `sierra-lite`, `fan`, `shiau-fan`, `shiau-fan-2`) |
 | Ordered dithering (Bayer map) | `--bayer N` |
 | Turn the picture gray first | `--gray` |
+| Gamma | `--gamma NAME` (`off`, `1.2`, `1.5`, `1.8`, `srgb`) |
 
 A downloaded file's name spells these options:
 `photo-levels4-atkinson-bayer8.png` is
@@ -269,8 +287,10 @@ AAA isn't aimed at.
 - No size limit: a large picture takes a while (a 1024×1024 color
   picture a few seconds, in Firefox on the development machine). The
   progress bar and the time left show how far it is.
-- The library's limitations apply too: no linear-light diffusion, plain
-  RGB distance for palettes, rows always scanned left to right (see
+- Every picture counts as sRGB: its color profile isn't read, so under a
+  gamma a picture in Adobe RGB, say, comes out a little off.
+- The library's limitations apply too: plain RGB distance for palettes,
+  rows always scanned left to right (see
   [the command-line tool's limitations](../cli/README.md#limitations)).
 
 ## Development
@@ -338,8 +358,9 @@ ideally in each of the browsers above:
 4. The settings start at "none", showing the original. A kernel brings a
    threshold at 128, a Bayer map 2 levels; the Bayer map is unavailable
    with a threshold or a palette.
-5. A large picture (a photo of a few megapixels) shows the progress after
-   a second, rising, the page keeps responding, and Cancel brings back
+5. A large picture (a photo of a few megapixels) shows the progress at
+   once, rising, the picture's frame in the accent color, the page keeps
+   responding, and Cancel brings back
    the original. A change during a run starts a new one, the result
    before it staying until the new one is there.
 6. The split shows the original on the left and the result on the right,
@@ -391,4 +412,12 @@ ideally in each of the browsers above:
    cut off or overlaps, and the picture stays sharp; both themes read
    well, and the switch changes between them.
 17. The browser's tab shows the puregrain icon, "Pg" in red and green.
-18. The browser's console shows no errors.
+18. The gamma: with a kernel, sRGB makes a gray picture visibly darker
+   than Off, 1.5 in between; the note shows at "none" and with a
+   palette alone, and goes with a kernel; a new gamma changes the
+   original shown only for a picture with transparency or a fitted one.
+19. The engine check: the icon left of Help (in the footer on a phone)
+   shows a check mark; a click opens its sentence with the link to
+   [The engine check](#the-engine-check), and Esc or a click elsewhere
+   closes it.
+20. The browser's console shows no errors.
