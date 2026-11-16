@@ -3,8 +3,9 @@
 An internal working document: what else converts pictures with
 dithering, and where puregrain stands among them, the facts behind its
 positioning. Part 1, the converters for
-retro machines, was made on 2026-11-03; part 2, general dithering tools
-and libraries, is still to come.
+retro machines, was made on 2026-11-03, and puregrain's own entries
+updated on 2026-11-16, for 0.2.2; part 2, general dithering tools and
+libraries, is still to come.
 
 The facts come from each tool's own README or page, and one overview
 article; nothing here was tested by us. "Not stated" means the sources
@@ -22,7 +23,7 @@ don't say, not that the feature is missing. Links: [Sources](#sources).
 | [BitPast](https://portwally.github.io/Bitpast/) | macOS app (App Store) | 15 machines, among them ZX Spectrum, C64 (also PETSCII), Amstrad CPC, MSX, BBC Micro, Apple II, Atari, Amiga, IBM PC | over 20 formats (`.scr`, `.prg`, Koala, Art Studio, `.sc2`…) and disk images (`.trd`, `.d64`, `.dsk`…) | "15+ algorithms", not named | not stated | not stated |
 | [RetroPIC](https://github.com/marlow75/retropic) | Java desktop app | C64, C16/Plus/4, VIC-20, C128, ZX Spectrum, Amstrad CPC, Atari ST, Amiga, PC CGA/VESA text | `.prg`, Koala, Art Studio, `.scr`, DEGAS, IFF, `.com` | Bayer, blue noise, Floyd–Steinberg, noise, Atkinson | not stated | not stated |
 | [Img2Spec](https://github.com/jarikomppa/img2spec) (Jari Komppa) | desktop app | ZX Spectrum | its own `.isw`, a C header | not described; "an artist tool", with manual adjustment | not stated | not stated |
-| **puregrain** | library (PureScript), CLI, browser | ZX Spectrum (all colors, normal, bright), C64 hires | `.scr`, a self-loading `.tap`, a `.prg` with a BASIC viewer, Art Studio `.art` | 11 kernels since 0.2.1 (Floyd–Steinberg, Atkinson, JJN, Stucki, Burkes, three Sierras, Fan, two by Shiau and Fan; in the web app since its v2.2) and your own; Bayer 2 to 16 and your own maps, also inside cells | nearest color in RGB; linear light and perceptual distance planned | MIT; property tests against an independent reference, 20 CLI checks over 68 runs, 60 browser checks; the same bytes from the library, the CLI and the web app |
+| **puregrain** | library (PureScript), CLI, browser | ZX Spectrum (all colors, normal, bright), C64 hires | `.scr`, a self-loading `.tap`, a `.prg` with a BASIC viewer, Art Studio `.art` | 11 kernels since 0.2.1 (Floyd–Steinberg, Atkinson, JJN, Stucki, Burkes, three Sierras, Fan, two by Shiau and Fan; in the web app since its v2.2) and your own; Bayer 2 to 16 and your own maps, also inside cells | nearest color in RGB; linear light since 0.2.2, a choice of five curves (off by default), the same bytes on every JavaScript engine, with an engine check; perceptual distance planned | MIT; property tests against an independent reference, 27 CLI checks, 92 browser checks in three engines; the same bytes from the library, the CLI and the web app |
 
 ## What it says about puregrain
 
@@ -31,16 +32,20 @@ don't say, not that the feature is missing. Links: [Sources](#sources).
   against Dithertron.
 - **Behind: methods and color.** Retro Pixel Converter has 16 dithering
   methods and dithers in linear light; Dithertron has perceptual error
-  functions. The eight kernels of 0.2.1 (2026-11-05) narrow that gap, and
-  the planned linear light and perceptual distance would close it; none
-  of it sets puregrain apart.
+  functions. The eight kernels of 0.2.1 (2026-11-05) narrowed that gap,
+  and linear light (0.2.2, 2026-11-16) closed its part: a choice of five
+  curves rather than on or off, with measured advice on which suits which
+  view, a method none of these tools publishes. Perceptual distance is
+  still planned; methods such as blue noise and Riemersma are missing.
 - **Level: native files.** Several tools write `.scr`, `.tap`, `.prg` or
   Koala; BitPast writes even disk images. A self-loading tape and a viewer
   program are good, but not unique (ZX Spectrumizer writes a `.tap` too).
 - **Alone, as far as these sources show:**
   1. **Exactness:** the same result from a library, a CLI and a web app,
-     proved by tests against an independent reference. No other tool
-     claims it; Dithertron lists pixel-exactness as a TODO.
+     proved by tests against an independent reference, and since 0.2.2
+     in linear light too, on every JavaScript engine, which an engine
+     check confirms. No other tool claims it; Dithertron lists
+     pixel-exactness as a TODO.
   2. **A permissive library:** the only other library, Dithertron's, is
      GPL-3.0, so a program that uses it must be GPL too. puregrain is MIT.
   3. **Evidence for the recommendations:** the count of 300 real loading
