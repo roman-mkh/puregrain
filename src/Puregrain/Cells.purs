@@ -32,6 +32,9 @@
 -- | -- pure ordered dithering inside the cells, with a threshold map m
 -- | ditherCells noDiffusion (orderedInCell m) mode image
 -- | ```
+-- |
+-- | `ditherCellsWith` and `ditherBandsWith` do the same with a `Gamma`
+-- | from `Puregrain.Gamma`: the same cells, with the rows dithered in light.
 module Puregrain.Cells
   ( CellSize
   , CellPalette
@@ -43,7 +46,9 @@ module Puregrain.Cells
   , nearestInCell
   , orderedInCell
   , ditherCells
+  , ditherCellsWith
   , ditherBands
+  , ditherBandsWith
   ) where
 
 import Prelude
@@ -61,6 +66,8 @@ import Data.Number (infinity)
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
+import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, isOff, noConversion)
+import Puregrain.Internal.Image (rowsIn, rowsOut)
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
 import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
@@ -69,7 +76,7 @@ import Puregrain.Kernel (Kernel)
 import Puregrain.Ordered (ThresholdMap, thresholdAt)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
-import Puregrain.Quantize (Quantize, quantizeWith)
+import Puregrain.Internal.Quantize (Quantizer)
 
 -- | The size of a cell in pixels, for `CellMode`. A width or height below
 -- | 1 counts as 1.
@@ -190,10 +197,47 @@ ditherCells
   -> CellMode c
   -> Array (Array RGB)
   -> { cells :: Array (Array c), image :: Array (Array RGB) }
-ditherCells kernel rule mode image =
+ditherCells = ditherCellsVia noConversion
+
+-- | Dithers an image in memory with cells, keeping the amount of light the
+-- | curve gives each value rather than the average of the stored numbers.
+-- |
+-- | - `c`: as for `ditherCells`.
+-- | - `Gamma`: how the stored numbers turn into light: `gammaOff`, the same
+-- |   as `ditherCells`, or a curve from `Puregrain.Gamma`.
+-- | - `Kernel`, `CellQuantizer`, `CellMode c`, `Array (Array RGB)`: as for
+-- |   `ditherCells`.
+-- |
+-- | Returns what `ditherCells` returns. Each cell's colors are chosen from
+-- | the original pixels as `ditherCells` chooses them, so the cells are the
+-- | same; the band's rows are then dithered in light. `orderedInCell`
+-- | measures where a pixel lies between its cell's two colors in light;
+-- | `nearestInCell` still picks the nearer color on stored values, while the
+-- | error stays in light. When the cells' colors are whole numbers from 0
+-- | to 255, as a machine's are, every pixel comes out as exactly one of its
+-- | cell's colors, as a screen file needs.
+ditherCellsWith
+  :: forall c
+   . Gamma
+  -> Kernel
+  -> CellQuantizer
+  -> CellMode c
+  -> Array (Array RGB)
+  -> { cells :: Array (Array c), image :: Array (Array RGB) }
+ditherCellsWith gamma = ditherCellsVia (conversionFor gamma)
+
+ditherCellsVia
+  :: forall c
+   . Conversion RGB
+  -> Kernel
+  -> CellQuantizer
+  -> CellMode c
+  -> Array (Array RGB)
+  -> { cells :: Array (Array c), image :: Array (Array RGB) }
+ditherCellsVia conversion kernel rule mode image =
   { cells: map _.cells bands, image: Array.concatMap _.rows bands }
   where
-  setup = bandSetup kernel rule mode
+  setup = bandSetup conversion kernel rule mode
   ch = setup.cellHeight
   bandsIn = map (\i -> Array.slice (i * ch) (i * ch + ch) image) (safeRange 0 ((Array.length image + ch - 1) / ch - 1))
   next state rows =
@@ -223,9 +267,38 @@ ditherBands
   -> CellMode c
   -> LL.List (Array RGB)
   -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
-ditherBands kernel rule mode input = go (initState setup.compiled) input
+ditherBands = ditherBandsVia noConversion
+
+-- | Dithers a stream of rows with cells, one band at a time, keeping the
+-- | amount of light the curve gives each value.
+-- |
+-- | - `c` and `Gamma`: as for `ditherCellsWith`.
+-- | - `Kernel`, `CellQuantizer`, `CellMode c`, `LL.List (Array RGB)`: as for
+-- |   `ditherBands`.
+-- |
+-- | Returns the bands as `ditherBands` does, the same result as
+-- | `ditherCellsWith`.
+ditherBandsWith
+  :: forall c
+   . Gamma
+  -> Kernel
+  -> CellQuantizer
+  -> CellMode c
+  -> LL.List (Array RGB)
+  -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
+ditherBandsWith gamma = ditherBandsVia (conversionFor gamma)
+
+ditherBandsVia
+  :: forall c
+   . Conversion RGB
+  -> Kernel
+  -> CellQuantizer
+  -> CellMode c
+  -> LL.List (Array RGB)
+  -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
+ditherBandsVia conversion kernel rule mode input = go (initState setup.compiled) input
   where
-  setup = bandSetup kernel rule mode
+  setup = bandSetup conversion kernel rule mode
 
   -- All the work happens inside `defer`: a band's rows are read and
   -- dithered only when its cell is forced.
@@ -241,29 +314,32 @@ ditherBands kernel rule mode input = go (initState setup.compiled) input
         in
           Cons band (go state' rest)
 
--- | What every band needs, prepared once per image: the compiled kernel,
--- | the rule inside the cells, the cell size (at least 1 × 1), and each
--- | candidate with its palette.
+-- | What every band needs, prepared once per image: the conversion to
+-- | light, the compiled kernel, the rule inside the cells, the cell size (at
+-- | least 1 × 1), and each candidate with its palette.
 type Setup c =
-  { compiled :: CompiledKernel
+  { conversion :: Conversion RGB
+  , compiled :: CompiledKernel
   , rule :: CellQuantizer
   , cellWidth :: Int
   , cellHeight :: Int
   , candidates :: NonEmptyArray (Tuple c CellPalette)
   }
 
-bandSetup :: forall c. Kernel -> CellQuantizer -> CellMode c -> Setup c
-bandSetup kernel rule mode =
-  { compiled: compileKernel kernel
+bandSetup :: forall c. Conversion RGB -> Kernel -> CellQuantizer -> CellMode c -> Setup c
+bandSetup conversion kernel rule mode =
+  { conversion
+  , compiled: compileKernel kernel
   , rule
   , cellWidth: max 1 mode.size.width
   , cellHeight: max 1 mode.size.height
   , candidates: map (\c -> Tuple c (mode.palette c)) mode.candidates
   }
 
--- | One band: chooses its row of cells from the original pixels, then
--- | dithers its rows with them, carrying the diffusion state on. `Left`
--- | for a row of a different length (`stepRow`'s check).
+-- | One band: chooses its row of cells from the original pixels, as
+-- | stored, then dithers its rows with them, in light when there's a
+-- | curve, carrying the diffusion state on. `Left` for a row of a
+-- | different length (`stepRow`'s check).
 stepBand
   :: forall c
    . Setup c
@@ -273,12 +349,14 @@ stepBand
 stepBand setup state0 rows = go state0 0 []
   where
   chosen = bandCells setup rows
-  quantizer = bandQuantize setup.rule setup.cellWidth (map snd chosen)
+  quantizer = bandQuantize setup.conversion setup.rule setup.cellWidth (map snd chosen)
+  toLight = rowsIn setup.conversion
+  fromLight = rowsOut setup.conversion
   go state i out = case Array.index rows i of
     Nothing -> Right (Tuple state { cells: map fst chosen, rows: out })
-    Just row -> case stepRow setup.compiled quantizer state row of
+    Just row -> case stepRow setup.compiled quantizer state (toLight row) of
       Left problem -> Left problem
-      Right (Tuple state' dithered) -> go state' (i + 1) (Array.snoc out dithered)
+      Right (Tuple state' dithered) -> go state' (i + 1) (Array.snoc out (fromLight dithered))
 
 -- | The candidate, with its palette, chosen for each cell of a band, left
 -- | to right.
@@ -290,18 +368,36 @@ bandCells setup rows = map (\cx -> bestCandidate setup.candidates (cellPixels cx
   -- The cell's pixels, row by row; fewer at the right edge.
   cellPixels cx = Array.concatMap (Array.slice (cx * cw) (cx * cw + cw)) rows
 
--- | The quantizer for a band's rows: each pixel becomes one of its cell's
--- | colors, by the rule.
-bandQuantize :: CellQuantizer -> Int -> Array CellPalette -> Quantize RGB
-bandQuantize rule cellWidth palettes = case rule of
-  NearestRule -> quantizeWith \position v -> nearest (paletteAt position.x) v
-  OrderedRule m -> quantizeWith \position v -> ordered (thresholdAt m position) (paletteAt position.x) v
+-- | The quantizer for a band's rows, resolved: each pixel becomes one of
+-- | its cell's colors, by the rule. With a curve, the pixels arrive in
+-- | light: `nearestInCell` compares on stored values, bringing each pixel
+-- | back (table first) and taking the chosen color to light; `orderedInCell`
+-- | measures between the cell's colors taken to light, once per band.
+bandQuantize :: Conversion RGB -> CellQuantizer -> Int -> Array CellPalette -> Quantizer RGB
+bandQuantize conversion rule cellWidth palettes =
+  if isOff conversion.gamma then case rule of
+    NearestRule -> \position v -> nearest (paletteAt palettes position.x) v
+    OrderedRule m -> \position v -> ordered (thresholdAt m position) (paletteAt palettes position.x) v
+  else case rule of
+    NearestRule -> \position v -> conversion.toLight (nearest (paletteAt palettes position.x) (conversion.fromLight v))
+    OrderedRule m ->
+      let
+        lightPalettes = map (paletteInLight conversion) palettes
+      in
+        \position v -> ordered (thresholdAt m position) (paletteAt lightPalettes position.x) v
   where
-  paletteAt x = case Array.index palettes (x / cellWidth) of
+  paletteAt cellPalettes x = case Array.index cellPalettes (x / cellWidth) of
     Just palette -> palette
     -- `stepRow` rejects a row of a different length before quantizing it,
     -- and the band's cells span the width of its rows.
     Nothing -> unsafeCrashWith "Puregrain.Cells.bandQuantize: pixel outside its band's cells - row width invariant violated"
+
+-- | A cell's colors taken to light, in the same order, so that the line
+-- | between them, along which `orderedInCell` measures, is a line of light.
+paletteInLight :: Conversion RGB -> CellPalette -> CellPalette
+paletteInLight conversion (CellPalette s) =
+  if s.length2 == 0.0 then singleColor (conversion.toLight s.first)
+  else colorPair (conversion.toLight s.first) (conversion.toLight s.second)
 
 -- | The first `n` rows (fewer at the end of the input) and the rest,
 -- | reading no more than those `n` rows.

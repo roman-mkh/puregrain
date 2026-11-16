@@ -18,12 +18,15 @@ checklist in step.
   page's parts, decision 29), `.Controls` (the settings' controls,
   decision 31: a numbered step, cards and segments, a stepper, a toggle
   switch, a note, a file chooser like a button), `.Parts` (a menu's
-  option, the `inert` property, the project's links) and `.Icon`
+  option, the `inert` property, the project's links), `.Engine` (the
+  engine check's icon and its popup, in the header on a desktop and in
+  the footer on a phone; linear light's step 4c) and `.Icon`
   (inline SVG icons),
   `Puregrain.Web.Theme` (pure: the
   two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
-  root's `data-theme`, the version's meta element, whether the layout
-  is a phone's; FFI),
+  root's `data-theme` and `data-engine-check`, the version's meta
+  element, whether the layout is a phone's, a warning in the console;
+  FFI),
   `Puregrain.Web.Picture`
   (decoding and reading a picture with its transparency, exactly, drawing
   pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
@@ -32,7 +35,8 @@ checklist in step.
   `PrepareSpec`), `Puregrain.Web.Estimate` (the time left, decision 23:
   pure, with the page's clock, `Effect.Now`),
   `Puregrain.Web.Status` (pure: the run's states, which picture shows,
-  when the progress shows, the bar's note on the run; decision 30),
+  when the progress shows, the bar's note on the run; decision 30; and
+  the engine check's state),
   `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
   decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
   the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
@@ -45,13 +49,13 @@ checklist in step.
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
   the choices, the target among them, the CLI's rules for them, and
   their message form), `Puregrain.Web.Dither` (pure: the settings as
-  library values, as the CLI's `Pipeline` builds them; its gray
-  conversion copied from there), `Puregrain.Web.Message` (the page's and
-  the worker's messages, decoded with `foreign`), `Puregrain.Web.Pixels`
-  (reading and writing rows of the RGBA bytes, rounding as the CLI's PNG
-  writer, and a file's bytes; FFI), `Puregrain.Web.Run` (the row loop
-  with the stepper, and a machine's band loop with its files, progress as
-  a callback), `Puregrain.Web.Save` (the files' names and the tape's,
+  library values, as the CLI's `Pipeline` builds them; gray by the
+  library's `toGray`, as the CLI's), `Puregrain.Web.Message` (the
+  page's and the worker's messages, decoded with `foreign`),
+  `Puregrain.Web.Pixels` (reading and writing rows of the RGBA bytes,
+  rounding as the CLI's PNG writer, and a file's bytes; FFI),
+  `Puregrain.Web.Run` (the row loop with the stepper, and a machine's
+  band loop with its files, progress as a callback), `Puregrain.Web.Save` (the files' names and the tape's,
   pure, and the downloads; FFI), `Puregrain.Web.Worker` (the worker's
   entry: only its messaging). The page and the worker import the library
   through the `Puregrain` facade, and the specialty modules outside it
@@ -70,14 +74,16 @@ checklist in step.
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
-  to the CLI's path: the same bytes as `ditherImage` on the whole
-  picture, with the CLI's gray conversion and rounding, for 8 settings;
-  and the band loop: the same pixels and files as `ditherCells` and the
-  machines' writers, for 6 machine settings, with progress after each
-  band. Seven deliberate breakages were all caught (v2's phase 1); one
-  first slipped through, the Spectrum's normal colors mapped to its
-  bright screen mode, since both sides used the same mapping: a spec
-  pins the mapping against the library's modes now.
+  to the CLI's path: the same bytes as `ditherImageWith` on the whole
+  picture, with the CLI's gray conversion and rounding, for 13 settings,
+  5 of them under a curve; and the band loop: the same pixels and files
+  as `ditherCellsWith` and the machines' writers, for 9 machine
+  settings, 3 under a curve, with progress after each band. Dropping the
+  gamma from the gray, the color or the band path was caught each time
+  (linear light, step 4a). Seven deliberate breakages were all caught
+  (v2's phase 1); one first slipped through, the Spectrum's normal
+  colors mapped to its bright screen mode, since both sides used the
+  same mapping: a spec pins the mapping against the library's modes now.
 - **A run:** each change of the picture or a setting ends the worker and
   starts a new one with the settings, the size and a copy of the pixels
   (transferred), and the name for a ZX Spectrum tape; the worker answers
@@ -93,7 +99,16 @@ checklist in step.
   has gone on for a second (`progressDelay`), by a timer the run starts
   (`H.fork` with `delay`, dropped when `runs` has moved on), not at the
   next progress report: a large picture's first hundredth of the rows
-  can take longer.
+  can take longer. On a picture of 2 megapixels or more the delay is 0
+  (2026-11-15): no setting dithers it in under a second. While a run
+  goes, `.layers` has the class `working`, and the stylesheet turns the
+  picture's frame to the accent from 0.3 s on (a run that ends sooner
+  shows nothing), so the picture shown reads as not final yet. Steady on
+  purpose: a breathing frame, animated on every frame of the screen, made
+  a run about a quarter slower in Firefox (21 s against 17 s, the user's
+  measurement with `ui.prefersReducedMotion` off and on), since the
+  browser repaints it each time, and headless browsers, which barely
+  paint, didn't show it. No per-frame animation near the picture.
 - **Loading** (decision 30 C): `loading` holds the file's name while it
   decodes, `notAPicture` the name of one that couldn't be, until the next
   load or setting (`restart` clears it). The picture shown and its run
@@ -212,7 +227,11 @@ checklist in step.
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
   http://localhost:8000; stop it with Ctrl+C.
-- **Sizes** after v2's phase 6: `app.js` 173.6 KB, 43.3 KB gzipped
+- **Sizes** after linear light's step 4c (2026-11-15, in bytes): `app.js`
+  191,573, 47,662 gzipped, and `worker.js` 87,148, 22,837 gzipped, both
+  with the library's curves now, the worker with the engine check too
+  (after step 4b, 185,177 and 83,188). After v2's phase 6: `app.js` 173.6 KB,
+  43.3 KB gzipped
   (77.9 KB, 19.1 KB gzipped after v1's phase 1: mostly Halogen; 137.0
   KB, 34.2 KB after v2's phase 3; 155.5 KB, 39.3 KB after v2's phase 6,
   step 3); `worker.js` 71.2 KB, 18.8 KB gzipped, with the library (since
@@ -330,6 +349,12 @@ checklist in step.
   number below 2^53, exact in a double whatever the order of adding, and
   the mean rounded with `Math.round`. A later PureScript version, for
   the CLI's `--fit`, gives the same bytes if it keeps these weights.
+  With a gamma other than off (linear light's step 4b), the fit and the
+  flattening mix in the curve's light: each byte's light from a table,
+  the same weights and order, then back to a byte by the light of the
+  half-steps (`byteOfLight`, the loops' own function in `Prepare.js`).
+  Not whole numbers then, but in a fixed order, and JavaScript forbids
+  fusing a multiply and an add: the same bits in every engine.
 
 ## Building
 
@@ -420,13 +445,24 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   back rounded: measured in Firefox (v2's phase 2) on a picture with
   every alpha for every value, 97,155 of 195,840 color values were off,
   by up to 254 at low alpha. The page reads such a picture through
-  WebGL: `createImageBitmap` with `premultiplyAlpha: "none"`, a texture
+  WebGL: the file decoded again as an `<img>`, uploaded as a texture
   with `UNPACK_PREMULTIPLY_ALPHA_WEBGL` false and no color conversion,
   attached to a framebuffer and read with `readPixels`: every value
-  exact (WebGL 1 and 2; textures up to 16,384 on a side here). Without
-  WebGL (`webgl.disabled`, checked) it falls back to the canvas, and
-  the flattened values are off by 1 in 37% of them. An opaque picture is
-  read from the canvas, exactly.
+  exact. Until 2026-11-15 it uploaded the `createImageBitmap` bitmap
+  (`premultiplyAlpha: "none"`), exact in Firefox (phase 2) and
+  Chromium, but WebKit keeps a bitmap premultiplied whatever it's asked:
+  in Playwright's WebKit 27.2, values off by up to 254, even 255 read as
+  254 at some alphas; found by `check:web` in linear light's step 4b.
+  For an `<img>` the browsers decode the file again unpremultiplied:
+  exact in Chromium 156, Firefox 157 (the system's, with WebGL) and
+  WebKit 27.2, a `gAMA` chunk ignored, and the orientation the same as
+  the bitmap's in all three (WebKit ignores a PNG's `eXIf` everywhere).
+  The read is accepted only if it agrees with the canvas's bytes, which
+  are exact for every alpha and every opaque pixel's color; otherwise,
+  and without WebGL (`webgl.disabled`, checked; Playwright's Firefox in
+  Docker has none), it falls back to the canvas, and the flattened values
+  are off by 1 in 37% of them. Real Safari is unchecked. An opaque
+  picture is read from the canvas, exactly.
 - **The browser's own compositing isn't the formula:** filling a canvas
   with a color and drawing a semi-transparent picture over it gave
   values off by 1 or 2 from color × alpha + background × (1 − alpha),
@@ -548,8 +584,8 @@ stay on the host.
   drift. Run with `--init --ipc=host --user pwuser`, as Playwright's
   Docker page advises. `scripts/lib/check-web-container.mjs`, mounted
   read-only with `web/dist` and the host's `playwright-core`, runs under
-  the image's Node (24): it serves the page at `http://localhost:8080/`
-  inside the container, then starts the CLI's hidden `run-server`
+  the image's Node (26.13 in v1.64.1): it serves the page at
+  `http://localhost:8080/` inside the container, then starts the CLI's hidden `run-server`
   command (not listed by `--help`) on port 3000. That port is published
   on 127.0.0.1 at a port Docker picks (`--publish 127.0.0.1::3000`, read
   back with `docker port`); the check waits for "Listening on" in
@@ -590,6 +626,36 @@ stay on the host.
   handle"): it failed in WebKit only before the fix, selecting the
   column's, the bar's and the header's text, and passes in all three
   after it: 51 checks.
+- **The gamma** (2026-11-15, linear light's step 4a): the settings can
+  pick a gamma in its segments (`name="gamma"`, the CLI's names as
+  values) and turn "gray first" on (`input[role=switch]`); 4 levels
+  with Atkinson under `srgb`, the CGA palette gray first under 1.5, and
+  the ZX Spectrum's screen with Bayer 4 under `srgb` (its PNG and
+  `.scr`) give the CLI's pixels and file in all three engines: 72 checks.
+- **Preparing in light** (2026-11-15, step 4b): the 512 × 512 composite
+  fitted to the ZX Spectrum's screen with Bayer 4 under `srgb` (its PNG
+  and `.scr`), and a picture of eight colors at every alpha on white
+  under `srgb`, against the same pictures prepared in Node by the page's
+  own compiled `Puregrain.Web.Prepare` and dithered by the CLI; and every
+  value at every alpha put onto white with off and `srgb`, the shown
+  original read back from its canvas against Node's. In the container's
+  Firefox, without WebGL, that last one is a NOTE (the canvas's rounded
+  values, by design), not a check: 83 checks. With the old reading
+  (the bitmap through WebGL), both WebKit checks failed.
+- **The engine check** (2026-11-15, step 4c): in each engine, the page's
+  root says `passed` (`data-engine-check`), and the header's icon, named
+  "Engine check: passed", opens its sentence with the link to the
+  README's section, and Escape closes it, the focus back on the icon,
+  as does a click elsewhere: 86 checks. And the note under the gamma
+  shows after loading and goes once a kernel dithers: 89 checks. And
+  on a 2048 × 1024 picture (2026-11-15): the progress at once, the frame
+  marked during the run, a new gamma keeping the result before on show
+  on this opaque picture, and Escape ending the mark: 92 checks; with the
+  gamma re-preparing every picture, as before, it failed in all three. Its failure was seen once by hand, with a stored digest
+  changed: the warning triangle, its sentence, the alert region saying
+  it, and the problem in the console, in both themes, on a desktop and a
+  phone (where the popup, first right-aligned, went off the screen's left
+  edge: it opens to the right in the footer now).
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

@@ -7,8 +7,8 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Char (toCharCode)
 import Data.Either (Either(..), either, hush)
-import Data.Foldable (all, and, foldl)
-import Data.Int (pow)
+import Data.Foldable (all, and, foldl, for_)
+import Data.Int (pow, toNumber)
 import Data.Int.Bits (xor)
 import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String.CodeUnits (toCharArray)
@@ -20,12 +20,14 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
-import Puregrain.Cells (cellColors, ditherCells)
+import Puregrain.Cells (cellColors, ditherCells, ditherCellsWith, nearestInCell, orderedInCell)
+import Puregrain.Gamma (gammaSrgb)
+import Puregrain.Kernel (floydSteinberg)
 import Puregrain.Machine.ZxSpectrum (Attribute, attributePalette, attributes, bright, brightScreen, ink, normalScreen, paper, screen, toScr, toTap)
 import Puregrain.Palette (distance2)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
-import Test.Puregrain.Util (mentions)
+import Test.Puregrain.Util (bayerMap, curves, mentions)
 
 -- | A color code's color, from the code's bits (1 blue, 2 red, 4 green),
 -- | written independently of the preset: 0xD8 normal, 0xFF bright.
@@ -250,6 +252,20 @@ spec = describe "Puregrain.Machine.ZxSpectrum" do
     it "leaves a picture made only of valid cells unchanged, with any kernel and rule" do
       quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestScreen picture) ->
         (ditherCells kernel rule screen picture).image === picture
+
+    -- In light too: each pixel's light is exactly its color's, so no error
+    -- arises, and the colors' light comes back as the same bytes.
+    it "leaves a picture made only of valid cells unchanged under each curve, with any kernel and rule" do
+      for_ curves \c ->
+        quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestScreen picture) ->
+          (ditherCellsWith c.gamma kernel rule screen picture).image === picture
+
+    it "gives toScr a screen it accepts when dithered in light (gammaSrgb), with either rule" do
+      let
+        picture = grid 256 192 \x y -> RGB { r: 0.99 * toNumber x, g: 1.3 * toNumber y, b: toNumber ((x + y) `mod` 256) }
+        size rule = map Array.length (toScr (ditherCellsWith gammaSrgb floydSteinberg rule screen picture))
+      size nearestInCell `shouldEqual` Right 6912
+      size (orderedInCell (bayerMap 2)) `shouldEqual` Right 6912
 
   describe "toScr" do
     it "puts each pixel at the Spectrum's address: the leftmost pixel in the highest bit, the rows interleaved" do

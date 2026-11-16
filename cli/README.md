@@ -51,6 +51,8 @@ keep them.
 puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
               [--threshold T | --levels N | --palette NAME] [--bayer N]
               [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
+              [--gamma NAME]
+puregrain-cli --check-engine
 ```
 
 ## Options
@@ -67,7 +69,9 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
 | `--machine` | `zx-spectrum`, `c64-hires` | | Dithers to a machine's screen, where each cell may use only a few colors, chosen per cell: the ZX Spectrum's, or the Commodore 64's hires screen. See [Machine screens](#machine-screens). |
 | `--machine-palette` | `full`, `normal`, `bright` | `full` | Which of the machine's colors the cells may use. On the ZX Spectrum, `normal` is without BRIGHT, `bright` is BRIGHT only, with black; `c64-hires` offers only `full`. Needs `--machine`. |
 | `--format` | `png`, `scr`, `tap`, `prg`, `art` | from `OUTPUT`'s extension | The output file's format, for an output name whose extension doesn't say it, or to override it: `--format png` writes a PNG under any name. `scr` is the ZX Spectrum's own screen file, `tap` a tape image that loads and shows it, both for `--machine zx-spectrum` on a 256×192 image; `prg` is a C64 program that shows it, and `art` an Art Studio picture, both for `--machine c64-hires` on a 320×200 image. See [Machine screens](#machine-screens). |
-| `--gray` | | off | Converts a color input to gray before dithering. |
+| `--gray` | | off | Converts a color input to gray before dithering: by luma with `--gamma off`, else to the gray that gives off as much light as the color. See [How the output is chosen](#how-the-output-is-chosen). |
+| `--gamma` | `off`, `1.2`, `1.5`, `1.8`, `srgb` | `off` | How the screen turns the stored values into light, which the dithering then keeps: the error and the ordered patterns work in that light. `off` (also `1.0` or `1`) keeps the stored values' average, as dithering traditionally does; `srgb` is linear light. It doesn't adjust the picture. See [Gamma](#gamma). |
+| `--check-engine` | | | Checks that this JavaScript engine computes the light curves exactly as the reference does, then exits: 0 if it does, 1 if not. Takes no other arguments. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
 `--threshold`, `--levels` and `--palette` are alternatives; give at most
@@ -78,7 +82,7 @@ dithering. Every other mode uses Floyd–Steinberg unless `--kernel` says
 otherwise. `--machine` defines all the colors itself, so it combines
 with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
 it uses ordered dithering inside the cells. `--machine-palette` needs
-`--machine`. `--kernel` and `--gray` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
+`--machine`. `--kernel`, `--gray` and `--gamma` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
 holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`; a
 `.prg` or `.art` holds a C64 hires screen, so it needs `--machine c64-hires`. An
 output whose extension names no format, `out.jpg` say, is rejected
@@ -108,10 +112,45 @@ unless `--format` says what to write.
     three channels at once (*vectorED*). That's the only way to reach a
     palette that isn't a regular grid of per-channel levels.
 - **Gray conversion** (`--gray`, or `--threshold` on a color input) uses
-  Rec. 601 luma, 0.299 R + 0.587 G + 0.114 B, on the stored values. A pixel
-  that is already gray keeps its exact value. The weighted sum would land
+  Rec. 601 luma, 0.299 R + 0.587 G + 0.114 B, on the stored values, with
+  `--gamma off`. Under a curve, it gives the gray that gives off as much
+  light as the color, 0.2126 R + 0.7152 G + 0.0722 B on the channels'
+  light, so saturated colors come out lighter: pure blue is 76 instead of
+  29. A pixel that is already gray keeps its exact value, under every
+  gamma. The weighted sum would land
   one floating-point step low for 65 of the 256 gray levels, and that can
   flip a dot exactly at a threshold.
+
+## Gamma
+
+```bash
+# keep the light: for a picture seen at 100%, one dot per screen pixel
+npm run dither-cli -- samples/gray-512.png samples/out-srgb.png --gamma srgb
+
+# the compromise, for a picture seen both at 100% and scaled
+npm run dither-cli -- samples/color-512.png samples/out-g15.png --levels 4 --kernel atkinson --gamma 1.5
+
+# check this engine's arithmetic for the curves
+npm run dither-cli -- --check-engine
+```
+
+A screen gives off only about a fifth of white's light for the stored
+gray 128, and the eye averages the dots' light. With `--gamma off`, the
+default, the dithering keeps the average of the stored values, as it
+always has: right where the picture is scaled before it's seen (a phone,
+a HiDPI screen, a page that fits it), too light at 100%. With `srgb` it
+keeps the light: right at 100%, too dark when scaled. `1.5` is the
+compromise, never far off either way. For machine screens, keep `off`.
+The nearest level or palette color is still chosen on the stored values,
+thresholds and levels mean what you type, and the output is exactly the
+levels', the palette's or the machine's colors. Every input counts as
+sRGB: color profiles aren't read.
+
+Which value for which view, measured, and what it costs:
+[docs/gamma.md](../docs/gamma.md). The curves are computed exactly, so
+every correct JavaScript engine gives the same results; `--check-engine`
+makes sure on this one; if it fails, it lists what differed on standard
+error.
 
 ## Kernels
 
@@ -383,6 +422,9 @@ Dithered in 458.1 ms (floyd-steinberg, threshold 128.0, gray)
 Wrote samples/out-bw.png (grayscale PNG)
 ```
 
+With a gamma other than `off`, the `Dithered in` line names it:
+`(floyd-steinberg, threshold 128.0, gamma srgb, gray)`.
+
 The `Dithered in` time covers the dithering only. It excludes PNG
 decoding and encoding, gray conversion and Node startup, so it's the
 number to use for benchmarks. Expect it to vary noticeably from run to
@@ -393,15 +435,15 @@ error.
 
 | Code | When |
 |---|---|
-| `0` | Success, or `--help`. |
-| `1` | Anything else: invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg` or `.art`, an output that can't be written, or the CLI not built yet. |
+| `0` | Success, `--help`, or `--check-engine` passing. |
+| `1` | Anything else: `--check-engine` failing, invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg` or `.art`, an output that can't be written, or the CLI not built yet. |
 
 ## Limitations
 
 - PNG only, apart from the ZX Spectrum's screen file and tape as output.
 - Alpha is ignored on input and never written.
-- Error is diffused on the stored, gamma-encoded sRGB values rather than
-  linear light, which skews mid-tones slightly; fixing this is planned.
+- Every input counts as sRGB: color profiles aren't read, so a picture in
+  Adobe RGB, say, comes out a little off under `--gamma` (see [Gamma](#gamma)).
 - Palette matching uses plain RGB distance, which isn't perceptual (see
   `bw` above).
 - Ordered dithering works over levels or inside a machine's cells, not

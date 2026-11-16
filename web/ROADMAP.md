@@ -56,8 +56,9 @@ users is a separate task, see TODO.md.)
   for this release). Improvements published between the roadmap's
   versions count up after the dot.
 - **v2.2** (2026-11-05): the eight kernels of the library's 0.2.1 in the
-  kernel menu. The menu stays one flat list, of 12 entries, in the CLI's
-  order with None first: None, Floyd-Steinberg, Atkinson,
+  kernel menu (grouped since 2026-11-15, see below). The menu stays one
+  flat list, of 12 entries, in the CLI's order with None first: None,
+  Floyd-Steinberg, Atkinson,
   Jarvis-Judice-Ninke, Stucki, Burkes, Sierra 3, Sierra 2, Sierra Lite,
   Fan, Shiau-Fan, Shiau-Fan 2 (the user's choice: a group like the colors
   menu's "Palettes" saves no room, its heading even adds a row, and
@@ -71,9 +72,47 @@ users is a separate task, see TODO.md.)
   specification, `docs/kernels-spec.md` (Phase A, the library's 0.2.1;
   Phase B, this), was deleted at the end, as planned: its content lives
   on in `docs/error-diffusion.md`, here, and in the pull requests.
-- **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
-  the default, with a switch to turn it off, released as the library's
-  0.3.0. The web UI then gets the switch too.
+- **A run you can see at once** (2026-11-15, on the branch `linear-light`;
+  the user's ideas, from using the page): during the run's first second,
+  before the progress shows (decision 30 B), nothing said that a run was
+  going. Now the picture's frame turns to the accent while a run goes,
+  from 0.3 s on, so instant runs show nothing; and on a picture of 2
+  megapixels or more the progress
+  shows at once, since no setting dithers it in under a second. A toast
+  over the picture was considered and left out: it would cover what's
+  awaited, and flash on short runs. The frame first breathed, and the
+  user measured a run about a quarter slower with it (21 s against 17 s,
+  Firefox, animations on and off); marching ants would cost the same, as
+  any animation repainted on every frame does, so it's steady. With it, a fix: a new gamma prepared
+  every picture again (step 4b), so the original showed during the run;
+  now only a picture the gamma mixes while preparing it, put onto the
+  background or fitted, is prepared again.
+- **The kernel menu grouped** (2026-11-15, on the branch `linear-light`;
+  the user's choice, revising v2.2's flat list): None and the three
+  originals, Floyd-Steinberg, Atkinson and Jarvis-Judice-Ninke, first;
+  then two groups, "Like Floyd-Steinberg" (Sierra Lite, Fan, Shiau-Fan,
+  Shiau-Fan 2) and "Like Jarvis-Judice-Ninke" (Stucki, Burkes, Sierra 3,
+  Sierra 2), by the original each derives from as its sources say
+  (`docs/error-diffusion.md`). Why now: a newcomer faced 12 names with
+  no hint where to start. v2.2's second reason no longer holds, since
+  the groups aren't names of our own but the sources' lineage; its
+  first still does, the two headings add two rows to the open list.
+  "Main" means history and lineage, not quality measured here (TODO.md,
+  "The eight kernels of 0.2.1, measured and compared").
+- **v2.3, linear light** (2026-11-06 to 16, on the branch `linear-light`,
+  merged into `master` with a merge commit, with the library's 0.2.2):
+  the "Gamma" setting, Off, 1.2, 1.5, 1.8 and sRGB, as the CLI's
+  `--gamma`, off by default (on 2026-11-12 it replaced "the default,
+  with a switch to turn it off"), with a note while it can't change the
+  picture; a picture prepared in the curve's light, fitted or put onto
+  its background; the engine check's icon; transparency read exactly in
+  WebKit; the footer's link to the repository as GitHub's mark, after the
+  versions behind a thin line, with "puregrain on GitHub" as its name and
+  tooltip, to save room on phones (the user's idea, 2026-11-16); and the two entries above, the kernel
+  menu grouped and a run you can see at once. Its spec, `docs/linear-light-spec.md`, was
+  deleted at the end: its decisions live on in the root `CLAUDE.md`
+  ("Linear light"), `docs/gamma.md` and `docs/exact-arithmetic.md`, its
+  full record in git history.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side. On a new branch from `master` (decision 20). From
   v2's design review (decisions 29 to 34): the gallery in a strip under
@@ -86,7 +125,17 @@ users is a separate task, see TODO.md.)
   disclosure like the download's ▾, since `popover` needs Safari 17;
   the texts taken from the docs, not written anew, so that the page
   claims nothing the docs don't; the links to the docs on GitHub, as the
-  footer's are; a high-contrast theme (the user's idea); the zoom
+  footer's are; and for them to lead to, a user guide (the user's idea,
+  2026-11-15): a short document for the page's users, one section per
+  setting (target, colors, method, gamma, background…), without the
+  developers' material (building, checks, the checklist), linking to the
+  project's docs for the advanced topics (error diffusion, gamma, machine
+  screens). "Help" leads there, and the engine check's "Details in Help"
+  (linear light, step 4c) moves from the README's section to the
+  guide's, so that `web/README.md` goes back to being the developers' and
+  the project's page. Where the guide lives is open: a Markdown file on
+  GitHub, as the README, or a page served with the site, at the page's
+  own address; a high-contrast theme (the user's idea); the zoom
   as a menu once there are more values. From the checks on devices
   (2026-11-03, the user's ideas): on phones, "Choose another picture"
   next to the download button, opening the file chooser at once and
@@ -108,7 +157,16 @@ users is a separate task, see TODO.md.)
   "Compact PNG output", for the CLI; the page would write them itself,
   since a canvas writes no indexed PNGs): with today's 8-bit PNGs it
   would mostly show growth, the test composite going from 62 KB to
-  227 KB with `ansi16`.
+  227 KB with `ansi16`. And a chart for choosing the gamma (the user
+  found it very useful, 2026-11-12), now that the gamma setting exists
+  (v2.3; `docs/gamma.md`):
+  black-and-white line patches, half of white's light, in fields of the
+  grays where half the light lies for each gamma offered (127.5 for 1.0,
+  143 for 1.2, 161 for 1.5, 174 for 1.8, 187.5 for sRGB); seen from a
+  distance, the patches melt into the field of the gamma that this
+  screen and this view have. Drawn at the screen's own pixels, as the
+  zoom draws pictures (any scaling with smoothing averages the stored
+  values and makes 1.0 match), perhaps from the gamma's (i).
 - **The pull request** comes at the end of v2 (decision 20), when the UI
   is functional and styled; the hosting follows the merge, from `master`
   (decisions 13 and 26; switching Pages on is the user's, since it
@@ -347,8 +405,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     user's idea). Download names get `bg-RRGGBB` when the background
     shows and isn't white. The page's part comes in phase 2, its formula
     a pure function of the web package; the library's helper and the
-    CLI's flag come on `master` with linear light, before v3 (which
-    decides whether to flatten in linear light), and the page then takes
+    CLI's flag come on `master` before v3 (flattening in the chosen
+    gamma's light, as the page does since v2.3: linear light's decision
+    6 in the root `CLAUDE.md`), and the page then takes
     the library's helper, as planned for `luma`. Until then the clients
     differ on a picture with transparency: the CLI dithers the colors
     stored under transparent parts.
@@ -399,9 +458,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
       `LICENSE` stays plain MIT, so GitHub still shows "MIT" (it reads
       only the root); the README's License section names the exception.
     - **`npm run logo`** makes it again: the script gives every setting of
-      the CLI, so a change of the defaults can't change the logo (for
-      dithering in linear light, its opt-out goes into the script once
-      the CLI has it), and it writes a file only when its pixels changed.
+      the CLI, so a change of the defaults can't change the logo (it
+      will pass `--gamma off` once the CLI has the option), and it writes
+      a file only when its pixels changed.
     - **In the root README** (phase 7, 2026-11-01, the user's choice):
       the ZX lockup as the README's heading, an SVG at twice its size,
       one picture for GitHub's light and dark pages and for Pursuit's
@@ -834,6 +893,15 @@ phase 7 (decision 28).
   sites don't; a server of our own in between would break the promise
   that nothing leaves the browser. A picture dragged from another page
   often brings only its link, the same case.
+- **Fresh files after each deploy** (2026-11-05): the page loads
+  `app.js`, `app.css` and the worker's script under the same names each
+  time, and GitHub Pages lets a browser keep them for 10 minutes
+  (`max-age=600`). So after a deploy a normal reload can still show the
+  old script (v2.1's footer, after v2.2's deploy, until a hard reload),
+  and a browser can combine a new `index.html` with an old script. A
+  small fix in `web/build.mjs`: each address carries a fingerprint of
+  the file's content (`app.js?v=3f2a1c`), in `index.html` and, for the
+  worker, in the script that starts it.
 
 ## Phases of v1
 

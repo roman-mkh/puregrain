@@ -8,6 +8,14 @@ export const setTheme = (name) => () => {
   document.documentElement.dataset.theme = name;
 };
 
+export const setEngineCheck = (name) => () => {
+  document.documentElement.dataset.engineCheck = name;
+};
+
+export const warnInConsole = (text) => () => {
+  console.warn(text);
+};
+
 export const libraryVersion = () =>
   document.querySelector('meta[name="puregrain-version"]')?.content ?? '';
 

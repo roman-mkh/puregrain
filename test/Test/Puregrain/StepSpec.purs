@@ -12,7 +12,7 @@ import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
 import Puregrain.Kernel (floydSteinberg, noDiffusion)
-import Puregrain.Quantize (quantize)
+import Puregrain.Quantize (quantize, runQuantize)
 import Puregrain.Internal.Row (initBuilding)
 import Puregrain.Internal.State (RowLayer, RowState, freshLayer)
 import Puregrain.Internal.Step (step)
@@ -65,7 +65,7 @@ foldStepsCheckingShape compiled row =
   snd (Array.foldl go (Tuple (freshRowState1 compiled) true) row)
   where
   go (Tuple rs okSoFar) px =
-    let Tuple rs' _q = step compiled (quantize quantizeThreshold) rs px
+    let Tuple rs' _q = step compiled (runQuantize (quantize quantizeThreshold)) rs px
     in Tuple rs' (okSoFar && currentShapeOk compiled rs' && buildingShapeOk compiled rs')
 
 spec :: Spec Unit
@@ -81,7 +81,7 @@ spec = describe "Puregrain.Internal.Step" do
         let
           compiled = compileKernel kernel
           final = Array.foldl
-            (\rs px -> fst (step compiled (quantize quantizeThreshold) rs px))
+            (\rs px -> fst (step compiled (runQuantize (quantize quantizeThreshold)) rs px))
             ((freshRowState1 compiled) { y = 7 })
             row
         in { x: final.x, y: final.y } === { x: Array.length row, y: 7 }
@@ -92,7 +92,7 @@ spec = describe "Puregrain.Internal.Step" do
           compiled = compileKernel kernel
           expectedShape = map Array.length (freshRowState1 compiled).matured
           finalState = Array.foldl
-            (\rs px -> fst (step compiled (quantize quantizeThreshold) rs px))
+            (\rs px -> fst (step compiled (runQuantize (quantize quantizeThreshold)) rs px))
             (freshRowState1 compiled)
             row
         in map Array.length finalState.matured === expectedShape
@@ -102,7 +102,7 @@ spec = describe "Puregrain.Internal.Step" do
       let
         compiled = compileKernel floydSteinberg
         initial = freshRowState1 compiled
-        Tuple rowState1 quantizedPixel = step compiled (quantize quantizeThreshold) initial 100.0
+        Tuple rowState1 quantizedPixel = step compiled (runQuantize (quantize quantizeThreshold)) initial 100.0
         outErr = 100.0
 
       quantizedPixel `shouldEqual` 0.0
@@ -128,7 +128,7 @@ spec = describe "Puregrain.Internal.Step" do
       compiled.futureLayers `shouldEqual` []
       Array.length initial.building `shouldEqual` 0
 
-      let Tuple rowState1 q = step compiled (quantize quantizeThreshold) initial 200.0
+      let Tuple rowState1 q = step compiled (runQuantize (quantize quantizeThreshold)) initial 200.0
       q `shouldEqual` 255.0
       Array.length rowState1.building `shouldEqual` 0
       case rowState1.current of
@@ -141,7 +141,7 @@ spec = describe "Puregrain.Internal.Step" do
           compiled = compileKernel noDiffusion
           outputs = Array.foldl
             ( \(Tuple rs acc) px ->
-                let Tuple rs' q = step compiled (quantize quantizeThreshold) rs px
+                let Tuple rs' q = step compiled (runQuantize (quantize quantizeThreshold)) rs px
                 in Tuple rs' (Array.snoc acc q)
             )
             (Tuple (freshRowState1 compiled) [])
@@ -153,7 +153,7 @@ spec = describe "Puregrain.Internal.Step" do
         kernel = validKernel [ { dx: 1, dy: 0, weight: 0.0 } ]
         compiled = compileKernel kernel
         initial = freshRowState1 compiled
-        Tuple rowState1 _ = step compiled (quantize quantizeThreshold) initial 200.0
+        Tuple rowState1 _ = step compiled (runQuantize (quantize quantizeThreshold)) initial 200.0
       case rowState1.current of
         [ f ] -> approxArrayEqual (takeAsArray 1 f) [ 0.0 ] `shouldEqual` true
         _ -> fail "unexpected current shape"

@@ -108,6 +108,25 @@ With no kernel (`noDiffusion` in the library; in the CLI, `--bayer`
 without `--kernel`), no error is passed on and it's pure ordered
 dithering.
 
+## In linear light
+
+With a gamma (`--gamma` in the CLI, `ditherImageWith` in the library;
+see [gamma.md](gamma.md)), the rule above works in the curve's light:
+`v`, `lo` and `hi` are amounts of light, so (v − lo) / (hi − lo) is a
+share of light, and a flat area gets as many dots as its light needs.
+Gray 128 with the 8×8 map gets 32 white dots in 64 with `off`, and 14
+with `srgb`, since 128 gives off 21.6% of white's light. In the hybrid,
+the error is measured in light too. The levels stay what you'd type:
+under a curve, levels that aren't whole numbers are rounded to bytes
+first, so that each comes back as exactly its byte. Inside a machine's
+cells, the share is measured in light along the line between the cell's
+two colors.
+
+The price is in the dark tones: a dark gray's share of light falls below
+the map's lowest threshold, and it comes out solid black. With the 4×4
+map, flat grays up to 7 do with `off`, up to 49 with `srgb`
+([dark tones](gamma.md#dark-tones)).
+
 ## What to look for
 
 The [test images](test-images.md) show the differences. Look at 100%
@@ -135,6 +154,10 @@ run through the real CLI (`npm run check:cli`, see
   is in a color image.
 - An image whose values are all levels comes back unchanged, with or
   without diffusion: the error is zero everywhere.
+
+The last two hold under every gamma too: the neutral pixels checked
+through the CLI under each curve, the levels in
+`Test.Puregrain.InLightSpec`.
 
 ## Not supported
 

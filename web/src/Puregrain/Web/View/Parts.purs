@@ -5,6 +5,7 @@ module Puregrain.Web.View.Parts
   , inert
   , repositoryUrl
   , helpUrl
+  , engineCheckUrl
   , licenseUrl
   , logoTermsUrl
   ) where
@@ -29,6 +30,10 @@ repositoryUrl = "https://github.com/roman-mkh/puregrain"
 -- | The web UI's user docs, from "Using it" on.
 helpUrl :: String
 helpUrl = repositoryUrl <> "/blob/master/web/README.md#using-it"
+
+-- | The README's section on the engine check (v2.3).
+engineCheckUrl :: String
+engineCheckUrl = repositoryUrl <> "/blob/master/web/README.md#the-engine-check"
 
 licenseUrl :: String
 licenseUrl = repositoryUrl <> "/blob/master/LICENSE"

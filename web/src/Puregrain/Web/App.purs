@@ -14,7 +14,8 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int as Int
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
+import Data.String.Common (joinWith)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
 import Effect.Aff (delay, try)
@@ -31,19 +32,19 @@ import Puregrain.Web.Download (Format(..), buttonFormat, extension, formatsFor)
 import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
 import Puregrain.Web.Estimate (clock, next)
 import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
-import Puregrain.Web.Message (Reply(..), describe, jobMessage, readReply)
-import Puregrain.Web.Page (keptInMemory, narrowScreen, setTheme)
+import Puregrain.Web.Message (Reply(..), checkMessage, describe, jobMessage, readReply)
+import Puregrain.Web.Page (keptInMemory, narrowScreen, setEngineCheck, setTheme, warnInConsole)
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
 import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
-import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, placementOn, screenToFit, white)
+import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, lightTables, placementOn, screenToFit, white)
 import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
-import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
-import Puregrain.Web.Status (Run(..), held, progressDelay, resultShows)
+import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, engineButtonRef, engineRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
+import Puregrain.Web.Status (EngineCheck(..), Run(..), engineCheckName, held, progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
 import Puregrain.Web.View.Column (column)
@@ -99,6 +100,9 @@ component = H.mkComponent
       , libraryVersion: input.libraryVersion
       , columnHidden: false
       , panelOpen: false
+      , engine: EngineChecking
+      , engineOpen: false
+      , engineWorker: Nothing
       , resultLabel: ""
       , status: { text: "", times: 0 }
       , alert: { text: "", times: 0 }
@@ -136,7 +140,7 @@ render state =
             [ HH.text texts.skipToSettings ]
         , HH.a [ HP.href "#picture", HP.class_ (H.ClassName "skip"), HE.onClick SkippedToPicture ] [ HH.text texts.skipToPicture ]
         ]
-    , header { theme: state.theme, settings: loaded, panelOpen: state.panelOpen }
+    , header { theme: state.theme, settings: loaded, panelOpen: state.panelOpen, engine: state.engine, engineOpen: state.engineOpen }
     , HH.div [ HP.classes ([ H.ClassName "work" ] <> (if state.columnHidden then [ H.ClassName "column-hidden" ] else [])) ]
         -- The « / » tab on the column's edge (decision 29): it says
         -- whether the column is open, and which column it opens.
@@ -176,7 +180,7 @@ render state =
             ]
             (stage state)
         ]
-    , footer state.libraryVersion state.panelOpen
+    , footer { libraryVersion: state.libraryVersion, panelOpen: state.panelOpen, engine: state.engine, engineOpen: state.engineOpen }
     , HH.div [ HP.class_ (H.ClassName "sr-only"), HP.attr (H.AttrName "role") "status" ] [ HH.text (spoken state.status) ]
     , HH.div [ HP.class_ (H.ClassName "sr-only"), HP.attr (H.AttrName "role") "alert" ] [ HH.text (spoken state.alert) ]
     ]
@@ -191,6 +195,7 @@ render state =
 handleAction :: forall o m. MonadAff m => Action -> H.HalogenM State Action () o m Unit
 handleAction = case _ of
   Initialize -> do
+    liftEffect (setEngineCheck (engineCheckName EngineChecking))
     { emitter, listener } <- liftEffect HS.create
     void (H.subscribe emitter)
     H.modify_ _ { listener = Just listener }
@@ -213,9 +218,13 @@ handleAction = case _ of
       for_ chooser (liftEffect <<< HTMLElement.focus)
     -- The worker's script, fetched once and kept in memory, in the
     -- background: the runs' workers start from that copy (see `startRun`).
+    -- Then the engine check, in a worker of its own from that copy, once
+    -- (v2.3): it takes about half a second, apart from
+    -- the page and from every run.
     void $ H.fork do
       script <- H.liftAff (keptInMemory "worker.js")
       H.modify_ _ { workerScript = script }
+      startEngineCheck
   Resized -> do
     readPixelRatio
     -- A phone turned sideways, a window widened: no panel any more.
@@ -231,7 +240,7 @@ handleAction = case _ of
   -- and adds a step to the browser's history, so that the back gesture
   -- closes it instead of leaving the page.
   PanelOpened -> do
-    H.modify_ _ { panelOpen = true, formatsOpen = false }
+    H.modify_ _ { panelOpen = true, formatsOpen = false, engineOpen = false }
     liftEffect do
       win <- window
       href <- Location.href =<< Window.location win
@@ -258,7 +267,8 @@ handleAction = case _ of
       H.modify_ _ { formatsOpen = false }
       s <- H.get
       download (buttonFormat s.format (choicesOf s))
-    -- The phone's panel first, then the list of formats, then the run.
+    -- The phone's panel first, then the list of formats, then the engine
+    -- check's popup, then the run.
     Escape -> do
       s <- H.get
       if s.panelOpen then do
@@ -267,19 +277,30 @@ handleAction = case _ of
       else if s.formatsOpen then do
         liftEffect (Event.preventDefault (KE.toEvent event))
         closeFormats
+      else if s.engineOpen then do
+        liftEffect (Event.preventDefault (KE.toEvent event))
+        closeEngine
       else case s.run of
         Running _ -> do
           liftEffect (Event.preventDefault (KE.toEvent event))
           cancel
         _ -> pure unit
   PageClicked event -> do
-    open <- H.gets _.formatsOpen
-    when open do
-      box <- H.getHTMLElementRef downloadsRef
-      inside <- case box, Event.target event >>= Node.fromEventTarget of
-        Just b, Just node -> liftEffect (Node.contains (HTMLElement.toNode b) node)
-        _, _ -> pure false
+    let
+      target = Event.target event >>= Node.fromEventTarget
+      within ref = do
+        box <- H.getHTMLElementRef ref
+        case box, target of
+          Just b, Just node -> liftEffect (Node.contains (HTMLElement.toNode b) node)
+          _, _ -> pure false
+    s <- H.get
+    when s.formatsOpen do
+      inside <- within downloadsRef
       unless inside (H.modify_ _ { formatsOpen = false })
+    when s.engineOpen do
+      top <- within (engineRef "top")
+      foot <- within (engineRef "foot")
+      unless (top || foot) (H.modify_ _ { engineOpen = false })
   FileChosen event ->
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
@@ -344,6 +365,8 @@ handleAction = case _ of
     if value == "none" then change (chooseBayer Nothing)
     else for_ (Int.fromString value) \side -> change (chooseBayer (Just side))
   GrayChosen gray -> change (chooseGray gray)
+  GammaChosen value ->
+    for_ (Array.find (\g -> gammaId g == value) allGammas) \g -> change (chooseGamma g)
   Cancel -> cancel
   FromWorker id reply -> do
     s <- H.get
@@ -356,6 +379,8 @@ handleAction = case _ of
             Running r -> now { run = Running r { done = p.done, total = p.total, left = next r.left { elapsed: t - r.started, done: p.done, total: p.total } } }
             _ -> now
         Right (Failure reason) -> failed reason
+        -- A run's worker isn't asked for the engine check.
+        Right (Engine _) -> pure unit
         Right (Done result) -> case s.load of
           Loaded { prepared } -> do
             image <- liftEffect (toImageData result.pixels prepared.width prepared.height)
@@ -412,7 +437,16 @@ handleAction = case _ of
   DownloadClicked -> do
     s <- H.get
     download (buttonFormat s.format (choicesOf s))
-  FormatsToggled -> H.modify_ \s -> s { formatsOpen = not s.formatsOpen }
+  FormatsToggled -> H.modify_ \s -> s { formatsOpen = not s.formatsOpen, engineOpen = false }
+  -- The engine check (v2.3): its popup opens and closes
+  -- as the list of formats does, one of them at a time; its worker's
+  -- answer ends the worker and shows the result. A failure is said at
+  -- once, and its problems go to the console, for a report.
+  EngineToggled -> H.modify_ \s -> s { engineOpen = not s.engineOpen, formatsOpen = false }
+  EngineReplied reply -> case runExcept (readReply reply) of
+    Right (Engine r) -> engineChecked (if r.passed then EnginePassed else EngineFailed r.problems)
+    _ -> engineChecked EngineNotRun
+  EngineCouldNotRun -> engineChecked EngineNotRun
   -- A format from the list: downloaded, and the button's from now on;
   -- one that isn't possible does nothing.
   FormatChosen format -> do
@@ -441,6 +475,23 @@ handleAction = case _ of
     liftEffect (Event.preventDefault (ME.toEvent event))
     target <- H.getHTMLElementRef ref
     for_ target (liftEffect <<< HTMLElement.focus)
+  engineChecked check = do
+    s <- H.get
+    for_ s.engineWorker (liftEffect <<< Worker.terminate)
+    H.modify_ _ { engine = check, engineWorker = Nothing }
+    liftEffect (setEngineCheck (engineCheckName check))
+    case check of
+      EngineFailed found -> do
+        alarm (texts.engineStatus check)
+        liftEffect (warnInConsole ("puregrain lab, the engine check failed:\n" <> joinWith "\n" found))
+      _ -> pure unit
+  -- Closed, the focus goes back to the icon's button that's shown: the
+  -- header's on a desktop, the footer's on a phone.
+  closeEngine = do
+    H.modify_ _ { engineOpen = false }
+    narrow <- liftEffect narrowScreen
+    button <- H.getHTMLElementRef (engineButtonRef (if narrow then "foot" else "top"))
+    for_ button (liftEffect <<< HTMLElement.focus)
   -- Closed, the focus goes back to the ▾ that opened it.
   closeFormats = do
     H.modify_ _ { formatsOpen = false }
@@ -486,24 +537,34 @@ download format = do
     _, _ -> pure unit
 
 -- | A change of the settings; a real change restarts the dithering, and
--- | a new target prepares the picture again, as it may fit it.
+-- | a new target prepares the picture again, as it may fit it. So does a
+-- | new gamma, for a picture it mixes while preparing it, put onto the
+-- | background or fitted (linear light's decision 6, root CLAUDE.md); for
+-- | any other picture the preparing doesn't change, and the result before
+-- | stays on show during the run, as for the other settings.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
 change f = do
-  old <- H.gets _.settings
-  let new = f old
+  s <- H.get
+  let
+    old = s.settings
+    new = f old
+    mixed = case s.load of
+      Loaded l -> l.picture.transparent || isJust l.prepared.fitted
+      _ -> false
   when (new /= old) do
     H.modify_ _ { settings = new }
-    if new.target /= old.target then refresh else restart
+    if new.target /= old.target || (new.gamma /= old.gamma && mixed) then refresh else restart
 
 -- | The picture as it's shown and dithered (decisions 22 and 27): put
 -- | onto the background, if it has transparency, and fitted to a
--- | machine's screen, if asked.
-prepare :: Picture -> Target -> Boolean -> Background -> Effect Prepared
-prepare p target fit background = do
-  opaque <- if p.transparent then flatten p.pixels background else pure p.pixels
-  case screenToFit target fit size of
+-- | machine's screen, if asked; both in the gamma's light (linear light's
+-- | decision 6, root CLAUDE.md).
+prepare :: Picture -> Settings -> Boolean -> Background -> Effect Prepared
+prepare p settings fit background = do
+  opaque <- if p.transparent then flatten tables p.pixels background else pure p.pixels
+  case screenToFit settings.target fit size of
     Just screen -> do
-      pixels <- fitOnto opaque size screen background
+      pixels <- fitOnto tables opaque size screen background
       image <- toImageData pixels screen.width screen.height
       pure { width: screen.width, height: screen.height, image, fitted: Just { screen, placement: placementOn screen size } }
     Nothing -> do
@@ -511,8 +572,9 @@ prepare p target fit background = do
       pure { width: p.width, height: p.height, image, fitted: Nothing }
   where
   size = { width: p.width, height: p.height }
+  tables = lightTables settings.gamma
 
--- | Prepares the loaded picture again, for a new target, fit or
+-- | Prepares the loaded picture again, for a new target, gamma, fit or
 -- | background: shows it as the original (the split back in the middle
 -- | when its size changed), and dithers it afresh.
 refresh :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
@@ -521,7 +583,7 @@ refresh = do
   case s.load of
     Loaded l -> do
       stopWorker
-      prepared <- liftEffect (prepare l.picture s.settings.target s.fit s.background)
+      prepared <- liftEffect (prepare l.picture s.settings s.fit s.background)
       let resized = prepared.width /= l.prepared.width || prepared.height /= l.prepared.height
       H.modify_ _ { load = Loaded { picture: l.picture, prepared }, split = if resized then prepared.width / 2 else s.split, splitDrag = Nothing, run = Idle }
       drawOriginal prepared
@@ -567,11 +629,30 @@ restart = do
       else startRun l s.settings
     _ -> H.modify_ _ { run = Idle }
 
+-- | The engine check's worker (v2.3): one more worker
+-- | from the copy of worker.js in memory, asked for the check once. Its
+-- | answer comes as `EngineReplied`; a worker that can't start, or fails,
+-- | as `EngineCouldNotRun`, which isn't a failed check.
+startEngineCheck :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
+startEngineCheck = do
+  s <- H.get
+  for_ s.listener \listener -> do
+    -- Aff's `try` also catches an exception thrown while it starts.
+    started <- H.liftAff (try (liftEffect (Worker.new s.workerScript Worker.defaultWorkerOptions)))
+    case started of
+      Left _ -> liftEffect (HS.notify listener EngineCouldNotRun)
+      Right worker -> do
+        liftEffect do
+          Worker.onMessage (\event -> HS.notify listener (EngineReplied (data_ event))) worker
+          Worker.onError (\_ -> HS.notify listener EngineCouldNotRun) worker
+          Worker.postMessage checkMessage worker
+        H.modify_ _ { engineWorker = Just worker }
+
 -- | A new worker, given the settings, the size and a copy of the prepared
 -- | picture's pixels; its answers come back as `FromWorker`, with this
 -- | run's number. The result before it stays on show, if it shows
--- | (`resultShows`); the progress shows after `progressDelay`, unless
--- | the run is over by then (decision 30 B).
+-- | (`resultShows`); the progress shows after `progressDelay`, at once on
+-- | a large picture, unless the run is over by then (decision 30 B).
 -- |
 -- | Each run needs a fresh worker, since cancelling a run ends its worker
 -- | (decision 11). It starts from the copy of `worker.js` kept in memory
@@ -596,7 +677,7 @@ startRun { picture: p, prepared } settings = do
       , run = Running { done: 0, total: prepared.height, started, left: Nothing, progressShown: false, keepsPrevious: resultShows s.run }
       }
     void $ H.fork do
-      liftAff (delay (Milliseconds progressDelay))
+      liftAff (delay (Milliseconds (progressDelay (prepared.width * prepared.height))))
       now <- H.get
       case now.run of
         Running r | now.runs == id -> do
@@ -646,7 +727,7 @@ loadFile file = do
       Right p -> do
         stopWorker
         s <- H.get
-        prepared <- liftEffect (prepare p s.settings.target s.fit s.background)
+        prepared <- liftEffect (prepare p s.settings s.fit s.background)
         H.modify_ _ { load = Loaded { picture: p, prepared }, loading = Nothing, split = prepared.width / 2, splitDrag = Nothing, run = Idle }
         say (texts.loadedPicture { name: p.name, width: p.width, height: p.height })
         -- The first picture took away the button that had the focus: it

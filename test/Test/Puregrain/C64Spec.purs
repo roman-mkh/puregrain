@@ -7,7 +7,7 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Char (fromCharCode)
 import Data.Either (Either(..), either)
-import Data.Foldable (all, and, any, sum)
+import Data.Foldable (all, and, any, for_, sum)
 import Data.Int (pow, toNumber)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
 import Data.String (Pattern(..), contains, joinWith)
@@ -20,11 +20,13 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck, quickCheck')
 
-import Puregrain.Cells (cellColors, ditherCells)
+import Puregrain.Cells (cellColors, ditherCells, ditherCellsWith, nearestInCell, orderedInCell)
+import Puregrain.Gamma (gammaSrgb)
+import Puregrain.Kernel (floydSteinberg)
 import Puregrain.Machine.C64 (HiresCell, background, foreground, hiresCells, hiresPalette, hiresScreen, toArtStudio, toHiresPrg)
 import Puregrain.Pixel (RGB(..))
 import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..))
-import Test.Puregrain.Util (mentions)
+import Test.Puregrain.Util (bayerMap, curves, mentions)
 
 -- | The 16 colors by code, written out independently of the preset:
 -- | Colodore's values, as in VICE's data/C64/colodore.vpl.
@@ -243,6 +245,20 @@ spec = describe "Puregrain.Machine.C64" do
     it "leaves a picture made only of valid hires cells unchanged, with any kernel and rule" do
       quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (HiresPicture picture) ->
         (ditherCells kernel rule hiresScreen picture).image === picture
+
+    -- In light too: each pixel's light is exactly its color's, so no error
+    -- arises, and the colors' light comes back as the same bytes.
+    it "leaves a picture made only of valid hires cells unchanged under each curve, with any kernel and rule" do
+      for_ curves \c ->
+        quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (HiresPicture picture) ->
+          (ditherCellsWith c.gamma kernel rule hiresScreen picture).image === picture
+
+    it "gives toHiresPrg a screen it accepts when dithered in light (gammaSrgb), with either rule" do
+      let
+        picture = grid 320 200 \x y -> RGB { r: 0.79 * toNumber x, g: 1.27 * toNumber y, b: toNumber ((x + y) `mod` 256) }
+        size rule = map Array.length (toHiresPrg (ditherCellsWith gammaSrgb floydSteinberg rule hiresScreen picture))
+      size nearestInCell `shouldEqual` Right 14145
+      size (orderedInCell (bayerMap 2)) `shouldEqual` Right 14145
 
   describe "toHiresPrg" do
     it "loads at 2049, where BASIC programs start, with the viewer there: five lines, keywords as tokens" do

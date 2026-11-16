@@ -5,7 +5,7 @@ import Prelude
 import Data.Array as Array
 import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
-import Data.Foldable (sum)
+import Data.Foldable (for_, sum)
 import Data.Lazy (defer)
 import Data.List.Lazy as LL
 import Data.List.Lazy.Types (List(..))
@@ -14,18 +14,19 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Effect.Class (liftEffect)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck (class Arbitrary, arbitrary, (===))
-import Test.QuickCheck.Gen (chooseInt, elements, vectorOf)
+import Test.QuickCheck.Gen (Gen, chooseInt, elements, vectorOf)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Cells (CellMode, CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherCells, nearestInCell, orderedInCell, singleColor)
+import Puregrain.Cells (CellMode, CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherBandsWith, ditherCells, ditherCellsWith, nearestInCell, orderedInCell, singleColor)
+import Puregrain.Gamma (fromLight, gammaOff, gammaSrgb, toLight)
 import Puregrain.Internal.Util (safeRange)
 import Puregrain.Kernel (floydSteinberg, noDiffusion)
-import Puregrain.Ordered (thresholdAt)
+import Puregrain.Ordered (ThresholdMap, thresholdAt)
 import Puregrain.Pixel (RGB(..))
-import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..), TestRanks(..), genRGB)
-import Test.Puregrain.Util (bayerMap, compiledMap, errorOf, mentions)
+import Test.Puregrain.Arbitrary (TestCellQuantizer(..), TestKernel(..), TestRanks(..), genByteRGB, genRGB)
+import Test.Puregrain.Util (bayerMap, compiledMap, curves, errorOf, mentions)
 
 black :: RGB
 black = RGB { r: 0.0, g: 0.0, b: 0.0 }
@@ -70,25 +71,36 @@ type Cells =
 newtype TestCells = TestCells Cells
 
 instance Arbitrary TestCells where
-  arbitrary = do
-    width <- chooseInt 1 3
-    height <- chooseInt 1 3
-    first <- genCandidate
-    others <- chooseInt 0 5 >>= \n -> vectorOf n genCandidate
-    let
-      candidates = Array.snoc (Array.cons first others) first
-      colors = NEA.cons' (fst first) (Array.concatMap (\(Tuple a b) -> [ a, b ]) (Array.cons first others))
-    ownColors <- arbitrary
-    imageWidth <- chooseInt 1 7
-    imageHeight <- chooseInt 1 7
-    image <- vectorOf imageHeight (vectorOf imageWidth (if ownColors then elements colors else genRGB))
-    pure (TestCells { size: { width, height }, candidates, image })
-    where
-    genCandidate = do
-      single <- arbitrary
-      a <- genRGB
-      b <- if single then pure a else genRGB
-      pure (Tuple a b)
+  arbitrary = TestCells <$> genCells genRGB
+
+-- | As `TestCells`, with every color, in the candidates and the image,
+-- | made of whole bytes, as a machine's colors are: under a curve, those
+-- | are the colors whose light comes back exactly.
+newtype ByteCells = ByteCells Cells
+
+instance Arbitrary ByteCells where
+  arbitrary = ByteCells <$> genCells genByteRGB
+
+genCells :: Gen RGB -> Gen Cells
+genCells genColor = do
+  width <- chooseInt 1 3
+  height <- chooseInt 1 3
+  first <- genCandidate
+  others <- chooseInt 0 5 >>= \n -> vectorOf n genCandidate
+  let
+    candidates = Array.snoc (Array.cons first others) first
+    colors = NEA.cons' (fst first) (Array.concatMap (\(Tuple a b) -> [ a, b ]) (Array.cons first others))
+  ownColors <- arbitrary
+  imageWidth <- chooseInt 1 7
+  imageHeight <- chooseInt 1 7
+  image <- vectorOf imageHeight (vectorOf imageWidth (if ownColors then elements colors else genColor))
+  pure { size: { width, height }, candidates, image }
+  where
+  genCandidate = do
+    single <- arbitrary
+    a <- genColor
+    b <- if single then pure a else genColor
+    pure (Tuple a b)
 
 -- | Candidates are passed as their indices.
 indices :: Cells -> NonEmptyArray Int
@@ -143,6 +155,28 @@ naiveOrdered threshold (Tuple first@(RGB a) second@(RGB b)) (RGB p) =
   v = [ p.r - a.r, p.g - a.g, p.b - a.b ]
   dot xs ys = sum (Array.zipWith (*) xs ys)
 
+-- | `naiveOrdered` for every pixel, in the cells `naiveCells` chooses, with
+-- | the threshold at the pixel's position in the image. `into` takes the
+-- | colors to where the rule measures, `back` brings the chosen one back:
+-- | `identity` both for stored values, `toLight` and `fromLight` for light.
+naiveOrderedImage :: (RGB -> RGB) -> (RGB -> RGB) -> ThresholdMap -> Cells -> Array (Array RGB)
+naiveOrderedImage into back m t = Array.mapWithIndex (\y row -> Array.mapWithIndex (expected y) row) t.image
+  where
+  cells = naiveCells t
+  expected y x pixel =
+    case Array.index cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) >>= Array.index t.candidates of
+      Just (Tuple a b) -> back (naiveOrdered (thresholdAt m { x, y }) (Tuple (into a) (into b)) (into pixel))
+      Nothing -> black
+
+-- | How many pixels of a result aren't one of their own cell's colors.
+foreignPixels :: Cells -> { cells :: Array (Array Int), image :: Array (Array RGB) } -> Int
+foreignPixels t result = Array.length (Array.filter not (Array.concat (Array.mapWithIndex (\y r -> Array.mapWithIndex (ownColor y) r) result.image)))
+  where
+  ownColor y x pixel =
+    case Array.index result.cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) of
+      Just c -> NEA.elem pixel (cellColors (paletteOf t c))
+      Nothing -> false
+
 naiveError :: Tuple RGB RGB -> RGB -> Number
 naiveError (Tuple (RGB a) (RGB b)) (RGB p) =
   let
@@ -190,15 +224,7 @@ spec = describe "Puregrain.Cells" do
   describe "ditherCells" do
     it "gives every pixel one of its own cell's colors, with any kernel and rule" do
       quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
-        let
-          result = ditherCells kernel rule (modeOf t) t.image
-          ownColor y x pixel =
-            case Array.index result.cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) of
-              Just c -> NEA.elem pixel (cellColors (paletteOf t c))
-              Nothing -> false
-          wrong = Array.filter not (Array.concat (Array.mapWithIndex (\y r -> Array.mapWithIndex (ownColor y) r) result.image))
-        in
-          Array.length wrong === 0
+        foreignPixels t (ditherCells kernel rule (modeOf t) t.image) === 0
 
     it "has no cells and no rows for an empty image" do
       let result = ditherCells floydSteinberg nearestInCell (paletteMode { width: 8, height: 8 } (NEA.singleton (singleColor gray))) []
@@ -225,14 +251,9 @@ spec = describe "Puregrain.Cells" do
       quickCheck \(TestCells t) (TestRanks ranks) ->
         let
           m = compiledMap ranks
-          cells = naiveCells t
-          expected y x pixel =
-            case Array.index cells (y / t.size.height) >>= \r -> Array.index r (x / t.size.width) >>= Array.index t.candidates of
-              Just candidate -> naiveOrdered (thresholdAt m { x, y }) candidate pixel
-              Nothing -> black
         in
           (ditherCells noDiffusion (orderedInCell m) (modeOf t) t.image).image
-            === Array.mapWithIndex (\y row -> Array.mapWithIndex (\x pixel -> expected y x pixel) row) t.image
+            === naiveOrderedImage identity identity m t
 
   describe "ditherBands" do
     it "gives the same cells and rows as ditherCells, for any kernel, rule and cells" do
@@ -270,3 +291,47 @@ spec = describe "Puregrain.Cells" do
       firstBand `shouldEqual` Nothing
       secondBand <- liftEffect (errorOf \_ -> LL.length (LL.take 2 bands))
       secondBand `shouldSatisfy` mentions "row 2 has 3 pixels, but the first row has 2"
+
+  describe "ditherCellsWith and ditherBandsWith" do
+    it "with gammaOff, give ditherCells' and ditherBands' results" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        ditherCellsWith gammaOff kernel rule (modeOf t) t.image === ditherCells kernel rule (modeOf t) t.image
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        collect (ditherBandsWith gammaOff kernel rule (modeOf t) (LL.fromFoldable t.image))
+          === collect (ditherBands kernel rule (modeOf t) (LL.fromFoldable t.image))
+
+    -- 128 is 128/216 = 0.59 of the way from black to white (216) as stored,
+    -- above the 2 × 2 map's thresholds 1/8 and 3/8; in sRGB's light, 0.216
+    -- of 0.687, so 0.31, above 1/8 only.
+    it "gammaSrgb: orderedInCell gives a gray at 128 between black and white one white dot in four, not two" do
+      let
+        dither gamma = (ditherCellsWith gamma noDiffusion (orderedInCell (bayerMap 2)) (paletteMode { width: 2, height: 2 } (NEA.singleton (colorPair black white))) (uniform 2 2 gray)).image
+      dither gammaOff `shouldEqual` [ [ white, black ], [ black, white ] ]
+      dither gammaSrgb `shouldEqual` [ [ white, black ], [ black, black ] ]
+
+    for_ curves \c -> describe c.name do
+      it "chooses the same cells as ditherCells, from the stored values" do
+        quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+          (ditherCellsWith c.gamma kernel rule (modeOf t) t.image).cells === cellsOf (modeOf t) t.image
+
+      it "gives every pixel exactly one of its own cell's colors, with any kernel and rule, when the colors are whole bytes" do
+        quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (ByteCells t) ->
+          foreignPixels t (ditherCellsWith c.gamma kernel rule (modeOf t) t.image) === 0
+
+      it "gives the same cells and rows streamed as in memory" do
+        quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+          collect (ditherBandsWith c.gamma kernel rule (modeOf t) (LL.fromFoldable t.image))
+            === ditherCellsWith c.gamma kernel rule (modeOf t) t.image
+
+      it "with nearestInCell and no diffusion, gives ditherCells' picture: the nearer color on stored values" do
+        quickCheck \(ByteCells t) ->
+          ditherCellsWith c.gamma noDiffusion nearestInCell (modeOf t) t.image
+            === ditherCells noDiffusion nearestInCell (modeOf t) t.image
+
+      it "with orderedInCell and no diffusion, measures where a pixel lies between its cell's colors in light" do
+        quickCheck \(ByteCells t) (TestRanks ranks) ->
+          let
+            m = compiledMap ranks
+          in
+            (ditherCellsWith c.gamma noDiffusion (orderedInCell m) (modeOf t) t.image).image
+              === naiveOrderedImage (toLight c.gamma) (fromLight c.gamma) m t

@@ -12,6 +12,9 @@
               "catenable-lists": ">=7.0.1 <8.0.0"
             },
             {
+              "effect": ">=4.0.1 <5.0.0"
+            },
+            {
               "either": ">=6.1.1 <7.0.0"
             },
             {
@@ -157,12 +160,14 @@
             "aff",
             "arraybuffer-types",
             "arrays",
+            "console",
             "effect",
             "either",
             "foldable-traversable",
             "foreign",
             "integers",
             "maybe",
+            "numbers",
             "puregrain",
             "refs",
             "spec",

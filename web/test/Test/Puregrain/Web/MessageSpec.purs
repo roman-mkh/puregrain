@@ -8,9 +8,9 @@ import Data.Maybe (Maybe(..))
 import Effect.Class (liftEffect)
 import Foreign (unsafeToForeign)
 import Puregrain (RGB(..))
-import Puregrain.Web.Message (Reply(..), doneMessage, errorMessage, jobMessage, progressMessage, readJob, readReply)
+import Puregrain.Web.Message (Reply(..), Request(..), checkMessage, doneMessage, engineMessage, errorMessage, jobMessage, progressMessage, readJob, readReply, readRequest)
 import Puregrain.Web.Pixels (byteArray, bytesOf, newPixels, readRow, writeRgbRow)
-import Puregrain.Web.Settings (Colors(..), MachineName(..), Target(..), chooseBayer, chooseColors, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), MachineName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 import Web.Worker.Types (unwrap)
@@ -20,7 +20,7 @@ spec = describe "Puregrain.Web.Message" do
   it "reads back a job as the page sends it" do
     pixels <- liftEffect (newPixels (3 * 1 * 4))
     liftEffect (writeRgbRow pixels 3 0 [ RGB { r: 1.0, g: 2.0, b: 3.0 }, RGB { r: 4.0, g: 5.0, b: 6.0 }, RGB { r: 7.0, g: 8.0, b: 9.0 } ])
-    let settings = chooseBayer (Just 4) (chooseColors (Levels 6) initial)
+    let settings = chooseGamma GammaSrgb (chooseBayer (Just 4) (chooseColors (Levels 6) initial))
     case runExcept (readJob (unsafeToForeign (unwrap (jobMessage { settings, width: 3, height: 1, pixels, tapeName: "photo" })))) of
       Left errors -> fail (show errors)
       Right job -> do
@@ -35,6 +35,7 @@ spec = describe "Puregrain.Web.Message" do
     -- (A job has no Show instance: its pixels are a typed array.)
     isLeft (runExcept (readJob (unsafeToForeign { settings: good.settings, width: 1, pixels }))) `shouldEqual` true
     isLeft (runExcept (readJob (unsafeToForeign (good { settings = good.settings { bayer = 3 } })))) `shouldEqual` true
+    isLeft (runExcept (readJob (unsafeToForeign (good { settings = good.settings { gamma = "2.2" } })))) `shouldEqual` true
     isLeft (runExcept (readJob (unsafeToForeign { settings: good.settings, width: 1, height: 1, pixels: [ 1, 2, 3, 4 ], tapeName: "photo" }))) `shouldEqual` true
 
   it "reads back a machine's settings" do
@@ -43,6 +44,18 @@ spec = describe "Puregrain.Web.Message" do
     case runExcept (readJob (unsafeToForeign (unwrap (jobMessage { settings, width: 1, height: 1, pixels, tapeName: "photo" })))) of
       Left errors -> fail (show errors)
       Right job -> job.settings `shouldEqual` settings
+
+  it "reads the page's request for the engine check, a job without a kind, and rejects another kind" do
+    case runExcept (readRequest (unsafeToForeign (unwrap checkMessage))) of
+      Right CheckEngine -> pure unit
+      _ -> fail "expected the engine check"
+    pixels <- liftEffect (newPixels 4)
+    case runExcept (readRequest (unsafeToForeign (unwrap (jobMessage { settings: chooseColors (Levels 6) initial, width: 1, height: 1, pixels, tapeName: "photo" })))) of
+      Right (DitherJob job) -> { width: job.width, tapeName: job.tapeName } `shouldEqual` { width: 1, tapeName: "photo" }
+      _ -> fail "expected a job"
+    case runExcept (readRequest (unsafeToForeign { kind: "chat" })) of
+      Left _ -> pure unit
+      Right _ -> fail "expected an unknown kind of request to be rejected"
 
   it "reads back the worker's progress, result and errors, and rejects an unknown reply" do
     pixels <- liftEffect (newPixels 4)
@@ -67,3 +80,9 @@ spec = describe "Puregrain.Web.Message" do
     case runExcept (readReply (unsafeToForeign { kind: "chat" })) of
       Left _ -> pure unit
       Right _ -> fail "expected an unknown reply to be rejected"
+    case runExcept (readReply (unsafeToForeign (unwrap (engineMessage { passed: false, problems: [ "gammaSrgb, back: the results differ" ] })))) of
+      Right (Engine r) -> r `shouldEqual` { passed: false, problems: [ "gammaSrgb, back: the results differ" ] }
+      _ -> fail "expected the engine check's answer"
+    case runExcept (readReply (unsafeToForeign { kind: "engine", passed: true, problems: [ 1 ] })) of
+      Left _ -> pure unit
+      Right _ -> fail "expected problems that aren't sentences to be rejected"

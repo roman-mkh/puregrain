@@ -144,8 +144,8 @@ const gradient = (w, h, along) => {
 // The gradient under a shape, dithered by puregrain's CLI to two levels
 // with a Bayer map: for each pixel, 1 for a light dot, 0 for a dark one.
 // Every setting is given, so that a change of the CLI's defaults doesn't
-// change the logo. (Dithering in linear light, planned as the default:
-// pass its opt-out here once the CLI has it.)
+// change the logo: --gamma off too, though it's the default (no light
+// curve: the dots follow the gray values as stored).
 const work = fs.mkdtempSync(path.join(os.tmpdir(), 'puregrain-logo-'));
 process.on('exit', () => fs.rmSync(work, { recursive: true, force: true }));
 let runs = 0;
@@ -155,7 +155,7 @@ const dither = ({ w, h }, along, bayer) => {
   fs.writeFileSync(input, PNG.sync.write(gradient(w, h, along), { colorType: 0 }));
   try {
     execFileSync(process.execPath,
-      [cli, input, output, '--levels', '2', '--bayer', String(bayer), '--kernel', 'none', '--gray'],
+      [cli, input, output, '--levels', '2', '--bayer', String(bayer), '--kernel', 'none', '--gray', '--gamma', 'off'],
       { stdio: 'pipe' });
   } catch (err) {
     process.stderr.write(err.stderr?.length ? err.stderr : `${err.message}\n`);

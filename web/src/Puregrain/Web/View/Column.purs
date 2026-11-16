@@ -12,14 +12,14 @@ module Puregrain.Web.View.Column (column) where
 
 import Prelude
 
-import Data.Maybe (Maybe(..), isNothing, maybe)
+import Data.Maybe (Maybe(..), isJust, isNothing, maybe)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allKernels, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
@@ -35,7 +35,7 @@ column state =
       ( [ step 1 texts.picture false (pictureStep loaded)
         , step 2 texts.target off (targetStep s loaded state.fit)
         , step 3 texts.colors off (colorsStep s state.typed.threshold)
-        , step 4 texts.method off (methodStep s)
+        , step 4 texts.method off (methodStep s gammaIdle)
         ]
           <> backgroundStep
       )
@@ -48,6 +48,8 @@ column state =
     Loaded l -> Just l
     _ -> Nothing
   off = isNothing loaded
+  -- With a picture, whether the gamma can't change it now (`gammaActs`).
+  gammaIdle = maybe false (\l -> not (gammaActs (l.picture.transparent || isJust l.prepared.fitted) s)) loaded
   -- Whenever the background shows in the result (decision 27).
   backgroundStep = case loaded of
     Just l | backgroundShows l.picture.transparent l.prepared.fitted ->
@@ -172,14 +174,20 @@ colorsStep s shownThreshold =
       ]
     _ -> []
 
--- | The error diffusion's menu, the Bayer map's segments with the notes
--- | on them, and "gray first" as a toggle switch.
-methodStep :: forall w. Settings -> Array (HH.HTML w Action)
-methodStep s =
+-- | The error diffusion's menu (`kernelMenu`: the originals, then two
+-- | groups, as the colors' menu has "Palettes"), the Bayer map's segments with the notes
+-- | on them, the gamma's segments with a note when it can't change the
+-- | picture (`gammaIdle`), and "gray first" as a toggle switch.
+methodStep :: forall w. Settings -> Boolean -> Array (HH.HTML w Action)
+methodStep s gammaIdle =
   [ HH.label [ HP.class_ (H.ClassName "field") ]
       [ HH.span [ HP.class_ (H.ClassName "label") ] [ HH.text texts.kernel ]
       , HH.select [ HE.onValueChange KernelChosen ]
-          (map (\k -> option (kernelId k) (texts.kernelName k) (k == s.kernel)) allKernels)
+          ( map kernelOption kernelMenu.main
+              <> [ kernelGroup texts.kernelsLikeFloydSteinberg kernelMenu.likeFloydSteinberg
+                 , kernelGroup texts.kernelsLikeJarvisJudiceNinke kernelMenu.likeJarvisJudiceNinke
+                 ]
+          )
       ]
   , HH.div [ HP.class_ (H.ClassName "field") ]
       [ HH.span [ HP.id "bayer-label", HP.class_ (H.ClassName "label") ] [ HH.text texts.bayer ]
@@ -198,4 +206,17 @@ methodStep s =
           ]
         else []
       )
+    <>
+      [ HH.div [ HP.class_ (H.ClassName "field") ]
+          [ HH.span [ HP.id "gamma-label", HP.class_ (H.ClassName "label") ] [ HH.text texts.gamma ]
+          , segments
+              { name: "gamma", labelledBy: "gamma-label", selected: gammaId s.gamma, disabled: false, pick: GammaChosen }
+              (map (\g -> { value: gammaId g, text: texts.gammaName g }) allGammas)
+          ]
+      ]
+    <> (if gammaIdle then [ note [ HH.text texts.gammaNoEffect ] ] else [])
     <> [ toggleSwitch { label: texts.gray, checked: s.gray, toggle: GrayChosen } ]
+  where
+  kernelOption :: KernelName -> HH.HTML w Action
+  kernelOption k = option (kernelId k) (texts.kernelName k) (k == s.kernel)
+  kernelGroup label kernels = HH.optgroup [ HP.attr (H.AttrName "label") label ] (map kernelOption kernels)

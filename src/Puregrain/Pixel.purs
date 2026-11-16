@@ -4,7 +4,8 @@
 -- | Error diffusion adds and subtracts error, so a pixel type must be a
 -- | `Ring`, and `Scalable` by the kernel's `Number` weights. `MapChannels`
 -- | lets a one-channel quantizer work on every channel of a pixel (see
--- | `Puregrain.Quantize.perChannel`).
+-- | `Puregrain.Quantize.perChannel`), and `ColorChannels` lets a pixel be
+-- | converted to light and back, alpha excepted (see `Puregrain.Gamma`).
 module Puregrain.Pixel
   ( Gray
   , RGB(..)
@@ -13,6 +14,8 @@ module Puregrain.Pixel
   , scale
   , class MapChannels
   , mapChannels
+  , class ColorChannels
+  , mapColorChannels
   ) where
 
 import Prelude
@@ -106,3 +109,30 @@ instance MapChannels RGB where
 -- | instances.
 instance MapChannels RGBA where
   mapChannels f (RGBA p) = RGBA { r: f p.r, g: f p.g, b: f p.b, a: f p.a }
+
+-- | A pixel type whose color channels can be mapped one by one, leaving
+-- | any other channel as it is: what converting a pixel between stored
+-- | values and light needs (`Puregrain.Gamma.toLight` and `fromLight`),
+-- | since alpha isn't on a light curve. Laws, as for `MapChannels`:
+-- |
+-- | ```purescript
+-- | mapColorChannels identity == identity
+-- | mapColorChannels (f <<< g) == mapColorChannels f <<< mapColorChannels g
+-- | ```
+class ColorChannels a where
+  -- | Applies the function to every color channel, independently.
+  -- |
+  -- | - `Number -> Number`: the function for one channel.
+  -- | - `a`: the pixel.
+  mapColorChannels :: (Number -> Number) -> a -> a
+
+-- | A gray pixel is its one color channel.
+instance ColorChannels Number where
+  mapColorChannels f x = f x
+
+instance ColorChannels RGB where
+  mapColorChannels f (RGB p) = RGB { r: f p.r, g: f p.g, b: f p.b }
+
+-- | Red, green and blue; alpha stays as it is.
+instance ColorChannels RGBA where
+  mapColorChannels f (RGBA p) = RGBA { r: f p.r, g: f p.g, b: f p.b, a: p.a }

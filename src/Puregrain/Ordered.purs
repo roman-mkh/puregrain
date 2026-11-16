@@ -27,7 +27,9 @@ import Data.Either (Either(..))
 import Data.Foldable (foldl)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
-import Puregrain.Quantize (Quantize, quantizeWith)
+import Data.Number (round)
+import Puregrain.Internal.Gamma (isOff, toLightValue)
+import Puregrain.Quantize (Quantize, quantizeInLight)
 import Partial.Unsafe (unsafePartial)
 
 -- | A threshold map: a grid of thresholds, each strictly between 0 and 1,
@@ -173,25 +175,35 @@ thresholdAt (ThresholdMap m) { x, y } =
 -- | highest level snap to it, as accumulated error can push them there in
 -- | the hybrid with error diffusion. For color, lift it with `perChannel`,
 -- | which gives every channel the same position.
--- The levels are sorted once, here, not per pixel.
+-- |
+-- | With a gamma (`Puregrain.Dither.ditherImageWith`), `v`, `lo` and `hi`
+-- | are amounts of light, so each pattern gives off the light it stands
+-- | for; levels that aren't whole numbers are rounded first. With few
+-- | patterns, such as `bayer 2` over two levels, the darkest grays then
+-- | turn black: they're nearer to black's light than to the first
+-- | pattern's.
+-- The levels are sorted once per image, when the driver resolves the
+-- quantizer, not per pixel.
 ordered :: ThresholdMap -> NonEmptyArray Number -> Quantize Number
-ordered thresholdMap levels = quantizeWith \ctx v -> between (thresholdAt thresholdMap ctx) v
-  where
-    sorted = NEA.toArray (NEA.sort levels)
+ordered thresholdMap levels = quantizeInLight \gamma ->
+  let
+    -- the levels as given with gammaOff (the same numbers as before
+    -- gammas existed); with a curve, rounded to whole bytes and in light
+    sorted = NEA.toArray (NEA.sort (map (toLightValue gamma) (if isOff gamma then levels else map round levels)))
     lastIndex = Array.length sorted - 1
     level i = unsafePartial (Array.unsafeIndex sorted i)
     lowest = level 0
     highest = level lastIndex
-
-    between t v
-      | lastIndex == 0 || v <= lowest = lowest
-      | v >= highest = highest
-      | otherwise = go 1
-      where
-        -- Invariant: level (i − 1) <= v. Stops at the first level above
-        -- v; the `i >= lastIndex` guard also ends the scan for a NaN.
-        go i
-          | i >= lastIndex || v < level i = pick (level (i - 1)) (level i)
-          | otherwise = go (i + 1)
-        -- (v − lo) / (hi − lo) > t, without the division.
-        pick lo hi = if v - lo > t * (hi - lo) then hi else lo
+    -- Invariant: level (i − 1) <= v. Stops at the first level above v; the
+    -- `i >= lastIndex` test also ends the scan for a NaN.
+    go t v i =
+      if i >= lastIndex || v < level i then pick t v (level (i - 1)) (level i)
+      else go t v (i + 1)
+    -- (v − lo) / (hi − lo) > t, without the division.
+    pick t v lo hi = if v - lo > t * (hi - lo) then hi else lo
+    between t v =
+      if lastIndex == 0 || v <= lowest then lowest
+      else if v >= highest then highest
+      else go t v 1
+  in
+    \context v -> between (thresholdAt thresholdMap context) v

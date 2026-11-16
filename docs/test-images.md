@@ -53,6 +53,11 @@ of rows. `npm run generate-images` also writes the color composite at
   grays and creates moiré that isn't in the file. An exact multiple (200%,
   300%) is fine too if the viewer scales without smoothing, which helps
   with the small 256×192 ZX Spectrum screens.
+- **Tones depend on the gamma and the view.** At 1:1, the eye averages
+  the dots' light, so a result with `--gamma off`, the default, looks
+  lighter than the original, and one with `--gamma srgb` matches it; a
+  viewer that scales averages the stored values instead, so there `off`
+  matches and `srgb` looks darker. See [gamma.md](gamma.md#which-value-for-which-view).
 - **Judge interiors, not borders.** Error diffusion scans rows left to right
   and pushes each pixel's error to its right and into the rows below,
   including down-left. So a region receives error from its left, upper and
@@ -431,3 +436,35 @@ The machine screens have checks of their own:
   bit the lower half of a cell's color byte), it decodes to the PNG's
   picture, pixel for pixel, and its bitmap and colors are the `.prg`'s.
   `Test.Puregrain.C64Spec` reads arbitrary screens back the same way.
+
+Four more cover the gamma (`--gamma`, see [gamma.md](gamma.md)):
+
+- **`--gamma off`, `1.0` and `1`:** the same bytes as without `--gamma`,
+  on the color composite at 256×192: gray first (`--gray`), 4 levels with
+  Atkinson, and a ZX Spectrum `.scr` with `--bayer 2`. `off` converts
+  nothing.
+- **The checks above, under each curve** (`1.2`, `1.5`, `1.8` and
+  `srgb`): `--palette websafe216` and `--levels 6` give identical files
+  (on the color composite at 256×192, for time); `color:palette-exact`
+  comes back unchanged with both, with Floyd–Steinberg and with Atkinson;
+  with `--bayer 4 --kernel none --levels 4`, every neutral pixel of the
+  color composite stays neutral; and `color:zx-cells` and
+  `color:c64-cells` come back unchanged, with Floyd–Steinberg and with
+  `--bayer 8`. They still hold because the levels and the palettes' and
+  the machines' colors are whole bytes, whose light comes back exactly,
+  and because the nearest level, color and cell are still chosen on
+  stored values. Two kernels each: where the error is zero, the kernel
+  can't matter, and the library's properties cover any kernel
+  (`Test.Puregrain.InLightSpec`, `ZxSpectrumSpec` and `C64Spec`).
+- **A flat gray 128 with `--bayer 8 --gamma srgb`:** 128 gives off 21.6%
+  of white's light, so pure ordered dithering puts a dot where the map's
+  threshold, (rank + 0.5) / 64, is below that: exactly 14 dots in every
+  64, where `off` gives 32. Checked through each of the CLI's three
+  pipelines, so that each must pass the gamma on: gray; per channel, on a
+  flat (128, 128, 0) with `--levels 2`; and a ZX Spectrum screen, where
+  every cell is black and white (216), and 128 lies 0.314 of the way
+  between them in light: 20 dots in 64 (38 with `off`).
+- **`--check-engine`:** exits with 0 and says the check passed: this Node
+  computes the light curves exactly as the reference does
+  (`Test.Puregrain.SelfCheckSpec` checks the same in the library's
+  tests).

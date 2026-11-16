@@ -81,12 +81,20 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **A background color for transparent parts** (decided 2026-10-25, decision 27 in `web/ROADMAP.md`):
       `--background RRGGBB`, white by default, as in the web UI. Today the CLI ignores alpha and dithers the
       colors stored under transparent parts, so the two clients differ on such pictures. The flattening, color
-      × alpha + background × (1 − alpha) per channel, rounded, becomes a library helper both clients use. With
-      dithering in linear light (see "Algorithms"), which decides whether to flatten in linear light too;
-      before the web UI's v3.
+      × alpha + background × (1 − alpha) per channel, rounded, becomes a library helper both clients use. Under
+      a gamma, in the curve's light, back to a byte by the half-steps, as the web UI flattens (linear light's
+      decision 6, CLAUDE.md); before the web UI's v3.
 
 ## Algorithms
 
+- [ ] **Levels that aren't whole numbers, rounded before dithering, with `--gamma off`** (2026-11-09; under a
+      curve they're rounded already, since 0.2.2): with 3 levels, the middle
+      level is 127.5 and the file stores 128, but the error is measured against 127.5. Measured on a flat gray of
+      120 with Floyd–Steinberg: the file comes out 0.47 too bright (120.62, where the dithering aimed at 120.15).
+      With the levels rounded first (0, 128, 255), the two agree. It affects every level count with fractional
+      levels (3, 5, 7 to 15, …), not 2, 4, 6, 16, 18, 52, 86 and 256. To decide: whether `evenRamp` rounds itself
+      (it's public) or the clients round its levels. It changes a few pictures slightly, so it belongs in a minor
+      release.
 - [ ] **White-noise (random) dithering:** thresholds from a seeded hash of the pixel's position, a `Quantize`
       over `Context` with no state, combinable with any kernel like `Puregrain.Ordered`. Needs a seed (closed
       over by the quantizer, or in `Context`) and a deterministic hash. Blue noise is already covered: a
@@ -100,10 +108,7 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       weights. Not a kernel, but a different traversal: the whole image in memory (no streaming or stepper),
       so a separate function next to `ditherImage`. The quantizers carry over (`Context` has the position).
       Avoids scan-line "worm" artifacts, but looks grainier; ImageMagick offers it.
-- [ ] **Dithering in linear light:** today error is diffused on the stored, gamma-encoded sRGB values, which
-      skews mid-tones slightly; convert to linear light first (cli/README.md, "Limitations": "fixing this is
-      planned").
-- [ ] **Ordered dithering along a color ramp** (an idea, 2026-10-26; after linear light): a palette of colors in
+- [ ] **Ordered dithering along a color ramp** (an idea, 2026-10-26): a palette of colors in
       a row, two or more (red to green, say, or four greens like the Game Boy Camera's pictures). The pixel's
       gray value picks a point on the row, and a Bayer map chooses between the two colors on either side, as
       `Puregrain.Ordered` chooses between two levels. That's ordered dithering with a palette where it's well
@@ -156,6 +161,12 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       claim. "True to the art of the time", not "backed by", since the C64 follows only by analogy.
 
 ## Future directions (not in scope now)
+
+- [ ] Check the web UI's reading of transparency in real Safari (2026-11-15): the page reads a picture with
+      transparency as an `<img>` through WebGL, exact in Chromium, Firefox and Playwright's WebKit (Linux),
+      while WebKit's `ImageBitmap` lost up to 254 there (web/CLAUDE.md, "Transparency"). Safari on a Mac is
+      unchecked. If it differs, decode PNGs with transparency ourselves in the page (inflate and the PNG
+      filters), exact by construction in every browser; WebP and AVIF would still go through the browser.
 
 - [ ] Keeping transparency in the output, for icons and sprites (moved here from `web/ROADMAP.md`'s later
       ideas, 2026-10-25): the library has `RGBA` and dithers it per channel already, but palettes are RGB
@@ -210,7 +221,10 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       palette distance. Simpler to compute: linear sRGB, two 3×3 matrices
       and a cube root, with no white point to choose; and designed to keep
       hues steadier than CIELAB, blues notably. Both start from linear
-      light, so they'd share that step with "Dithering in linear light".
+      light, which `Puregrain.Gamma` computes exactly on every engine
+      (`toLight` with `gammaSrgb`); OKLab's cube root can use
+      `Puregrain.Internal.Exact`'s, and its arithmetic would join the
+      engine check's report.
       Which one, or both, is decided when the item is done.
 - [ ] **Palettes chosen from the picture** (the user, 2026-11-05): median cut, k-means and similar methods pick
       the N colors that suit a picture, as ditherit.com does (its "Color selection method"); presets like
@@ -221,6 +235,17 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       presets are, a `NonEmptyArray RGB` that `nearestColor` takes like any preset. Never computed on the fly
       inside `quantize`, which sees one pixel at a time, so the dithering core stays as it is. The CLI (an option)
       and the web UI (an entry in the colors menu) share it.
+- [ ] **Other color spaces** (the user, 2026-11-09): pictures in Display P3, Adobe
+      RGB or Apple RGB, converted to sRGB's light before dithering, in a module of the library's own that users
+      import separately. Display P3 first: the most common today (iPhones, Macs), and it uses sRGB's curve, so it
+      only needs its colors converted, a 3×3 matrix in linear light. Adobe RGB (a curve of 563/256) and Apple RGB
+      (1.8) need their curves too, and the matrix: a curve alone fixes only the brightness, and an Adobe RGB
+      picture would still look dull, since its green is more saturated than sRGB's (at 0.21, 0.71 against 0.30,
+      0.60 in the standard's coordinates). The curves from exact operations, as sRGB's: Apple RGB's from the same
+      fifth and cube roots, Adobe RGB's from square roots, with its way back found by halving an interval, since
+      563 is prime. Each verified as sRGB's was, and the self-check extended to it. Colors outside sRGB's range
+      need a rule, clamping say. Most useful once a client reads the file's color profile: few users know a
+      picture's color space.
 - [ ] Effectful quantizers and row sources (pipes/coroutines): postponed until someone needs them. Quantizers
       stay pure; if ever, as an extension package. For row sources, a generic driver on top of the stepper
       would do, e.g. `ditherWith :: forall m a. MonadRec m => … -> m (Maybe (Array a)) -> (Array a -> m Unit)
@@ -230,3 +255,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       users. Agents with a shell can already run the CLI (`npx puregrain …` once it's on npm), so for them
       a good CLI matters more (clear `--help`, precise errors, meaningful exit codes). It would serve chat
       apps without a shell. Needs the npm package first: an MCP server is TypeScript/JS on top of its JS layer.
+- [ ] Test coverage (an idea, the user, 2026-11-16): which lines the tests run. PureScript has no tool of its
+      own; the way to try is V8's coverage through `c8` on the compiled JavaScript, mapped back to the `.purs`
+      files by the compiler's source maps (`purs compile` can write them), untried together. A report to read
+      once, for blind spots, not a gate in CI: the property tests and the mutation checks already measure the
+      tests' strength more directly than coverage can.

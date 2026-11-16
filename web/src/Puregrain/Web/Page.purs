@@ -1,8 +1,9 @@
 -- | The page around the app: the system's light or dark setting, the
--- | theme on the page's root element, the library's version, which the
--- | build writes into the page (web/build.mjs), whether the screen is a
--- | phone's, and a file of the page's kept in memory.
-module Puregrain.Web.Page (prefersDark, setTheme, libraryVersion, narrowScreen, keptInMemory) where
+-- | theme on the page's root element, the engine check's result there,
+-- | the library's version, which the build writes into the page
+-- | (web/build.mjs), whether the screen is a phone's, a file of the
+-- | page's kept in memory, and a warning in the browser's console.
+module Puregrain.Web.Page (prefersDark, setTheme, setEngineCheck, libraryVersion, narrowScreen, keptInMemory, warnInConsole) where
 
 import Prelude
 
@@ -16,6 +17,14 @@ foreign import prefersDark :: Effect Boolean
 -- | Puts a theme's name on the page's root element, `data-theme`, so that
 -- | the whole page follows it, its background and scrollbars included.
 foreign import setTheme :: String -> Effect Unit
+
+-- | Puts the engine check's state on the page's root element,
+-- | `data-engine-check` (`Puregrain.Web.Status.engineCheckName`), for
+-- | checks of the page from outside.
+foreign import setEngineCheck :: String -> Effect Unit
+
+-- | A warning in the browser's console, for whoever reports a problem.
+foreign import warnInConsole :: String -> Effect Unit
 
 -- | The library's version, from the page's `puregrain-version` meta
 -- | element; empty when the build hasn't filled it in.

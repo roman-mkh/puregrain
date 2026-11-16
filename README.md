@@ -3,6 +3,7 @@
 [![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
 [![Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain/badge)](https://pursuit.purescript.org/packages/purescript-puregrain)
 [![License: MIT](https://img.shields.io/github/license/roman-mkh/puregrain)](LICENSE)
+[![Try online: puregrain lab](https://img.shields.io/badge/try_online-puregrain_lab-blue)](https://roman-mkh.github.io/puregrain/)
 
 Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
@@ -30,6 +31,11 @@ the browser.
 - **Ordered (Bayer) dithering:** Bayer matrices of any power-of-2 size,
   or your own threshold map; on its own, or combined with error diffusion.
   See [docs/ordered-dithering.md](docs/ordered-dithering.md).
+- **Linear light, when you want it:** a gamma (sRGB's curve, or 1.2, 1.5
+  or 1.8) makes the dithering keep the light a screen gives off, not the
+  average of the stored values; off by default. Its arithmetic is exact,
+  so the library, the command-line tool and the web UI give the same
+  results on every JavaScript engine. See [docs/gamma.md](docs/gamma.md).
 - **Ready-made palettes:** black & white, web-safe, CGA/EGA/VGA, ANSI
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
   checked against a cited source. See [docs/palettes.md](docs/palettes.md).
@@ -64,8 +70,9 @@ the browser.
   kernel are in [the benchmarks](docs/benchmarks-dithering.md). For batches
   of large images or interactive use, a native tool such as ImageMagick
   is the better choice.
-- **You need the best photo quality.** No gamma-correct (linear-light)
-  diffusion, no perceptual color distance and no serpentine scanning yet
+- **You need the best photo quality.** Linear light is there
+  ([gamma](docs/gamma.md)), but no perceptual color distance, no color
+  profiles and no serpentine scanning yet
   (see [Limitations](cli/README.md#limitations)).
 
 ## Getting started
@@ -189,6 +196,8 @@ workspace and are built together.
 | [web/README.md](web/README.md) | The web UI: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
 | [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
+| [docs/gamma.md](docs/gamma.md) | Gamma and linear light: the five values, which for which view, measured, and the engine check |
+| [docs/exact-arithmetic.md](docs/exact-arithmetic.md) | Why the light curves give the same bits on every JavaScript engine, and how |
 | [docs/palettes.md](docs/palettes.md) | The preset palettes: values, sources, equivalences |
 | [docs/machine-screens/](docs/machine-screens/README.md) | Machine screens: dithering with cells, which mode for which picture; one page per machine, the ZX Spectrum and the Commodore 64 |
 | [docs/test-images.md](docs/test-images.md) | The generated test images, and what to look for in the results |

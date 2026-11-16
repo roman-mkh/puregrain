@@ -325,3 +325,111 @@ result=$(node -e '
 [ "$result" = ok ] \
   && pass "color composite at 320x200, --machine c64-hires to an .art: read as RECOIL does, the PNG's picture" \
   || fail "color composite at 320x200, --machine c64-hires to an .art: $result"
+
+# 13. --gamma off, 1.0 and 1 are the default, no conversion: the same bytes
+#     as without --gamma, through the gray pipeline (--gray), per channel,
+#     and to a machine's screen file.
+gamma_default() {  # input, output extension, options
+  local input=$1 ext=$2; shift 2
+  $cli $input $out/gamma-default.$ext "$@" >/dev/null
+  for gamma in off 1.0 1; do
+    $cli $input $out/gamma-$gamma.$ext "$@" --gamma $gamma >/dev/null
+    cmp -s $out/gamma-default.$ext $out/gamma-$gamma.$ext \
+      || fail "color composite at 256x192, $* --gamma $gamma: differs from no --gamma"
+  done
+}
+gamma_default $out/color-256x192.png png --gray
+gamma_default $out/color-256x192.png png --levels 4 --kernel atkinson
+gamma_default $out/color-256x192.png scr --machine zx-spectrum --bayer 2
+pass "color composite at 256x192, --gamma off, 1.0 and 1: the same bytes as no --gamma (--gray; --levels 4 with atkinson; a ZX Spectrum .scr)"
+
+# 14. Checks 1, 2, 4 and 6 under each curve. The levels, the palettes'
+#     colors and the machines' colors are bytes, which come back exactly
+#     from their light (linear light's decisions 2, 3 and 5, CLAUDE.md):
+#     a picture made only of them has zero error everywhere and comes back
+#     unchanged, websafe216 and 6 levels still choose alike (both on stored
+#     values), and ordered dithering without diffusion keeps neutral
+#     pixels neutral. Two kernels each where the error is zero: the kernel
+#     can't matter there, and the library's properties cover any kernel.
+#     Check 1 on the 256x192 composite, for time.
+for gamma in 1.2 1.5 1.8 srgb; do
+  $cli $out/color-256x192.png $out/websafe.png --palette websafe216 --gamma $gamma >/dev/null
+  $cli $out/color-256x192.png $out/levels6.png --levels 6 --gamma $gamma >/dev/null
+  cmp -s $out/websafe.png $out/levels6.png \
+    || fail "color composite at 256x192, --gamma $gamma: --palette websafe216 != --levels 6"
+  for mode in "--palette websafe216" "--levels 6"; do
+    for kernel in floyd-steinberg atkinson; do
+      $cli $out/color-palette-exact-128.png $out/exact.png $mode --kernel $kernel --gamma $gamma >/dev/null
+      cmp -s $out/color-palette-exact-128.png $out/exact.png \
+        || fail "color:palette-exact alone, $mode --kernel $kernel --gamma $gamma: output differs from input"
+    done
+  done
+  $cli $out/color-512.png $out/bayer-none.png --bayer 4 --kernel none --levels 4 --gamma $gamma >/dev/null
+  colored=$(node -e '
+    const fs = require("fs"); const { PNG } = require("pngjs");
+    const a = PNG.sync.read(fs.readFileSync(process.argv[1]));
+    const b = PNG.sync.read(fs.readFileSync(process.argv[2]));
+    let colored = 0;
+    for (let i = 0; i < a.data.length; i += 4)
+      if (a.data[i] === a.data[i + 1] && a.data[i + 1] === a.data[i + 2]
+          && (b.data[i] !== b.data[i + 1] || b.data[i + 1] !== b.data[i + 2])) colored++;
+    console.log(colored);' $out/color-512.png $out/bayer-none.png)
+  [ "$colored" -eq 0 ] \
+    || fail "color composite, --bayer 4 --kernel none --levels 4 --gamma $gamma: $colored neutral pixels came out colored"
+  for screen in "zx-spectrum zx-cells 256x192" "c64-hires c64-cells 320x200"; do
+    set -- $screen
+    for mode in "--kernel floyd-steinberg" "--bayer 8"; do
+      $cli $out/color-$2-$3.png $out/$1.png --machine $1 $mode --gamma $gamma >/dev/null
+      cmp -s $out/color-$2-$3.png $out/$1.png \
+        || fail "color:$2 alone, --machine $1 $mode --gamma $gamma: output differs from input"
+    done
+  done
+  pass "--gamma $gamma: websafe216 == --levels 6; color:palette-exact unchanged; neutral pixels stay neutral; color:zx-cells and color:c64-cells unchanged"
+done
+
+# 15. With srgb, 128 has 21.6% of white's light, and pure ordered dithering
+#     with the 8x8 Bayer map puts a dot where a pixel's share of the light
+#     is above the map's threshold, (rank + 0.5) / 64. Exact counts per 64
+#     pixels, through each of the CLI's three pipelines, so that each must
+#     pass the gamma on:
+#     - gray, a flat 128: white for ranks 0 to 13, 14 dots (32 without);
+#     - per channel, a flat (128, 128, 0), a color: 14 dots of red (and
+#       green) per 64;
+#     - a ZX Spectrum screen, a flat 128 at 256x192: each cell black and
+#       white (216), and 128 is 0.314 of the way in light, so 20 dots (38
+#       without).
+flat() {  # width, height, r, g, b, file
+  node -e '
+    const fs = require("fs"); const { PNG } = require("pngjs");
+    const [w, h, r, g, b, file] = process.argv.slice(1);
+    const png = new PNG({ width: +w, height: +h });
+    for (let i = 0; i < png.data.length; i += 4) png.data.set([+r, +g, +b, 255], i);
+    fs.writeFileSync(file, PNG.sync.write(png, { colorType: r === g && g === b ? 0 : 2 }));' "$@"
+}
+count_dots() {  # file, channel value: pixels whose red channel has it
+  node -e '
+    const fs = require("fs"); const { PNG } = require("pngjs");
+    const p = PNG.sync.read(fs.readFileSync(process.argv[1]));
+    let n = 0;
+    for (let i = 0; i < p.data.length; i += 4) if (p.data[i] === +process.argv[2]) n++;
+    console.log(n);' "$@"
+}
+flat 64 64 128 128 128 $out/flat-gray.png
+flat 64 64 128 128 0 $out/flat-color.png
+flat 256 192 128 128 128 $out/flat-zx.png
+$cli $out/flat-gray.png $out/flat-gray-srgb.png --bayer 8 --gamma srgb >/dev/null
+$cli $out/flat-color.png $out/flat-color-srgb.png --levels 2 --bayer 8 --gamma srgb >/dev/null
+$cli $out/flat-zx.png $out/flat-zx-srgb.png --machine zx-spectrum --bayer 8 --gamma srgb >/dev/null
+gray=$(count_dots $out/flat-gray-srgb.png 255)
+color=$(count_dots $out/flat-color-srgb.png 255)
+zx=$(count_dots $out/flat-zx-srgb.png 216)
+[ "$gray" -eq $((14 * 64)) ] && [ "$color" -eq $((14 * 64)) ] && [ "$zx" -eq $((20 * 256 * 192 / 64)) ] \
+  && pass "flat 128 with --bayer 8 --gamma srgb: 14 dots in 64 in gray and per channel, 20 on a ZX Spectrum screen" \
+  || fail "flat 128 with --bayer 8 --gamma srgb: $gray gray, $color color, $zx ZX dots, not $((14 * 64)), $((14 * 64)), $((20 * 256 * 192 / 64))"
+
+# 16. --check-engine: this Node computes the light curves exactly as the
+#     reference does (Test.Puregrain.SelfCheckSpec checks the same in the
+#     library's tests; here the CLI's mode and its exit code).
+message=$($cli --check-engine) && [[ "$message" == "Engine check passed"* ]] \
+  && pass "--check-engine: exit 0, \"$message\"" \
+  || fail "--check-engine: \"$message\""

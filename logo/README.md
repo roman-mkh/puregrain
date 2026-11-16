@@ -100,11 +100,11 @@ bytes don't depend on Node's zlib; with PNGs inside, it would be about
 2. **The dots:** under each shape a gray gradient, from 20 to 235, along
    the diagonal for the mark and the swash and from left to right for
    the wordmark, dithered by puregrain's command-line tool to two levels
-   with a Bayer map: `--levels 2 --bayer 4 --kernel none --gray`, with
-   `--bayer 8` for `c64/`. The dark dots take the set's first color, the
-   light ones its second: ZX red `#d80000` and green `#00d800`, C64
-   orange `#9f4815` and blue `#2724c4`, the values of puregrain's
-   palettes. It takes these two steps because the tool can't use a
+   with a Bayer map, `--levels 2 --bayer 4 --kernel none --gray`
+   `--gamma off`, with `--bayer 8` for `c64/`. The dark dots take the
+   set's first color, the light ones its second: ZX red `#d80000` and
+   green `#00d800`, C64 orange `#9f4815` and blue `#2724c4`, the values
+   of puregrain's palettes. It takes these two steps because the tool can't use a
    Bayer map with a palette: the gray says how far each pixel lies from
    the first color towards the second. (Doing it in one step is an idea
    in [TODO.md](../TODO.md).)

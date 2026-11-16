@@ -3,13 +3,17 @@ module Test.Puregrain.Web.StatusSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Status (Run(..), RunNote(..), held, progressDelay, resultShows, runNote)
+import Puregrain.Web.Status (EngineCheck(..), Run(..), RunNote(..), engineCheckName, held, progressDelay, resultShows, runNote)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
 spec :: Spec Unit
 spec = describe "Puregrain.Web.Status" do
+  it "names the engine check's states on the page's root, for check:web" do
+    map engineCheckName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]
+      `shouldEqual` [ "checking", "passed", "failed", "not-run" ]
+
   let
     running r = Running { done: 10, total: 200, started: 0.0, left: Nothing, progressShown: r.progressShown, keepsPrevious: r.keepsPrevious }
     finished = Finished { files: [], saveFailed: false }
@@ -29,8 +33,9 @@ spec = describe "Puregrain.Web.Status" do
     resultShows (running { progressShown: false, keepsPrevious: resultShows (RunFailed "out of memory") }) `shouldEqual` false
     resultShows Idle `shouldEqual` false
 
-  it "shows a run's progress only once it has gone on for a second" do
-    progressDelay `shouldEqual` 1000.0
+  it "shows a run's progress only once it has gone on for a second, at once on a picture of 2 megapixels or more" do
+    map progressDelay [ 320 * 200, 1999999 ] `shouldEqual` [ 1000.0, 1000.0 ]
+    map progressDelay [ 2000000, 4096 * 3072 ] `shouldEqual` [ 0.0, 0.0 ]
     runNote (running { progressShown: false, keepsPrevious: true }) `shouldEqual` Nothing
     runNote (running { progressShown: true, keepsPrevious: true }) `shouldEqual` Just (Progress { done: 10, total: 200, left: Nothing })
 

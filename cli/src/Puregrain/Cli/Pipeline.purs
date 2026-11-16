@@ -15,8 +15,8 @@ module Puregrain.Cli.Pipeline
   , screenSizeCheck
   , kernelOf
   , paletteOf
+  , gammaOf
   , isNeutral
-  , luma
   , toNeutral
   ) where
 
@@ -30,12 +30,12 @@ import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits as CodeUnits
-import Puregrain (Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216, zxSpectrum)
+import Puregrain (Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
-import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
-import Puregrain.Cli.Options (FormatName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
+import Puregrain.Cells (CellQuantizer, ditherCellsWith, nearestInCell, orderedInCell)
+import Puregrain.Cli.Options (FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
 
@@ -85,13 +85,13 @@ screenImage = case _ of
   C64HiresDithered s -> s.image
 
 -- | Dithers an RGB image to the machine's screen, cell by cell, with the
--- | machine's palette, the kernel and the rule inside the cells. (A
--- | machine's palette names are checked against what it offers before:
+-- | gamma, the machine's palette, the kernel and the rule inside the cells.
+-- | (A machine's palette names are checked against what it offers before:
 -- | `c64-hires` has only the full one.)
-ditherScreen :: MachineName -> MachinePaletteName -> Kernel -> CellQuantizer -> Array (Array RGB) -> DitheredScreen
-ditherScreen machine palette kernel rule image = case machine of
-  ZxSpectrumScreen -> ZxDithered (ditherCells kernel rule zxMode image)
-  C64HiresScreen -> C64HiresDithered (ditherCells kernel rule C64.hiresScreen image)
+ditherScreen :: Gamma -> MachineName -> MachinePaletteName -> Kernel -> CellQuantizer -> Array (Array RGB) -> DitheredScreen
+ditherScreen gamma machine palette kernel rule image = case machine of
+  ZxSpectrumScreen -> ZxDithered (ditherCellsWith gamma kernel rule zxMode image)
+  C64HiresScreen -> C64HiresDithered (ditherCellsWith gamma kernel rule C64.hiresScreen image)
   where
   zxMode = case palette of
     FullPalette -> Zx.screen
@@ -194,22 +194,23 @@ paletteOf = case _ of
   C64 -> c64
   ZxSpectrum -> zxSpectrum
 
+gammaOf :: GammaName -> Gamma
+gammaOf = case _ of
+  GammaOff -> gammaOff
+  Gamma1p2 -> gamma1p2
+  Gamma1p5 -> gamma1p5
+  Gamma1p8 -> gamma1p8
+  GammaSrgb -> gammaSrgb
+
 isNeutral :: RGB -> Boolean
 isNeutral (RGB p) = p.r == p.g && p.g == p.b
 
--- | A pixel's gray value. Exact for a neutral pixel: Rec. 601 weights
--- | applied to r = g = b = v land one float step below v for 65 of the
--- | 256 levels, 128 among them. That only changes a decision where the
--- | incoming error is exactly zero, such as an image's first pixel, but
--- | error diffusion then carries the flipped dot into a differently phased
--- | pattern: on a flat 128 image, 96% of the output differed from the
--- | exact result (same tone, 50.1% white either way). Colored pixels get
--- | Rec. 601 luma (0.299 R + 0.587 G + 0.114 B) on the stored sRGB values,
--- | as the old JS CLI did.
-luma :: RGB -> Number
-luma px@(RGB p)
-  | isNeutral px = p.r
-  | otherwise = 0.299 * p.r + 0.587 * p.g + 0.114 * p.b
-
-toNeutral :: RGB -> RGB
-toNeutral px = let v = luma px in RGB { r: v, g: v, b: v }
+-- | A neutral pixel at the color's gray, for `--gray`: by the library's
+-- | `toGray`, luma on the stored values with `gammaOff`, as before, and
+-- | with a curve the gray that gives off as much light as the color. A
+-- | neutral pixel stays exactly as it is: with luma's weights, 65 of the
+-- | 256 levels, 128 among them, would land one float step below, which
+-- | changed 96% of a flat 128's dots with Floyd-Steinberg (same tone,
+-- | another phase); `toGray` keeps them.
+toNeutral :: Gamma -> RGB -> RGB
+toNeutral gamma px = let v = toGray gamma px in RGB { r: v, g: v, b: v }

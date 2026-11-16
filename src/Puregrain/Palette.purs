@@ -94,6 +94,13 @@ nearestColorFast (CompiledPalette p) pixel =
 -- | ```purescript
 -- | ditherImage floydSteinberg (nearestColor websafe216) image
 -- | ```
+-- |
+-- | With a gamma (`Puregrain.Dither.ditherImageWith`), the nearest color is
+-- | still chosen on stored values, as the eye sees them: each corrected
+-- | pixel is brought back from light for the comparison, and the chosen
+-- | color taken to light, while the error stays in light. A pixel that's
+-- | exactly a byte's light comes back as that byte, so without diffusion
+-- | the result is the one `ditherImage` gives.
 nearestColor :: NonEmptyArray RGB -> Quantize RGB
 nearestColor palette = quantize (nearestColorFast (compilePalette distance2 palette))
 

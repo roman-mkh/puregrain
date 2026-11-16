@@ -52,24 +52,95 @@ const SETTINGS = [
   // shape: it reaches three columns to the left (v2.2 in web/ROADMAP.md).
   { what: '4 levels, Shiau-Fan 2', colors: 'levels', levels: '4', kernel: 'shiau-fan-2',
     cli: ['--levels', '4', '--kernel', 'shiau-fan-2'], name: 'levels4-shiau-fan-2' },
+  // Under a curve (docs/gamma.md): the page's gamma segments, and "gray
+  // first", which turns a picture gray by the curve.
+  { what: '4 levels, Atkinson, sRGB', colors: 'levels', levels: '4', kernel: 'atkinson', gamma: 'srgb',
+    cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'], name: 'levels4-atkinson-srgb' },
+  { what: 'the CGA palette, Floyd-Steinberg, gray first, gamma 1.5', colors: 'cga16', kernel: 'floyd-steinberg', gamma: '1.5', gray: true,
+    cli: ['--palette', 'cga16', '--kernel', 'floyd-steinberg', '--gamma', '1.5', '--gray'], name: 'cga16-floyd-steinberg-gamma1.5-gray' },
 ];
+// `dir` keeps each entry's CLI files apart; the names in it are the
+// picture's, so that a tape's name is the page's.
 const MACHINES = [
-  { what: 'the ZX Spectrum, Bayer 8', picture: 'color-256x192', target: 'zx-spectrum', formats: ['png', 'scr', 'tap'] },
-  { what: 'the C64, Bayer 8', picture: 'color-320x200', target: 'c64-hires', formats: ['png', 'prg', 'art'] },
+  { what: 'the ZX Spectrum, Bayer 8', picture: 'color-256x192', target: 'zx-spectrum', bayer: '8', formats: ['png', 'scr', 'tap'],
+    dir: 'zx-spectrum', name: 'zx-spectrum-bayer8', cli: [] },
+  { what: 'the C64, Bayer 8', picture: 'color-320x200', target: 'c64-hires', bayer: '8', formats: ['png', 'prg', 'art'],
+    dir: 'c64-hires', name: 'c64-hires-bayer8', cli: [] },
+  { what: 'the ZX Spectrum, Bayer 4, sRGB', picture: 'color-256x192', target: 'zx-spectrum', bayer: '4', gamma: 'srgb', formats: ['png', 'scr'],
+    dir: 'zx-spectrum-srgb', name: 'zx-spectrum-bayer4-srgb', cli: ['--gamma', 'srgb'] },
 ];
 const PICTURE = 'color-320x200';
+// With a gamma, the page fits and flattens in the curve's light (linear
+// light's decision 6, CLAUDE.md). The reference prepares the same
+// picture in Node with the page's own compiled code (Puregrain.Web.Prepare),
+// and the CLI dithers that: the page's results must be the CLI's. The
+// transparent picture's channels are only 0 or 255, which come back exactly
+// from a canvas too, should a browser here lack WebGL (web/CLAUDE.md,
+// "Transparency"); black over white at every alpha still mixes in light.
+const PREPARED = [
+  { what: 'the 512x512 composite fitted to the ZX Spectrum, Bayer 4, sRGB', picture: 'color-512', target: 'zx-spectrum',
+    fit: { width: 256, height: 192 }, bayer: '4', gamma: 'srgb', formats: ['png', 'scr'], name: 'zx-spectrum-fit-bayer4-srgb',
+    cli: ['--machine', 'zx-spectrum', '--bayer', '4', '--gamma', 'srgb'] },
+  { what: 'eight colors at every alpha on white, 4 levels, Atkinson, sRGB', picture: 'alpha-ramps',
+    colors: 'levels', levels: '4', kernel: 'atkinson', gamma: 'srgb', formats: ['png'], name: 'levels4-atkinson-srgb',
+    cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'] },
+];
 
 fs.rmSync(out, { recursive: true, force: true });
-for (const dir of ['downloads', ...MACHINES.map((m) => m.target)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
-for (const size of ['320x200', '256x192']) {
+for (const dir of ['downloads', 'prepared', ...MACHINES.map((m) => m.dir)]) fs.mkdirSync(`${out}/${dir}`, { recursive: true });
+for (const size of ['320x200', '256x192', '512', '2048x1024']) {
   execFileSync('node', ['scripts/generate-images.mjs', '--pattern', 'color', '--size', size, '--out', out]);
+}
+{
+  // Eight colors of 0s and 255s, a band of 8 rows each, at alpha 0 to 255
+  // from left to right.
+  const png = new PNG({ width: 256, height: 64 });
+  for (let y = 0; y < 64; y++) {
+    for (let x = 0; x < 256; x++) {
+      const c = y >> 3;
+      png.data.set([c & 4 ? 255 : 0, c & 2 ? 255 : 0, c & 1 ? 255 : 0, x], (y * 256 + x) * 4);
+    }
+  }
+  fs.writeFileSync(`${out}/alpha-ramps.png`, PNG.sync.write(png, { colorType: 6 }));
+}
+{
+  // Every value at every alpha (v2's phase 2): red down the rows, alpha
+  // across, green and blue other orders of the values.
+  const png = new PNG({ width: 256, height: 256 });
+  for (let y = 0; y < 256; y++) for (let x = 0; x < 256; x++) png.data.set([y, 255 - y, (y * 37) % 256, x], (y * 256 + x) * 4);
+  fs.writeFileSync(`${out}/every-alpha.png`, PNG.sync.write(png, { colorType: 6 }));
 }
 const cli = (input, output, options) => execFileSync('node', ['cli/bin/puregrain-cli.mjs', input, output, ...options]);
 for (const s of SETTINGS) cli(`${out}/${PICTURE}.png`, `${out}/cli-${s.name}.png`, s.cli);
 // The tape's name comes from the output file's name: the picture's, as on the page.
+{
+  const Prepare = await import(path.resolve('output/Puregrain.Web.Prepare/index.js'));
+  const Settings = await import(path.resolve('output/Puregrain.Web.Settings/index.js'));
+  const gammas = { srgb: Settings.GammaSrgb.value, off: Settings.GammaOff.value };
+  for (const p of PREPARED) {
+    const picture = PNG.sync.read(fs.readFileSync(`${out}/${p.picture}.png`));
+    const pixels = new Uint8ClampedArray(picture.data);
+    const size = { width: picture.width, height: picture.height };
+    const tables = Prepare.lightTables(gammas[p.gamma]);
+    const prepared = p.fit
+      ? { ...p.fit, pixels: Prepare.fitOnto(tables)(pixels)(size)(p.fit)(Prepare.white)() }
+      : { ...size, pixels: Prepare.flatten(tables)(pixels)(Prepare.white)() };
+    const png = new PNG({ width: prepared.width, height: prepared.height });
+    png.data = Buffer.from(prepared.pixels);
+    fs.writeFileSync(`${out}/prepared/${p.picture}.png`, PNG.sync.write(png, { colorType: 2 }));
+    for (const format of p.formats) cli(`${out}/prepared/${p.picture}.png`, `${out}/prepared/${p.picture}-dithered.${format}`, p.cli);
+  }
+  // The file's own values flattened onto white, in Node, with off and srgb:
+  // what the page must show as the original.
+  const every = PNG.sync.read(fs.readFileSync(`${out}/every-alpha.png`));
+  for (const gamma of ['off', 'srgb']) {
+    const flat = Prepare.flatten(Prepare.lightTables(gammas[gamma]))(new Uint8ClampedArray(every.data))(Prepare.white)();
+    fs.writeFileSync(`${out}/prepared/every-alpha-${gamma}.rgba`, Buffer.from(flat));
+  }
+}
 for (const m of MACHINES) {
   for (const format of m.formats) {
-    cli(`${out}/${m.picture}.png`, `${out}/${m.target}/${m.picture}.${format}`, ['--machine', m.target, '--bayer', '8']);
+    cli(`${out}/${m.picture}.png`, `${out}/${m.dir}/${m.picture}.${format}`, ['--machine', m.target, '--bayer', m.bayer, ...m.cli]);
   }
 }
 
@@ -261,6 +332,71 @@ const checksIn = async (engine, page) => {
       `${engine}: a click on "Result" moves the split to ${toResult}, on "Original" to ${toOriginal} (the width, ${width})`);
   };
 
+  // The engine check (v2.3): this engine passes it, and
+  // the icon left of Help says so, opens its sentence with a link to the
+  // README's section, and Escape closes it, the focus back on the icon.
+  {
+    await page.goto(pageUrl);
+    await page.waitForFunction(() => ['passed', 'failed', 'not-run'].includes(document.documentElement.dataset.engineCheck), null, { timeout: 30000 });
+    const state = await page.evaluate(() => document.documentElement.dataset.engineCheck);
+    const button = page.locator('.top .engine-button');
+    const name = (await button.textContent()).trim();
+    await button.click();
+    const box = page.locator('.top .engine-box');
+    const shown = await box.isVisible();
+    const sentence = shown ? (await box.locator('p').textContent()).trim() : '';
+    const link = await box.locator('a').getAttribute('href');
+    await page.keyboard.press('Escape');
+    const closed = await box.isHidden();
+    const focused = await page.evaluate(() => document.activeElement?.classList.contains('engine-button') ?? false);
+    // Opened again, a click elsewhere on the page closes it too.
+    await button.click();
+    const reopened = await box.isVisible();
+    await page.mouse.click(20, 400);
+    const clickedAway = await box.isHidden();
+    report(state === 'passed' && name === 'Engine check: passed' && shown && sentence.startsWith('Engine check passed:')
+      && link.endsWith('/web/README.md#the-engine-check') && closed && focused && reopened && clickedAway,
+      `${engine}: the engine check ${state}; its icon, "${name}", opens "${sentence}" with a link to Help${closed && focused ? ', and Escape closes it, the focus back on the icon' : ', but Escape doesn\'t close it, or the focus is lost'}${reopened && clickedAway ? ', as does a click elsewhere' : ', but a click elsewhere doesn\'t close it'}`);
+  }
+
+  // A long run, on 2 megapixels (2026-11-15): its progress shows at once,
+  // and the picture's frame is marked as working while it goes. A gamma
+  // changed after it, on this opaque picture, keeps the result before on
+  // show during the next run (not the original); Escape cancels, and the
+  // mark goes.
+  {
+    await open('color-2048x1024');
+    let before = await runs();
+    const t0 = Date.now();
+    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    const progressAt = await page.waitForFunction(() => document.querySelector('.progress:not([hidden])') !== null, null, { timeout: 5000 })
+      .then(() => Date.now() - t0, () => null);
+    const working = await page.locator('.layers.working').count() === 1;
+    await finished(before);
+    const doneUnmarked = await page.locator('.layers.working').count() === 0;
+    before = await runs();
+    await pick('gamma', 'srgb');
+    await page.waitForFunction((n) => window.__runs.length > n, before);
+    const keptResult = await page.evaluate(() => document.querySelector('canvas.result')?.hidden === false && document.querySelector('.layers.working') !== null);
+    await page.keyboard.press('Escape');
+    const cancelledUnmarked = await page.waitForFunction(() => document.querySelector('.layers.working') === null, null, { timeout: 5000 }).then(() => true, () => false);
+    report(progressAt !== null && progressAt < 700 && working && doneUnmarked && keptResult && cancelledUnmarked,
+      `${engine}: on 2 megapixels, a run's progress shows at once (${progressAt} ms) and its frame is marked while it goes${doneUnmarked ? '' : ' (still marked when done)'}; ` +
+      `a new gamma keeps the result before on show${keptResult ? '' : ' (NOT: the original shows)'}; Escape cancels${cancelledUnmarked ? '' : ' (the mark stays)'}`);
+  }
+
+  // Under the gamma, a note while it can't change the picture: after
+  // loading (no colors, no method), and gone once a kernel dithers.
+  {
+    await open(PICTURE);
+    const note = page.locator('.note', { hasText: 'Gamma changes the picture only' });
+    const shown = await note.isVisible();
+    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    await page.waitForFunction(() => ![...document.querySelectorAll('.note')].some((n) => n.textContent.startsWith('Gamma changes')), null, { timeout: 5000 }).catch(() => {});
+    const gone = await note.count() === 0;
+    report(shown && gone, `${engine}: the note under the gamma ${shown ? 'shows after loading' : "doesn't show after loading"} and ${gone ? 'goes once a kernel dithers' : 'stays with a kernel'}`);
+  }
+
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();
@@ -268,6 +404,8 @@ const checksIn = async (engine, page) => {
     if (s.levels) await page.locator('.stepper input[type=number]').fill(s.levels);
     if (s.kernel) await page.locator('select').nth(1).selectOption(s.kernel);
     if (s.bayer) await pick('bayer', s.bayer);
+    if (s.gamma) await pick('gamma', s.gamma);
+    if (s.gray) await page.locator('input[role=switch]').evaluate((toggle) => toggle.click());
     await finished(before);
     const expected = `${PICTURE}-${s.name}.png`;
     const file = await download(() => page.locator('.downloads button').first().click());
@@ -287,18 +425,89 @@ const checksIn = async (engine, page) => {
     await open(m.picture);
     const before = await runs();
     await pick('target', m.target);
-    await pick('bayer', '8');
+    await pick('bayer', m.bayer);
+    if (m.gamma) await pick('gamma', m.gamma);
     await finished(before);
     for (const format of m.formats) {
-      const expected = `${m.picture}-${m.target}-bayer8.${format}`;
+      const expected = `${m.picture}-${m.name}.${format}`;
       const file = await download(fromList(format));
-      const reference = fs.readFileSync(`${out}/${m.target}/${m.picture}.${format}`);
+      const reference = fs.readFileSync(`${out}/${m.dir}/${m.picture}.${format}`);
       const diff = format === 'png' ? differing(pixelsOf(file.bytes), pixelsOf(reference)) : null;
       const same = format === 'png' ? diff === 0 : file.bytes.equals(reference);
       const how = format === 'png'
         ? (diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`)
         : (same ? "the CLI's file, byte for byte" : `not the CLI's file (${file.bytes.length} bytes, the CLI's ${reference.length})`);
       report(file.name === expected && same, `${engine}: ${m.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${how}`);
+    }
+  }
+
+  for (const p of PREPARED) {
+    await open(p.picture);
+    const before = await runs();
+    if (p.target) await pick('target', p.target);
+    if (p.fit) await page.locator('label.check input[type=checkbox]').setChecked(true);
+    if (p.colors) await page.locator('select').nth(0).selectOption(p.colors);
+    if (p.levels) await page.locator('.stepper input[type=number]').fill(p.levels);
+    if (p.kernel) await page.locator('select').nth(1).selectOption(p.kernel);
+    if (p.bayer) await pick('bayer', p.bayer);
+    await pick('gamma', p.gamma);
+    await finished(before);
+    for (const format of p.formats) {
+      const expected = `${p.picture}-${p.name}.${format}`;
+      const file = await download(p.target ? fromList(format) : () => page.locator('.downloads button').first().click());
+      const reference = fs.readFileSync(`${out}/prepared/${p.picture}-dithered.${format}`);
+      const diff = format === 'png' ? differing(pixelsOf(file.bytes), pixelsOf(reference)) : null;
+      const same = format === 'png' ? diff === 0 : file.bytes.equals(reference);
+      const how = format === 'png'
+        ? (diff === 0 ? "the CLI's pixels on the picture prepared in Node" : `${diff} pixels differ from the CLI's on the picture prepared in Node`)
+        : (same ? "the CLI's file, byte for byte" : `not the CLI's file (${file.bytes.length} bytes, the CLI's ${reference.length})`);
+      report(file.name === expected && same, `${engine}: ${p.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${how}`);
+    }
+  }
+
+  // A picture with transparency is read exactly, through an <img> and
+  // WebGL (see Puregrain.Web.Picture): the original the page shows, put onto
+  // white with off and with srgb, is the file's own values put onto white in
+  // Node. Without WebGL, the page reads the canvas's rounded values, by
+  // design not exact: then the line says so instead of failing.
+  {
+    // The original as drawn, read in the page: whether it's drawn (opaque),
+    // a hash of its bytes, to see it drawn again, and how many values
+    // differ from the expected ones when they're given (sent once, at the
+    // end, rather than the canvas copied out at every look).
+    const shown = (b64) => page.evaluate((expected) => {
+      const c = document.querySelector('canvas.picture:not(.result)');
+      const got = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const want = expected === null ? null : Uint8Array.from(atob(expected), (ch) => ch.charCodeAt(0));
+      let hash = 0;
+      let differ = 0;
+      for (let i = 0; i < got.length; i++) {
+        hash = (hash * 31 + got[i]) >>> 0;
+        if (want !== null && got[i] !== want[i]) differ++;
+      }
+      return { drawn: got[3] === 255, hash, differ };
+    }, b64);
+    const webgl = await page.evaluate(() => document.createElement('canvas').getContext('webgl') !== null);
+    await open('every-alpha');
+    const results = [];
+    let before = null;
+    for (const gamma of ['off', 'srgb']) {
+      if (gamma !== 'off') await pick('gamma', gamma);
+      // Drawn, and with another gamma drawn again: until then, or 5 s.
+      let now = await shown(null);
+      for (let waited = 0; waited < 5000 && (!now.drawn || now.hash === before); waited += 100) {
+        await sleep(100);
+        now = await shown(null);
+      }
+      before = now.hash;
+      const { differ } = await shown(fs.readFileSync(`${out}/prepared/every-alpha-${gamma}.rgba`).toString('base64'));
+      results.push(`${gamma} ${differ === 0 ? 'exact' : `${differ} values off`}`);
+    }
+    const exact = results.every((r) => r.endsWith('exact'));
+    if (webgl || exact) {
+      report(exact, `${engine}: every value at every alpha, put onto white: the shown original is the file's values put onto white in Node (${results.join(', ')})`);
+    } else {
+      console.log(`NOTE  ${engine}: no WebGL here, so a picture with transparency is read from the canvas, rounded by design (${results.join(', ')})`);
     }
   }
 

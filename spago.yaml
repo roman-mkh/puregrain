@@ -1,8 +1,9 @@
 package:
   name: puregrain
   description: "Error-diffusion and ordered (Bayer) dithering for PureScript: 11
-    kernels or your own, retro palettes, ZX Spectrum and C64 hires screens with
-    their file formats; in memory, streaming or row by row."
+    kernels or your own, a choice of gamma (linear light), retro palettes, ZX
+    Spectrum and C64 hires screens with their file formats; in memory, streaming
+    or row by row."
   publish:
     version: 0.2.1
     license: MIT
@@ -12,6 +13,7 @@ package:
   dependencies:
     - arrays: ">=7.3.1 <8.0.0"
     - catenable-lists: ">=7.0.1 <8.0.0"
+    - effect: ">=4.0.1 <5.0.0"
     - either: ">=6.1.1 <7.0.0"
     - foldable-traversable: ">=6.0.1 <7.0.0"
     - integers: ">=6.0.1 <7.0.0"

@@ -19,6 +19,8 @@ module Puregrain.Web.State
   , settingsButtonRef
   , pictureRef
   , targetRef
+  , engineRef
+  , engineButtonRef
   ) where
 
 import Prelude
@@ -33,7 +35,7 @@ import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (Background, Placement, backgroundShows, white)
 import Puregrain.Web.Save (fileName)
 import Puregrain.Web.Settings (Settings)
-import Puregrain.Web.Status (Run)
+import Puregrain.Web.Status (EngineCheck, Run)
 import Puregrain.Web.Theme (Theme)
 import Web.Event.Event (Event)
 import Web.HTML.Event.DragEvent (DragEvent)
@@ -78,7 +80,9 @@ type Prepared =
 -- | formats shows (`Puregrain.Web.Download`). `columnHidden` is the
 -- | settings' column slid away (decision 29), and `panelOpen` the
 -- | phone's settings panel open, which holds the runs until it closes.
--- | `resultLabel` names the result shown, for screen readers, and
+-- | `engine` is the engine check's state, `engineOpen` whether its popup
+-- | shows, and `engineWorker` the worker running it (linear light, step
+-- | 4c). `resultLabel` names the result shown, for screen readers, and
 -- | `status` and `alert` are what their two live regions say (decision
 -- | 33): the run's milestones, and errors at once.
 type State =
@@ -106,6 +110,9 @@ type State =
   , libraryVersion :: String
   , columnHidden :: Boolean
   , panelOpen :: Boolean
+  , engine :: EngineCheck
+  , engineOpen :: Boolean
+  , engineWorker :: Maybe Worker
   , resultLabel :: String
   , status :: Said
   , alert :: Said
@@ -145,6 +152,7 @@ data Action
   | KernelChosen String
   | BayerChosen String
   | GrayChosen Boolean
+  | GammaChosen String
   | Cancel
   | FromWorker Int Foreign
   | SplitPressed Event
@@ -155,6 +163,9 @@ data Action
   | DownloadClicked
   | FormatsToggled
   | FormatChosen Format
+  | EngineToggled
+  | EngineReplied Foreign
+  | EngineCouldNotRun
 
 -- | A download's name (`Puregrain.Web.Save.fileName`): the picture's
 -- | name and the settings; `fit` when the picture was fitted to a
@@ -206,6 +217,15 @@ settingsButtonRef = H.RefLabel "settings-button"
 -- | The picture area, where "Skip to the picture" goes.
 pictureRef :: H.RefLabel
 pictureRef = H.RefLabel "picture"
+
+-- | The engine check's box and its icon's button, in the header
+-- | (`"top"`) or in the footer (`"foot"`): the stylesheet shows the
+-- | header's on a desktop, the footer's on a phone.
+engineRef :: String -> H.RefLabel
+engineRef place = H.RefLabel ("engine-" <> place)
+
+engineButtonRef :: String -> H.RefLabel
+engineButtonRef place = H.RefLabel ("engine-button-" <> place)
 
 -- | The target that's chosen, where the focus goes after the first
 -- | picture.

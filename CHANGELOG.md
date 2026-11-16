@@ -6,6 +6,49 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Added
+
+- `Puregrain.Gamma`: `Gamma`, how a picture's stored numbers turn into
+  light, with five curves: `gammaOff`, `gamma1p2`, `gamma1p5`, `gamma1p8`
+  and `gammaSrgb` (linear light), also in the `Puregrain` facade; and
+  `toLight` and `fromLight`, which convert a pixel's color channels. The
+  curves give the same results on every JavaScript engine, and the light
+  of a whole number from 0 to 255 comes back exactly; why and how in
+  [docs/exact-arithmetic.md](https://github.com/roman-mkh/puregrain/blob/master/docs/exact-arithmetic.md).
+  And `toGray`, also in the facade, a color's gray by the curve: luma on
+  the stored values with `gammaOff`, as the CLI has always made it, and
+  with a curve the gray that gives off as much light as the color, which
+  makes saturated colors lighter.
+- `Puregrain.Pixel`: `ColorChannels`, a pixel type whose color channels
+  can be mapped one by one, alpha excepted (`RGBA` keeps its alpha), for
+  the conversion to light; with instances for `Number`, `RGB` and `RGBA`.
+- `Puregrain.SelfCheck`: `checkEngine`, which checks that the JavaScript
+  engine at hand computes the light curves exactly as the reference does,
+  with `exactArithmetic` and `problems` to read its `EngineReport`.
+- `Puregrain.Dither`: `ditherImageWith`, `ditherRowsWith` and
+  `initDitheringWith`, also in the `Puregrain` facade: the drivers with a
+  `Gamma` first. They keep the amount of light by that curve rather than
+  the average of the stored numbers: the error and ordered dithering's
+  patterns are measured in light, while the nearest level or palette
+  color is still chosen on stored values. With `gammaOff` they give the
+  plain drivers' results; the plain drivers convert nothing and give the
+  same results as before.
+- `Puregrain.Cells`: `ditherCellsWith` and `ditherBandsWith`, the same with
+  a `Gamma` first for machine screens: the cells are chosen as before, and
+  their rows dithered in light. `orderedInCell` measures where a pixel
+  lies between its cell's two colors in light, while `nearestInCell` still
+  picks the nearer color on stored values. With colors of whole numbers,
+  as a machine's are, every pixel comes out as exactly one of its cell's
+  colors, so `toScr`, `toHiresPrg` and the other writers take the result.
+- `Puregrain.Quantize`: `quantizeInLight`, for quantizers that work in
+  light, as the ready-made ones now do; and `runQuantizeWith`, which runs
+  a quantizer for a stored value as the drivers do with a gamma.
+
+### Changed
+
+- The library now depends on `effect` directly, for `checkEngine`. It
+  was already among its dependencies' own, so nothing new is installed.
+
 ## 0.2.1 - 2026-11-05
 
 ### Added

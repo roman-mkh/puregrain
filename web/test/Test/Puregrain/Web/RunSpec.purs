@@ -14,14 +14,14 @@ import Data.Traversable (traverse)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
-import Puregrain (RGB(..), ditherImage)
-import Puregrain.Cells (ditherCells)
+import Puregrain (RGB(..), ditherImageWith, toGray)
+import Puregrain.Cells (ditherCellsWith)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
-import Puregrain.Web.Dither (Pipeline(..), isNeutral, kernelOf, luma, pipelineFor, toNeutral, zxModeOf)
+import Puregrain.Web.Dither (Pipeline(..), gammaOf, isNeutral, kernelOf, pipelineFor, toNeutral, zxModeOf)
 import Puregrain.Web.Pixels (byteArray, newPixels, readRow, writeRgbRow)
 import Puregrain.Web.Run (ditherPicture)
-import Puregrain.Web.Settings (Colors(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), chooseBayer, chooseColors, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 
@@ -41,42 +41,45 @@ jobOf :: Settings -> Picture -> { settings :: Settings, width :: Int, height :: 
 jobOf settings p = { settings, width: p.width, height: p.height, pixels: p.pixels, tapeName: "test" }
 
 -- | What the CLI makes of the picture, written independently of `Run`:
--- | the library's `ditherImage` on all the rows at once, gray or RGB as
--- | the CLI chooses, each channel rounded and clamped as the CLI writes
--- | PNGs (`Math.round`, which `Data.Int.round` uses).
+-- | the library's `ditherImageWith` with the gamma on all the rows at
+-- | once, gray (by `toGray`) or RGB as the CLI chooses, each channel
+-- | rounded and clamped as the CLI writes PNGs (`Math.round`, which
+-- | `Data.Int.round` uses).
 cliResult :: Settings -> Picture -> Effect (Array (Array RGB))
 cliResult settings p = do
   stored <- rowsOf p
   let
-    rows = if settings.gray then map (map toNeutral) stored else stored
+    gamma = gammaOf settings.gamma
+    rows = if settings.gray then map (map (toNeutral gamma)) stored else stored
     grayPicture = settings.gray || all (all isNeutral) rows
     kernel = kernelOf settings.kernel
     byte v = toNumber (clamp 0 255 (Int.round v))
   pure case pipelineFor settings grayPicture of
-    Just (Gray q) -> map (map (\v -> let b = byte v in RGB { r: b, g: b, b: b })) (ditherImage kernel q (map (map luma) rows))
-    Just (Color q) -> map (map (\(RGB c) -> RGB { r: byte c.r, g: byte c.g, b: byte c.b })) (ditherImage kernel q rows)
+    Just (Gray q) -> map (map (\v -> let b = byte v in RGB { r: b, g: b, b: b })) (ditherImageWith gamma kernel q (map (map (toGray gamma)) rows))
+    Just (Color q) -> map (map (\(RGB c) -> RGB { r: byte c.r, g: byte c.g, b: byte c.b })) (ditherImageWith gamma kernel q rows)
     _ -> []
 
--- | What the CLI makes of the picture for a machine: `ditherCells` on all
--- | the rows at once, as its `ditherScreen`, and the machine's files from
+-- | What the CLI makes of the picture for a machine: `ditherCellsWith` on
+-- | all the rows at once, as its `ditherScreen`, and the machine's files from
 -- | that, as its writers make them (the tape named as the job names it).
 -- | The machine's colors are whole numbers, so no rounding.
 cliScreen :: Settings -> Picture -> Effect { image :: Array (Array RGB), files :: Array { format :: String, bytes :: Either String (Array Int) } }
 cliScreen settings p = do
   stored <- rowsOf p
   let
-    rows = if settings.gray then map (map toNeutral) stored else stored
+    gamma = gammaOf settings.gamma
+    rows = if settings.gray then map (map (toNeutral gamma)) stored else stored
     kernel = kernelOf settings.kernel
   pure case pipelineFor settings false of
     Just (Screen s) -> case s.machine of
       ZxSpectrumScreen ->
         let
-          d = ditherCells kernel s.rule (zxModeOf s.palette) rows
+          d = ditherCellsWith gamma kernel s.rule (zxModeOf s.palette) rows
         in
           { image: d.image, files: [ { format: "scr", bytes: Zx.toScr d }, { format: "tap", bytes: Zx.toTap "test" d } ] }
       C64HiresScreen ->
         let
-          d = ditherCells kernel s.rule C64.hiresScreen rows
+          d = ditherCellsWith gamma kernel s.rule C64.hiresScreen rows
         in
           { image: d.image, files: [ { format: "prg", bytes: C64.toHiresPrg d }, { format: "art", bytes: C64.toArtStudio d } ] }
     _ -> { image: [], files: [] }
@@ -103,6 +106,12 @@ settingsToCompare =
   , chooseKernel FloydSteinberg (chooseBayer (Just 8) (chooseColors (Levels 4) initial))
   , chooseGray true (chooseKernel Atkinson (chooseColors (Palette C64) initial))
   , chooseGray true (chooseColors (Levels 5) initial)
+  -- under each curve
+  , chooseGamma GammaSrgb (chooseKernel Atkinson (chooseColors (Levels 4) initial))
+  , chooseGamma Gamma1p8 (chooseKernel FloydSteinberg initial)
+  , chooseGamma Gamma1p2 (chooseBayer (Just 4) (chooseColors (Levels 3) initial))
+  , chooseGamma Gamma1p5 (chooseGray true (chooseKernel Atkinson (chooseColors (Palette C64) initial)))
+  , chooseGamma GammaSrgb (chooseKernel JarvisJudiceNinke (chooseColors (Palette Websafe216) initial))
   ]
 
 zx :: Settings
@@ -119,6 +128,10 @@ machineSettingsToCompare =
   , zx
   , chooseBayer (Just 8) c64
   , chooseKernel Atkinson (chooseBayer (Just 4) c64)
+  -- under curves
+  , chooseGamma GammaSrgb (chooseBayer (Just 4) zx)
+  , chooseGamma Gamma1p5 (chooseGray true (chooseKernel FloydSteinberg (chooseColors (MachineColors NormalPalette) zx)))
+  , chooseGamma Gamma1p8 (chooseKernel Atkinson c64)
   ]
 
 -- | The result's pixels, or the reason there are none.

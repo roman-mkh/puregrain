@@ -20,6 +20,7 @@
   --accent: #2724c4;
   --on-accent: #ffffff;
   --danger: #96282e;
+  --warn: #9f4815;
   --stage: #e3e3dd;
   --radius: 3px;
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, "DejaVu Sans Mono", monospace;
@@ -38,6 +39,7 @@
     --accent: #00d800;
     --on-accent: #00140a;
     --danger: #ff6b6b;
+    --warn: #d8d800;
     --stage: #090a0d;
   }
 }
@@ -54,6 +56,7 @@
   --accent: #00d800;
   --on-accent: #00140a;
   --danger: #ff6b6b;
+  --warn: #d8d800;
   --stage: #090a0d;
 }
 
@@ -150,6 +153,36 @@ input[type="color"] {
 .links a:hover { color: var(--accent); text-decoration: underline; }
 
 .theme, .settings-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
+
+/* The engine check (v2.3): an icon left of Help that
+   opens a sentence about it, as the list of formats opens. Its colors,
+   at 3:1 and more against the panels: the page's gray while it runs, the
+   accent when it passed, and when it failed a warning color from the
+   logo's machines, the C64's orange in the light theme (a yellow light
+   enough to read as yellow vanishes on white), the ZX Spectrum's yellow
+   in the dark. The header's on a desktop, the footer's on a phone (see
+   the end). */
+.engine { position: relative; display: inline-flex; }
+.engine-button {
+  display: grid; place-items: center; width: 34px; height: 34px; padding: 0;
+  background: none; border-color: transparent;
+}
+.engine-button.checking { color: var(--muted); }
+.engine-button.passed { color: var(--accent); }
+.engine-button.failed { color: var(--warn); }
+.engine-box {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 30;
+  width: max-content; max-width: min(320px, calc(100vw - 28px));
+  padding: 10px 12px; font-size: 13.5px; line-height: 1.4; text-align: left;
+  color: var(--text); background: var(--panel); border: 1px solid var(--control); border-radius: 4px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, .35);
+}
+.engine-box p { margin: 0 0 6px; }
+.links .engine-box a, .foot .engine-box a { color: var(--accent); text-decoration: underline; }
+.foot .engine { display: none; }
+/* In the footer, on a phone, the icon starts its row of links: its popup
+   opens upwards and to the right, within the screen. */
+.foot .engine-box { top: auto; right: auto; bottom: calc(100% + 6px); left: 0; }
 
 /* The button that opens the settings' panel, and the panel's Apply: on
    phones only (see the end). */
@@ -290,6 +323,14 @@ input[type="color"] {
    exactly zoom × zoom screen pixels (Puregrain.Web.Zoom), drawn without
    smoothing. */
 .layers { position: relative; flex: none; margin: auto; line-height: 0; box-shadow: 0 0 0 1px var(--line); }
+/* While a run goes, the picture's frame turns to the accent (the user,
+   2026-11-15), so the picture shown, the original or the result before,
+   reads as not final yet. From 0.3 s on, so a run that ends sooner shows
+   nothing. Steady, not breathing: a frame animated on every frame of the
+   screen made a run about a quarter slower in Firefox (21 s against 17 s,
+   the user's measurement), since the browser repaints it each time. */
+.layers.working { animation: working 1ms step-end 0.3s forwards; }
+@keyframes working { to { box-shadow: 0 0 0 3px var(--accent); } }
 .picture { display: block; image-rendering: pixelated; }
 .result { position: absolute; top: 0; left: 0; }
 
@@ -430,8 +471,18 @@ input[type="color"] {
 .foot a { color: inherit; }
 /* The links divided by thin lines within the footer's padding: drawn as
    borders, not "|", which a screen reader would read out. */
-.foot-links { display: flex; flex-wrap: wrap; }
+.foot-links { display: flex; flex-wrap: wrap; align-items: center; }
 .foot-links a + a { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line); }
+/* The versions, then the repository as GitHub's mark behind a thin line,
+   centered on the text; the text wraps before the mark goes to a line of
+   its own (on a phone 320 pixels wide). */
+.foot-about { display: flex; align-items: center; }
+.foot-about .nowrap { white-space: nowrap; }
+.foot-github {
+  display: inline-flex; align-items: center; flex: none;
+  margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line);
+}
+.foot-github:hover { color: var(--accent); }
 
 /* ---- Phones (decisions 29 and 34) ---------------------------------------
    The picture and its bar; the settings in a panel over the whole screen,
@@ -447,6 +498,9 @@ input[type="color"] {
   .tagline .long { display: none; }
   .tagline .short { display: inline; }
   .links a { display: none; }
+  /* The engine check's icon goes to the footer, with Help. */
+  .top .engine { display: none; }
+  .foot .engine { display: inline-flex; align-self: center; }
   .work, .work.column-hidden { grid-template-columns: minmax(0, 1fr); }
   .column-tab { display: none; }
   .settings-button { display: grid; }

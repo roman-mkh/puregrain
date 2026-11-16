@@ -122,3 +122,123 @@ export const fitImpl = (pixels) => (pw) => (ph) => (sw) => (sh) => (w) => (h) =>
   }
   return out;
 };
+
+// In a curve's light (linear light's decision 6, root CLAUDE.md): `light`
+// holds each byte's light, `cuts` the light of each half-step, b + 0.5 for
+// b = 0 to 254, rising. A light goes back to the byte whose half-steps
+// enclose it: the count of cuts at or below it, so a light exactly at a
+// half-step goes up, as Math.round does on stored values.
+const byteOfLight = (cuts, l) => {
+  let lo = 0;
+  let hi = 255;
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1;
+    if (cuts[mid] <= l) lo = mid + 1;
+    else hi = mid;
+  }
+  return lo;
+};
+
+// For `byteOfLight` in Prepare.purs: one implementation, which the loops
+// below use too, so its tests test theirs.
+export const byteOfLightImpl = (cuts) => (l) => byteOfLight(cuts, l);
+
+// As `flattenChannelIn` with tables: the same expression, in light.
+const flattenLightTable = (light, cuts, background) => {
+  const table = new Uint8Array(256 * 256);
+  const lb = light[background];
+  for (let alpha = 0; alpha < 256; alpha++) {
+    const a = alpha / 255;
+    for (let c = 0; c < 256; c++) table[alpha * 256 + c] = byteOfLight(cuts, light[c] * a + lb * (1 - a));
+  }
+  return table;
+};
+
+export const flattenLightImpl = (pixels) => (lightValues) => (cutValues) => (r) => (g) => (b) => () => {
+  const light = Float64Array.from(lightValues);
+  const cuts = Float64Array.from(cutValues);
+  const out = new Uint8ClampedArray(pixels.length);
+  const tr = flattenLightTable(light, cuts, r);
+  const tg = flattenLightTable(light, cuts, g);
+  const tb = flattenLightTable(light, cuts, b);
+  for (let i = 0; i < pixels.length; i += 4) {
+    const row = pixels[i + 3] * 256;
+    out[i] = tr[row + pixels[i]];
+    out[i + 1] = tg[row + pixels[i + 1]];
+    out[i + 2] = tb[row + pixels[i + 2]];
+    out[i + 3] = 255;
+  }
+  return out;
+};
+
+// `fitImpl` in light: each picture pixel's light, weighted by the same
+// whole-number overlaps and summed in the same order, then the mean back to
+// a byte. The sums aren't whole numbers any more, but the order of the
+// operations is fixed here, and JavaScript forbids fusing a multiply and an
+// add, so every engine gets the same bits.
+export const fitLightImpl = (pixels) => (lightValues) => (cutValues) => (pw) => (ph) => (sw) => (sh) => (w) => (h) => (left) => (top) => (r) => (g) => (b) => () => {
+  const light = Float64Array.from(lightValues);
+  const cuts = Float64Array.from(cutValues);
+  const out = new Uint8ClampedArray(sw * sh * 4);
+  for (let i = 0; i < out.length; i += 4) {
+    out[i] = r;
+    out[i + 1] = g;
+    out[i + 2] = b;
+    out[i + 3] = 255;
+  }
+  const x0 = Math.max(0, left);
+  const x1 = Math.min(sw, left + w);
+  const y0 = Math.max(0, top);
+  const y1 = Math.min(sh, top + h);
+  if (x0 >= x1 || y0 >= y1) return out;
+  if (w === pw && h === ph) {
+    // Not scaled: copied, nothing mixed.
+    for (let y = y0; y < y1; y++) {
+      for (let x = x0; x < x1; x++) {
+        const s = ((y - top) * pw + (x - left)) * 4;
+        const d = (y * sw + x) * 4;
+        out[d] = pixels[s];
+        out[d + 1] = pixels[s + 1];
+        out[d + 2] = pixels[s + 2];
+      }
+    }
+    return out;
+  }
+  const columns = coverage(pw, w, x0 - left, x1 - left);
+  const rows = coverage(ph, h, y0 - top, y1 - top);
+  const visible = x1 - x0;
+  const sums = new Float64Array(visible * 3);
+  const total = pw * ph;
+  for (let ry = 0; ry < rows.length; ry++) {
+    sums.fill(0);
+    const rowList = rows[ry];
+    for (let k = 0; k < rowList.length; k += 2) {
+      const j = rowList[k];
+      const wy = rowList[k + 1];
+      for (let cx = 0; cx < visible; cx++) {
+        const columnList = columns[cx];
+        let sr = 0;
+        let sg = 0;
+        let sb = 0;
+        for (let q = 0; q < columnList.length; q += 2) {
+          const s = (j * pw + columnList[q]) * 4;
+          const wx = columnList[q + 1];
+          sr += wx * light[pixels[s]];
+          sg += wx * light[pixels[s + 1]];
+          sb += wx * light[pixels[s + 2]];
+        }
+        sums[cx * 3] += wy * sr;
+        sums[cx * 3 + 1] += wy * sg;
+        sums[cx * 3 + 2] += wy * sb;
+      }
+    }
+    const y = y0 + ry;
+    for (let cx = 0; cx < visible; cx++) {
+      const d = (y * sw + x0 + cx) * 4;
+      out[d] = byteOfLight(cuts, sums[cx * 3] / total);
+      out[d + 1] = byteOfLight(cuts, sums[cx * 3 + 1] / total);
+      out[d + 2] = byteOfLight(cuts, sums[cx * 3 + 2] / total);
+    }
+  }
+  return out;
+};

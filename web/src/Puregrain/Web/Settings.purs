@@ -9,29 +9,35 @@ module Puregrain.Web.Settings
   , PaletteName(..)
   , MachineName(..)
   , MachinePaletteName(..)
+  , GammaName(..)
   , Target(..)
   , Colors(..)
   , Settings
   , initial
   , allKernels
+  , kernelMenu
   , allPalettes
   , allMachines
   , machinePalettesOf
+  , allGammas
   , bayerSides
   , kernelId
   , paletteId
   , machineId
   , machinePaletteId
+  , gammaId
   , screenSizeOf
   , isOriginal
   , colorsAllowed
   , bayerAllowed
   , flatCells
+  , gammaActs
   , chooseTarget
   , chooseColors
   , chooseKernel
   , chooseBayer
   , chooseGray
+  , chooseGamma
   , SettingsMessage
   , toMessage
   , fromMessage
@@ -95,6 +101,15 @@ instance Show MachinePaletteName where
 
 -- | What the picture is made for: any screen, or a machine's, with that
 -- | machine's colors in cells.
+-- | How the stored values turn into light, which the dithering then
+-- | keeps: the CLI's `--gamma`, the library's five presets.
+data GammaName = GammaOff | Gamma1p2 | Gamma1p5 | Gamma1p8 | GammaSrgb
+
+derive instance Eq GammaName
+derive instance Generic GammaName _
+instance Show GammaName where
+  show = genericShow
+
 data Target = AnyScreen | Machine MachineName
 
 derive instance Eq Target
@@ -118,19 +133,35 @@ instance Show Colors where
   show = genericShow
 
 -- | `bayer` is the side of the Bayer map, `Nothing` for none; `gray`
--- | turns the picture gray first, like the CLI's `--gray`.
-type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, bayer :: Maybe Int, gray :: Boolean }
+-- | turns the picture gray first, like the CLI's `--gray`; `gamma` is
+-- | the CLI's `--gamma`.
+type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, bayer :: Maybe Int, gray :: Boolean, gamma :: GammaName }
 
 -- | Every setting at "none", for any screen: the page shows the original
 -- | (decision 16).
 initial :: Settings
-initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false }
+initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false, gamma: GammaOff }
 
--- | The kernel menu's order: the CLI's, with None first (v2.2 in
+-- | Every kernel, in the CLI's order with None first (v2.2 in
 -- | ROADMAP.md).
 allKernels :: Array KernelName
 allKernels =
   [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke, Stucki, Burkes, Sierra3, Sierra2, SierraLite, Fan, ShiauFan, ShiauFan2 ]
+
+-- | The kernel menu (the user's choice, 2026-11-15; ROADMAP.md, "Between
+-- | v2 and v3"): None and the three originals first, then the others in
+-- | two groups, by the original each derives from, as its sources say
+-- | (docs/error-diffusion.md). Every kernel once.
+kernelMenu
+  :: { main :: Array KernelName
+     , likeFloydSteinberg :: Array KernelName
+     , likeJarvisJudiceNinke :: Array KernelName
+     }
+kernelMenu =
+  { main: [ NoDiffusion, FloydSteinberg, Atkinson, JarvisJudiceNinke ]
+  , likeFloydSteinberg: [ SierraLite, Fan, ShiauFan, ShiauFan2 ]
+  , likeJarvisJudiceNinke: [ Stucki, Burkes, Sierra3, Sierra2 ]
+  }
 
 allPalettes :: Array PaletteName
 allPalettes = [ BlackWhite, Websafe216, Cga16, Ansi16, Ansi256, C64, ZxSpectrum ]
@@ -187,6 +218,19 @@ machinePaletteId = case _ of
   NormalPalette -> "normal"
   BrightPalette -> "bright"
 
+-- | The gammas in the segments' order, off first.
+allGammas :: Array GammaName
+allGammas = [ GammaOff, Gamma1p2, Gamma1p5, Gamma1p8, GammaSrgb ]
+
+-- | The CLI's names for `--gamma`.
+gammaId :: GammaName -> String
+gammaId = case _ of
+  GammaOff -> "off"
+  Gamma1p2 -> "1.2"
+  Gamma1p5 -> "1.5"
+  Gamma1p8 -> "1.8"
+  GammaSrgb -> "srgb"
+
 -- | A machine's screen in pixels: the size its files hold.
 screenSizeOf :: MachineName -> { width :: Int, height :: Int }
 screenSizeOf = case _ of
@@ -226,6 +270,17 @@ flatCells s = case s.colors of
   MachineColors _ -> s.kernel == NoDiffusion && s.bayer == Nothing
   _ -> false
 
+-- | Whether the gamma can change the picture: where light is spread, by a
+-- | kernel passing the error on or a Bayer map placing dots, and in the
+-- | gray that "gray first" makes, all only once there are colors to
+-- | dither with; and when the picture is mixed while it's prepared
+-- | (`mixed`: put onto a background, or fitted to a screen). Otherwise
+-- | each pixel takes the nearest of the colors, chosen on stored values,
+-- | which no curve changes (linear light's decision 3, root CLAUDE.md), so
+-- | the page says so under the gamma.
+gammaActs :: Boolean -> Settings -> Boolean
+gammaActs mixed s = mixed || (not (isOriginal s) && (s.gray || s.kernel /= NoDiffusion || s.bayer /= Nothing))
+
 -- | A new target. The colors start again: none for any screen, and all of
 -- | a machine's colors for a machine, so that its screen is dithered at
 -- | once (decision 21). The method stays.
@@ -261,6 +316,10 @@ chooseBayer bayer s =
 chooseGray :: Boolean -> Settings -> Settings
 chooseGray gray s = s { gray = gray }
 
+-- | A gamma. Not a method either: with no colors, nothing runs.
+chooseGamma :: GammaName -> Settings -> Settings
+chooseGamma gamma s = s { gamma = gamma }
+
 -- | The target's default colors where there are none yet, once a method
 -- | is chosen. For any screen the CLI's: 2 levels with a Bayer map (the
 -- | CLI's `--bayer` alone), else a gray threshold at 128; for a machine,
@@ -279,11 +338,12 @@ withColors s =
 -- | The settings as plain data, for a message to the worker: `target` is
 -- | "any" or a machine's name; `colors` is "original", "threshold",
 -- | "levels", a palette's name, or a machine palette's; `amount` the
--- | threshold or the number of levels; `bayer` a map's side or 0.
-type SettingsMessage = { target :: String, colors :: String, amount :: Int, kernel :: String, bayer :: Int, gray :: Boolean }
+-- | threshold or the number of levels; `bayer` a map's side or 0;
+-- | `gamma` the CLI's name for it.
+type SettingsMessage = { target :: String, colors :: String, amount :: Int, kernel :: String, bayer :: Int, gray :: Boolean, gamma :: String }
 
 toMessage :: Settings -> SettingsMessage
-toMessage s = { target, colors, amount, kernel: kernelId s.kernel, bayer: fromMaybe 0 s.bayer, gray: s.gray }
+toMessage s = { target, colors, amount, kernel: kernelId s.kernel, bayer: fromMaybe 0 s.bayer, gray: s.gray, gamma: gammaId s.gamma }
   where
   target = case s.target of
     AnyScreen -> "any"
@@ -314,5 +374,6 @@ fromMessage m = do
     if m.bayer == 0 then Just Nothing
     else if Array.elem m.bayer bayerSides then Just (Just m.bayer)
     else Nothing
+  gamma <- Array.find (\g -> gammaId g == m.gamma) allGammas
   if not (colorsAllowed target colors) || (bayer /= Nothing && not (bayerAllowed colors)) then Nothing
-  else Just { target, colors, kernel, bayer, gray: m.gray }
+  else Just { target, colors, kernel, bayer, gray: m.gray, gamma }

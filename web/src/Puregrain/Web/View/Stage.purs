@@ -44,11 +44,16 @@ stage state = case state.load of
       -- the handle's line sits on it.
       percent = show (toNumber state.split * 100.0 / toNumber prepared.width)
       shows = resultShows state.run
+      working = case state.run of
+        Running _ -> true
+        _ -> false
     in
       [ HH.div [ HP.class_ (H.ClassName "area") ]
           -- The picture area takes the focus, for + and − (decision 33).
           [ HH.div [ HP.class_ (H.ClassName "view"), HP.tabIndex 0, HE.onKeyDown ViewKey ]
-              [ HH.div [ HP.ref layersRef, HP.class_ (H.ClassName "layers") ]
+              -- `working` while a run goes: the stylesheet makes the frame
+              -- breathe, so the picture shown reads as not final yet.
+              [ HH.div [ HP.ref layersRef, HP.classes ([ H.ClassName "layers" ] <> (if working then [ H.ClassName "working" ] else [])) ]
                   [ HH.canvas
                       [ HP.ref originalRef
                       , HP.class_ (H.ClassName "picture")
