@@ -8,6 +8,7 @@ terminal. For real PNG images, use the
 | Example | What it shows |
 |---|---|
 | [QuickStart.purs](src/Puregrain/Examples/QuickStart.purs) | A gray gradient, and the same gradient dithered with Floyd–Steinberg: the quick start in the [main README](../README.md#getting-started) |
+| [TryQuickStart.purs](try/TryQuickStart.purs) | The quick start for [Try PureScript](https://try.purescript.org/?github=roman-mkh/puregrain/master/examples/try/TryQuickStart.purs), in the browser, with nothing to install: its output on the page, the shades for a light background |
 | [Compare.purs](src/Puregrain/Examples/Compare.purs) | The gradient dithered three ways: without diffusion (a hard edge), with Floyd–Steinberg (scattered dots) and with a Bayer pattern (a regular grid) |
 
 They form the package `puregrain-examples` in this repository's spago

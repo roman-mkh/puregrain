@@ -77,6 +77,13 @@ the browser.
 
 ## Getting started
 
+### In your browser, without installing anything
+
+[Open the quick start in Try PureScript](https://try.purescript.org/?github=roman-mkh/puregrain/master/examples/try/TryQuickStart.purs),
+the language's online editor, which has puregrain among its packages
+(the version in its package set, which can lag the latest release).
+It's the program below: change the kernel or the threshold, and compare.
+
 ### Setting up PureScript
 
 You need Node.js, the PureScript compiler and spago. The official

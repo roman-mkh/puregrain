@@ -143,7 +143,20 @@ from the code alone.
   build compiles them, so an API change that breaks them fails CI. Text
   art: `shades` in `QuickStart` (one editable list, █ = white for dark
   terminals; reverse it for light backgrounds), 2 characters per pixel
-  for square pixels, every line within 80 columns.
+  for square pixels, every line within 80 columns. `examples/try/
+  TryQuickStart.purs` (2026-11-16) is QuickStart for Try PureScript,
+  which has puregrain in its package list (`staging/spago.yaml` in
+  purescript/trypurescript, a package set's packages); the README links
+  it with `?github=roman-mkh/puregrain/master/examples/try/
+  TryQuickStart.purs`. Module `Main` (what Try PureScript runs), output
+  through Try PureScript's own `TryPureScript` (`render =<< withConsole`,
+  imported qualified, since it has a `render` of its own), the shades
+  reversed for its light page, a comment inviting other kernels. Outside
+  `examples/src/`, so spago never compiles it (`TryPureScript` exists
+  only there), and CI doesn't check it: keep it in step with QuickStart
+  by hand. Checked by the user on try.purescript.org, 2026-11-16. No
+  badge for it: PureScript projects use none, and the style guide asks
+  for a clear link to an example.
 - **`puregrain-web`** (`web/spago.yaml`, `web/src/`, modules
   `Puregrain.Web.*`; developed from 2026-10-20 on the long-lived branch
   `web-ui`, merged into `master` at the end of v2)
@@ -217,7 +230,7 @@ from the code alone.
   (for PureScript developers) shows an
   excerpt of `examples/src/Puregrain/Examples/QuickStart.purs` (the
   import, `gradient`, `main`), copied by hand: **when `QuickStart.purs`
-  changes, refresh the excerpt**. A script checking the copy was
+  changes, refresh the excerpt, and `examples/try/TryQuickStart.purs`**. A script checking the copy was
   considered and dropped (2026-10-08): more machinery than a 15-line
   excerpt needs. The program's printed output isn't shown (dropped
   2026-10-08): text art made for a dark terminal looks inverted on light
