@@ -11,7 +11,7 @@ import Data.Traversable (traverse)
 import Puregrain.Cells (CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Kernel (Kernel, Offset)
 import Test.Puregrain.Util (compiledMap, validKernel)
-import Puregrain.Pixel (RGB(..))
+import Puregrain.Pixel (RGB(..), RGBA(..))
 import Puregrain.Internal.Util (safeRange)
 import Test.QuickCheck (class Arbitrary, arbitrary)
 import Test.QuickCheck.Gen (Gen, chooseInt, choose, elements, shuffle, vectorOf)
@@ -111,6 +111,21 @@ newtype TestRGBImage = TestRGBImage (Array (Array RGB))
 
 instance Arbitrary TestRGBImage where
   arbitrary = TestRGBImage <$> genRGBImage
+
+-- | Generates a rectangular RGBA test image, as `genRGBImage`, with
+-- | alpha an independent draw in [0,255] too: four independent planes.
+genRGBAImage :: Gen (Array (Array RGBA))
+genRGBAImage = do
+  width <- chooseInt 1 6
+  height <- chooseInt 1 6
+  vectorOf height (vectorOf width ((\r g b a -> RGBA { r, g, b, a }) <$> channel <*> channel <*> channel <*> channel))
+  where
+  channel = choose 0.0 255.0
+
+newtype TestRGBAImage = TestRGBAImage (Array (Array RGBA))
+
+instance Arbitrary TestRGBAImage where
+  arbitrary = TestRGBAImage <$> genRGBAImage
 
 -- | Generates a non-empty set of 1-8 quantization levels in [0,255],
 -- | in arbitrary (not sorted) order — `nearestLevel` must not depend

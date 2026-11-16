@@ -66,6 +66,13 @@ spec = describe "Puregrain.Gamma" do
         v <- choose (-300.0) 300.0
         pure (toLight gammaOff v == v && fromLight gammaOff v == v <?> ("changed " <> show v))
 
+    -- The internal helpers are total: with gammaOff, the formulas change
+    -- nothing and the table holds the bytes themselves.
+    it "has formulas that are the identity, and the bytes as its table" do
+      lightTable gammaOff `shouldEqual` bytes
+      map (toLightFormula gammaOff) [ -3.5, 0.0, 127.5, 255.0, 300.0 ] `shouldEqual` [ -3.5, 0.0, 127.5, 255.0, 300.0 ]
+      map (fromLightFormula gammaOff) [ -3.5, 0.0, 127.5, 255.0, 300.0 ] `shouldEqual` [ -3.5, 0.0, 127.5, 255.0, 300.0 ]
+
   for_ curves \c -> describe c.name do
 
     it "keeps 0 and 255 exactly, both ways" do

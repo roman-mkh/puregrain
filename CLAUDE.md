@@ -857,6 +857,23 @@ this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
 `maxDepth ≥ 1`) did not.
 
+Coverage was measured once (2026-11-17, the user's idea), outside the
+repository, and is deliberately not tooling: the property tests and the
+mutation checks say more about the tests' strength. What works: `c8`
+(12.0.0) running the compiled `Test.Main` in Node, read per compiled
+module (`output/<Module>/index.js`). What doesn't: mapping back to
+`.purs` through the compiler's source maps (`purs compile -g
+js,sourcemaps`, called directly, since spago refuses `--codegen`):
+every file came out at 100%, the dependencies too. Most uncovered code
+is noise: newtype constructors (the code uses `coerce`), superclass
+accessors, the compiler's "Failed pattern match" throws, and our own
+defensive crashes. Its real findings got tests the same day, each
+mutation-checked: `RGBA` was never dithered (a four-planes property in
+`QuantizeSpec`), `mul` of `RGB` and `RGBA` never ran (`PixelSpec`),
+and `Internal.Gamma`'s formulas and table were never called with
+`gammaOff` (`GammaSpec`). Left alone: the self-check's digest branches
+for NaN and infinity, which its finite reference inputs never reach.
+
 Library specs are flat `Test.Puregrain.<Name>Spec` modules, one per
 module tested (e.g. `PixelSpec`, `QuantizeSpec`, `RowSpec`). `Test.Main`
 discovers them with `^Test\.Puregrain\.[A-Za-z0-9]+Spec$` (digits since

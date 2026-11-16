@@ -15,9 +15,9 @@ import Test.Spec.Assertions (shouldEqual)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Dither (ditherImage)
-import Puregrain.Pixel (RGB(..))
+import Puregrain.Pixel (RGB(..), RGBA(..))
 import Puregrain.Quantize (evenRamp, nearestLevel, perChannel, quantizeWith, runQuantize, threshold)
-import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBImage(..), TestSample(..))
+import Test.Puregrain.Arbitrary (TestImage(..), TestKernel(..), TestLevels(..), TestLevelsRGBImage(..), TestRGB(..), TestRGBAImage(..), TestRGBImage(..), TestSample(..))
 import Test.Puregrain.Util (approxEqual, neutral, nonNeutralCount, runAtOrigin)
 
 -- | An independent reference for `nearestLevel`, written as the
@@ -97,6 +97,25 @@ spec = describe "Puregrain.Quantize" do
               { r: ditherImage kernel q (plane red image)
               , g: ditherImage kernel q (plane green image)
               , b: ditherImage kernel q (plane blue image)
+              }
+
+    -- The same for RGBA, whose alpha error diffusion treats like the
+    -- other channels: four planes. Nothing else dithers RGBA, so this
+    -- is also what runs its Ring and Scalable instances (found by a
+    -- coverage run, 2026-11-17).
+    it "dithering RGBA via perChannel == dithering each of its four planes separately" do
+      quickCheck \(TestKernel kernel) (TestLevels levels) (TestRGBAImage image) ->
+        let
+          q = nearestLevel levels
+          out = ditherImage kernel (perChannel q) image
+          planeOf channel = map (map (\(RGBA p) -> channel p))
+        in
+          { r: planeOf _.r out, g: planeOf _.g out, b: planeOf _.b out, a: planeOf _.a out }
+            ===
+              { r: ditherImage kernel q (planeOf _.r image)
+              , g: ditherImage kernel q (planeOf _.g image)
+              , b: ditherImage kernel q (planeOf _.b image)
+              , a: ditherImage kernel q (planeOf _.a image)
               }
 
     -- The exact checks from docs/test-images.md, stated for arbitrary
