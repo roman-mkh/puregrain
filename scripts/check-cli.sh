@@ -345,7 +345,7 @@ pass "color composite at 256x192, --gamma off, 1.0 and 1: the same bytes as no -
 
 # 14. Checks 1, 2, 4 and 6 under each curve. The levels, the palettes'
 #     colors and the machines' colors are bytes, which come back exactly
-#     from their light (docs/linear-light-spec.md, decisions 2, 3 and 5):
+#     from their light (linear light's decisions 2, 3 and 5, CLAUDE.md):
 #     a picture made only of them has zero error everywhere and comes back
 #     unchanged, websafe216 and 6 levels still choose alike (both on stored
 #     values), and ordered dithering without diffusion keeps neutral

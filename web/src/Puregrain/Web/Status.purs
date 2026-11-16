@@ -111,7 +111,7 @@ runNote = case _ of
   Cancelled -> Just RunCancelled
   RunFailed reason -> Just (DitherFailed reason)
 
--- | The engine check (linear light, step 4c in docs/linear-light-spec.md):
+-- | The engine check (docs/exact-arithmetic.md, "The engine self-check"):
 -- | whether this browser computes the light curves exactly as the
 -- | reference, so that a gamma gives the command-line tool's results.
 -- | Checking at first, then passed, failed with the problems found, or

@@ -52,8 +52,8 @@ const SETTINGS = [
   // shape: it reaches three columns to the left (v2.2 in web/ROADMAP.md).
   { what: '4 levels, Shiau-Fan 2', colors: 'levels', levels: '4', kernel: 'shiau-fan-2',
     cli: ['--levels', '4', '--kernel', 'shiau-fan-2'], name: 'levels4-shiau-fan-2' },
-  // Under a curve (docs/linear-light-spec.md, step 4a): the page's gamma
-  // segments, and "gray first", which turns a picture gray by the curve.
+  // Under a curve (docs/gamma.md): the page's gamma segments, and "gray
+  // first", which turns a picture gray by the curve.
   { what: '4 levels, Atkinson, sRGB', colors: 'levels', levels: '4', kernel: 'atkinson', gamma: 'srgb',
     cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'], name: 'levels4-atkinson-srgb' },
   { what: 'the CGA palette, Floyd-Steinberg, gray first, gamma 1.5', colors: 'cga16', kernel: 'floyd-steinberg', gamma: '1.5', gray: true,
@@ -70,8 +70,8 @@ const MACHINES = [
     dir: 'zx-spectrum-srgb', name: 'zx-spectrum-bayer4-srgb', cli: ['--gamma', 'srgb'] },
 ];
 const PICTURE = 'color-320x200';
-// With a gamma, the page fits and flattens in the curve's light (decision 6
-// of docs/linear-light-spec.md, step 4b). The reference prepares the same
+// With a gamma, the page fits and flattens in the curve's light (linear
+// light's decision 6, CLAUDE.md). The reference prepares the same
 // picture in Node with the page's own compiled code (Puregrain.Web.Prepare),
 // and the CLI dithers that: the page's results must be the CLI's. The
 // transparent picture's channels are only 0 or 255, which come back exactly
@@ -332,7 +332,7 @@ const checksIn = async (engine, page) => {
       `${engine}: a click on "Result" moves the split to ${toResult}, on "Original" to ${toOriginal} (the width, ${width})`);
   };
 
-  // The engine check (linear light, step 4c): this engine passes it, and
+  // The engine check (v2.3): this engine passes it, and
   // the icon left of Help says so, opens its sentence with a link to the
   // README's section, and Escape closes it, the focus back on the icon.
   {

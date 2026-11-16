@@ -125,7 +125,7 @@ texts =
   , help: "Help"
   , source: "Source"
   , darkTheme: "Dark theme"
-  -- The engine check (linear light, step 4c): the icon's name for screen
+  -- The engine check (v2.3): the icon's name for screen
   -- readers, and its popup's sentence, also said once when it fails.
   , engineName: case _ of
       EngineChecking -> "Engine check: running"

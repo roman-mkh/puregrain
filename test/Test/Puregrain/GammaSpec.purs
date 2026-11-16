@@ -164,8 +164,9 @@ spec = describe "Puregrain.Gamma" do
             again = toLight c.gamma (toGray c.gamma (RGB p))
           pure ((abs (again - light) <= 1.0e-14 * light) <?> ("light " <> show again <> ", not " <> show light))
 
-    -- Decision 4's table in docs/linear-light-spec.md, measured
-    -- independently: red, green, blue, magenta, skin, sky.
+    -- The table of linear light's decision 4 (CLAUDE.md; the spec in git
+    -- history), measured independently: red, green, blue, magenta, skin,
+    -- sky.
     it "gives decision 4's grays: with gammaOff luma's, with gammaSrgb lighter saturated colors" do
       let
         colors =

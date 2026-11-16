@@ -99,11 +99,18 @@ users is a separate task, see TODO.md.)
   first still does, the two headings add two rows to the open list.
   "Main" means history and lineage, not quality measured here (TODO.md,
   "The eight kernels of 0.2.1, measured and compared").
-- **Between v2 and v3:** dithering in linear light, on `master` (TODO.md):
-  a choice of curve, `--gamma`, off by default (`docs/linear-light-spec.md`
-  on the branch `linear-light`; on 2026-11-12 it replaced "the default,
-  with a switch to turn it off"), released as the library's 0.2.2. The
-  web UI then gets the same choice.
+- **v2.3, linear light** (2026-11-06 to 16, on the branch `linear-light`,
+  merged into `master` with a merge commit, with the library's 0.2.2):
+  the "Gamma" setting, Off, 1.2, 1.5, 1.8 and sRGB, as the CLI's
+  `--gamma`, off by default (on 2026-11-12 it replaced "the default,
+  with a switch to turn it off"), with a note while it can't change the
+  picture; a picture prepared in the curve's light, fitted or put onto
+  its background; the engine check's icon; transparency read exactly in
+  WebKit; and the two entries above, the kernel menu grouped and a run
+  you can see at once. Its spec, `docs/linear-light-spec.md`, was
+  deleted at the end: its decisions live on in the root `CLAUDE.md`
+  ("Linear light"), `docs/gamma.md` and `docs/exact-arithmetic.md`, its
+  full record in git history.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side. On a new branch from `master` (decision 20). From
   v2's design review (decisions 29 to 34): the gallery in a strip under
@@ -149,8 +156,8 @@ users is a separate task, see TODO.md.)
   since a canvas writes no indexed PNGs): with today's 8-bit PNGs it
   would mostly show growth, the test composite going from 62 KB to
   227 KB with `ansi16`. And a chart for choosing the gamma (the user
-  found it very useful, 2026-11-12), once the gamma setting exists
-  (`docs/linear-light-spec.md`, on the branch `linear-light`):
+  found it very useful, 2026-11-12), now that the gamma setting exists
+  (v2.3; `docs/gamma.md`):
   black-and-white line patches, half of white's light, in fields of the
   grays where half the light lies for each gamma offered (127.5 for 1.0,
   143 for 1.2, 161 for 1.5, 174 for 1.8, 187.5 for sRGB); seen from a
@@ -396,9 +403,9 @@ Decisions for v2 (2026-10-22, from v2's questions Q1 to Q7):
     user's idea). Download names get `bg-RRGGBB` when the background
     shows and isn't white. The page's part comes in phase 2, its formula
     a pure function of the web package; the library's helper and the
-    CLI's flag come on `master` with linear light, before v3 (flattening
-    in the chosen gamma's light: decision 6 in
-    `docs/linear-light-spec.md`), and the page then takes
+    CLI's flag come on `master` before v3 (flattening in the chosen
+    gamma's light, as the page does since v2.3: linear light's decision
+    6 in the root `CLAUDE.md`), and the page then takes
     the library's helper, as planned for `luma`. Until then the clients
     differ on a picture with transparency: the CLI dithers the colors
     stored under transparent parts.

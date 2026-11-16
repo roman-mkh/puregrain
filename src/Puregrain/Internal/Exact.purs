@@ -29,7 +29,7 @@ import Data.Number (isFinite)
 -- The step counts: the most that any reduced value needed until it
 -- settled, measured over 400,000 values (9 for the fifth root, 8 for the
 -- cube root, 2026-11-14), plus one step of margin, as agreed with the user
--- (docs/linear-light-spec.md, decision 2). Settled means that further
+-- (linear light's decision 2, in CLAUDE.md). Settled means that further
 -- steps keep the value, or bounce between it and a neighbouring number;
 -- either way every engine gets the same result.
 fifthRootSteps :: Int

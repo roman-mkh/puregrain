@@ -1,5 +1,5 @@
--- | The engine check's icon and its popup (linear light, step 4c in
--- | docs/linear-light-spec.md): a button showing the check's state, gray
+-- | The engine check's icon and its popup (`Puregrain.Web.Status`): a
+-- | button showing the check's state, gray
 -- | while it runs, then passed or failed, which opens a sentence about it
 -- | with a link to the details in the README. It opens and closes as the
 -- | download's list of formats does (decision 31): Escape and a click

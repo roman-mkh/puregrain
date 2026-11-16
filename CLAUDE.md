@@ -118,6 +118,19 @@ from the code alone.
   `artStudioFile` (2026-10-18, `--format art`) to `C64.toArtStudio`, an
   Art Studio picture; for a ZX screen both are `Left`. `Main` writes the bytes
   with `node-fs`/`node-buffer`, no JS of our own.
+  `--gamma NAME` (2026-11-14; "Linear light" under Key design decisions):
+  `off` (the default; `1.0` and `1` are accepted too, the help shows
+  "off (the default, also 1.0)"), `1.2`, `1.5`, `1.8` or `srgb`
+  (`gammaChoice`); it combines with every mode. `Main` always calls the
+  library's `…With` drivers (`gammaOf`), and the report line names the
+  gamma only when it isn't `off`, so with `off` it reads as before.
+  `--gray` and the gray pipeline use the library's `toGray` (`toNeutral`
+  takes the gamma; the CLI's own `luma` is gone). `--check-engine` is a
+  mode of its own, like `--help`: optparse has two alternatives, so
+  `parseOptions` returns `Command = CheckEngine | Dither Options`, and the
+  usage line shows both; it prints "Engine check passed: …" and exits 0,
+  or "Engine check failed:" with the problems on standard error and exits
+  1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
@@ -157,10 +170,10 @@ from the code alone.
   the colors' contrast), and the favicons and the social preview in the
   ZX set, since they must work on any background; the web build copies
   the three icons into the page. `npm run logo`, after `npm run build`. Every CLI setting is given
-  (`--levels 2 --bayer N --kernel none --gray`), so a change of the CLI's
-  defaults can't change the logo: **when dithering in linear light
-  becomes the default, add its opt-out to the script's CLI call**; then
-  `npm run logo` must report every file unchanged. It writes a file only
+  (`--levels 2 --bayer N --kernel none --gray --gamma off`), so a change
+  of the CLI's defaults can't change the logo (`--gamma off` since
+  2026-11-14: off is the default, but `--gray` depends on the gamma); after
+  a change to the CLI, `npm run logo` must report every file unchanged. It writes a file only
   when its pixels changed, since zlib may compress the same pixels to
   other bytes on another Node. **Not MIT:** the whole folder, the script
   included (it holds the design), is under `logo/LICENSE.md` (decided
@@ -228,12 +241,24 @@ from the code alone.
   with the colors, attributes, file layouts and sources; mirrors
   `Puregrain.Cells` and `Puregrain.Machine.<Name>`; `c64.md` since
   2026-10-18),
+  `gamma.md` (linear light for users: what `--gamma` does, which value for which
+  view, measured, dark tones, gray first, machine screens, each client,
+  the engine check, the cost; linked from the READMEs, and later from
+  the web UI's (i)), `exact-arithmetic.md` (why the curves
+  use roots of our own, how they're computed, neighbouring numbers, the
+  light curves, the engine self-check),
   `benchmarks-dithering.md` (current),
   `benchmarks-fifo.md` (finished record). READMEs summarize and link
   rather than copy, so tables don't drift apart. The CLI README's
   "Machine screens" keeps only the CLI's part: options, the size rule
   (the CLI's size error points there for the resize hint), the files in
   a sentence each, and links.
+- `scripts/measure-gamma.mjs` (2026-11-15) — dithers the test images
+  through the real CLI under each gamma and measures the results in two
+  views (blurred in light, as the eye at 1:1; blurred as stored, as a
+  smoothing scaler), as CIE L* or CIELAB ΔE, plus the flat grays that
+  come out black; the source of `docs/gamma.md`'s tables. Run after
+  `npm run build`; pictures go to `samples/gamma/`.
 - `cli/README.md` — the CLI's user docs.
 - `web/README.md` — the web UI's user docs: running it, using it, its
   settings as CLI options, and the manual checklist.
@@ -257,8 +282,9 @@ from the code alone.
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
   - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`, and the
-    stepper `Dithering`/`initDithering`/`ditherRow`), `.Kernel`, `.Pixel`,
-    `.Quantize`, `.Palette`, `.Palette.Presets`, `.Ordered`.
+    stepper `Dithering`/`initDithering`/`ditherRow`, each with a twin
+    taking a gamma, `…With`), `.Kernel`, `.Pixel`, `.Quantize`,
+    `.Palette`, `.Palette.Presets`, `.Ordered`, `.Gamma`, `.SelfCheck`.
   - `Puregrain` — a facade, re-exports only: what a typical application
     needs plus the types for signatures; building blocks for
     customization (`compilePalette`, `distance2`, `nearestColorFast`,
@@ -270,7 +296,8 @@ from the code alone.
     `Puregrain.Machine.*`), it imports directly, as an application would
     (decided 2026-10-11).
   - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
-    `Row`, `Image` (`ditherImageWith`, `ditherRowsWith`), `Util`) — exported
+    `Row`, `Image` (`ditherImageVia`, `ditherRowsVia`), `Quantize`,
+    `Gamma`, `Exact`, `SelfCheck`, `Util`) — exported
     (PureScript has no package-private modules; the tests need them) but
     documented as unstable. `Fifo` and the backend-choosing drivers stay
     internal (decided 2026-10-05).
@@ -334,9 +361,11 @@ from the code alone.
   custom `class Ring a <= Scalable a where scale :: Number -> a -> a`
   (kernel weights are always `Number` regardless of channel count), plus
   `class MapChannels` (+ `Number`/`RGB`/`RGBA` instances).
-- `Puregrain.Quantize` — `Quantize a` is opaque: a newtype over
-  `Context -> a -> a` whose constructor isn't exported (decided
-  2026-10-05, "start closed"), with `type Context = { x :: Int, y :: Int }`
+- `Puregrain.Quantize` — `Quantize a` is opaque: a newtype (in
+  `Puregrain.Internal.Quantize` since 2026-11-14) over
+  `Conversion a -> Context -> a -> a`, the driver's conversion to light
+  first (linear light's decision 1), whose constructor isn't exported
+  (decided 2026-10-05, "start closed"), with `type Context = { x :: Int, y :: Int }`
   (the pixel's position). Built by `quantize :: (a -> a) -> Quantize a`
   (position-blind) or `quantizeWith :: (Context -> a -> a) -> Quantize a`
   (uses the position; e.g. `Puregrain.Ordered`), run by `runQuantize`.
@@ -560,6 +589,18 @@ from the code alone.
   online version and in ty64 (ty64 defaults to Colodore, VICE to Pepto
   2001), the `.art` in RECOIL's web viewer (RECOIL's own C64 palette is
   Pepto 2001). User docs: `docs/machine-screens/c64.md`.
+- `Puregrain.Gamma` (2026-11-14) — `Gamma` (opaque; defined in
+  `Puregrain.Internal.Gamma`, with `Conversion`, `conversionFor`,
+  `noConversion` and each curve's lazy table), the presets `gammaOff`,
+  `gamma1p2`, `gamma1p5`, `gamma1p8` and `gammaSrgb`, `toLight` and
+  `fromLight` (a pixel's color channels, through `Puregrain.Pixel`'s
+  `ColorChannels`, alpha kept), and `toGray`. `Puregrain.SelfCheck`:
+  `checkEngine :: Effect EngineReport`, `exactArithmetic` and `problems`
+  (the digests in `Puregrain.Internal.SelfCheck`).
+  `Puregrain.Internal.Exact`: the fifth and cube roots from exact
+  operations. Specs: `ExactSpec`, `GammaSpec`, `InLightSpec` (the
+  drivers and presets under every curve) and `SelfCheckSpec`. The
+  decisions: "Linear light" under Key design decisions.
 - No JS-facing layer exists right now, by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
@@ -663,6 +704,105 @@ from the code alone.
   `CatQueue` already achieves the target asymptotic complexity. A genuinely
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
+- **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
+  released in 0.2.2). The spec, with every measurement, is in git
+  history: `git show 861e67e:docs/linear-light-spec.md`. For users:
+  `docs/gamma.md`; the arithmetic: `docs/exact-arithmetic.md`. Its
+  decisions, numbered as in the spec (comments cite "linear light's
+  decision N"):
+  - **The choice and the default** (the user, 2026-11-12, replacing "on
+    by default" of 2026-10-21): five curves, the same in the library, the
+    CLI and the web UI: `off` (the default; the identity, not computed,
+    so the results are the old ones bit for bit), `1.2`, `1.5`, `1.8`
+    (light = (byte / 255)^γ) and `srgb`. Off by default, because linear
+    light is right only where the dots reach the eye unsmoothed (1:1,
+    from a distance), while scaling viewers (HiDPI, phones, pages)
+    average stored values, where `off` is exact; and because dark tones
+    turn black in the file as the gamma rises (Bayer 2 under `srgb`:
+    every gray up to 99). In two views (`scripts/measure-gamma.mjs`),
+    1.5 keeps the larger error smallest for every method, and the user's
+    own view behaved like 1.0 to 1.5. The default may be revisited,
+    perhaps per target. Every picture counts as sRGB: no profiles read.
+  - **A wrapper around the whole dithering, not around the quantizer:**
+    rows to light on the way in and back on the way out, the error in
+    light and never converted, the targets converted once before the
+    first pixel. Measured on a flat 128, Floyd–Steinberg to black and
+    white: a wrapper around `quantize`, the error in stored values, gives
+    50.0% white, as without it; the error in light 21.5%. An error can't
+    be converted on its own (stored 20 → 30 adds 0.006 of light, 200 → 210
+    0.067), and `imap` would decide on stored values, wrong for pure
+    Bayer (50.0% against 21.9%).
+  - **1, the API:** the plain drivers convert nothing and keep their
+    types; the twins take the `Gamma` first (`ditherImageWith`,
+    `ditherRowsWith`, `initDitheringWith`, `ditherCellsWith`,
+    `ditherBandsWith`; `ditherRow` needs none, the state holds it), and
+    the internal drivers became `ditherImageVia`/`ditherRowsVia`.
+    `Quantize` gets a `Conversion` (both directions and the curve) from
+    the driver once per run, through `quantizerFor`: passed per pixel,
+    the targets would be converted per pixel. `quantizeInLight` hands the
+    author the curve, to convert coefficients in the outer `let`;
+    `quantize`/`quantizeWith` keep stored values in and out, at two
+    conversions per pixel; `runQuantizeWith` runs one for a stored
+    value. No tag on `Quantize` for a quantizer that ignores its curve
+    (a mismatch could only crash: no error channel). Only the twins need
+    `ColorChannels`, a class of its own, since `MapChannels` maps alpha.
+    No constructor for other curves (start closed: the self-check
+    couldn't vouch for them; one would check its two functions as
+    inverses, rising, keeping 0 and 255). Compatible: 0.2.2, not 0.3.0.
+  - **2, exact on every engine** ("the same results everywhere" can't be
+    traded off, the user, 2026-11-08): `Math.pow` in Node 22 and in the
+    browsers differed on about a tenth of the conversions. Roots of our
+    own from exact operations, in PureScript, not FFI (the library stays
+    free of JavaScript; `Puregrain.Internal.Exact`); one table of 256
+    values per curve, built lazily on first use (at module load, even
+    `--help` would pay); every target goes back through the table, so
+    every byte comes back exactly; negative values mirrored, as CSS Color
+    4's sample code does. The self-check, `checkEngine`, in `Effect` (a
+    pure value could be shared or moved by an optimizer): eight stored
+    digests, one per curve and direction, and every byte back from its
+    light. A digest changes only on purpose, in the same commit, with a
+    CHANGELOG line. No native path even where `Math.pow` would match.
+  - **3, choices on stored values, amounts of light in light:** the
+    nearest level and palette color are chosen on stored values (closer to
+    OKLab for 6 of 7 palettes, and for 2 levels on 228 of 256 grays
+    against 168; and `websafe216` = `--levels 6` needs both measured
+    alike); the error and ordered dithering's share are light.
+    `nearestLevel` compares with the sRGB midpoints converted to light (no
+    cost per pixel); a palette brings each pixel back, table first.
+    Levels and thresholds stay bytes: a threshold is converted, so
+    `--threshold 100` cuts at gray 100 under every gamma (a cut at half
+    the light was measured and rejected, 2026-11-12); levels even in
+    light were rejected (L* error 1.79 against 0.88, uneven-looking
+    steps; 2026-11-13). Under a curve, levels that aren't whole numbers
+    are rounded to bytes, and of equal levels only the first is kept.
+  - **4, gray:** `toGray`, luma on stored values with `off` (the classic,
+    the old bytes), luminance (0.2126, 0.7152, 0.0722) on the curve's
+    light otherwise: saturated colors lighter (blue 29 → 76), skin and
+    sky barely changed, neutral pixels exact. It returns a stored value,
+    which costs color pictures turned gray under a curve about a quarter
+    more.
+  - **5, machine screens:** the cells chosen on stored values;
+    `orderedInCell` measures in light, `nearestInCell` decides on stored
+    values; the error in light; exact for byte colors. Recommended `off`
+    (a curve: up to 31% closer at 1:1 on the ZX Spectrum, 4–6% on the
+    C64, 17–96% worse when scaled).
+  - **6, the web UI's fit and flattening** mix in the curve's light (with
+    `off`, the integer loops unchanged), back to a byte by the half-steps
+    `toLight(b + 0.5)` (the user's choice over `fromLight` and
+    rounding): one setting for every step that mixes colors. The CLI's
+    future `--background` and `--fit` follow the same rule.
+  - **7, names:** `--gamma` with `off` (`1.0` alone could read as
+    "already linear", as in color management); `gamma1p2`… ("p" for the
+    point: a name can't hold a dot, no underscores, no Unicode
+    look-alikes); `toLight`/`fromLight`; `checkEngine` (the JavaScript
+    engine) in `Puregrain.SelfCheck`, a module of its own since OKLab's
+    arithmetic would join its report; not `Puregrain.Engine…`, the
+    project's word for its dithering core. The facade has `Gamma`, the
+    presets, the twins and `toGray`; `toLight`, `quantizeInLight` and
+    the self-check stay in their modules.
+  - **Cost:** `srgb` about ×1.34 at 1024² in the median, the palette ×1.4
+    to ×2.0 (`docs/benchmarks-dithering.md`, 2026-11-15). **Later, on
+    top:** OKLab or CIELAB distances, color profiles (TODO.md).
 
 ## Performance (history + charts: `docs/benchmarks-fifo.md`; current baseline: `docs/benchmarks-dithering.md`)
 

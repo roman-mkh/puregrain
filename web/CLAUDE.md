@@ -584,8 +584,8 @@ stay on the host.
   drift. Run with `--init --ipc=host --user pwuser`, as Playwright's
   Docker page advises. `scripts/lib/check-web-container.mjs`, mounted
   read-only with `web/dist` and the host's `playwright-core`, runs under
-  the image's Node (24): it serves the page at `http://localhost:8080/`
-  inside the container, then starts the CLI's hidden `run-server`
+  the image's Node (26.13 in v1.64.1): it serves the page at
+  `http://localhost:8080/` inside the container, then starts the CLI's hidden `run-server`
   command (not listed by `--help`) on port 3000. That port is published
   on 127.0.0.1 at a port Docker picks (`--publish 127.0.0.1::3000`, read
   back with `docker port`); the check waits for "Listening on" in

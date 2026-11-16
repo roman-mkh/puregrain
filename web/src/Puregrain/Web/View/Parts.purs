@@ -31,7 +31,7 @@ repositoryUrl = "https://github.com/roman-mkh/puregrain"
 helpUrl :: String
 helpUrl = repositoryUrl <> "/blob/master/web/README.md#using-it"
 
--- | The README's section on the engine check (linear light, step 4c).
+-- | The README's section on the engine check (v2.3).
 engineCheckUrl :: String
 engineCheckUrl = repositoryUrl <> "/blob/master/web/README.md#the-engine-check"
 

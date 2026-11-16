@@ -1,5 +1,5 @@
 // What each gamma does to the test images, measured through the real CLI
-// (linear light's step 5, docs/linear-light-spec.md). Writes markdown
+// (the source of docs/gamma.md's tables). Writes markdown
 // tables to stdout, and the dithered pictures to --out (default
 // samples/gamma, gitignored), for looking at.
 //
@@ -11,7 +11,7 @@
 // compared as CIE L* for the grays and as CIELAB color difference (Delta E
 // 1976) for color, the root mean square over the pixels, over the whole
 // picture or the sphere tile. Two views of the blur, because the pictures
-// are seen in two ways (docs/linear-light-spec.md, "Decided"):
+// are seen in two ways (docs/gamma.md, "Which value for which view"):
 //
 //   - light: the pixels' light is averaged, as the eye does at 1:1 from a
 //     distance, the dots reaching it as they are;

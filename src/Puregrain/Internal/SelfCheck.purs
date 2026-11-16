@@ -86,8 +86,8 @@ reportFor reference computed others = EngineReport { problems: Array.catMaybes (
     else Just (c.name <> ": the results differ from the reference (digest " <> whole c.digest <> " instead of " <> whole r.digest <> ")")
   whole x = show (Int.floor x)
 
--- The generator's count, per curve and direction (decision 2 of
--- docs/linear-light-spec.md: enough for the engines' optimizing compilers
+-- The generator's count, per curve and direction (linear light's decision
+-- 2, in CLAUDE.md: enough for the engines' optimizing compilers
 -- to run, and rare faults a fair chance to show).
 generated :: Int
 generated = 200000

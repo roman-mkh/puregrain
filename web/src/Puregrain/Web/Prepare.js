@@ -123,7 +123,7 @@ export const fitImpl = (pixels) => (pw) => (ph) => (sw) => (sh) => (w) => (h) =>
   return out;
 };
 
-// In a curve's light (decision 6 in docs/linear-light-spec.md): `light`
+// In a curve's light (linear light's decision 6, root CLAUDE.md): `light`
 // holds each byte's light, `cuts` the light of each half-step, b + 0.5 for
 // b = 0 to 254, rising. A light goes back to the byte whose half-steps
 // enclose it: the count of cuts at or below it, so a light exactly at a

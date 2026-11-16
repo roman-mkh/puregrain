@@ -219,7 +219,7 @@ handleAction = case _ of
     -- The worker's script, fetched once and kept in memory, in the
     -- background: the runs' workers start from that copy (see `startRun`).
     -- Then the engine check, in a worker of its own from that copy, once
-    -- (linear light, step 4c): it takes about half a second, apart from
+    -- (v2.3): it takes about half a second, apart from
     -- the page and from every run.
     void $ H.fork do
       script <- H.liftAff (keptInMemory "worker.js")
@@ -438,7 +438,7 @@ handleAction = case _ of
     s <- H.get
     download (buttonFormat s.format (choicesOf s))
   FormatsToggled -> H.modify_ \s -> s { formatsOpen = not s.formatsOpen, engineOpen = false }
-  -- The engine check (linear light, step 4c): its popup opens and closes
+  -- The engine check (v2.3): its popup opens and closes
   -- as the list of formats does, one of them at a time; its worker's
   -- answer ends the worker and shows the result. A failure is said at
   -- once, and its problems go to the console, for a report.
@@ -539,7 +539,7 @@ download format = do
 -- | A change of the settings; a real change restarts the dithering, and
 -- | a new target prepares the picture again, as it may fit it. So does a
 -- | new gamma, for a picture it mixes while preparing it, put onto the
--- | background or fitted (decision 6 of docs/linear-light-spec.md); for
+-- | background or fitted (linear light's decision 6, root CLAUDE.md); for
 -- | any other picture the preparing doesn't change, and the result before
 -- | stays on show during the run, as for the other settings.
 change :: forall o m. MonadAff m => (Settings -> Settings) -> H.HalogenM State Action () o m Unit
@@ -557,8 +557,8 @@ change f = do
 
 -- | The picture as it's shown and dithered (decisions 22 and 27): put
 -- | onto the background, if it has transparency, and fitted to a
--- | machine's screen, if asked; both in the gamma's light (decision 6 in
--- | docs/linear-light-spec.md).
+-- | machine's screen, if asked; both in the gamma's light (linear light's
+-- | decision 6, root CLAUDE.md).
 prepare :: Picture -> Settings -> Boolean -> Background -> Effect Prepared
 prepare p settings fit background = do
   opaque <- if p.transparent then flatten tables p.pixels background else pure p.pixels
@@ -629,7 +629,7 @@ restart = do
       else startRun l s.settings
     _ -> H.modify_ _ { run = Idle }
 
--- | The engine check's worker (linear light, step 4c): one more worker
+-- | The engine check's worker (v2.3): one more worker
 -- | from the copy of worker.js in memory, asked for the check once. Its
 -- | answer comes as `EngineReplied`; a worker that can't start, or fails,
 -- | as `EngineCouldNotRun`, which isn't a failed check.

@@ -31,6 +31,38 @@ it changes. The command-line tool saw it once in its gray conversion: values
 one step off in the last digit changed 96% of a flat gray picture's pixels,
 with the same average.
 
+It isn't only theory. Firefox sent `Math.pow` through each platform's
+math library, and `Math.pow(Math.PI, -100)` came out one unit in the last
+place off on older Android phones; the fix was for Android, and the bug
+notes that "Windows also has a less precise `std::pow`" (Bugzilla 2037094,
+also 1775254). V8 has given `Math.pow(99, 99)` and `99 ** 99` different
+results, in older reports.
+
+## What else exists
+
+Looked at on 2026-11-08, before writing roots of our own:
+
+- **`@stdlib/math-base-special-pow`** (npm, Apache-2.0), a JavaScript port
+  of FreeBSD's `pow` from Sun's fdlibm: its source uses only exact
+  arithmetic, bit operations and `sqrt`, so it gives the same result on
+  every engine, within one unit in the last place. But the library can't
+  depend on an npm package: it ships no JavaScript of its own, and its
+  dependencies are registry packages.
+- **`decimal.js`**, wrapped by PureScript's `decimals`: the same
+  everywhere, but slow decimal objects, and an npm package for its users
+  to install.
+- **CRlibm and CORE-MATH:** correctly rounded, so the same everywhere, but
+  C libraries, with no JavaScript build found.
+- **PureScript's packages** (the package set 81.11.4): `numbers`' `pow` is
+  `Math.pow`; `precise`, `rationals`, `fixed-precision` and `bigints`
+  compute exactly, but none offers a power such as x^2.4, as far as their
+  names and descriptions say.
+
+What the curves need is *the same* result everywhere, not the most
+accurate one, and any computation made only of exact operations gives
+that. sRGB's exponent is 2.4 = 12/5, so no general `pow` is needed: x^2.4
+= x² × x^(2/5), from square and fifth roots.
+
 ## How the roots are computed
 
 `Puregrain.Internal.Exact` has the fifth root and the cube root; the square
@@ -210,5 +242,7 @@ other tests compare with a tolerance, the digest compares bits.
   ("Return 𝔽(the square root of ℝ(n))"), `Math.cbrt` ("an
   implementation-approximated Number value") and `Math.pow` (which returns
   `Number::exponentiate`, implementation-approximated too).
+- Mozilla's Bugzilla, bugs 2037094 and 1775254: `Math.pow` through the
+  platform's math library.
 - The measurements: scratch scripts, not kept in the repository
   (2026-11-08 and 2026-11-14).

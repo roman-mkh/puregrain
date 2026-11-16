@@ -4,7 +4,7 @@
 -- | code, not the browser's compositing or scaling, so the result is the
 -- | same in every browser, and can become the CLI's too (with the library,
 -- | later). With a gamma other than off, both mix in the curve's light
--- | (decision 6 in docs/linear-light-spec.md), with `LightTables`. The
+-- | (linear light's decision 6, root CLAUDE.md), with `LightTables`. The
 -- | loops over a whole picture are in `Prepare.js`, for speed; specs pin
 -- | them to the rules here.
 module Puregrain.Web.Prepare

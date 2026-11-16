@@ -276,7 +276,7 @@ flatCells s = case s.colors of
 -- | dither with; and when the picture is mixed while it's prepared
 -- | (`mixed`: put onto a background, or fitted to a screen). Otherwise
 -- | each pixel takes the nearest of the colors, chosen on stored values,
--- | which no curve changes (decision 3 in docs/linear-light-spec.md), so
+-- | which no curve changes (linear light's decision 3, root CLAUDE.md), so
 -- | the page says so under the gamma.
 gammaActs :: Boolean -> Settings -> Boolean
 gammaActs mixed s = mixed || (not (isOriginal s) && (s.gray || s.kernel /= NoDiffusion || s.bayer /= Nothing))

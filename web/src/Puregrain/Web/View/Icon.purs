@@ -49,7 +49,7 @@ cross = icon [ "M3.4 2 8 6.6 12.6 2 14 3.4 9.4 8 14 12.6 12.6 14 8 9.4 3.4 14 2 
 caretDown :: forall w i. HH.HTML w i
 caretDown = icon [ "M3.5 6h9L8 11z" ]
 
--- | The engine check (linear light, step 4c): a disc while it runs, a disc
+-- | The engine check (v2.3): a disc while it runs, a disc
 -- | with a check mark when it passed, a triangle with ! when it failed.
 -- | The marks are cut out, so the background shows through them, and the
 -- | shape takes the button's color, which says the state too.

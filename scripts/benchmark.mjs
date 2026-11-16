@@ -12,8 +12,7 @@
 // progress on stderr; all raw run times as JSON with --json (the input for
 // scripts/plot-benchmarks.mjs). Build first: npm run build.
 //
-// The gamma suite (--suite gamma; linear light's step 5 in
-// docs/linear-light-spec.md) compares each configuration with --gamma off
+// The gamma suite (--suite gamma; docs/gamma.md) compares each configuration with --gamma off
 // and --gamma srgb, run back to back, the order alternating by round, as
 // --builds compares builds: what the light curve adds to each path it
 // touches. It isn't part of --suite all.

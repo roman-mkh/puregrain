@@ -152,7 +152,7 @@ spec = describe "Puregrain.Web.Prepare" do
       transparentOrNot <- liftEffect ((\a b -> [ a, b ]) <$> hasTransparency opaque <*> hasTransparency oneBelow)
       transparentOrNot `shouldEqual` [ false, true ]
 
-  describe "in a curve's light (decision 6 in docs/linear-light-spec.md)" do
+  describe "in a curve's light (linear light's decision 6)" do
     it "has no tables for off" do
       (lightTables GammaOff == Nothing) `shouldEqual` true
 

@@ -78,7 +78,7 @@ readJob message = do
   pure { settings, width, height, pixels, tapeName }
 
 -- | The page's request for the engine check, which a worker of its own
--- | runs once, when the page has loaded (linear light, step 4c). A job
+-- | runs once, when the page has loaded (v2.3). A job
 -- | has no `kind`.
 checkMessage :: SendWrapper { kind :: String }
 checkMessage = unsafeWrap { kind: "check" }

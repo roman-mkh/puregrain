@@ -876,7 +876,7 @@ all 27 configurations is the figure to go by.
 
 The first run of the gamma suite: each configuration with `--gamma off`
 and with `--gamma srgb`, back to back, on the paths the curve adds work
-to (`docs/linear-light-spec.md`, on the branch `linear-light`): gray with
+to ([gamma.md](gamma.md)): gray with
 a threshold (the rows to light and back, the cut converted once), levels
 per channel (the cuts converted), the web-safe palette (the comparison on
 stored values, so each pixel brought back from light through the curve's
