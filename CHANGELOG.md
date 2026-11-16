@@ -6,6 +6,8 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+## 0.2.2 - 2026-11-16
+
 ### Added
 
 - `Puregrain.Gamma`: `Gamma`, how a picture's stored numbers turn into

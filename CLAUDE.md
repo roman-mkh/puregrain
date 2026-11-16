@@ -18,7 +18,7 @@ from the code alone.
   Node-only or app packages here. MIT-licensed (`LICENSE` at the root
   covers the library and the CLI; the logo in `logo/` has terms of its
   own, see below); `package.publish` in `spago.yaml`
-  holds the license and the current version (0.2.1), and
+  holds the license and the current version (0.2.2), and
   `package.json` says `"license": "MIT"` too.
 - **`puregrain-cli`** (`cli/spago.yaml`, `cli/src/`, modules
   `Puregrain.Cli.*`) — the command-line tool, a separate package that
