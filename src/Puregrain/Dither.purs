@@ -27,6 +27,8 @@
 -- | `ditherImageWith`, `ditherRowsWith` and `initDitheringWith`. They keep
 -- | the amount of light, by that curve, rather than the average of the
 -- | stored numbers; with `gammaOff` they're the same as the plain ones.
+-- | Which gamma for which view:
+-- | [docs/gamma.md](https://github.com/roman-mkh/puregrain/blob/master/docs/gamma.md).
 module Puregrain.Dither
   ( ditherImage
   , ditherImageWith

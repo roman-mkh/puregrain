@@ -41,6 +41,13 @@ dithering](ordered-dithering.md#with-error-diffusion-the-hybrid). Any
 kernel works with any quantizer, and inside the cells of [machine
 screens](machine-screens/README.md).
 
+With a gamma (`--gamma` in the CLI, `ditherImageWith` in the library;
+see [gamma.md](gamma.md)), the error is measured in the curve's light:
+`corrected` and `q` are amounts of light, so the tones kept are the
+light's, not the stored numbers' average. The nearest allowed value is
+still chosen on stored values, and the output is exactly the allowed
+values.
+
 ## The kernels
 
 | Kernel | Library | CLI | Neighbours | Rows below | Error passed on |
@@ -111,7 +118,10 @@ Helland: "By only propagating part of the error, speckling is reduced, but
 contiguous dark or bright sections of an image may become washed out."
 *Seen here:* tones near black and white are pushed to them; on the
 machine screens, the shadow side of the test images' sphere turns solid
-black ([machine-screens/](machine-screens/README.md)).
+black ([machine-screens/](machine-screens/README.md)). Under a gamma, the
+dropped quarter costs more of the dark tones: to black and white, flat
+grays up to 32 come out solid black with `off`, up to 65 with `srgb`
+([dark tones](gamma.md#dark-tones)).
 
 Sources: Wikipedia, "Atkinson dithering" and "Dither"; Helland.
 
@@ -313,9 +323,11 @@ Any of them can be built with `fromOffsets`.
 ## Exact properties
 
 - **An image made only of allowed values comes back unchanged,** with any
-  kernel: its error is zero everywhere. Tested for arbitrary kernels in
-  `Test.Puregrain.PaletteSpec`, and through the CLI with every kernel
-  (`npm run check:cli`, see [test-images.md](test-images.md#exact-checks)).
+  kernel, under every gamma: its error is zero everywhere. Tested for
+  arbitrary kernels in `Test.Puregrain.PaletteSpec`, and under each curve
+  in `Test.Puregrain.InLightSpec`; through the CLI with every kernel, and
+  with two under each curve (`npm run check:cli`, see
+  [test-images.md](test-images.md#exact-checks)).
 - **The diffusion is checked against an independent reference,** a
   deliberately simple implementation, for random kernels and images
   (`Test.Puregrain.DiffusionMechanicsSpec`).

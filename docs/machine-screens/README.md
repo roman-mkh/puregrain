@@ -40,13 +40,15 @@ band:
 
 The cells are chosen from the original picture, not from a dithered one,
 so the choice doesn't depend on the kernel or the rule. Distances are
-measured in the stored sRGB values, where the dithering mixes too.
+measured in the stored sRGB values, under every gamma; with a gamma
+(`--gamma`), only the dithering inside the cells works in the curve's
+light (see the rules below).
 
 ## The two rules inside a cell
 
 - **The nearer color** (`nearestInCell` in the library; the command
   line's default): each pixel becomes the nearer of its cell's two
-  colors. With a kernel, that's error diffusion inside the cells; without
+  colors, nearer on stored values under every gamma. With a kernel, that's error diffusion inside the cells; without
   one (`--kernel none`), flat cells.
 - **Ordered** (`orderedInCell`; `--bayer N`): each pixel lies some share of
   the way from its cell's first color to the second. It becomes the second
@@ -54,7 +56,11 @@ measured in the stored sRGB values, where the dithering mixes too.
   position, and the first otherwise. Without a kernel, the default with
   `--bayer`, that's pure ordered dithering: regular patterns, no error
   passed on. With a kernel, it's the hybrid, which also passes on the
-  difference between a pixel's value and its color.
+  difference between a pixel's value and its color. Under a gamma, the
+  share is measured in light.
+
+Under a gamma, the error a kernel passes on is an amount of light, with
+either rule.
 
 The threshold comes from the pixel's position in the picture, not in its
 cell, so a map of any size works. A map whose side divides the cell's
@@ -101,6 +107,13 @@ Two things to know about error diffusion inside cells:
   all of it on, so it builds up to the right and downwards, until a cell
   whose colors can express it turns it into a line of extreme pixels.
   Atkinson passes on only 3/4 of each error, so such error dies out.
+
+**Keep `--gamma off`,** the default, on these screens. Each cell's two
+colors decide most of how close the result comes, under any gamma: a
+curve brings it closer when the screen is seen at 100% (up to 31% on the
+ZX Spectrum, 4% to 6% on the C64), makes it 17% to 96% worse when the
+screen is scaled, and with `--bayer 2` under `srgb` turns
+the dark tones black. The measurements: [gamma.md](../gamma.md#machine-screens).
 
 The rest of this advice comes from the generated [test
 images](../test-images.md), on both machines, and from a portrait photo
@@ -151,7 +164,8 @@ diffused = ditherCells atkinson nearestInCell Zx.screen picture
 `ditherCells` returns `{ cells, image }`: the candidate chosen for each
 cell, row by row, and the dithered picture. `ditherBands` does the same
 for a lazy stream of rows, one band at a time, so only one band is in
-memory.
+memory. `ditherCellsWith` and `ditherBandsWith` take a gamma first
+(`Puregrain.Gamma`), and with `gammaOff` are the same as the plain ones.
 
 A machine's screen mode is a `CellMode`: the cell size, the candidates,
 and each candidate's colors (`Zx.screen` for the Spectrum,
@@ -185,5 +199,3 @@ dots come in as a pixel nears it.
   [TODO.md](../../TODO.md).
 - **Calmer error diffusion inside cells,** by clamping the error or by
   stopping it at cell borders: an idea in [TODO.md](../../TODO.md).
-- **Dithering in linear light** instead of the stored sRGB values, as for
-  every mode.

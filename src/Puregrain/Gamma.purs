@@ -6,6 +6,8 @@
 -- | the dithering then keeps that light. `gammaOff`, the default, converts
 -- | nothing, as dithering always has; `gammaSrgb` is linear light, the sRGB
 -- | standard's own curve; `gamma1p2`, `gamma1p5` and `gamma1p8` lie between.
+-- | Which value for which view, measured:
+-- | [docs/gamma.md](https://github.com/roman-mkh/puregrain/blob/master/docs/gamma.md).
 -- |
 -- | The curves are computed from exact arithmetic only, so they give the
 -- | same results on every JavaScript engine; why and how:

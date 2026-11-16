@@ -63,7 +63,8 @@ faster:
 | EGA's full 64 colors (no preset needed) | `--levels 4` | EGA's 64 colors are every combination of 0, 85, 170, 255 |
 
 For `websafe216` the equivalence is tested byte for byte (see [Exact
-checks](test-images.md#exact-checks)). The palette search took about
+checks](test-images.md#exact-checks)), under every gamma too: both choose
+on stored values ([gamma](gamma.md)). The palette search took about
 1.1–1.4× as long as the per-channel lookup
 ([benchmarks](benchmarks-dithering.md)).
 
