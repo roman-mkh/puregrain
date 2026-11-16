@@ -118,6 +118,37 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       gradient dithered to black and white, then the dots painted in the two colors). The library can do it in
       a few lines today (`ordered` on gray, then a `map` to the colors); the value would be in the CLI and the
       web UI, as an option, perhaps with a preset or two.
+
+      **First step: two colors** (the user, 2026-11-16: "black and white", with each color chosen in a color
+      picker that also takes a hex value). Built as black and white painted in two colors: the picture turned
+      gray and dithered to 2 levels, exactly as today, then black painted in the first color and white in the
+      second. Not as a palette of two colors (`nearestColor`): with colors that aren't a dark and a light of
+      one hue, error pointing away from the line between them can't be used up, and builds up into streaks
+      with Floyd–Steinberg, as in the machine screens' cells; and no Bayer map, since ordered dithering against
+      a palette isn't supported. Painted, every kernel, Bayer map and gamma works, and the result is exact by
+      construction: the black-and-white result with its two values swapped for the colors. N colors later
+      are `--gray --levels N`, painted level by level, so the name should allow more than two. The parts:
+      - library: nothing (painting is a `map` after dithering; start closed, no helper until a second user);
+      - CLI, small: an option (`--ramp 1b1d22,f0e0c0`, say), hex parsing, `resolve`'s rules (it implies
+        gray and 2 levels, and rejects `--palette`, `--threshold` and `--machine`), specs, and an exact
+        check in `check-cli.sh`: the output equals `--gray --levels 2`'s with its two values swapped for the
+        colors, under every kernel, Bayer map and gamma;
+      - web UI, medium: "Two colors" in the colors menu with two color pickers (the Background step's picker,
+        reused), the settings' type, the worker's message, the download name
+        (`photo-ramp-1b1d22-f0e0c0-atkinson.png`, say), Bayer allowed, the gamma's note, `RunSpec` against the
+        CLI, a `check:web` check, and the README's table of options and checklist;
+      - docs: a section in `docs/palettes.md` or `docs/ordered-dithering.md`.
+
+      One branch for the CLI and the web UI, since `check:web` compares them; about the size of 0.2.1's eight
+      kernels with lab v2.2. Open questions:
+      - the CLI option's name: `--ramp`, ready for more colors, or `--colors`;
+      - the colors when "Two colors" is first chosen: black and white, so nothing changes until a color is
+        picked, or a pleasant preset pair;
+      - the order: dark first and light second, or free, where swapped colors give an inverted picture;
+      - the colors' place in the gray: today black and white are 0 and 255; a dark blue and a cream would
+        then stand for 0 and 255 too, so the tones keep their spread (a duotone, as the logo is made), rather
+        than being placed by the colors' own lightness, which would compress the tones between them;
+      - the presets, if any (a Game Boy pair, sepia), and whether they come with the N-color ramp instead.
 - [ ] **Halftone maps: round dots, lines, crosses, honeycomb** (an idea, 2026-11-03, from the user's question
       about "honeycomb"): ready-made threshold maps for `Puregrain.Ordered`, each with a size. Bayer's maps
       scatter the dots (dispersed dots, the computer look); these gather them into dots that grow (clustered

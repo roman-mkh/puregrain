@@ -1039,6 +1039,20 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   unfinished publish: check the job); and Pursuit sits behind Anubis bot
   protection, which refuses automated fetches ("Access Denied"), so the
   docs were confirmed from the job's log, and a browser shows them.
+- **0.2.2 was published on 2026-11-16** (20:32 UTC): tag `v0.2.2` on
+  `ec1d2ee` ("Release 0.2.2", after the merge commit `bddd468` of PR #9,
+  the branch `linear-light`), registry job
+  `d97d4752-ccba-4421-8cc3-021ddfd8edab` (log:
+  https://registry.purescript.org/api/v1/jobs/d97d4752-ccba-4421-8cc3-021ddfd8edab;
+  finished after 44 s, `success: true`, "Successfully uploaded package
+  docs to Pursuit"), CI green on `master` and on the tag, GitHub Release
+  created by CI, the lab v2.3 on Pages with 0.2.2. Contents: linear light
+  (`Puregrain.Gamma`, `Puregrain.SelfCheck`, the `…With` drivers,
+  `quantizeInLight`, `runQuantizeWith`, `ColorChannels`), compatible, so
+  a patch version. The matrix jobs were queued for 0.15.0 and 0.15.2 to
+  0.15.17, the last a compiler newer than the 0.15.16 we build with.
+  GitHub's merge button offered only squash: "Allow merge commits" was
+  off in the repository's settings, and was turned on for PR #9.
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified
