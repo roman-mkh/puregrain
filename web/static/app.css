@@ -477,6 +477,7 @@ input[type="color"] {
    centered on the text; the text wraps before the mark goes to a line of
    its own (on a phone 320 pixels wide). */
 .foot-about { display: flex; align-items: center; }
+.foot-about .nowrap { white-space: nowrap; }
 .foot-github {
   display: inline-flex; align-items: center; flex: none;
   margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line);

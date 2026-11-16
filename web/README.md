@@ -8,7 +8,7 @@ own files. The same settings give the same pixels and files as the
 [command-line tool](../cli/README.md), for pictures without transparency
 (see below).
 
-> **Status: version 2.2,** on GitHub Pages: designed, checked for
+> **Status: version 2.3,** on GitHub Pages: designed, checked for
 > accessibility, and checked in three browser engines. Version 3 is
 > planned ([ROADMAP.md](ROADMAP.md)).
 

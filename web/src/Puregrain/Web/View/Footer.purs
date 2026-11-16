@@ -2,6 +2,9 @@
 -- | library, the licenses, and the repository.
 module Puregrain.Web.View.Footer (footer) where
 
+import Prelude (map)
+
+import Data.Foldable (intercalate)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Properties as HP
@@ -24,7 +27,7 @@ footer :: forall w. { libraryVersion :: String, panelOpen :: Boolean, engine :: 
 footer { libraryVersion, panelOpen, engine, engineOpen } =
   HH.footer [ HP.class_ (H.ClassName "foot"), inert panelOpen ]
     [ HH.span [ HP.class_ (H.ClassName "foot-about") ]
-        [ HH.span_ [ HH.text (texts.versions libraryVersion) ]
+        [ HH.span_ (intercalate [ HH.text " " ] (map (\part -> [ HH.span [ HP.class_ (H.ClassName "nowrap") ] [ HH.text part ] ]) (texts.versions libraryVersion)))
         , HH.a [ HP.href repositoryUrl, HP.class_ (H.ClassName "foot-github"), HP.title texts.onGitHub ]
             [ Icon.github
             , HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.onGitHub ]

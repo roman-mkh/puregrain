@@ -31,7 +31,7 @@ texts
      , originalNamed :: String -> String
      , resultNamed :: Settings -> String
      , describe :: Settings -> String
-     , versions :: String -> String
+     , versions :: String -> Array String
      , codeLicense :: String
      , logoLicense :: String
      , onGitHub :: String
@@ -169,9 +169,11 @@ texts =
             <> (if settings.gamma == GammaOff then [] else [ "gamma " <> texts.gammaName settings.gamma ])
             <> (if settings.gray then [ "gray first" ] else [])
         )
-  , versions: \library -> "puregrain lab v2.2" <> (if library == "" then "" else ", powered by puregrain " <> library)
+  -- In parts that the footer keeps whole, so that a narrow screen breaks
+  -- the line after the comma, not between "puregrain" and its version.
+  , versions: \library -> if library == "" then [ "puregrain lab v2.3" ] else [ "puregrain lab v2.3,", "powered by puregrain " <> library ]
   , codeLicense: "The code: MIT"
-  , logoLicense: "The logo: its own terms"
+  , logoLicense: "Logo terms"
   , onGitHub: "puregrain on GitHub"
   , picture: "Picture"
   -- The settings' column (decision 31): its numbered steps.
