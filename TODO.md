@@ -255,3 +255,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       users. Agents with a shell can already run the CLI (`npx puregrain …` once it's on npm), so for them
       a good CLI matters more (clear `--help`, precise errors, meaningful exit codes). It would serve chat
       apps without a shell. Needs the npm package first: an MCP server is TypeScript/JS on top of its JS layer.
+- [ ] Test coverage (an idea, the user, 2026-11-16): which lines the tests run. PureScript has no tool of its
+      own; the way to try is V8's coverage through `c8` on the compiled JavaScript, mapped back to the `.purs`
+      files by the compiler's source maps (`purs compile` can write them), untried together. A report to read
+      once, for blind spots, not a gate in CI: the property tests and the mutation checks already measure the
+      tests' strength more directly than coverage can.

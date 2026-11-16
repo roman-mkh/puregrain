@@ -3,6 +3,7 @@
 [![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
 [![Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain/badge)](https://pursuit.purescript.org/packages/purescript-puregrain)
 [![License: MIT](https://img.shields.io/github/license/roman-mkh/puregrain)](LICENSE)
+[![Try online: puregrain lab](https://img.shields.io/badge/try_online-puregrain_lab-blue)](https://roman-mkh.github.io/puregrain/)
 
 Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,

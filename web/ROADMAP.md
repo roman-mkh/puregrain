@@ -106,8 +106,10 @@ users is a separate task, see TODO.md.)
   with a switch to turn it off"), with a note while it can't change the
   picture; a picture prepared in the curve's light, fitted or put onto
   its background; the engine check's icon; transparency read exactly in
-  WebKit; and the two entries above, the kernel menu grouped and a run
-  you can see at once. Its spec, `docs/linear-light-spec.md`, was
+  WebKit; the footer's link to the repository as GitHub's mark, after the
+  versions behind a thin line, with "puregrain on GitHub" as its name and
+  tooltip, to save room on phones (the user's idea, 2026-11-16); and the two entries above, the kernel
+  menu grouped and a run you can see at once. Its spec, `docs/linear-light-spec.md`, was
   deleted at the end: its decisions live on in the root `CLAUDE.md`
   ("Linear light"), `docs/gamma.md` and `docs/exact-arithmetic.md`, its
   full record in git history.

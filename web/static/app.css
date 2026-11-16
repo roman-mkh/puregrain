@@ -154,7 +154,7 @@ input[type="color"] {
 
 .theme, .settings-button { display: grid; place-items: center; width: 34px; height: 34px; padding: 0; }
 
-/* The engine check (linear light, step 4c): an icon left of Help that
+/* The engine check (v2.3): an icon left of Help that
    opens a sentence about it, as the list of formats opens. Its colors,
    at 3:1 and more against the panels: the page's gray while it runs, the
    accent when it passed, and when it failed a warning color from the
@@ -471,8 +471,17 @@ input[type="color"] {
 .foot a { color: inherit; }
 /* The links divided by thin lines within the footer's padding: drawn as
    borders, not "|", which a screen reader would read out. */
-.foot-links { display: flex; flex-wrap: wrap; }
+.foot-links { display: flex; flex-wrap: wrap; align-items: center; }
 .foot-links a + a { margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line); }
+/* The versions, then the repository as GitHub's mark behind a thin line,
+   centered on the text; the text wraps before the mark goes to a line of
+   its own (on a phone 320 pixels wide). */
+.foot-about { display: flex; align-items: center; }
+.foot-github {
+  display: inline-flex; align-items: center; flex: none;
+  margin-left: 11px; padding-left: 12px; border-left: 1px solid var(--line);
+}
+.foot-github:hover { color: var(--accent); }
 
 /* ---- Phones (decisions 29 and 34) ---------------------------------------
    The picture and its bar; the settings in a panel over the whole screen,
