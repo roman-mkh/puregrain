@@ -433,3 +433,11 @@ zx=$(count_dots $out/flat-zx-srgb.png 216)
 message=$($cli --check-engine) && [[ "$message" == "Engine check passed"* ]] \
   && pass "--check-engine: exit 0, \"$message\"" \
   || fail "--check-engine: \"$message\""
+
+# 17. --version: the library's version, from the root spago.yaml, through
+#     the real launcher, with exit code 0 (OptionsSpec checks the constant
+#     against spago.yaml too; here the CLI's output).
+expected="puregrain-cli $(sed -n 's/^    version: //p' spago.yaml)"
+message=$($cli --version) && [ "$message" = "$expected" ] \
+  && pass "--version: exit 0, \"$message\"" \
+  || fail "--version: \"$message\", not \"$expected\""

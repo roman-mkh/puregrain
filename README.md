@@ -9,9 +9,9 @@ Error-diffusion and ordered dithering in PureScript: Floyd–Steinberg,
 Atkinson, Jarvis–Judice–Ninke and Bayer, for grayscale and color images,
 down to a few gray levels, a few levels per color channel, or a fixed
 palette such as CGA or the Commodore 64. It comes with a
-[command-line tool](cli/README.md) for PNG images, and a
-[web UI](https://roman-mkh.github.io/puregrain/) that dithers pictures in
-the browser.
+[command-line tool](cli/README.md) for PNG images, and
+[puregrain lab](https://roman-mkh.github.io/puregrain/), a web app that
+dithers pictures in the browser.
 
 > **Status: first release (0.x).** The library works and is tested.
 > Before 1.0, a breaking change raises the minor version (0.1 → 0.2);
@@ -34,7 +34,7 @@ the browser.
 - **Linear light, when you want it:** a gamma (sRGB's curve, or 1.2, 1.5
   or 1.8) makes the dithering keep the light a screen gives off, not the
   average of the stored values; off by default. Its arithmetic is exact,
-  so the library, the command-line tool and the web UI give the same
+  so the library, the command-line tool and puregrain lab give the same
   results on every JavaScript engine. See [docs/gamma.md](docs/gamma.md).
 - **Ready-made palettes:** black & white, web-safe, CGA/EGA/VGA, ANSI
   16/256 (xterm), Commodore 64, ZX Spectrum. Every palette's values are
@@ -157,7 +157,7 @@ npm run dither-cli -- photo.png dithered.png --palette c64
 More examples, every option, and how gray and color output are chosen:
 [cli/README.md](cli/README.md).
 
-### The web UI
+### puregrain lab, in the browser
 
 Dithers pictures in the browser, with nothing to install:
 [roman-mkh.github.io/puregrain](https://roman-mkh.github.io/puregrain/).
@@ -185,7 +185,7 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 | `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
 | `examples/` | Small example programs, among them the quick start above; a separate package |
-| `web/` | The web UI, a separate package, in Halogen |
+| `web/` | puregrain lab, the web UI: the package `puregrain-web`, in Halogen |
 | `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end checks of the CLI and, in three browsers, of the web UI |
 | `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on `master` also publishing the web UI on GitHub Pages; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
@@ -200,7 +200,7 @@ workspace and are built together.
 |---|---|
 | [examples/README.md](examples/README.md) | The example programs: what each shows, how to run them, the REPL |
 | [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
-| [web/README.md](web/README.md) | The web UI: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
+| [web/README.md](web/README.md) | puregrain lab: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
 | [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/gamma.md](docs/gamma.md) | Gamma and linear light: the five values, which for which view, measured, and the engine check |

@@ -1,7 +1,7 @@
 # Exact arithmetic: roots of our own
 
 puregrain gives the same bytes from its library, its command-line tool and
-its web app, whatever JavaScript engine runs them. Converting values to
+its web app, puregrain lab, whatever JavaScript engine runs them. Converting values to
 light, for `--gamma`, needs powers such as x^2.4, and so roots. JavaScript's
 own functions for those may give different results on different engines,
 so puregrain computes its roots itself, from operations that every engine
@@ -224,8 +224,9 @@ results with a stored reference.
   direction ("gammaSrgb, back: the results differ from the reference") or
   the byte.
 - **Time:** about 0.45 s in Node 22, 0.43 to 0.61 s in the browsers. It
-  runs only when called: the command-line tool will have a mode for it,
-  and the web app a worker of its own, apart from the dithering.
+  runs only when called: the command-line tool has a mode for it,
+  `--check-engine`, and puregrain lab a worker of its own, apart from
+  the dithering.
 - **A pass** means that this engine computed the reference values
   exactly: strong evidence, not proof for every value, so the docs say
   "checked", not "guaranteed".

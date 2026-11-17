@@ -1,7 +1,7 @@
-# puregrain-web
+# puregrain lab
 
 Dithering in the browser, built on the puregrain library in this
-repository: choose a picture, choose how to dither it, for any screen or
+repository (its package here is `puregrain-web`): choose a picture, choose how to dither it, for any screen or
 for a ZX Spectrum's or a Commodore 64's, and compare the result with the
 original, pixel for pixel, before saving it as a PNG or as the machine's
 own files. The same settings give the same pixels and files as the

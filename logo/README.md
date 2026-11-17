@@ -68,8 +68,8 @@ Each comes as an SVG, a PNG at its size, and a PNG four times as large
 | `apple-touch-icon.png` | 180 × 180, on black: the icon on iPhones' and iPads' home screens |
 | `social-preview.png` | 1280 × 640, on black: the picture shown when the repository's link is shared; set by hand in the repository's settings (Settings → General → Social preview) |
 
-The web UI's build copies the three icons into the page. All four
-browsers the web UI supports take `icon.svg` for the tab: Chrome and
+puregrain lab's build copies the three icons into the page. All four
+browsers the lab supports take `icon.svg` for the tab: Chrome and
 Edge since version 80, Firefox since 41, Safari since 26. Drawn anew at
 any pixel ratio, it stays sharp; on a screen of double density each of
 its pixels becomes 2 × 2. The ICO serves older browsers and tools that

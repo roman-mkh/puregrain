@@ -53,6 +53,7 @@ puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
               [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
               [--gamma NAME]
 puregrain-cli --check-engine
+puregrain-cli --version
 ```
 
 ## Options
@@ -72,6 +73,7 @@ puregrain-cli --check-engine
 | `--gray` | | off | Converts a color input to gray before dithering: by luma with `--gamma off`, else to the gray that gives off as much light as the color. See [How the output is chosen](#how-the-output-is-chosen). |
 | `--gamma` | `off`, `1.2`, `1.5`, `1.8`, `srgb` | `off` | How the screen turns the stored values into light, which the dithering then keeps: the error and the ordered patterns work in that light. `off` (also `1.0` or `1`) keeps the stored values' average, as dithering traditionally does; `srgb` is linear light. It doesn't adjust the picture. See [Gamma](#gamma). |
 | `--check-engine` | | | Checks that this JavaScript engine computes the light curves exactly as the reference does, then exits: 0 if it does, 1 if not. Takes no other arguments. |
+| `--version` | | | Prints the version, `puregrain-cli X.Y.Z`, and exits. It's the library's: the CLI isn't released on its own, and a release holds both. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
 `--threshold`, `--levels` and `--palette` are alternatives; give at most
@@ -435,7 +437,7 @@ error.
 
 | Code | When |
 |---|---|
-| `0` | Success, `--help`, or `--check-engine` passing. |
+| `0` | Success, `--help`, `--version`, or `--check-engine` passing. |
 | `1` | Anything else: `--check-engine` failing, invalid options, an input that can't be read or decoded, an image that isn't 256×192 for a `.scr` or `.tap` output or 320×200 for a `.prg` or `.art`, an output that can't be written, or the CLI not built yet. |
 
 ## Limitations

@@ -5,15 +5,19 @@ module Test.Puregrain.Cli.OptionsSpec (spec) where
 
 import Prelude
 
+import Data.Array as Array
 import Data.Either (Either(..), isLeft)
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Data.String (Pattern(..), contains)
+import Data.String (Pattern(..), contains, split, stripPrefix)
+import Effect.Class (liftEffect)
 import Data.Tuple (Tuple(..), fst)
 import ExitCodes (ExitCode)
 import ExitCodes as ExitCode
+import Node.Encoding (Encoding(..))
+import Node.FS.Sync (readTextFile)
 import Options.Applicative (ParserResult(..), renderFailure)
-import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allGammas, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, gammaName, kernelName, machineName, machinePaletteName, paletteName, parseOptions)
+import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allGammas, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, gammaName, kernelName, machineName, machinePaletteName, paletteName, parseOptions, version)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -43,6 +47,12 @@ checksEngine args = case parseOptions args of
 -- | The text optparse prints for --help.
 helpText :: String
 helpText = case parseOptions [ "--help" ] of
+  Failure failure -> fst (renderFailure failure "puregrain-cli")
+  _ -> ""
+
+-- | What optparse prints for a command line it answers itself.
+answerTo :: Array String -> String
+answerTo args = case parseOptions args of
   Failure failure -> fst (renderFailure failure "puregrain-cli")
   _ -> ""
 
@@ -276,9 +286,26 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "is in the help" do
       helpText `shouldSatisfy` contains (Pattern "--check-engine")
 
+  describe "--version" do
+    it "prints the CLI's name and version" do
+      answerTo [ "--version" ] `shouldEqual` ("puregrain-cli " <> version)
+
+    it "is the library's version, from the root spago.yaml" do
+      -- spago runs the tests from the workspace's root.
+      yaml <- liftEffect (readTextFile UTF8 "spago.yaml")
+      Array.mapMaybe (stripPrefix (Pattern "    version: ")) (split (Pattern "\n") yaml) `shouldEqual` [ version ]
+
+    it "is in the help" do
+      helpText `shouldSatisfy` contains (Pattern "--version")
+
   describe "exit codes (the README's table)" do
     it "--help exits with 0" do
       case exitCodeOf [ "--help" ] of
+        Right code -> code `shouldEqual` ExitCode.Success
+        Left why -> fail why
+
+    it "--version exits with 0" do
+      case exitCodeOf [ "--version" ] of
         Right code -> code `shouldEqual` ExitCode.Success
         Left why -> fail why
 

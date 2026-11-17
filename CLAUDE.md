@@ -131,6 +131,15 @@ from the code alone.
   usage line shows both; it prints "Engine check passed: …" and exits 0,
   or "Engine check failed:" with the problems on standard error and exits
   1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
+  `--version` (2026-11-17, the user's request) prints `puregrain-cli X.Y.Z`
+  with the library's version: the CLI isn't released on its own, so the
+  two are coupled (the user: the lab numbers its versions on its own, the
+  CLI follows the library). A constant, `version` in `Options`, since a
+  bundled CLI on npm won't have `spago.yaml` to read; `OptionsSpec` reads
+  the root `spago.yaml` and fails while the two differ, so the release
+  commit sets both (CONTRIBUTING.md, step 1), and `check:cli`'s check 17
+  runs it through the launcher. optparse's `infoOption`: exit 0, like
+  `--help`.
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
@@ -160,7 +169,12 @@ from the code alone.
 - **`puregrain-web`** (`web/spago.yaml`, `web/src/`, modules
   `Puregrain.Web.*`; developed from 2026-10-20 on the long-lived branch
   `web-ui`, merged into `master` at the end of v2)
-  — the web UI, the library's second real client, in Halogen. Its plan,
+  — the web UI, the library's second real client, in Halogen. Its
+  name for users is **puregrain lab** (decided 2026-11-17): the user docs
+  say "puregrain lab", or "the lab" after the first mention; the developer
+  material (the code, `web/spago.yaml`, CLAUDE.md files, the roadmap,
+  CONTRIBUTING.md) keeps "puregrain-web" and "the web UI". The lab has
+  its own version numbers (v2.3), apart from the library's. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
   in `web/`; its user docs, with a manual checklist, in `web/README.md`.

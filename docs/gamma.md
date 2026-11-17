@@ -15,8 +15,8 @@ light. The default, **off**, keeps the stored numbers, as dithering always
 has.
 
 The option is the same everywhere: `--gamma` in the
-[command-line tool](../cli/README.md), "Gamma" in the
-[web UI](../web/README.md), and a `Gamma` argument in the library.
+[command-line tool](../cli/README.md), "Gamma" in
+[puregrain lab](../web/README.md), the web app, and a `Gamma` argument in the library.
 
 ## In short
 
@@ -63,8 +63,8 @@ What works in light and what doesn't:
 - **The output** is always exactly the levels', the palette's or the
   machine's own colors.
 
-**Every picture counts as sRGB.** Neither the command-line tool nor the
-web UI reads a picture's color profile: both dither the stored numbers.
+**Every picture counts as sRGB.** Neither the command-line tool nor
+puregrain lab reads a picture's color profile: both dither the stored numbers.
 A Display P3 picture, which uses sRGB's curve, gets its light right with
 `srgb`; Adobe RGB and Apple RGB pictures come out a little off.
 
@@ -122,7 +122,7 @@ a trick made for stored numbers.
 
 ## Gray first
 
-`--gray` (in the web UI, "Turn the picture gray first") turns a color
+`--gray` (in puregrain lab, "Turn the picture gray first") turns a color
 picture gray before dithering, and the gamma decides how:
 
 - **`off`:** Rec. 601 luma, 0.299 R + 0.587 G + 0.114 B on the stored
@@ -164,7 +164,7 @@ after dithering names the gamma when it isn't `off`. `--check-engine`
 runs the engine check (below), and exits with 1 if it fails. All the
 options: [cli/README.md](../cli/README.md).
 
-## In the web UI
+## In puregrain lab
 
 "Gamma", in step 4, Method: Off, 1.2, 1.5, 1.8 and sRGB. A note under it
 says when it can't change the picture: without colors chosen, or without
@@ -235,14 +235,14 @@ for a stored value.
 The curves are computed from the operations that JavaScript defines
 exactly (addition, multiplication, division, the square root) and roots
 of our own, so every correct engine gives the same bits: the command-line
-tool and the web UI, in every browser, give the same results. The light
+tool and puregrain lab, in every browser, give the same results. The light
 of every whole number from 0 to 255 comes back exactly. Why and how:
 [exact-arithmetic.md](exact-arithmetic.md).
 
 The **engine check** makes sure on the engine at hand: it computes the
 curves for a fixed set of values and compares a digest of the results
 with the reference. `--check-engine` in the command-line tool, the icon
-in the web UI, and `Puregrain.SelfCheck.checkEngine` in the library. A
+in puregrain lab, and `Puregrain.SelfCheck.checkEngine` in the library. A
 pass means this engine computed the reference values exactly: strong
 evidence, checked rather than guaranteed. With `off`, nothing it covers
 is used.

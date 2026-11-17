@@ -25,6 +25,7 @@ module Puregrain.Cli.Options
   , splitFileName
   , describeQuantizer
   , parseOptions
+  , version
   ) where
 
 import Prelude
@@ -39,7 +40,7 @@ import Data.Show.Generic (genericShow)
 import Data.String (Pattern(..), Replacement(..), joinWith, replaceAll, split, toLower)
 import Data.String.CodeUnits as CodeUnits
 import Data.Tuple (Tuple(..), fst)
-import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, flag', fullDesc, header, help, helper, info, long, metavar, number, option, parserFailure, progDesc, short, strArgument, switch, value, (<**>))
+import Options.Applicative (ParseError(..), Parser, ParserInfo, ParserResult(..), ReadM, defaultPrefs, eitherReader, execParserPure, flag', fullDesc, header, help, helper, info, infoOption, long, metavar, number, option, parserFailure, progDesc, short, strArgument, switch, value, (<**>))
 
 -- | `NoDiffusion` is the empty kernel: each pixel is quantized on its
 -- | own, so `--bayer` with it gives pure ordered dithering (the default
@@ -399,8 +400,17 @@ rawCommand =
     )
     <|> (RawDither <$> rawOptions)
 
+-- | The CLI's version: the library's, since the CLI isn't released on its
+-- | own (a release tag holds both). It must equal `package.publish.version`
+-- | in the root `spago.yaml`, which `OptionsSpec` checks, so a release
+-- | commit that forgets it fails `npm run check`. A constant rather than
+-- | `spago.yaml` read at run time: a bundled CLI, on npm later, won't have
+-- | that file.
+version :: String
+version = "0.2.2"
+
 parserInfo :: ParserInfo RawCommand
-parserInfo = info (rawCommand <**> helper)
+parserInfo = info (rawCommand <**> versionOption <**> helper)
   ( fullDesc
       <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
       <> progDesc
@@ -416,6 +426,11 @@ parserInfo = info (rawCommand <**> helper)
             <> "--check-engine checks the curves' arithmetic on this JavaScript engine."
         )
   )
+
+-- | `--version`: prints the version and exits with 0, as `--help` does.
+versionOption :: forall a. Parser (a -> a)
+versionOption = infoOption ("puregrain-cli " <> version)
+  (long "version" <> help "Show the version (the puregrain library's) and exit")
 
 -- | The checks across options that optparse can't express: `--bayer`
 -- | works over levels or inside a machine's cells, so it combines with

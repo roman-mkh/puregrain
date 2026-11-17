@@ -141,7 +141,9 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
 
 1. In `CHANGELOG.md`, rename `## Unreleased` to `## X.Y.Z - YYYY-MM-DD`
    and put a new, empty `## Unreleased` above it. Set
-   `package.publish.version` in `spago.yaml` to `X.Y.Z` if it isn't yet.
+   `package.publish.version` in `spago.yaml` to `X.Y.Z` if it isn't yet,
+   and the CLI's `version` in `cli/src/Puregrain/Cli/Options.purs` to the
+   same (a CLI spec fails while the two differ).
    Commit ("Release X.Y.Z"): this is the commit that gets published.
 2. Push `master` and wait until CI is green.
 3. `npm run release:check -- X.Y.Z`
