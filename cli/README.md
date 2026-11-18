@@ -1,20 +1,31 @@
-# puregrain-cli
+# puregrain, the command-line tool
 
 Error-diffusion and ordered dithering of PNG images from the command
 line, built on the puregrain library in this repository. It reads a PNG,
 dithers it with an error-diffusion kernel (Floyd–Steinberg, Atkinson,
 Jarvis–Judice–Ninke or one of eight more), with ordered (Bayer)
 dithering, or with both combined, and writes the result as a PNG: 1-bit
-black and white, a few gray or color levels, a fixed palette, or a ZX
-Spectrum screen, which it can also write as the Spectrum's own screen
-file.
+black and white, a few gray or color levels, a fixed palette, or the
+screen of a ZX Spectrum or a Commodore 64, which it can also write as the
+machines' own files.
 
-> **Status:** a development tool inside the puregrain workspace. It isn't
-> published as a package yet, so run it from a checkout of this repository.
+## Install
+
+It needs Node.js 22 or later. On npm it's the package `puregrain` (from
+the next release; until then, run it from a checkout, as in the quick
+start below):
+
+```bash
+npx puregrain photo.png out.png --palette c64   # without installing anything
+npm install --global puregrain                  # or as the command puregrain
+```
+
+The examples here run it from a checkout, as `npm run dither-cli -- …`;
+with the npm package, write `puregrain …` instead.
 
 ## Quick start
 
-From the repository root:
+From the root of a checkout of this repository:
 
 ```bash
 npm install               # once: the PureScript toolchain and pngjs
@@ -48,12 +59,12 @@ keep them.
 ## Usage
 
 ```
-puregrain-cli INPUT.png OUTPUT [-k|--kernel NAME]
-              [--threshold T | --levels N | --palette NAME] [--bayer N]
-              [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
-              [--gamma NAME]
-puregrain-cli --check-engine
-puregrain-cli --version
+puregrain INPUT.png OUTPUT [-k|--kernel NAME]
+          [--threshold T | --levels N | --palette NAME] [--bayer N]
+          [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
+          [--gamma NAME]
+puregrain --check-engine
+puregrain --version
 ```
 
 ## Options
@@ -73,7 +84,7 @@ puregrain-cli --version
 | `--gray` | | off | Converts a color input to gray before dithering: by luma with `--gamma off`, else to the gray that gives off as much light as the color. See [How the output is chosen](#how-the-output-is-chosen). |
 | `--gamma` | `off`, `1.2`, `1.5`, `1.8`, `srgb` | `off` | How the screen turns the stored values into light, which the dithering then keeps: the error and the ordered patterns work in that light. `off` (also `1.0` or `1`) keeps the stored values' average, as dithering traditionally does; `srgb` is linear light. It doesn't adjust the picture. See [Gamma](#gamma). |
 | `--check-engine` | | | Checks that this JavaScript engine computes the light curves exactly as the reference does, then exits: 0 if it does, 1 if not. Takes no other arguments. |
-| `--version` | | | Prints the version, `puregrain-cli X.Y.Z`, and exits. It's the library's: the CLI isn't released on its own, and a release holds both. |
+| `--version` | | | Prints the version, `puregrain X.Y.Z`, and exits. It's the library's: the CLI isn't released on its own, and a release holds both. |
 | `-h`, `--help` | | | Shows the help and exits. |
 
 `--threshold`, `--levels` and `--palette` are alternatives; give at most
@@ -491,6 +502,10 @@ error.
 - `cli/bin/puregrain-cli.mjs` is the launcher. It runs the compiled code
   from `output/` without rebuilding, so run `npm run build` after changing
   any source.
+- With spago alone, `npx spago run -p puregrain-cli -m Puregrain.Cli.Main
+  -- IN.png OUT.png ...` compiles what changed, then runs the tool with
+  everything after `--`: handy for a quick try after editing the code.
+  For benchmarks use the launcher, which never rebuilds.
 - `npm run check:cli` runs end-to-end checks of exact properties, such as
   "`--palette websafe216` and `--levels 6` give identical files". They are
   described in [Test images → Exact checks](../docs/test-images.md#exact-checks).

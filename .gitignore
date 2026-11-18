@@ -19,3 +19,4 @@ samples/
 .spec-results
 # The web UI's build (npm run web:build), reproducible from web/.
 web/dist/
+npm/dist/

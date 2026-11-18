@@ -6,7 +6,9 @@ package:
     - control
     - effect
     - either
+    - enums
     - exceptions
+    - exitcodes
     - integers
     - maybe
     - node-buffer
@@ -24,7 +26,6 @@ package:
     main: Test.Puregrain.Cli.Main
     dependencies:
       - aff
-      - exitcodes
       - foldable-traversable
       - spec
       - spec-node

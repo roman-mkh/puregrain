@@ -17,7 +17,8 @@ dithers pictures in the browser.
 > Before 1.0, a breaking change raises the minor version (0.1 → 0.2);
 > [CHANGELOG.md](CHANGELOG.md) lists the changes. API reference:
 > [Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain).
-> Not on npm yet.
+> The command-line tool comes to npm with the next release, as the
+> package `puregrain`; a JavaScript API for the library comes later.
 
 ## What it does
 
@@ -145,8 +146,14 @@ pngjs).
 
 ### The command-line tool
 
-Dithers PNG images, without writing code. It isn't on npm yet; run it from
-a checkout of this repository (needs Node.js, developed with v22):
+Dithers PNG images, without writing code. On npm it's the package
+`puregrain` (from the next release), for Node.js 22 or later:
+
+```bash
+npx puregrain photo.png dithered.png --palette c64
+```
+
+From a checkout of this repository:
 
 ```bash
 npm install     # the PureScript compiler, spago, pngjs
@@ -184,9 +191,10 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 |---|---|
 | `src/`, `test/` | The library (`Puregrain.*` modules; `Puregrain.Internal.*` are internal) and its tests |
 | `cli/` | The command-line tool, a separate package that uses the library |
+| `npm/` | The npm package `puregrain`, the command-line tool bundled: its manifest, its page and its build |
 | `examples/` | Small example programs, among them the quick start above; a separate package |
 | `web/` | puregrain lab, the web UI: the package `puregrain-web`, in Halogen |
-| `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end checks of the CLI and, in three browsers, of the web UI |
+| `scripts/` | Test-image generator, benchmark, benchmark chart, end-to-end checks of the CLI, of the npm package and, in three browsers, of the web UI, and the bundles' third-party notices |
 | `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on `master` also publishing the web UI on GitHub Pages; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
 | `logo/` | The logo, and the script that makes it with puregrain; under its own terms (see [License](#license)) |
@@ -199,7 +207,8 @@ workspace and are built together.
 | Document | Contents |
 |---|---|
 | [examples/README.md](examples/README.md) | The example programs: what each shows, how to run them, the REPL |
-| [cli/README.md](cli/README.md) | The command-line tool: quick start, options, examples |
+| [cli/README.md](cli/README.md) | The command-line tool: installing, quick start, options, examples |
+| [npm/README.md](npm/README.md) | The npm package's page: running the command-line tool from npm |
 | [web/README.md](web/README.md) | puregrain lab: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
 | [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |

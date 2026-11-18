@@ -7,6 +7,7 @@
 // Run from the repository's root: npm run web:build.
 import { execFileSync } from 'node:child_process';
 import { copyFileSync, cpSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { writeNotices } from '../scripts/third-party-notices.mjs';
 
 const dist = 'web/dist';
 // Afresh, so that nothing stays from an earlier build.
@@ -46,3 +47,16 @@ if (!version || !page.includes(empty)) {
   throw new Error("Can't write the library's version into the page: check spago.yaml and web/static/index.html.");
 }
 writeFileSync(`${dist}/index.html`, page.replace(empty, `<meta name="puregrain-version" content="${version}">`));
+
+// The licenses of the PureScript packages compiled into app.js and
+// worker.js (scripts/third-party-notices.mjs): a bundle is a binary form,
+// and most of their licenses ask that their notices go with it. The page
+// imports no npm package.
+const notices = writeNotices({
+  entries: ['Puregrain.Web.Main', 'Puregrain.Web.Worker'],
+  product: 'puregrain lab',
+  into: "puregrain lab's scripts, app.js and worker.js",
+  out: `${dist}/THIRD-PARTY-NOTICES.txt`,
+});
+console.log(`${dist}/THIRD-PARTY-NOTICES.txt: ${notices.packages.length} packages` +
+  (notices.missing.length ? `, without a license text: ${notices.missing.join(', ')}` : ''));

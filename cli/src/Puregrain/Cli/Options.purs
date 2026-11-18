@@ -25,6 +25,7 @@ module Puregrain.Cli.Options
   , splitFileName
   , describeQuantizer
   , parseOptions
+  , programName
   , version
   ) where
 
@@ -400,6 +401,14 @@ rawCommand =
     )
     <|> (RawDither <$> rawOptions)
 
+-- | The command's name, as users type it (the npm package's `bin`): the
+-- | name the CLI gives itself in its help, its usage line and `--version`.
+-- | Fixed rather than taken from the script's file name, which an npm link
+-- | or Windows' wrapper would make `cli.mjs`. The workspace package stays
+-- | `puregrain-cli`, a name for developers.
+programName :: String
+programName = "puregrain"
+
 -- | The CLI's version: the library's, since the CLI isn't released on its
 -- | own (a release tag holds both). It must equal `package.publish.version`
 -- | in the root `spago.yaml`, which `OptionsSpec` checks, so a release
@@ -412,7 +421,7 @@ version = "0.2.2"
 parserInfo :: ParserInfo RawCommand
 parserInfo = info (rawCommand <**> versionOption <**> helper)
   ( fullDesc
-      <> header "puregrain-cli - error-diffusion and ordered dithering of PNG images"
+      <> header (programName <> " - error-diffusion and ordered dithering of PNG images")
       <> progDesc
         ( "Dithers INPUT.png into OUTPUT, whose extension picks the format unless --format is given. "
             <> "Use at most one of --threshold, --levels, --palette; "
@@ -429,7 +438,7 @@ parserInfo = info (rawCommand <**> versionOption <**> helper)
 
 -- | `--version`: prints the version and exits with 0, as `--help` does.
 versionOption :: forall a. Parser (a -> a)
-versionOption = infoOption ("puregrain-cli " <> version)
+versionOption = infoOption (programName <> " " <> version)
   (long "version" <> help "Show the version (the puregrain library's) and exit")
 
 -- | The checks across options that optparse can't express: `--bayer`

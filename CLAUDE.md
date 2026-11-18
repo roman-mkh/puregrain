@@ -131,7 +131,7 @@ from the code alone.
   usage line shows both; it prints "Engine check passed: …" and exits 0,
   or "Engine check failed:" with the problems on standard error and exits
   1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
-  `--version` (2026-11-17, the user's request) prints `puregrain-cli X.Y.Z`
+  `--version` (2026-11-17, the user's request) prints `puregrain X.Y.Z`
   with the library's version: the CLI isn't released on its own, so the
   two are coupled (the user: the lab numbers its versions on its own, the
   CLI follows the library). A constant, `version` in `Options`, since a
@@ -139,8 +139,76 @@ from the code alone.
   the root `spago.yaml` and fails while the two differ, so the release
   commit sets both (CONTRIBUTING.md, step 1), and `check:cli`'s check 17
   runs it through the launcher. optparse's `infoOption`: exit 0, like
-  `--help`.
+  `--help`. The CLI calls itself `puregrain` (2026-11-18, for the npm
+  package, see `npm/` below): the
+  name users type, `programName` in `Options`, in the help's header, the
+  usage line and `--version`; the workspace package stays `puregrain-cli`.
+  `Main.answered` is optparse's `handleParseResult` with that name fixed:
+  optparse's own takes the script's file name (split at "/" only), which
+  an npm link or Windows' wrapper would make `cli.mjs`. It sets the exit
+  code and returns instead of exiting at once, so a long help is written
+  out in full through a pipe; completion keeps optparse's handling.
+  `exitcodes` and `enums` became the CLI's own dependencies for it.
+  Check 17 also runs `--help` and a rejected command line through the
+  launcher (mutation-checked: optparse's handler shows `puregrain-cli.mjs`).
   `spago test` runs both packages' suites (library, then CLI).
+- **`npm/`** (2026-11-17/18, branch `npm-package`) — the npm package
+  `puregrain`: the command-line tool, bundled; the JavaScript API later
+  joins the same package (TODO.md). The spec, with every measurement:
+  `git show 872b3f3:docs/npm-package-spec.md`. `npm/package.json` is the
+  manifest without a version (the build adds the library's, so an
+  `npm publish` in `npm/` itself fails); `npm/README.md` the npm page,
+  its links to `master` moved to the release's tag by the build (the
+  logo's included: a later change can't alter a published version's
+  page); `npm/build.mjs` (`npm run npm:build`) writes `npm/dist/`
+  (gitignored), the folder published: `cli.mjs`, `package.json`,
+  `README.md`, `LICENSE` (npm takes nothing from a parent folder),
+  `THIRD-PARTY-NOTICES.txt`. The bundle is `spago bundle`'s, like the
+  lab's, with **one `--bundler-args` per esbuild option**
+  (`--external:pngjs`, `--minify-whitespace`, `--minify-syntax`): spago
+  hands each value to esbuild as one argument, so options joined in one
+  value were silently ignored (pngjs bundled, nothing minified); the
+  build checks spago's `#!/usr/bin/env node` line and that pngjs is
+  imported, not bundled (mutation-checked). Decided with the user:
+  - the package and the command `puregrain`, for good (renaming the
+    command would break scripts); the CLI calls itself so (above);
+  - the version the library's; the first npm version is the next
+    release's, published with its tag (not 0.2.2: its tag lacks the
+    CLI's changes since, and the shared version must identify the
+    release); from then on the CLI's options are a public contract;
+  - pngjs a dependency, `~7.0.0`, not bundled: patch fixes reach users,
+    `npm audit` sees it, the bundle stays small;
+  - `"exports"` allows only `./package.json`, so the API's entry later
+    only adds (`bin` doesn't depend on it);
+  - minified except for names: 406 → 273 KB (60 KB packed), names kept
+    for readable stack traces; bundling took the startup from 199 ms
+    (the launcher's ~190 files) to 60 ms, minifying added nothing; tree
+    shaking is esbuild's anyway; not purs-backend-es (the checks test
+    the purs build); the engine check passes in the bundle;
+  - Node 22 or later; `"author": "roman-mkh (https://github.com/roman-mkh)"`.
+
+  **Third-party notices** (`scripts/third-party-notices.mjs`, for the npm
+  bundle and the lab's scripts): a bundle is a binary form, and most of
+  the bundled packages' BSD-style licenses ask for their notices with it.
+  It follows the compiled modules' imports from the entry modules (a
+  superset of what esbuild keeps, by design), maps modules to packages by
+  their sources in `.spago/p/<name>-<version>/` (versions from
+  `spago.lock`), and writes plain text (a `.md` might be downloaded by a
+  browser), each license in full. It fails on an npm import not allowed
+  for the bundle (`pngjs` for the CLI). `exitcodes` (the CLI's, through
+  optparse) and `freeap` (the lab's, through Halogen) have no license
+  text anywhere, only "MIT" in their manifests: the notices say so.
+  `npm run check:npm` (`scripts/check-npm.mjs`, after `npm:build`):
+  packs `npm/dist/`, installs the tarball into an empty temporary folder
+  (pngjs from the registry: it needs the network), runs the command
+  through npm's link, compares seven configurations with the launcher
+  byte for byte (a `.tap` carries its file's name, so both outputs are
+  named alike), checks that imports are refused, and compares the
+  notices with what esbuild bundles, for both bundles; a package without
+  a license text beyond the two known fails it. Publishing:
+  CONTRIBUTING.md, release step 6, by the user (`npm login`, two-factor
+  authentication); the npm account's email is public in every package's
+  metadata (`npm view <package> maintainers` shows it).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for
   users, no tests: `QuickStart` (a gray gradient made in code, and the
@@ -231,7 +299,9 @@ from the code alone.
 
 - `CONTRIBUTING.md` — the workflow rules (setup, branches, CI,
   versions, release checklist).
-- `CHANGELOG.md` — the library's changes per version; new entries go
+- `CHANGELOG.md` — the changes per version of the library and, under
+  `### Command-line tool`, of the CLI, the npm package (decided
+  2026-11-18: one file, since they share their versions); new entries go
   under `## Unreleased` (rules in `CONTRIBUTING.md`).
 - `README.md` — lean entry point by decision: what it is, status,
   features (each linking to its doc), "When to use it, and when not",
@@ -286,7 +356,12 @@ from the code alone.
   smoothing scaler), as CIE L* or CIELAB ΔE, plus the flat grays that
   come out black; the source of `docs/gamma.md`'s tables. Run after
   `npm run build`; pictures go to `samples/gamma/`.
-- `cli/README.md` — the CLI's user docs.
+- `cli/README.md` — the CLI's user docs, installing from npm first; its
+  examples run it from a checkout (`npm run dither-cli -- …`).
+- `npm/README.md` — the npm package's page (see `npm/` above). Until the
+  first npm release, three notes say it comes with the next release
+  (`README.md`: the status and "The command-line tool"; `cli/README.md`:
+  "Install"); release step 6 rewrites them.
 - `web/README.md` — the web UI's user docs: running it, using it, its
   settings as CLI options, and the manual checklist.
 - `web/ROADMAP.md` — the web UI's plan and its decisions with their
@@ -628,7 +703,8 @@ from the code alone.
   operations. Specs: `ExactSpec`, `GammaSpec`, `InLightSpec` (the
   drivers and presets under every curve) and `SelfCheckSpec`. The
   decisions: "Linear light" under Key design decisions.
-- No JS-facing layer exists right now, by decision: the old
+- No JS-facing layer exists right now (the npm package holds only the
+  CLI), by decision: the old
   `Dither.Ffi` (a monomorphic `ditherImageArray` wrapper) was deleted
   once the JS CLI, its only user, was replaced by `puregrain-cli`. The
   npm interface gets designed fresh when the npm package work starts
@@ -1040,7 +1116,8 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   rules), CI, versions, releases — are in `CONTRIBUTING.md`; follow
   them. `npm run check` runs what CI (`.github/workflows/ci.yml`) runs:
   build with `--pedantic-packages --strict`, the test suites,
-  `check:cli`, then the web UI's bundle and `check:web` (which needs
+  `check:cli`, the npm package's build and `check:npm` (which needs the
+  network), then the web UI's bundle and `check:web` (which needs
   Docker). Keep the two in step.
 - **0.1.0 was published on 2026-10-10:** tag `v0.1.0`, registry job
   `65ff05b2-b62c-477c-b1f6-282a92ff9c21` (log: https://registry.purescript.org/api/v1/jobs/65ff05b2-b62c-477c-b1f6-282a92ff9c21),

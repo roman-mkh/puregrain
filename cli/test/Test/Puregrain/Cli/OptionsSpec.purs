@@ -17,7 +17,7 @@ import ExitCodes as ExitCode
 import Node.Encoding (Encoding(..))
 import Node.FS.Sync (readTextFile)
 import Options.Applicative (ParserResult(..), renderFailure)
-import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allGammas, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, gammaName, kernelName, machineName, machinePaletteName, paletteName, parseOptions, version)
+import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), Options, QuantizerChoice(..), allFormats, allGammas, allKernels, allMachinePalettes, allMachines, allPalettes, formatName, gammaName, kernelName, machineName, machinePaletteName, paletteName, parseOptions, programName, version)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 
@@ -27,7 +27,7 @@ parse :: Array String -> Either String Options
 parse args = case parseOptions args of
   Success (Dither opts) -> Right opts
   Success CheckEngine -> Left "unexpected --check-engine"
-  Failure failure -> Left (fst (renderFailure failure "puregrain-cli"))
+  Failure failure -> Left (fst (renderFailure failure programName))
   CompletionInvoked _ -> Left "unexpected shell-completion request"
 
 -- | The exit code optparse exits with for a command line it rejects, or
@@ -35,7 +35,7 @@ parse args = case parseOptions args of
 -- | has no such code, and is reported as a `Left`.
 exitCodeOf :: Array String -> Either String ExitCode
 exitCodeOf args = case parseOptions args of
-  Failure failure -> let Tuple _ code = renderFailure failure "puregrain-cli" in Right code
+  Failure failure -> let Tuple _ code = renderFailure failure programName in Right code
   _ -> Left "the command line parsed successfully"
 
 -- | Whether a command line asks for the engine's self-check.
@@ -47,13 +47,13 @@ checksEngine args = case parseOptions args of
 -- | The text optparse prints for --help.
 helpText :: String
 helpText = case parseOptions [ "--help" ] of
-  Failure failure -> fst (renderFailure failure "puregrain-cli")
+  Failure failure -> fst (renderFailure failure programName)
   _ -> ""
 
 -- | What optparse prints for a command line it answers itself.
 answerTo :: Array String -> String
 answerTo args = case parseOptions args of
-  Failure failure -> fst (renderFailure failure "puregrain-cli")
+  Failure failure -> fst (renderFailure failure programName)
   _ -> ""
 
 failsWith :: String -> Either String Options -> Boolean
@@ -286,9 +286,14 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
     it "is in the help" do
       helpText `shouldSatisfy` contains (Pattern "--check-engine")
 
+  describe "the command's name" do
+    it "is puregrain, as users type it, in the help's header and in --version" do
+      programName `shouldEqual` "puregrain"
+      helpText `shouldSatisfy` contains (Pattern "puregrain - error-diffusion and ordered dithering of PNG images")
+
   describe "--version" do
     it "prints the CLI's name and version" do
-      answerTo [ "--version" ] `shouldEqual` ("puregrain-cli " <> version)
+      answerTo [ "--version" ] `shouldEqual` ("puregrain " <> version)
 
     it "is the library's version, from the root spago.yaml" do
       -- spago runs the tests from the workspace's root.

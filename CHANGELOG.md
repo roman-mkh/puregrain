@@ -1,10 +1,21 @@
 # Changelog
 
-All notable changes to the `puregrain` library. Versions follow
+All notable changes to the `puregrain` library and, under their own
+heading, to its command-line tool, the npm package `puregrain`; the two
+share their versions. Versions follow
 [semantic versioning](https://semver.org); before 1.0, a breaking change
 raises the minor version (0.1 → 0.2).
 
 ## Unreleased
+
+### Command-line tool
+
+- On npm, as the package `puregrain`, for the first time: `npx puregrain
+  …`, or `npm install --global puregrain`; Node.js 22 or later. One
+  bundled file, with pngjs as its only dependency, and the licenses of the
+  PureScript packages bundled into it in `THIRD-PARTY-NOTICES.txt`.
+- `--version`: prints the version, which is the library's.
+- It calls itself `puregrain` in its help and its usage line.
 
 ## 0.2.2 - 2026-11-16
 

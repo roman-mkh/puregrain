@@ -164,12 +164,13 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 - [ ] **Browser demo:** compare all the dithering variants visually, with the Canvas API through FFI
       (purescript-canvas). A sibling package in the workspace, after the public API; built on the row-by-row
       stepper, in a Web Worker so the page stays responsive.
-- [ ] **npm package:** a monomorphic JS layer (JavaScript can't call class-polymorphic functions), a bundle,
-      and `.d.ts` types.
-      The CLI ships through npm too, not the PureScript registry (spago can't install pngjs): one JS file
-      bundled with esbuild, pngjs as an npm dependency, a `bin` entry, so `npx puregrain …` works. It could
-      come before the library's JS layer; decide after v0.1, together with the purs-backend-es evaluation.
-      Then the web UI can show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
+- [ ] **The npm package's JavaScript API:** a monomorphic JS layer (JavaScript can't call class-polymorphic
+      functions), with `.d.ts` types, in the npm package `puregrain`, which holds the command-line tool
+      since 2026-11-18 (`npm/`, first published with the next release). Its `"exports"` allows only
+      `./package.json` so far, so the API's entry only adds. Most of the layer exists in the lab's worker
+      (`Puregrain.Web.Settings`, `.Dither`, `.Run`: settings to library values to rows of RGBA bytes); moved
+      to a shared place, the lab and the API stay alike by construction. Once the CLI is on npm, the web UI can
+      show its settings as the CLI's command, with Copy (web/ROADMAP.md, decision 31).
 - [ ] **Quality metrics** (PSNR/SSIM) to compare the algorithms.
 - [ ] **The eight kernels of 0.2.1, measured and compared** (2026-11-05): their times, so far only expected from
       their neighbour counts (the benchmark's kernels suite has Floyd–Steinberg, Atkinson and JJN), and their
