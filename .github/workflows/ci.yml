@@ -65,6 +65,14 @@ jobs:
       - name: End-to-end CLI checks
         run: npm run check:cli
 
+      - name: npm package (bundle)
+        run: npm run npm:build
+
+      # Packs the package, installs it into an empty folder (pngjs from the
+      # npm registry), runs it, and checks the third-party notices.
+      - name: npm package checks (packed, installed, run)
+        run: npm run check:npm
+
       # The browsers run in Playwright's Docker image, which the check
       # downloads on every run; the runner's own browsers aren't used.
       - name: Web UI bundle

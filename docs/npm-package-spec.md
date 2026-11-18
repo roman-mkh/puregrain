@@ -252,7 +252,23 @@ Each verified before the next, and stopping for review between them:
   into …"), which reads right for one file or several.
 - **d. The check,** `check:npm`, in `npm run check` and CI, including
   the notices' comparison with esbuild's own list of what a bundle
-  holds, for the CLI's bundle and the lab's.
+  holds, for the CLI's bundle and the lab's. Done (2026-11-18):
+  `scripts/check-npm.mjs`, 13 checks in about 12 s, after
+  `npm run npm:build` (in `npm run check` and CI, after `check:cli`).
+  It packs `npm/dist/` (exactly the five files), installs the tarball
+  into an empty temporary folder (pngjs 7.0.0 from the registry), and
+  runs the installed command through npm's link: `--version`, the usage
+  line, the engine check; seven configurations byte for byte against the
+  launcher (gray; 4 levels with Atkinson under `srgb`; the C64 palette;
+  `--gray --bayer 8`; a ZX Spectrum `.scr` and `.tap`, both outputs named
+  alike, since a tape carries its file's name; a C64 `.prg`); `import`
+  of the package and of `cli.mjs` refused, its `package.json` allowed;
+  and the notices against esbuild, for both bundles, each listed package
+  with its license text or among the two known to have none (`exitcodes`,
+  `freeap`: another one fails until someone has looked at it).
+  Mutation-checked: the notices script skipping Halogen's imports (the
+  lab's comparison named 9 packages), and the built manifest without
+  `"exports"` (the import check failed).
 - **e. The docs** listed above.
 - **f. The pull request,** CI green, merged with a merge commit.
 - **Later, with the next release:** after `spago publish` (which pushes
