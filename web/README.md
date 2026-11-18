@@ -218,6 +218,15 @@ Everything happens in your browser: the picture isn't sent anywhere, and
 the page loads nothing from other sites. All its files come from its own
 build.
 
+## Licenses
+
+puregrain lab's code is under the MIT license, and the logo under its
+own terms (see the [main README](../README.md#license)). Its scripts also
+contain code compiled from open-source PureScript packages: their
+licenses are in `THIRD-PARTY-NOTICES.txt`, next to the page
+([online](https://roman-mkh.github.io/puregrain/THIRD-PARTY-NOTICES.txt)),
+written by the build from the packages themselves.
+
 ## Browsers
 
 Made for the current desktop versions of Chrome, Edge, Firefox and

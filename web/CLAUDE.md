@@ -226,7 +226,14 @@ checklist in step.
   footer; a version written there keeps `npm run check` independent of
   the web build, unlike a generated source file.
   `web/dist/` is gitignored. `npm run web:serve` serves it on
-  http://localhost:8000; stop it with Ctrl+C.
+  http://localhost:8000; stop it with Ctrl+C. Last, it writes
+  `THIRD-PARTY-NOTICES.txt` (2026-11-18): the licenses of the PureScript
+  packages compiled into the two scripts, by
+  `scripts/third-party-notices.mjs`, which follows the compiled modules'
+  imports from `Puregrain.Web.Main` and `Puregrain.Web.Worker` (65
+  packages; `freeap` has no license text anywhere, only "MIT" in its
+  manifests, and the file says so). It fails if the page's code imports
+  an npm package.
 - **Sizes** after linear light's step 4c (2026-11-15, in bytes): `app.js`
   191,573, 47,662 gzipped, and `worker.js` 87,148, 22,837 gzipped, both
   with the library's curves now, the worker with the engine check too

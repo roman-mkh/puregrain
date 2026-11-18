@@ -1,0 +1,16 @@
+{
+  "name": "puregrain",
+  "description": "Dithering for PNG images on the command line: error diffusion with 11 kernels, ordered (Bayer) dithering, retro palettes, a choice of gamma, and ZX Spectrum and C64 screens with their own file formats.",
+  "license": "MIT",
+  "author": "roman-mkh (https://github.com/roman-mkh)",
+  "type": "module",
+  "bin": { "puregrain": "cli.mjs" },
+  "exports": { "./package.json": "./package.json" },
+  "files": ["cli.mjs", "THIRD-PARTY-NOTICES.txt"],
+  "engines": { "node": ">=22" },
+  "dependencies": { "pngjs": "~7.0.0" },
+  "repository": { "type": "git", "url": "git+https://github.com/roman-mkh/puregrain.git", "directory": "npm" },
+  "homepage": "https://github.com/roman-mkh/puregrain#readme",
+  "bugs": "https://github.com/roman-mkh/puregrain/issues",
+  "keywords": ["dithering", "floyd-steinberg", "atkinson", "bayer", "png", "zx-spectrum", "c64", "retro", "purescript", "cli"]
+}

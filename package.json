@@ -29,7 +29,8 @@
     "docs:images": "node scripts/generate-images.mjs --pattern all --size 512 --out docs/images/test-images",
     "logo": "node logo/make-logo.mjs",
     "web:build": "node web/build.mjs",
-    "web:serve": "esbuild --serve=localhost:8000 --servedir=web/dist"
+    "web:serve": "esbuild --serve=localhost:8000 --servedir=web/dist",
+    "npm:build": "node npm/build.mjs"
   },
   "dependencies": {
     "pngjs": "^7.0.0"

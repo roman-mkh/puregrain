@@ -48,7 +48,7 @@ READMEs.
   PureScript packages they use, most under BSD-style licenses, whose terms
   ask that "redistributions in binary form must reproduce the above
   copyright notice". The npm package and puregrain lab's build both ship a
-  `THIRD-PARTY-NOTICES.md`, made by one script.
+  `THIRD-PARTY-NOTICES.txt`, made by one script.
 - **The bundle is `spago bundle`'s, like the lab's,** minified except
   for names (2026-11-18; measurements under "The build").
 - **`"author": "roman-mkh (https://github.com/roman-mkh)"`** (2026-11-18):
@@ -69,7 +69,7 @@ READMEs.
 | `cli.mjs` | The bundle: `Puregrain.Cli.Main` with the library and its PureScript dependencies, starting with `#!/usr/bin/env node` |
 | `README.md` | The npm page, from `npm/README.md` |
 | `LICENSE` | The root's MIT license |
-| `THIRD-PARTY-NOTICES.md` | The licenses of the PureScript packages in `cli.mjs` |
+| `THIRD-PARTY-NOTICES.txt` | The licenses of the PureScript packages in `cli.mjs` |
 
 The manifest, `npm/package.json` (the build adds the version):
 
@@ -82,7 +82,7 @@ The manifest, `npm/package.json` (the build adds the version):
   "type": "module",
   "bin": { "puregrain": "cli.mjs" },
   "exports": { "./package.json": "./package.json" },
-  "files": ["cli.mjs", "THIRD-PARTY-NOTICES.md"],
+  "files": ["cli.mjs", "THIRD-PARTY-NOTICES.txt"],
   "engines": { "node": ">=22" },
   "dependencies": { "pngjs": "~7.0.0" },
   "repository": { "type": "git", "url": "git+https://github.com/roman-mkh/puregrain.git", "directory": "npm" },
@@ -100,17 +100,23 @@ names the rest.
 1. Clears `dist/` first, as `web/build.mjs` clears `web/dist/`.
 2. Bundles with `spago bundle -p puregrain-cli --module Puregrain.Cli.Main
    --platform node --bundle-type app`, as the lab's build bundles, with
-   `--bundler-args "--external:pngjs --minify-whitespace --minify-syntax"`:
-   pngjs left out, and the code minified except for its names, so stack
-   traces in bug reports stay readable. (A correction: spago passes
-   esbuild options through `--bundler-args`, or `extraArgs` in a
-   package's `spago.yaml`; this spec first said it couldn't.) Then puts
-   the `#!/usr/bin/env node` line first, since spago's own banner takes
-   esbuild's banner option, and makes the file executable.
-3. Writes `dist/package.json` from `npm/package.json` plus the version,
-   copies `npm/README.md` with the release's tag filled into its links
-   (the logo's included), copies the root `LICENSE`, and writes
-   `THIRD-PARTY-NOTICES.md` with the notices script.
+   `--bundler-args=--external:pngjs --bundler-args=--minify-whitespace
+   --bundler-args=--minify-syntax`: pngjs left out, and the code minified
+   except for its names, so stack traces in bug reports stay readable.
+   (A correction: spago passes esbuild options through `--bundler-args`,
+   or `extraArgs` in a package's `spago.yaml`; this spec first said it
+   couldn't.) One `--bundler-args` per option: spago hands each value to
+   esbuild as one argument, so three options in one value were ignored,
+   and the bundle held pngjs, unminified (465.7 KB). spago's bundle for
+   Node starts with `#!/usr/bin/env node` and a shim that gives the ES
+   module a `require`; the build checks the `#!` line, and that the
+   bundle imports pngjs rather than holding it (no `__commonJS` wrapper),
+   then makes the file executable.
+3. Writes `dist/package.json` from `npm/package.json` with the version
+   after the name, copies `npm/README.md` with its links to the
+   repository's files moved from `master` to the release's tag (and fails
+   if a `/master/` link is left), copies the root `LICENSE`, and writes
+   `THIRD-PARTY-NOTICES.txt` with the notices script.
 
 **Measured** (2026-11-18, esbuild with the same options, in a scratch
 folder; all variants gave the launcher's PNGs, byte for byte):
@@ -150,8 +156,30 @@ Shared by the npm build and the lab's (`web/build.mjs`):
   dependencies, not bundled, so no notice; the script fails on any it
   doesn't expect, so a new one can't slip into a bundle unnoticed.
 
-The lab's build writes `web/dist/THIRD-PARTY-NOTICES.md`, served with the
+The lab's build writes `web/dist/THIRD-PARTY-NOTICES.txt`, served with the
 page on GitHub Pages.
+
+**As built** (step b, 2026-11-18):
+
+- **Plain text, not Markdown:** every browser shows a `.txt` file as it
+  is, while a `.md` file on GitHub Pages may be downloaded instead; npm
+  shows either alike. The prose is wrapped at 72 columns; then a list of
+  the packages (name, version, SPDX license, repository), then each
+  license in full, with the repository at the package's tag.
+- **The lab: 65 packages; the CLI: 50.** Two have no license text in
+  their package or their repository, only "MIT" in their manifests:
+  `freeap` (the lab's, through Halogen) and `exitcodes` (the CLI's,
+  through optparse, so it was in the bundle before step a made it a
+  direct dependency). The notices say so, rather than invent a text.
+- **Checked against esbuild** (a scratch script, with the same options as
+  the builds): every package esbuild keeps code from is listed, in both
+  bundles; each list also has 10 whose code esbuild drops entirely, the
+  walk's over-inclusion, by design. A mutated copy of the script that
+  doesn't follow Halogen's imports missed 9 bundled packages, and the
+  comparison named them. To make the comparison permanent: step d.
+- `web/build.mjs` writes the lab's file after the bundles (65 packages,
+  "without a license text: freeap"), the same bytes as the script run on
+  its own; `web/README.md` has a "Licenses" section linking it online.
 
 ## The check: `npm run check:npm`
 
@@ -208,11 +236,23 @@ Each verified before the next, and stopping for review between them:
   end the process normally, with their exit code, so their text is
   written out in full even through a pipe.
 - **b. The notices script,** used by the lab's build first: its
-  `THIRD-PARTY-NOTICES.md` read through, and its packages compared with
-  the bundles'.
+  `THIRD-PARTY-NOTICES.txt` read through, and its packages compared with
+  the bundles'. Done (2026-11-18; "As built" under the script).
 - **c. The `npm/` folder:** the manifest, the README, the build; `.gitignore`
-  gets `npm/dist/`; the root `package.json` gets `npm:build`.
-- **d. The check,** `check:npm`, in `npm run check` and CI.
+  gets `npm/dist/`; the root `package.json` gets `npm:build`. Done
+  (2026-11-18): `npm pack --dry-run` lists the five files of "The
+  package", 66.9 kB packed and 364.1 kB unpacked (`cli.mjs` 273,663
+  bytes, the notices 86 kB, 50 packages). Run from the repository, the
+  bundle gives the launcher's files byte for byte (4 levels with
+  Atkinson under `srgb`, the C64 palette, Bayer 4, a ZX Spectrum
+  `.scr`), and its engine check passes, so esbuild's syntax minifying
+  left the curves' arithmetic as it was. The pngjs guard was
+  mutation-checked: options joined in one `--bundler-args` stop the
+  build. The notices script's introduction now takes `--into` ("compiled
+  into …"), which reads right for one file or several.
+- **d. The check,** `check:npm`, in `npm run check` and CI, including
+  the notices' comparison with esbuild's own list of what a bundle
+  holds, for the CLI's bundle and the lab's.
 - **e. The docs** listed above.
 - **f. The pull request,** CI green, merged with a merge commit.
 - **Later, with the next release:** after `spago publish` (which pushes
