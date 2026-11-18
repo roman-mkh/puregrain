@@ -52,7 +52,7 @@ user in the `docker` group). Only Docker is tested. The check calls the
 
 ## CI
 
-[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the four
+[`.github/workflows/ci.yml`](.github/workflows/ci.yml) runs the
 checks of `npm run check` on every push to `master` and on every pull
 request against it, each run as a clean build. Its result is the badge at
 the top of the README. Keep the workflow and the `check` script in
@@ -103,20 +103,24 @@ tested. For that, Pages must be on, with "GitHub Actions" as its source
 [Semantic versioning](https://semver.org): `MAJOR.MINOR.PATCH`. Before
 1.0, as is usual for PureScript packages, a breaking change raises the
 minor version (0.1 → 0.2), and a compatible change or a fix the patch
-version. The version lives in one place: `package.publish.version` in
-`spago.yaml`.
+version. The version lives in `package.publish.version` in
+`spago.yaml`. The command-line tool shares it: its `--version` (a
+constant in `cli/src/Puregrain/Cli/Options.purs`, which a CLI spec
+checks against `spago.yaml`) and the npm package `puregrain`, whose
+build reads it.
 
 ## Changelog
 
-`CHANGELOG.md` covers the library, in the "Keep a Changelog" style: the
-newest version first, its entries grouped under Added, Changed, Removed
-and Fixed. Each change worth telling users adds a line to the
+`CHANGELOG.md` covers the library and its command-line tool, the npm
+package `puregrain`, which share their versions, in the "Keep a
+Changelog" style: the newest version first, the library's entries grouped
+under Added, Changed, Removed and Fixed, and the tool's under a heading
+of their own, `### Command-line tool`, after them. A version with no
+change to the library says so. Each change worth telling users adds a line to the
 `## Unreleased` section at the top. At a release, that heading becomes
 `## X.Y.Z - YYYY-MM-DD` (the tag's version and date), and a new, empty
 `## Unreleased` goes above it. Headings stay plain, without links, so
 the release checks can find a version's section.
-
-The CLI isn't published yet; when it is, it gets its own changelog.
 
 ## Releases
 
@@ -154,6 +158,15 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
    workspace). It checks a clean tree, C and E again, pushes the tag,
    builds with the versions its solver picks from the ranges, and sends
    the package to the registry.
+6. Publish the npm package `puregrain`, from the same commit, once the
+   registry's job has succeeded (below): `npm run npm:build`, then
+   `npm pack --dry-run` in `npm/dist/` to see its five files, and
+   `npm publish npm/dist`, signed in with `npm login` and the account's
+   two-factor authentication. Its page's links name the tag, which step 5
+   has pushed. In an empty folder, `npx puregrain@X.Y.Z --version`
+   confirms it. The first time, also rewrite the three notes that the
+   tool comes to npm with the next release (`README.md`: the status and
+   "The command-line tool"; `cli/README.md`: "Install"), and commit that.
 
 **spago 1.0.4 reports a success as an error.** After sending the package
 it may print "Registry did not like this and answered with status 201",

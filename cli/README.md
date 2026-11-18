@@ -1,20 +1,31 @@
-# puregrain-cli
+# puregrain, the command-line tool
 
 Error-diffusion and ordered dithering of PNG images from the command
 line, built on the puregrain library in this repository. It reads a PNG,
 dithers it with an error-diffusion kernel (Floyd–Steinberg, Atkinson,
 Jarvis–Judice–Ninke or one of eight more), with ordered (Bayer)
 dithering, or with both combined, and writes the result as a PNG: 1-bit
-black and white, a few gray or color levels, a fixed palette, or a ZX
-Spectrum screen, which it can also write as the Spectrum's own screen
-file.
+black and white, a few gray or color levels, a fixed palette, or the
+screen of a ZX Spectrum or a Commodore 64, which it can also write as the
+machines' own files.
 
-> **Status:** a development tool inside the puregrain workspace. It isn't
-> published as a package yet, so run it from a checkout of this repository.
+## Install
+
+It needs Node.js 22 or later. On npm it's the package `puregrain` (from
+the next release; until then, run it from a checkout, as in the quick
+start below):
+
+```bash
+npx puregrain photo.png out.png --palette c64   # without installing anything
+npm install --global puregrain                  # or as the command puregrain
+```
+
+The examples here run it from a checkout, as `npm run dither-cli -- …`;
+with the npm package, write `puregrain …` instead.
 
 ## Quick start
 
-From the repository root:
+From the root of a checkout of this repository:
 
 ```bash
 npm install               # once: the PureScript toolchain and pngjs
@@ -491,6 +502,10 @@ error.
 - `cli/bin/puregrain-cli.mjs` is the launcher. It runs the compiled code
   from `output/` without rebuilding, so run `npm run build` after changing
   any source.
+- With spago alone, `npx spago run -p puregrain-cli -m Puregrain.Cli.Main
+  -- IN.png OUT.png ...` compiles what changed, then runs the tool with
+  everything after `--`: handy for a quick try after editing the code.
+  For benchmarks use the launcher, which never rebuilds.
 - `npm run check:cli` runs end-to-end checks of exact properties, such as
   "`--palette websafe216` and `--levels 6` give identical files". They are
   described in [Test images → Exact checks](../docs/test-images.md#exact-checks).
