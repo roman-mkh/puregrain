@@ -74,7 +74,9 @@
             "control",
             "effect",
             "either",
+            "enums",
             "exceptions",
+            "exitcodes",
             "integers",
             "maybe",
             "node-buffer",
@@ -93,7 +95,6 @@
         "test": {
           "dependencies": [
             "aff",
-            "exitcodes",
             "foldable-traversable",
             "spec",
             "spec-node"

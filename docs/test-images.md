@@ -469,5 +469,7 @@ Four more cover the gamma (`--gamma`, see [gamma.md](gamma.md)):
   (`Test.Puregrain.SelfCheckSpec` checks the same in the library's
   tests).
 
-Last, not about images: **`--version`** prints `puregrain-cli` and the
-version in the root `spago.yaml`, with exit code 0.
+Last, not about images, the tool's own name: **`--version`** prints
+`puregrain` and the version in the root `spago.yaml`, with exit code 0;
+the help's usage line names `puregrain` too, not the launcher's file; and a
+rejected command line exits with 1, its usage on standard error.

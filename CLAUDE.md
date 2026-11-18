@@ -131,7 +131,7 @@ from the code alone.
   usage line shows both; it prints "Engine check passed: …" and exits 0,
   or "Engine check failed:" with the problems on standard error and exits
   1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
-  `--version` (2026-11-17, the user's request) prints `puregrain-cli X.Y.Z`
+  `--version` (2026-11-17, the user's request) prints `puregrain X.Y.Z`
   with the library's version: the CLI isn't released on its own, so the
   two are coupled (the user: the lab numbers its versions on its own, the
   CLI follows the library). A constant, `version` in `Options`, since a
@@ -139,7 +139,18 @@ from the code alone.
   the root `spago.yaml` and fails while the two differ, so the release
   commit sets both (CONTRIBUTING.md, step 1), and `check:cli`'s check 17
   runs it through the launcher. optparse's `infoOption`: exit 0, like
-  `--help`.
+  `--help`. The CLI calls itself `puregrain` (2026-11-18, for the npm
+  package, `docs/npm-package-spec.md` on the branch `npm-package`): the
+  name users type, `programName` in `Options`, in the help's header, the
+  usage line and `--version`; the workspace package stays `puregrain-cli`.
+  `Main.answered` is optparse's `handleParseResult` with that name fixed:
+  optparse's own takes the script's file name (split at "/" only), which
+  an npm link or Windows' wrapper would make `cli.mjs`. It sets the exit
+  code and returns instead of exiting at once, so a long help is written
+  out in full through a pipe; completion keeps optparse's handling.
+  `exitcodes` and `enums` became the CLI's own dependencies for it.
+  Check 17 also runs `--help` and a rejected command line through the
+  launcher (mutation-checked: optparse's handler shows `puregrain-cli.mjs`).
   `spago test` runs both packages' suites (library, then CLI).
 - **`puregrain-examples`** (`examples/spago.yaml`, `examples/src/`,
   modules `Puregrain.Examples.*`, added 2026-10-08) — small programs for

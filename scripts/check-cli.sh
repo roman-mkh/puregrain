@@ -434,10 +434,21 @@ message=$($cli --check-engine) && [[ "$message" == "Engine check passed"* ]] \
   && pass "--check-engine: exit 0, \"$message\"" \
   || fail "--check-engine: \"$message\""
 
-# 17. --version: the library's version, from the root spago.yaml, through
-#     the real launcher, with exit code 0 (OptionsSpec checks the constant
-#     against spago.yaml too; here the CLI's output).
-expected="puregrain-cli $(sed -n 's/^    version: //p' spago.yaml)"
+# 17. The CLI's own name and version, through the real launcher, whose file
+#     name the CLI must not show: --version prints "puregrain" and the
+#     library's version from the root spago.yaml (OptionsSpec checks the
+#     constant against it too), with exit code 0; --help's usage line names
+#     "puregrain", on standard output, with 0; a rejected command line exits
+#     with 1, its usage on standard error and nothing on standard output.
+expected="puregrain $(sed -n 's/^    version: //p' spago.yaml)"
 message=$($cli --version) && [ "$message" = "$expected" ] \
   && pass "--version: exit 0, \"$message\"" \
   || fail "--version: \"$message\", not \"$expected\""
+help=$($cli --help) && [[ "$help" == *$'\nUsage: puregrain ('* ]] \
+  && pass "--help: exit 0, the usage line names \"puregrain\"" \
+  || fail "--help: $(echo "$help" | grep -m1 '^Usage') (expected \"Usage: puregrain (...\")"
+code=0
+$cli --bogus >$out/rejected.out 2>$out/rejected.err || code=$?
+[ "$code" -eq 1 ] && [ ! -s $out/rejected.out ] && grep -q '^Usage: puregrain (' $out/rejected.err \
+  && pass "a rejected command line: exit 1, the usage on standard error, naming \"puregrain\"" \
+  || fail "a rejected command line: exit code $code (expected 1), standard output: $(cat $out/rejected.out), standard error: $(head -3 $out/rejected.err)"

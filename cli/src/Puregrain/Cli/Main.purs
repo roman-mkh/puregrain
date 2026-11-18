@@ -9,18 +9,21 @@ import Prelude
 
 import Data.Array as Array
 import Data.Either (Either(..), either)
-import Data.Maybe (maybe)
+import Data.Enum (fromEnum)
+import Data.Maybe (Maybe(..), maybe)
 import Data.Number.Format (fixed, toStringWith)
 import Data.String (joinWith)
+import Data.Tuple (Tuple(..))
 import Puregrain (RGB(..), ditherImageWith, toGray)
 import Effect (Effect)
 import Effect.Console (error, log)
 import Effect.Exception (catchException, message, throw, try)
+import ExitCodes as ExitCode
 import Node.Buffer as Buffer
 import Node.FS.Sync (writeFile)
-import Node.Process (argv, exit')
-import Options.Applicative (handleParseResult)
-import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), Options, describeQuantizer, gammaName, kernelName, parseOptions)
+import Node.Process (argv, exit', setExitCode)
+import Options.Applicative (ParserResult(..), handleParseResult, renderFailure)
+import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), Options, describeQuantizer, gammaName, kernelName, parseOptions, programName)
 import Puregrain.Cli.Pipeline (Pipeline(..), artStudioFile, ditherScreen, gammaOf, isNeutral, kernelOf, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
@@ -32,16 +35,33 @@ import Safe.Coerce (coerce)
 main :: Effect Unit
 main = do
   args <- argv
-  command <- handleParseResult (parseOptions (Array.drop 2 args))
+  command <- answered (parseOptions (Array.drop 2 args))
   case command of
-    CheckEngine -> checkTheEngine
-    Dither opts -> do
+    Nothing -> pure unit
+    Just CheckEngine -> checkTheEngine
+    Just (Dither opts) -> do
       result <- try (run opts)
       case result of
         Left err -> do
           error (message err)
           exit' 1
         Right _ -> pure unit
+
+-- | What optparse answers itself (the help, `--version`, a rejected
+-- | command line), printed under the command's own name, `programName`,
+-- | not the script's file name: optparse's `handleParseResult` with the
+-- | name fixed. It sets the exit code and returns instead of exiting at
+-- | once, so the text is written out in full even through a pipe. Shell
+-- | completion keeps optparse's own handling.
+answered :: ParserResult Command -> Effect (Maybe Command)
+answered = case _ of
+  Success command -> pure (Just command)
+  Failure failure -> do
+    let Tuple text code = renderFailure failure programName
+    if code == ExitCode.Success then log text else error text
+    setExitCode (fromEnum code)
+    pure Nothing
+  completion -> Just <$> handleParseResult completion
 
 -- | `--check-engine`: runs the library's self-check, says what it found,
 -- | and exits with 1 on a problem.
