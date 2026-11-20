@@ -84,6 +84,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       × alpha + background × (1 − alpha) per channel, rounded, becomes a library helper both clients use. Under
       a gamma, in the curve's light, back to a byte by the half-steps, as the web UI flattens (linear light's
       decision 6, CLAUDE.md); before the web UI's v3.
+- [ ] **Fitting a picture to a machine's screen, `--fit`,** as puregrain lab does (decision 22 in `web/ROADMAP.md`;
+      announced in web/README.md, "Not yet for a picture with transparent parts, or a fitted one"; noted 2026-11-20):
+      scaled down, never up, to cover the screen, centered, cropped where it overflows, the background where it
+      doesn't reach. Area averaging with whole-number weights, so an implementation that keeps the weights and the
+      order of adding gives the lab's bytes; in the curve's light under a gamma (linear light's decision 6,
+      CLAUDE.md). The rules move from `Puregrain.Web.Prepare` into the library, shared by both clients; the CLI's
+      option needs `--machine` and comes with `--background` (above), whose color fills where the picture doesn't
+      reach. `check:web` then compares the lab's fitted results with the CLI's directly. Until then: the lab, or
+      another tool first (cli/README.md, "Machine screens"). Medium-sized, a branch of its own.
 
 ## Algorithms
 
@@ -227,6 +236,11 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       representable in this architecture today but isn't real print-
       quality CMYK output on its own (no per-channel screen angles, no
       moiré avoidance). Needs a concrete print/halftone target to justify.
+- [ ] The C64 `.prg` viewer's border as the user's choice (the user, 2026-11-20): automatic (today's rule, the edge's
+      most frequent color), black, or a color, with a color picker in the lab and an option in the CLI; in the
+      library a function or field next to `toHiresPrg`, so nothing breaks. Why: blending is a matter of taste. On a
+      tiger photo the rule chose black, which looked right; grey and dark grey looked bad; green was not bad, but the
+      picture's edge ran into the border.
 - [ ] More block-constrained output, after the ZX Spectrum's and the C64's hires screens (docs/machine-screens/):
       - the C64's multicolor mode, `--machine c64-multicolor`: up to 4 colors per cell of 4×8 double-wide pixels,
         one of them shared by the whole screen (names planned: `multicolorScreen`, `toMulticolorPrg`, `toKoala`).
@@ -234,9 +248,6 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
         cells, and double-wide pixels;
       - pseudo-graphics (ANSI/Unicode block characters, PETSCII, teletext mosaics): a character plus
         foreground/background per cell.
-- [ ] The C64 `.prg` viewer's border in the most frequent color along the picture's edge (count the 16 colors over
-      its 1,436 edge pixels), so a picture with light edges blends into the border instead of being framed in
-      black. The border is black now (decided 2026-10-17: simple, the usual frame).
 - [ ] Ordered dithering against a palette (vectorED) — not supported: `Puregrain.Ordered` decides between two
       neighbouring levels per channel, and a palette's colors have no such order. Needs a different method,
       e.g. Joel Yliluoma's positional dithering algorithms. Until then, palettes that are a grid of per-channel

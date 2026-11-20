@@ -38,9 +38,9 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Array.NonEmpty as NEA
 import Data.Char (toCharCode)
 import Data.Either (Either(..))
-import Data.Foldable (foldM)
+import Data.Foldable (foldM, foldl)
 import Data.Int.Bits (shr, (.&.))
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), fromMaybe)
 import Data.String.CodeUnits (toCharArray)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafePartial)
@@ -132,8 +132,10 @@ hiresScreen = { size: { width: 8, height: 8 }, palette: hiresPalette, candidates
 -- | leftmost pixel in the highest bit), each cell's 8 bytes in a row, the
 -- | cells row by row. Zeros fill the gaps. A single-color cell has all its
 -- | bits 0. The viewer points the video chip at the colors and the bitmap
--- | where they are, with a black border, and puts everything back after a
--- | key.
+-- | where they are, and puts everything back after a key. Its border takes
+-- | the color most frequent along the picture's edge, the 1,036 outermost
+-- | pixels, so that it continues the picture rather than framing it; on a
+-- | tie, the lowest color code, so black wins every tie it's in.
 -- |
 -- | `Left`, with a message, for an image that isn't 320 × 200, for cells
 -- | that don't form the matching 40 × 25 grid, or for a pixel that isn't
@@ -141,10 +143,12 @@ hiresScreen = { size: { width: 8, height: 8 }, palette: hiresPalette, candidates
 toHiresPrg :: { cells :: Array (Array HiresCell), image :: Array (Array RGB) } -> Either String (Array Int)
 toHiresPrg dithered = do
   { bitmap, colors } <- screenMemory "toHiresPrg" dithered
-  -- Each part at its address, zeros up to the next.
+  -- Each part at its address, zeros up to the next. The border is worked
+  -- out only here, after `screenMemory` has checked the grids and the
+  -- pixels.
   pure
     ( word basicStart
-        <> padTo (colorsStart - basicStart) viewer
+        <> padTo (colorsStart - basicStart) (viewer (edgeColor dithered.cells dithered.image))
         <> padTo (bitmapStart - colorsStart) colors
         <> bitmap
     )
@@ -206,6 +210,34 @@ colorsStart = 0x0C00
 bitmapStart :: Int
 bitmapStart = 0x2000
 
+-- | The color code most frequent along the picture's edge: the top and the
+-- | bottom rows and, between them, the left and the right columns, 1,036
+-- | pixels in all; on a tie, the lowest code. Each pixel's code comes from
+-- | its cell, as its bit in the bitmap does (`pixelBit`'s rule: the
+-- | background first). Only for grids and pixels `screenMemory` has
+-- | checked.
+edgeColor :: Array (Array HiresCell) -> Array (Array RGB) -> Int
+edgeColor cells image = fromMaybe 0 (Array.findIndex (_ == most) counts)
+  where
+  edge =
+    map (\x -> { x, y: 0 }) (Array.range 0 319)
+      <> map (\x -> { x, y: 199 }) (Array.range 0 319)
+      <> map (\y -> { x: 0, y }) (Array.range 1 198)
+      <> map (\y -> { x: 319, y }) (Array.range 1 198)
+  codeAt { x, y } =
+    let
+      HiresCell c = at cells (y / 8) (x / 8)
+    in
+      if at image y x == color c.background then c.background else c.foreground
+  codes = map codeAt edge
+  counts = map (\code -> Array.length (Array.filter (_ == code) codes)) (Array.range 0 15)
+  most = foldl max 0 counts
+
+-- | The element at row `r` and column `c`; only for indices a check has
+-- | made safe.
+at :: forall a. Array (Array a) -> Int -> Int -> a
+at rows r c = unsafePartial (Array.unsafeIndex (Array.unsafeIndex rows r) c)
+
 -- | The bitmap byte at offset `o`: 8 pixels of one row of one cell. The
 -- | cells come row by row, 40 to a row of cells, each as 8 bytes, its top
 -- | pixel row first.
@@ -214,9 +246,7 @@ bitmapByte name cells image o = foldM (\byte i -> (\b -> byte * 2 + b) <$> foreg
   where
   column = (o / 8) `mod` 40
   y = (o / 320) * 8 + o `mod` 8
-  -- Safe: `screenMemory` checked both grids before calling this.
-  at :: forall a. Array (Array a) -> Int -> Int -> a
-  at rows r c = unsafePartial (Array.unsafeIndex (Array.unsafeIndex rows r) c)
+  -- `at` is safe here: `screenMemory` checked both grids before calling this.
   foregroundBit x = pixelBit name (at cells (y / 8) column) x y (at image y x)
 
 -- | 1 for the cell's foreground, 0 for its background. The background is
@@ -240,7 +270,7 @@ word n = [ n .&. 255, shr n 8 .&. 255 ]
 -- |
 -- | ```
 -- | 10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)
--- | 20 POKE 53265,D AND 239:POKE 53280,0:POKE 53272,56:POKE 53265,D OR 32
+-- | 20 POKE 53265,D AND 239:POKE 53280,C:POKE 53272,56:POKE 53265,D OR 32
 -- | 30 POKE 198,0
 -- | 40 GET K$:IF K$="" THEN 40
 -- | 50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D
@@ -248,18 +278,19 @@ word n = [ n .&. 255, shr n 8 .&. 255 ]
 -- |
 -- | Line 10 notes the border color (53280) and the video chip's two
 -- | registers (53265, 53272), to put them back at the end. Line 20 blanks
--- | the screen (bit 4 of 53265 off), so nothing half-set shows; makes the
--- | border black; points the video chip at the colors and the bitmap
+-- | the screen (bit 4 of 53265 off), so nothing half-set shows; sets the
+-- | border to `border`'s color code (C above, written as its number);
+-- | points the video chip at the colors and the bitmap
 -- | (53272); then turns bitmap mode on (bit 5) and the screen back on.
 -- | Line 30 empties the keyboard buffer (198 counts the keys in it), so a
 -- | key pressed while loading doesn't end the picture at once; line 40
 -- | waits for a key. Line 50 blanks the screen again, puts the registers
 -- | and the border back, and shows the text screen, which the viewer never
 -- | changed.
-viewer :: Array Int
-viewer = program basicStart
+viewer :: Int -> Array Int
+viewer border = program basicStart
   [ { number: 10, text: t "B" <> equals <> peek <> t "(53280):D" <> equals <> peek <> t "(53265):M" <> equals <> peek <> t "(53272)" }
-  , { number: 20, text: poke <> t " 53265,D " <> and_ <> t " 239:" <> poke <> t " 53280,0:" <> poke <> t " 53272,56:" <> poke <> t " 53265,D " <> or_ <> t " 32" }
+  , { number: 20, text: poke <> t " 53265,D " <> and_ <> t " 239:" <> poke <> t (" 53280," <> show border <> ":") <> poke <> t " 53272,56:" <> poke <> t " 53265,D " <> or_ <> t " 32" }
   , { number: 30, text: poke <> t " 198,0" }
   , { number: 40, text: get <> t " K$:" <> if_ <> t " K$" <> equals <> t "\"\" " <> then_ <> t " 40" }
   , { number: 50, text: poke <> t " 53265,D " <> and_ <> t " 239:" <> poke <> t " 53272,M:" <> poke <> t " 53280,B:" <> poke <> t " 53265,D" }

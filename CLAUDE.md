@@ -673,10 +673,21 @@ from the code alone.
   the bitmap copied to 1024 by a BASIC loop (a few seconds of black
   screen, and the text screen overwritten). The viewer is BASIC, not 6502
   code, so it's readable and checkable: it notes 53280/53265/53272,
-  blanks the screen, sets a black border (decided 2026-10-17: simple, the
-  usual frame; matching the picture's edge is a TODO.md idea), turns
+  blanks the screen, sets the border, turns
   bitmap mode on, empties the keyboard buffer (198), waits for a key, and
-  puts everything back; the text screen is never touched. `C64Spec`'s
+  puts everything back; the text screen is never touched. The border
+  (2026-11-20, the user's idea; black from 2026-10-17 on, simple and the
+  usual frame) takes the color most frequent along the picture's edge,
+  its 1,036 outermost pixels, with the lowest color code on a tie, so
+  black wins every tie it's in: it continues the picture rather than
+  framing it. Not a C64 standard: the border is a register of its own,
+  which picture files don't record, so each viewer chooses; this is our
+  rule (`edgeColor`, from the cells, as the bitmap's bits are). A code of
+  two digits lengthens line 20 by a byte, which shifts only the viewer's
+  later lines: the colors and the bitmap stay at 3072 and 8192.
+  `C64Spec` checks it against an independent count on random screens,
+  with the ties and a two-digit code; check 11 against the PNG's edge
+  (each mutation-checked). `C64Spec`'s
   `listing` walks the BASIC lines through their links with its own token
   table and rejects a keyword stored as plain letters (the C64 wouldn't
   run it); check-cli's check 11 does the same in JavaScript.

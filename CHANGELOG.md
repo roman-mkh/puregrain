@@ -8,6 +8,16 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Changed
+
+- `Puregrain.Machine.C64.toHiresPrg`: the viewer's border takes the color
+  most frequent along the picture's edge, its 1,036 outermost pixels, with
+  the lowest color code on a tie (so black wins every tie it's in), so that
+  it continues the picture rather than framing it; it was always black.
+  Every `.prg` changes in that byte, and those after it in the viewer
+  when the code has two digits; the file's size, the colors and the bitmap
+  stay as they were.
+
 ### Command-line tool
 
 - On npm, as the package `puregrain`, for the first time: `npx puregrain

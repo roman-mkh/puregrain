@@ -237,7 +237,10 @@ done
 #     here, against its listing; the colors at 3072 (foreground × 16 +
 #     background) and the bitmap at 8192 (each cell's 8 bytes in a row, 1
 #     for the foreground), with Colodore's values written out here. It
-#     must match the PNG pixel for pixel and be 14,145 bytes long.
+#     must match the PNG pixel for pixel and be 14,145 bytes long. The
+#     viewer's border (line 20's POKE 53280) must be the color most
+#     frequent along the PNG's edge, the lowest code on a tie, worked out
+#     here from the PNG.
 $cli $out/color-320x200.png $out/c64-color.png --machine c64-hires --bayer 8 >/dev/null
 $cli $out/color-320x200.png $out/c64-color.prg --machine c64-hires --bayer 8 >/dev/null
 result=$(node -e '
@@ -264,16 +267,25 @@ result=$(node -e '
     lines.push((at(address + 2) + 256 * at(address + 3)) + " " + text);
     address = link;
   }
+  const colors = [0x000000, 0xffffff, 0x96282e, 0x5bd6ce, 0x9f2dad, 0x41b936, 0x2724c4, 0xeff347,
+    0x9f4815, 0x5e3500, 0xda5f66, 0x474747, 0x787878, 0x91ff84, 0x6864ff, 0xaeaeae];
+  // The border: the edge pixels of the PNG, counted by color code.
+  const counts = new Array(16).fill(0);
+  for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) {
+    if (x !== 0 && x !== 319 && y !== 0 && y !== 199) continue;
+    const i = (y * 320 + x) * 4;
+    counts[colors.indexOf((png.data[i] << 16) | (png.data[i + 1] << 8) | png.data[i + 2])]++;
+  }
+  const border = counts.indexOf(Math.max(...counts));
   const expected = [
     "10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)",
-    "20 POKE 53265,D AND 239:POKE 53280,0:POKE 53272,56:POKE 53265,D OR 32",
+    "20 POKE 53265,D AND 239:POKE 53280," + border + ":POKE 53272,56:POKE 53265,D OR 32",
     "30 POKE 198,0",
     "40 GET K$:IF K$=\"\" THEN 40",
     "50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D",
   ];
+  if (counts.reduce((a, b) => a + b) !== 1036) problems.push("the edge has " + counts.reduce((a, b) => a + b) + " pixels of the 16 colors, not 1036");
   if (lines.join("\n") !== expected.join("\n")) problems.push("the viewer lists as: " + lines.join(" / "));
-  const colors = [0x000000, 0xffffff, 0x96282e, 0x5bd6ce, 0x9f2dad, 0x41b936, 0x2724c4, 0xeff347,
-    0x9f4815, 0x5e3500, 0xda5f66, 0x474747, 0x787878, 0x91ff84, 0x6864ff, 0xaeaeae];
   let wrong = 0;
   for (let y = 0; y < 200; y++) for (let x = 0; x < 320; x++) {
     const bit = (at(8192 + (y >> 3) * 320 + (x >> 3) * 8 + (y & 7)) >> (7 - (x & 7))) & 1;
@@ -283,10 +295,10 @@ result=$(node -e '
     if (png.data[i] !== rgb >> 16 || png.data[i + 1] !== ((rgb >> 8) & 255) || png.data[i + 2] !== (rgb & 255)) wrong++;
   }
   if (wrong > 0) problems.push(wrong + " pixels differ");
-  console.log(problems.length > 0 ? problems.join("; ") : "ok");' \
+  console.log(problems.length > 0 ? problems.join("; ") : "ok, border " + border);' \
   $out/c64-color.prg $out/c64-color.png)
-[ "$result" = ok ] \
-  && pass "color composite at 320x200, --machine c64-hires to a .prg: the viewer, then the PNG's picture" \
+[[ "$result" == "ok, border "* ]] \
+  && pass "color composite at 320x200, --machine c64-hires to a .prg: the viewer (its border ${result#ok, border }, the edge's color), then the PNG's picture" \
   || fail "color composite at 320x200, --machine c64-hires to a .prg: $result"
 
 # 12. An Art Studio file (.art) of the same picture, read here as RECOIL,

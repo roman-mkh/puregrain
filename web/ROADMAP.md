@@ -113,6 +113,31 @@ users is a separate task, see TODO.md.)
   deleted at the end: its decisions live on in the root `CLAUDE.md`
   ("Linear light"), `docs/gamma.md` and `docs/exact-arithmetic.md`, its
   full record in git history.
+- **Next, before v3: pictures from other web pages** (the user's ideas,
+  2026-11-19), a small version of its own (v2.4):
+  - **Pasting a picture, Ctrl+V** (Cmd+V on a Mac): "Copy image" on any
+    web page, or a screenshot, then pasted into the lab. The browser puts
+    the picture itself on the clipboard, so the other site's permission
+    doesn't matter, and every current browser supports it. A `paste`
+    listener feeding the existing loading path; a default name such as
+    `pasted.png` for the downloads; a line in the README's "Keys" and
+    the checklist; a `check:web` test (a paste can be simulated). The
+    browser re-encodes a copied picture, so its colors may differ
+    slightly from the original file's: a sentence in the README.
+  - **Dragging a picture from another web page:** what a drop delivers
+    depends on the browser, to be tested in each: sometimes the picture
+    as a file, which the lab can load like a dropped file (today it
+    reacts only to drags that carry files, so these may go unnoticed);
+    sometimes only its address, which the lab can't fetch (below). Then
+    the page says to copy the picture and paste it. And dropping a link
+    must never make the browser leave the page, losing the work: to be
+    checked first, since it may happen today.
+  - **Not a URL field** (decided with the user): `file://` addresses
+    are closed to web pages by the browsers, and most image hosts don't
+    allow other sites to read their pictures (CORS); the only way around
+    it, a server fetching pictures for the page, would break the lab's
+    promise that pictures never leave the computer and the page loads
+    nothing from other sites.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side. On a new branch from `master` (decision 20). From
   v2's design review (decisions 29 to 34): the gallery in a strip under

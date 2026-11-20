@@ -8,10 +8,11 @@ import Data.Array.NonEmpty as NEA
 import Data.Char (fromCharCode)
 import Data.Either (Either(..), either)
 import Data.Foldable (all, and, any, for_, sum)
-import Data.Int (pow, toNumber)
+import Data.Int (fromString, pow, toNumber)
 import Data.Maybe (Maybe(..), fromMaybe, maybe)
-import Data.String (Pattern(..), contains, joinWith)
+import Data.String (Pattern(..), contains, joinWith, split, takeWhile)
 import Data.String.CodeUnits as CodeUnits
+import Data.String.CodePoints (codePointFromChar)
 import Data.Traversable (traverse)
 import Partial.Unsafe (unsafeCrashWith)
 import Test.QuickCheck (class Arbitrary, Result(..), (===))
@@ -62,6 +63,12 @@ all136 = NEA.toArray hiresCells
 -- | doesn't have; the tests ask only for ones it has.
 hiresCell :: Int -> Int -> HiresCell
 hiresCell fg bg = case Array.find (\c -> foreground c == fg && background c == bg) all136 of
+  Just c -> c
+  Nothing -> unsafeCrashWith "no such hires cell"
+
+-- | The hires cell with these two colors, whichever is its foreground.
+pairOf :: Int -> Int -> HiresCell
+pairOf a b = case Array.find (\c -> (foreground c == a && background c == b) || (foreground c == b && background c == a)) all136 of
   Just c -> c
   Nothing -> unsafeCrashWith "no such hires cell"
 
@@ -179,6 +186,33 @@ listing bytes = go 2049 []
     else Right (character b)
   character b = maybe "?" CodeUnits.singleton (fromCharCode b)
 
+-- | The pixels on the picture's edge, written here as those with x 0 or
+-- | 319, or y 0 or 199 (the library walks the four sides).
+edgePoints :: Array { x :: Int, y :: Int }
+edgePoints = Array.filter onEdge (Array.concat (grid 320 200 \x y -> { x, y }))
+  where
+  onEdge p = p.x == 0 || p.x == 319 || p.y == 0 || p.y == 199
+
+-- | The border the viewer should set, worked out independently: each edge
+-- | pixel's code from the list of colors above, counted; the most frequent,
+-- | the lowest code on a tie.
+expectedBorder :: Array (Array RGB) -> Int
+expectedBorder image = fromMaybe (-1) (Array.find (\code -> count code == most) (Array.range 0 15))
+  where
+  codeOf pixel = fromMaybe (-1) (Array.findIndex (_ == pixel) colodore)
+  codes = map (\p -> maybe (-1) codeOf (Array.index image p.y >>= flip Array.index p.x)) edgePoints
+  count code = Array.length (Array.filter (_ == code) codes)
+  most = Array.foldl max 0 (map count (Array.range 0 15))
+
+-- | The border color the viewer sets: the number after `POKE 53280,` in
+-- | line 20 of the listing.
+borderOf :: Array Int -> Either String Int
+borderOf bytes = do
+  lines <- listing bytes
+  line20 <- maybe (Left "no line 20") Right (Array.index lines 1)
+  after <- maybe (Left ("no POKE 53280 in " <> line20)) Right (Array.index (split (Pattern "POKE 53280,") line20) 1)
+  maybe (Left ("no number after POKE 53280, in " <> line20)) Right (fromString (takeWhile (\c -> c >= codePointFromChar '0' && c <= codePointFromChar '9') after))
+
 -- | Valid cells, `columns` × `rows` of them: each cell a random hires
 -- | cell, each pixel one of that cell's colors.
 genScreen :: Int -> Int -> Gen Screen
@@ -264,9 +298,10 @@ spec = describe "Puregrain.Machine.C64" do
     it "loads at 2049, where BASIC programs start, with the viewer there: five lines, keywords as tokens" do
       let bytes = toHiresPrg (foregroundAt [])
       map (Array.take 2) bytes `shouldEqual` Right [ 0x01, 0x08 ]
+      -- All white, so the border is white, 1.
       (bytes >>= listing) `shouldEqual` Right
         [ "10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)"
-        , "20 POKE 53265,D AND 239:POKE 53280,0:POKE 53272,56:POKE 53265,D OR 32"
+        , "20 POKE 53265,D AND 239:POKE 53280,1:POKE 53272,56:POKE 53265,D OR 32"
         , "30 POKE 198,0"
         , "40 GET K$:IF K$=\"\" THEN 40"
         , "50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D"
@@ -281,6 +316,48 @@ spec = describe "Puregrain.Machine.C64" do
       -- the rest as characters.
       map (region 2142 2154) (toHiresPrg (foregroundAt []))
         `shouldEqual` Right [ 0x6A, 0x08, 30, 0, 0x97, 0x20, 0x31, 0x39, 0x38, 0x2C, 0x30, 0 ]
+
+    it "sets the border to the color most frequent along the picture's edge, its 1,036 outermost pixels" do
+      Array.length edgePoints `shouldEqual` 1036
+      let
+        -- White on the edge, black inside: black is far the most frequent
+        -- color in the picture, but only the edge counts.
+        framed = screenOf (\_ _ -> blackOnWhite) \x y ->
+          if x == 0 || x == 319 || y == 0 || y == 199 then expectedColor 1 else expectedColor 0
+        -- One pixel in from the edge: white there and inside, black on
+        -- the edge itself.
+        inner = screenOf (\_ _ -> blackOnWhite) \x y ->
+          if x == 0 || x == 319 || y == 0 || y == 199 then expectedColor 0 else expectedColor 1
+      (toHiresPrg framed >>= borderOf) `shouldEqual` Right 1
+      (toHiresPrg inner >>= borderOf) `shouldEqual` Right 0
+
+    it "takes the lowest color code on a tie, so black wins every tie it's in" do
+      let
+        -- A checkerboard: the edge's 1,036 pixels, 518 of each color.
+        checkerboard a b = screenOf (\_ _ -> pairOf a b) \x y ->
+          if (x + y) `mod` 2 == 0 then expectedColor a else expectedColor b
+      (toHiresPrg (checkerboard 1 0) >>= borderOf) `shouldEqual` Right 0
+      (toHiresPrg (checkerboard 3 2) >>= borderOf) `shouldEqual` Right 2
+      (toHiresPrg (checkerboard 15 14) >>= borderOf) `shouldEqual` Right 14
+
+    it "writes a two-digit code as its number, the lines after it still linked, the file still 14,145 bytes" do
+      let
+        -- Light grey (15) on the edge, black inside.
+        bytes = toHiresPrg $ screenOf (\_ _ -> pairOf 0 15) \x y ->
+          if x == 0 || x == 319 || y == 0 || y == 199 then expectedColor 15 else expectedColor 0
+      map Array.length bytes `shouldEqual` Right 14145
+      (bytes >>= listing) `shouldEqual` Right
+        [ "10 B=PEEK(53280):D=PEEK(53265):M=PEEK(53272)"
+        , "20 POKE 53265,D AND 239:POKE 53280,15:POKE 53272,56:POKE 53265,D OR 32"
+        , "30 POKE 198,0"
+        , "40 GET K$:IF K$=\"\" THEN 40"
+        , "50 POKE 53265,D AND 239:POKE 53272,M:POKE 53280,B:POKE 53265,D"
+        ]
+      map (unusual 0 <<< region 2227 3072) bytes `shouldEqual` Right []
+
+    it "sets the border to the edge's most frequent color, the lowest code on a tie, for any valid screen" do
+      -- 10 screens instead of 100: each has 64,000 pixels.
+      quickCheck' 10 \(FullScreen sc) -> (toHiresPrg sc >>= borderOf) === Right (expectedBorder sc.image)
 
     it "puts each pixel at the C64's address: each cell's 8 bytes in a row, the leftmost pixel in the highest bit" do
       let bitmapOf points = map (unusual 0 <<< region 8192 16192) (toHiresPrg (foregroundAt points))
