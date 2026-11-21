@@ -22,7 +22,7 @@ import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
 import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch)
+import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch, withLink)
 import Puregrain.Web.View.Parts (option)
 
 type Loaded = { picture :: Picture, prepared :: Prepared }
@@ -72,7 +72,8 @@ column state =
         ]
     _ -> []
 
--- | The picture's name and size, and the file chooser, which Ctrl+O opens.
+-- | The picture's name and size, and the file chooser, which Ctrl+O opens;
+-- | before the first picture, a hint to drop one or to try the sample.
 pictureStep :: forall w. Maybe Loaded -> Array (HH.HTML w Action)
 pictureStep = case _ of
   Just { picture: p } ->
@@ -82,7 +83,7 @@ pictureStep = case _ of
     ]
   Nothing ->
     [ fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Just chooserRef, chosen: FileChosen }
-    , HH.p [ HP.class_ (H.ClassName "hint") ] [ HH.text texts.dropHint ]
+    , HH.p [ HP.class_ (H.ClassName "hint") ] (withLink texts.dropHint SampleChosen)
     ]
 
 -- | The target's cards; for a machine and a picture of another size, what

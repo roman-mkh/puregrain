@@ -1,8 +1,9 @@
 -- | The controls the settings are made of (decision 31): a numbered step,
 -- | cards and segments (radio buttons), a stepper, a toggle switch, a
--- | note, and a file chooser that looks like a button. Plain HTML
--- | controls underneath, so the keyboard and screen readers work as
--- | usual (decision 33); `app.css` gives them their look.
+-- | note, a file chooser that looks like a button, and a sentence with a
+-- | button that looks like a link. Plain HTML controls underneath, so the
+-- | keyboard and screen readers work as usual (decision 33); `app.css`
+-- | gives them their look.
 module Puregrain.Web.View.Controls
   ( step
   , cards
@@ -11,6 +12,7 @@ module Puregrain.Web.View.Controls
   , toggleSwitch
   , note
   , fileButton
+  , withLink
   ) where
 
 import Prelude
@@ -162,3 +164,13 @@ fileButton f =
         )
     , HH.text f.label
     ]
+
+-- | A sentence with a link in it: a button that looks like a link, since
+-- | it acts on this page rather than leading elsewhere (as "Use 2×2" does
+-- | in a note). The text comes in parts around the link.
+withLink :: forall w i. { before :: String, link :: String, after :: String } -> i -> Array (HH.HTML w i)
+withLink text action =
+  [ HH.text text.before
+  , HH.button [ HP.type_ HP.ButtonButton, HP.class_ (H.ClassName "link"), HE.onClick (const action) ] [ HH.text text.link ]
+  , HH.text text.after
+  ]

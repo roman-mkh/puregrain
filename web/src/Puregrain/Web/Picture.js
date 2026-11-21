@@ -14,6 +14,14 @@ export const closeBitmap = (bitmap) => () => bitmap.close();
 
 export const newCanvas = () => document.createElement("canvas");
 
+// A file from the page's own site, such as the sample picture, wrapped as a
+// File of the given name, so that it loads as a chosen file does. Fails when
+// it can't be fetched.
+export const fetchFileImpl = (path) => (name) => () =>
+  fetch(path)
+    .then((response) => (response.ok ? response.blob() : Promise.reject(new Error(`${path}: ${response.status}`))))
+    .then((blob) => new File([blob], name, { type: blob.type }));
+
 // The picture again as an <img> element, for reading its transparency
 // exactly: decoded from the same file.
 export const decodeImageImpl = (file) => () => {

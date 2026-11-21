@@ -38,7 +38,7 @@ texts
      , picture :: String
      , chooseFirst :: String
      , chooseAnother :: String
-     , dropHint :: String
+     , dropHint :: { before :: String, link :: String, after :: String }
      , pictureSize :: { width :: Int, height :: Int } -> String
      , targetLine :: Target -> String
      , palettesGroup :: String
@@ -54,11 +54,13 @@ texts
      , dropTitle :: String
      , dropOr :: String
      , formats :: String
+     , trySample :: { before :: String, link :: String, after :: String }
      , description :: String
      , promises :: String
      , loading :: String -> String
      , notAPicture :: String -> String
      , notAPictureKept :: String -> String
+     , sampleFailed :: String
      , dropToLoad :: String
      , original :: String
      , result :: String
@@ -171,7 +173,7 @@ texts =
         )
   -- In parts that the footer keeps whole, so that a narrow screen breaks
   -- the line after the comma, not between "puregrain" and its version.
-  , versions: \library -> if library == "" then [ "puregrain lab v2.3" ] else [ "puregrain lab v2.3,", "powered by puregrain " <> library ]
+  , versions: \library -> if library == "" then [ "puregrain lab v2.4" ] else [ "puregrain lab v2.4,", "powered by puregrain " <> library ]
   , codeLicense: "The code: MIT"
   , logoLicense: "Logo terms"
   , onGitHub: "puregrain on GitHub"
@@ -179,7 +181,10 @@ texts =
   -- The settings' column (decision 31): its numbered steps.
   , chooseFirst: "Choose a picture…"
   , chooseAnother: "Choose another…"
-  , dropHint: "Or drop one anywhere on this page."
+  -- Under the chooser before the first picture: dropping, and the sample
+  -- picture's link (decision 35), in parts around the link, so that a
+  -- translation can place it.
+  , dropHint: { before: "Or drop one anywhere on this page, or ", link: "try the sample picture", after: "." }
   , pictureSize: \p -> show p.width <> " × " <> show p.height <> " pixels"
   , targetLine: case _ of
       AnyScreen -> "any size, the colors you choose"
@@ -205,11 +210,13 @@ texts =
   , dropTitle: "Drop a picture here"
   , dropOr: "or"
   , formats: "PNG, JPEG, GIF, WebP or BMP."
+  , trySample: { before: "Or ", link: "try the sample picture", after: "." }
   , description: "Choose a target, colors and a method in the settings: the result shows beside the original, to compare, and saves as a PNG, or as a ZX Spectrum's or a C64's own files."
   , promises: "Everything runs in your browser: your pictures are never uploaded. No ads, no registration, no tracking, and it's free."
   , loading: \name -> "Loading " <> name <> "…"
   , notAPicture: \name -> name <> " isn't a picture."
   , notAPictureKept: \name -> name <> " isn't a picture; the current one stays."
+  , sampleFailed: "The sample picture couldn't be loaded."
   , dropToLoad: "Drop to load the picture"
   -- Above the picture's corners, either side of the split.
   , original: "Original"

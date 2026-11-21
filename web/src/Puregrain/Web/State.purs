@@ -69,9 +69,10 @@ type Prepared =
 -- | slow load's result, or an answer from a worker already ended, is
 -- | dropped. `loading` is the name of the file being loaded, and
 -- | `notAPicture` the name of the last one that couldn't be, until the
--- | next load or setting (decision 30 A and C). `typed` keeps the
--- | threshold and the number of levels last typed, for when those colors
--- | are chosen again. `split` is the picture's columns that show the
+-- | next load or setting (decision 30 A and C); `sampleFailed` the same
+-- | for the sample picture, when it couldn't be fetched (decision 35).
+-- | `typed` keeps the threshold and the number of levels last typed, for
+-- | when those colors are chosen again. `split` is the picture's columns that show the
 -- | original, left of the result; `splitDrag` the pointer dragging its
 -- | handle, and where it took hold (`Puregrain.Web.Split`). `fit` and
 -- | `background` prepare every picture loaded. `dragged` counts what a
@@ -90,6 +91,7 @@ type State =
   , loads :: Int
   , loading :: Maybe String
   , notAPicture :: Maybe String
+  , sampleFailed :: Boolean
   , zoom :: Int
   , pixelRatio :: Number
   , split :: Int
@@ -136,6 +138,7 @@ data Action
   | PageKey KeyboardEvent
   | PageClicked Event
   | FileChosen Event
+  | SampleChosen
   | DragEntered DragEvent
   | DragLeft DragEvent
   | DragOver DragEvent

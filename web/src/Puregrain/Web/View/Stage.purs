@@ -28,7 +28,7 @@ import Puregrain.Web.Settings (Target(..), screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, resultRef)
 import Puregrain.Web.Status (Run(..), RunNote(..), resultShows, runNote)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.View.Controls (fileButton, segments)
+import Puregrain.Web.View.Controls (fileButton, segments, withLink)
 import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.Zoom (cssSize, zooms)
 import Web.Event.Event (EventType(..))
@@ -111,7 +111,9 @@ stage state = case state.load of
         [ HH.div [ HP.classes [ H.ClassName "view", H.ClassName "empty" ] ]
             [ HH.div [ HP.class_ (H.ClassName "start") ]
                 [ HH.div [ HP.class_ (H.ClassName "start-note") ]
-                    (maybe [] (\name -> [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text (texts.notAPicture name) ] ]) state.notAPicture)
+                    ( maybe [] (\name -> [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text (texts.notAPicture name) ] ]) state.notAPicture
+                        <> (if state.sampleFailed then [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text texts.sampleFailed ] ] else [])
+                    )
                 , dropZone state
                 ]
             ]
@@ -145,8 +147,8 @@ handle split width percent shows =
 
 -- | The empty picture area (decisions 29 and 30): the drop zone, lit while
 -- | files are dragged over the page, with the logo's mark in the theme's
--- | set; how to start, and the promises. While the first picture loads,
--- | it says so.
+-- | set; how to start, the sample picture (decision 35), and the
+-- | promises. While the first picture loads, it says so.
 dropZone :: forall w. State -> HH.HTML w Action
 dropZone state =
   HH.div [ HP.classes ([ H.ClassName "drop" ] <> (if state.dragged > 0 then [ H.ClassName "lit" ] else [])) ]
@@ -159,6 +161,7 @@ dropZone state =
             , fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Nothing, chosen: FileChosen }
             ]
         , HH.p [ HP.class_ (H.ClassName "hint") ] [ HH.text texts.formats ]
+        , HH.p [ HP.classes [ H.ClassName "hint", H.ClassName "sample" ] ] (withLink texts.trySample SampleChosen)
         , HH.p [ HP.class_ (H.ClassName "about") ] [ HH.text texts.description ]
         , HH.p [ HP.class_ (H.ClassName "about") ] [ HH.text texts.promises ]
         ]

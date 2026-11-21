@@ -10,6 +10,8 @@ module Puregrain.Web.Picture
   ( Picture
   , load
   , draw
+  , sampleName
+  , fetchSample
   ) where
 
 import Prelude
@@ -54,6 +56,8 @@ foreign import data ImageElement :: Type
 
 foreign import decodeImageImpl :: File -> Effect (Promise ImageElement)
 
+foreign import fetchFileImpl :: String -> String -> Effect (Promise File)
+
 foreign import exactRgbaImpl
   :: (Uint8ClampedArray -> Maybe Uint8ClampedArray)
   -> Maybe Uint8ClampedArray
@@ -93,6 +97,18 @@ load file = do
   pure case exactly of
     Just pixels -> { name: File.name file, width: read.width, height: read.height, pixels, transparent: read.transparent, exact: true }
     Nothing -> { name: File.name file, width: read.width, height: read.height, pixels: read.fromCanvas, transparent: read.transparent, exact: not read.transparent }
+
+-- | The sample picture's file name (decision 35): the page offers it
+-- | before the first picture. `web/build.mjs` copies it from the
+-- | repository's `pictures/` into `pictures/` next to the page.
+sampleName :: String
+sampleName = "macaw-and-toucan.png"
+
+-- | Fetches the sample picture from the page's own site, as a file named
+-- | `sampleName`, to load like a chosen one. Fails, in `Aff`, when it
+-- | can't be fetched.
+fetchSample :: Aff File
+fetchSample = toAffE (fetchFileImpl ("pictures/" <> sampleName) sampleName)
 
 -- | Puts the pixels onto a canvas element of their size.
 draw :: HTMLElement -> ImageData -> Effect Unit

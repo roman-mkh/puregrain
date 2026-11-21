@@ -39,6 +39,12 @@ for (const set of ['zx', 'c64']) {
   }
 }
 
+// The sample picture, from the repository's pictures/ (MIT, its origin in
+// pictures/README.md): the page fetches it only when "try the sample
+// picture" is clicked (decision 35).
+mkdirSync(`${dist}/pictures`, { recursive: true });
+copyFileSync('pictures/macaw-and-toucan.png', `${dist}/pictures/macaw-and-toucan.png`);
+
 // The library's version, from its spago.yaml, for the page's footer.
 const version = /\n\s+publish:\s*\n\s+version:\s*([^\s#]+)/.exec(readFileSync('spago.yaml', 'utf8'))?.[1];
 const empty = '<meta name="puregrain-version" content="">';

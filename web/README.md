@@ -47,7 +47,10 @@ fills the page, and the settings open over it (see below).
    colors are read as the file stores them, without its color profile,
    as the command-line tool reads them. Transparent parts go onto a
    background color, white unless you choose another in step 5,
-   Background, which appears for such a picture.
+   Background, which appears for such a picture. Without a picture of
+   your own, "try the sample picture", under the drop zone's formats or
+   in step 1, loads a photo of a macaw and a toucan
+   ([where it comes from](../pictures/README.md)).
 2. **Choose the settings.** They start at "none", and the page shows the
    original. As in the command-line tool, they choose:
    - **the target** (step 2): any screen, or a machine's: the ZX
@@ -220,8 +223,10 @@ build.
 
 ## Licenses
 
-puregrain lab's code is under the MIT license, and the logo under its
-own terms (see the [main README](../README.md#license)). Its scripts also
+puregrain lab's code and its sample picture are under the MIT license,
+and the logo under its own terms (see the
+[main README](../README.md#license)); where the sample picture comes
+from: [pictures/README.md](../pictures/README.md). Its scripts also
 contain code compiled from open-source PureScript packages: their
 licenses are in `THIRD-PARTY-NOTICES.txt`, next to the page
 ([online](https://roman-mkh.github.io/puregrain/THIRD-PARTY-NOTICES.txt)),
@@ -352,8 +357,9 @@ AAA isn't aimed at.
 
 What the specs can't reach, the browser itself, is checked by hand.
 `npm run check:web` takes the exact parts in three engines: the results
-and the downloads against the command-line tool's (items 7 to 9), and
-the split, exact to the screen pixel (item 6); the rest, and Chrome, Edge
+and the downloads against the command-line tool's (items 7 to 9), the
+split, exact to the screen pixel (item 6), and the sample picture's
+links (item 1); the rest, and Chrome, Edge
 and Safari themselves, stay here. After `npm run web:build` and a reload,
 ideally in each of the browsers above:
 
@@ -361,7 +367,8 @@ ideally in each of the browsers above:
    both show. While a file is dragged over the page, the empty page's
    drop zone lights up, or "Drop to load the picture" covers a picture.
    A file that isn't a picture gives a message, and a picture shown
-   stays.
+   stays. Before the first picture, "try the sample picture", in the
+   drop zone and in step 1's hint, loads `macaw-and-toucan.png`.
 2. A picture with transparent parts shows them white.
 3. Each zoom keeps the pixels sharp; a large picture scrolls.
 4. The settings start at "none", showing the original. A kernel brings a

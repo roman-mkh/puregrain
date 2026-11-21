@@ -220,7 +220,10 @@ checklist in step.
   bundles the page into `web/dist/app.js` and the worker into
   `web/dist/worker.js`, minified, copies `web/static/`, the logo's three
   icons, its two lockups and its two marks (`logo/zx/`, `logo/c64/`)
-  next to them, and
+  next to them, and the sample picture from the repository's
+  `pictures/` into `web/dist/pictures/` (decision 35: shipped with the
+  page, fetched with `fetch` only when "try the sample picture" is
+  clicked, and wrapped as a `File` for the usual loading path), and
   writes the library's version, read from the root `spago.yaml`
   (`publish.version`), into `index.html`'s meta element, for the
   footer; a version written there keeps `npm run check` independent of

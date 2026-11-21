@@ -242,7 +242,7 @@ from the code alone.
   say "puregrain lab", or "the lab" after the first mention; the developer
   material (the code, `web/spago.yaml`, CLAUDE.md files, the roadmap,
   CONTRIBUTING.md) keeps "puregrain-web" and "the web UI". The lab has
-  its own version numbers (v2.3), apart from the library's. Its plan,
+  its own version numbers (v2.4), apart from the library's. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
   in `web/`; its user docs, with a manual checklist, in `web/README.md`.
@@ -280,7 +280,12 @@ from the code alone.
   the README's License section names the exception. User docs:
   `logo/README.md`.
 - **`pictures/`** (2026-11-21) — the sample picture,
-  `macaw-and-toucan.png`, to try puregrain on from a checkout.
+  `macaw-and-toucan.png`, to try puregrain on, from a checkout and in
+  puregrain lab (v2.4, decision 35 in `web/ROADMAP.md`): "try the sample
+  picture" before the first picture, in the drop zone and in step 1's
+  hint; the web build copies the file into `web/dist/pictures/`, fetched
+  only on a click; `check:web` loads it both ways, and blocked, and
+  compares a run (`cga16`, Floyd–Steinberg, gamma 1.8) with the CLI's.
   AI-generated: Lumo (Proton) made a 1280 × 720 JPEG (16:9, it offers no
   16:10), cut to 1152 × 720 (16:10, 64 columns off each side) and
   stored losslessly as a PNG, since browsers may decode
@@ -385,7 +390,8 @@ from the code alone.
 - `logo/README.md` — the logo's files, their use, and how it's made and
   made again; `logo/LICENSE.md`, its terms.
 - `pictures/README.md` — the sample picture: what it shows, trying it
-  (checkout and npm), where it comes from (the prompt), its license.
+  (checkout, npm, the lab), where it comes from (the prompt), its
+  license.
 - `docs/similar-tools.md` — an internal working document, not linked
   from the README (the user, 2026-11-04): a survey of similar tools, the
   facts behind the positioning. Part 1, converters for retro machines

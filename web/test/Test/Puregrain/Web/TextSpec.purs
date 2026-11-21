@@ -26,8 +26,8 @@ spec = describe "Puregrain.Web.Text" do
     texts.describe (chooseGamma GammaOff (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson"
 
   it "names the lab's version, and the library's that powers it when the build gives it" do
-    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.3,", "powered by puregrain 0.2.1" ]
-    texts.versions "" `shouldEqual` [ "puregrain lab v2.3" ]
+    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.4,", "powered by puregrain 0.2.1" ]
+    texts.versions "" `shouldEqual` [ "puregrain lab v2.4" ]
 
   it "names the engine check's states for screen readers, and says each in a sentence" do
     map texts.engineName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]

@@ -7,7 +7,9 @@
 // CLI's, byte for byte; the split shows the original left of it and the
 // result right of it, exact to the screen pixel, dragging its handle
 // selects nothing, and a click on "Original" or "Result" moves it to its
-// end; a run works with worker.js blocked once the page has loaded.
+// end; a run works with worker.js blocked once the page has loaded; the
+// sample picture loads from both its links, says so when it can't be
+// fetched, and its result has the CLI's pixels.
 //
 // The browsers run in Playwright's Docker image, of the installed
 // playwright-core's version. Inside the container,
@@ -112,6 +114,12 @@ for (const size of ['320x200', '256x192', '512', '2048x1024']) {
 }
 const cli = (input, output, options) => execFileSync('node', ['cli/bin/puregrain-cli.mjs', input, output, ...options]);
 for (const s of SETTINGS) cli(`${out}/${PICTURE}.png`, `${out}/cli-${s.name}.png`, s.cli);
+// The sample picture (decision 35), the repository's file, which the build
+// copies next to the page: a photo, dithered under the gamma that looks
+// closest at 100% with this palette (pictures/README.md).
+const SAMPLE = { file: 'pictures/macaw-and-toucan.png', name: 'macaw-and-toucan.png',
+  download: 'macaw-and-toucan-cga16-floyd-steinberg-gamma1.8.png' };
+cli(SAMPLE.file, `${out}/cli-sample.png`, ['--palette', 'cga16', '--kernel', 'floyd-steinberg', '--gamma', '1.8']);
 // The tape's name comes from the output file's name: the picture's, as on the page.
 {
   const Prepare = await import(path.resolve('output/Puregrain.Web.Prepare/index.js'));
@@ -395,6 +403,47 @@ const checksIn = async (engine, page) => {
     await page.waitForFunction(() => ![...document.querySelectorAll('.note')].some((n) => n.textContent.startsWith('Gamma changes')), null, { timeout: 5000 }).catch(() => {});
     const gone = await note.count() === 0;
     report(shown && gone, `${engine}: the note under the gamma ${shown ? 'shows after loading' : "doesn't show after loading"} and ${gone ? 'goes once a kernel dithers' : 'stays with a kernel'}`);
+  }
+
+  // The sample picture (decision 35), offered before the first picture in
+  // the drop zone and in step 1's hint: blocked, the empty page says it
+  // couldn't be loaded; from either link it loads; dithered, its download
+  // has the CLI's pixels for the repository's file.
+  {
+    const loaded = () => page.waitForFunction((name) => document.querySelector('.picture-name')?.textContent === name, SAMPLE.name, { timeout: 30000 })
+      .then(() => true, () => false);
+    await page.goto(pageUrl);
+    await page.context().route(`**/pictures/${SAMPLE.name}`, (route) => route.abort());
+    let blockedSays = false;
+    try {
+      await page.locator('.drop .sample button.link').click();
+      blockedSays = await page.locator('.start-note .warning', { hasText: "The sample picture couldn't be loaded." })
+        .waitFor({ timeout: 5000 }).then(() => true, () => false);
+    } finally {
+      await page.context().unroute(`**/pictures/${SAMPLE.name}`);
+    }
+    await page.goto(pageUrl);
+    await page.locator('.steps .hint button.link').click();
+    const fromStep1 = await loaded();
+    await page.goto(pageUrl);
+    await page.locator('.drop .sample button.link').click();
+    const fromZone = await loaded();
+    let file = { name: '(none)' };
+    let diff = 'not run';
+    if (fromZone) {
+      const before = await runs();
+      await page.locator('select').nth(0).selectOption('cga16');
+      await page.locator('select').nth(1).selectOption('floyd-steinberg');
+      await pick('gamma', '1.8');
+      await finished(before);
+      file = await download(() => page.locator('.downloads button').first().click());
+      diff = differing(pixelsOf(file.bytes), pixelsOf(fs.readFileSync(`${out}/cli-sample.png`)));
+    }
+    report(blockedSays && fromStep1 && fromZone && file.name === SAMPLE.download && diff === 0,
+      `${engine}: the sample picture: blocked, the empty page ${blockedSays ? 'says so' : "DOESN'T say so"}; ` +
+      `it loads from step 1's hint${fromStep1 ? '' : ' (NOT)'} and from the drop zone${fromZone ? '' : ' (NOT)'}; ` +
+      `the IBM PC colors, Floyd-Steinberg, gamma 1.8: ${file.name}${file.name === SAMPLE.download ? '' : ` (not ${SAMPLE.download})`}, ` +
+      `${diff === 0 ? "the CLI's pixels" : typeof diff === 'number' ? `${diff} pixels differ from the CLI's` : diff}`);
   }
 
   for (const s of SETTINGS) {

@@ -80,6 +80,7 @@ component = H.mkComponent
       , loads: 0
       , loading: Nothing
       , notAPicture: Nothing
+      , sampleFailed: false
       , zoom: 1
       , pixelRatio: 1.0
       , split: 0
@@ -305,6 +306,7 @@ handleAction = case _ of
     for_ (Event.target event >>= HTMLInputElement.fromEventTarget) \input -> do
       files <- liftEffect (HTMLInputElement.files input)
       for_ (files >>= FileList.item 0) loadFile
+  SampleChosen -> loadSample
   DragEntered event -> dragStep event Enter
   DragLeft event -> dragStep event Leave
   DragOver event ->
@@ -614,14 +616,15 @@ closePanel fromHistory = do
 
 -- | Ends the run, if any, and starts a new one for the picture and the
 -- | settings, unless there's nothing to dither. A note on a file that
--- | wasn't a picture goes: this is the next action (decision 30 A). The
+-- | wasn't a picture, or on the sample picture that couldn't be fetched,
+-- | goes: this is the next action (decisions 30 A and 35). The
 -- | list of formats closes, as its download waits for the new result.
 -- | While the phone's panel is open, the run is held until it closes
 -- | (decision 29).
 restart :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 restart = do
   stopWorker
-  H.modify_ _ { notAPicture = Nothing, formatsOpen = false }
+  H.modify_ _ { notAPicture = Nothing, sampleFailed = false, formatsOpen = false }
   s <- H.get
   case s.load of
     Loaded l | not (isOriginal s.settings) ->
@@ -704,12 +707,28 @@ stopWorker = do
   for_ s.worker (liftEffect <<< Worker.terminate)
   H.modify_ _ { worker = Nothing, runs = s.runs + 1 }
 
+-- | Loads the sample picture (decision 35): fetched from the page's own
+-- | site, then loaded as a chosen file. If it can't be fetched, the empty
+-- | page says so, until the next action. A load started meanwhile wins,
+-- | as in `loadFile`.
+loadSample :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
+loadSample = do
+  started <- H.modify \s -> s { loading = Just Picture.sampleName, notAPicture = Nothing, sampleFailed = false, loads = s.loads + 1 }
+  fetched <- liftAff (try Picture.fetchSample)
+  latest <- H.gets _.loads
+  when (latest == started.loads) do
+    case fetched of
+      Left _ -> do
+        H.modify_ _ { loading = Nothing, sampleFailed = true }
+        alarm texts.sampleFailed
+      Right file -> loadFile file
+
 -- | Loads a file chosen or dropped. The picture shown and its run stay
 -- | until the new one has decoded, and stay for good if it can't be
 -- | (decision 30 C); then a note says so, until the next action.
 loadFile :: forall o m. MonadAff m => File -> H.HalogenM State Action () o m Unit
 loadFile file = do
-  started <- H.modify \s -> s { loading = Just (File.name file), notAPicture = Nothing, loads = s.loads + 1 }
+  started <- H.modify \s -> s { loading = Just (File.name file), notAPicture = Nothing, sampleFailed = false, loads = s.loads + 1 }
   result <- liftAff (try (Picture.load file))
   latest <- H.gets _.loads
   let
