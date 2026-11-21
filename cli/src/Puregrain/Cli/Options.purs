@@ -416,7 +416,7 @@ programName = "puregrain"
 -- | `spago.yaml` read at run time: a bundled CLI, on npm later, won't have
 -- | that file.
 version :: String
-version = "0.2.2"
+version = "0.3.0"
 
 parserInfo :: ParserInfo RawCommand
 parserInfo = info (rawCommand <**> versionOption <**> helper)
