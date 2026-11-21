@@ -46,6 +46,9 @@ npm run dither-cli -- samples/gray-512.png samples/out-bayer4.png --bayer 4
 
 # a ZX Spectrum screen: two colors per 8×8 cell, in the 2×2 Bayer pattern
 npm run dither-cli -- samples/color-256x192.png samples/out-zx.png --machine zx-spectrum --bayer 2
+
+# the sample picture, a photo (pictures/README.md), in the IBM PC's 16 colors
+npm run dither-cli -- pictures/macaw-and-toucan.png samples/out-birds.png --palette cga16
 ```
 
 View the results at **100% zoom**. Any other zoom level resamples the dot

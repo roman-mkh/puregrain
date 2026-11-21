@@ -198,6 +198,7 @@ How work is done (branches, CI, releases): [CONTRIBUTING.md](CONTRIBUTING.md).
 | `.github/workflows/` | CI: build, tests and end-to-end checks on every push; on `master` also publishing the web UI on GitHub Pages; on version tags also the release checks and the GitHub Release |
 | `docs/` | Documentation (below) |
 | `logo/` | The logo, and the script that makes it with puregrain; under its own terms (see [License](#license)) |
+| `pictures/` | The sample picture, to try puregrain on: an AI-generated photo of two birds |
 
 The four packages live in one [spago](https://github.com/purescript/spago)
 workspace and are built together.
@@ -210,6 +211,7 @@ workspace and are built together.
 | [cli/README.md](cli/README.md) | The command-line tool: installing, quick start, options, examples |
 | [npm/README.md](npm/README.md) | The npm package's page: running the command-line tool from npm |
 | [web/README.md](web/README.md) | puregrain lab: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
+| [pictures/README.md](pictures/README.md) | The sample picture: what it shows, how to try it, where it comes from |
 | [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/gamma.md](docs/gamma.md) | Gamma and linear light: the five values, which for which view, measured, and the engine check |

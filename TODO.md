@@ -94,6 +94,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       reach. `check:web` then compares the lab's fitted results with the CLI's directly. Until then: the lab, or
       another tool first (cli/README.md, "Machine screens"). Medium-sized, a branch of its own.
 
+      How the code would be shared (the user, 2026-11-21): the lab's fit is two parts, its rules in PureScript
+      (`Puregrain.Web.Prepare`: the target size, the placement, the weights, the light tables) and its loops over
+      the pixels in JavaScript (`Prepare.js`, on the browser's byte arrays: 73 ms for 12.6 megapixels). The library
+      must stay free of JavaScript, so the rules move into it and the lab imports them; the library gets a
+      PureScript version of the loops, for the CLI, which holds the picture as arrays anyway; the lab keeps its
+      JavaScript loops, for speed and memory (it never holds a large picture as PureScript values), pinned to the
+      library's version byte for byte by a spec, as `PrepareSpec` pins them to the lab's own rules today, and
+      `check:web` confirms it against the CLI. The same for the flattening, with `--background`.
+
 ## Algorithms
 
 - [ ] **Levels that aren't whole numbers, rounded before dithering, with `--gamma off`** (2026-11-09; under a

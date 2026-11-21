@@ -279,6 +279,20 @@ from the code alone.
   detection, Licensee, reads only the root and a top-level `LICENSES/`);
   the README's License section names the exception. User docs:
   `logo/README.md`.
+- **`pictures/`** (2026-11-21) — the sample picture,
+  `macaw-and-toucan.png`, to try puregrain on from a checkout.
+  AI-generated: Lumo (Proton) made a 1280 × 720 JPEG (16:9, it offers no
+  16:10), cut to 1152 × 720 (16:10, 64 columns off each side) and
+  stored losslessly as a PNG, since browsers may decode
+  one JPEG to different pixels and a PNG decodes alike everywhere; the
+  JPEG's compression stays in it. Chosen by the user over a second try
+  with whole tails: bigger birds. MIT like the repository (Lumo's terms
+  give the output to the user; the README says an AI picture may have no
+  copyright at all). Its `README.md` has the prompt word for word and the
+  examples, from a checkout and with `npx` after a `curl` of the file
+  (not in the npm package, which stays small). Committed once: a
+  replaced version would stay in git's history for good. Not in
+  `samples/`, which is gitignored scratch.
 - **`.purs-repl`** (the REPL's startup file, at the workspace root) is
   committed, through an exception in `.gitignore` (since 2026-10-08;
   spago's own template ignores `.purs*` and treats it as personal, and
@@ -359,9 +373,10 @@ from the code alone.
 - `cli/README.md` — the CLI's user docs, installing from npm first; its
   examples run it from a checkout (`npm run dither-cli -- …`).
 - `npm/README.md` — the npm package's page (see `npm/` above). Until the
-  first npm release, three notes say it comes with the next release
+  first npm release, four notes say it comes with the next release
   (`README.md`: the status and "The command-line tool"; `cli/README.md`:
-  "Install"); release step 6 rewrites them.
+  "Install"; `pictures/README.md`: "Trying it"); release step 6 rewrites
+  them.
 - `web/README.md` — the web UI's user docs: running it, using it, its
   settings as CLI options, and the manual checklist.
 - `web/ROADMAP.md` — the web UI's plan and its decisions with their
@@ -369,6 +384,8 @@ from the code alone.
   builds on them.
 - `logo/README.md` — the logo's files, their use, and how it's made and
   made again; `logo/LICENSE.md`, its terms.
+- `pictures/README.md` — the sample picture: what it shows, trying it
+  (checkout and npm), where it comes from (the prompt), its license.
 - `docs/similar-tools.md` — an internal working document, not linked
   from the README (the user, 2026-11-04): a survey of similar tools, the
   facts behind the positioning. Part 1, converters for retro machines

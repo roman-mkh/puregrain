@@ -164,9 +164,10 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
    `npm publish npm/dist`, signed in with `npm login` and the account's
    two-factor authentication. Its page's links name the tag, which step 5
    has pushed. In an empty folder, `npx puregrain@X.Y.Z --version`
-   confirms it. The first time, also rewrite the three notes that the
+   confirms it. The first time, also rewrite the four notes that the
    tool comes to npm with the next release (`README.md`: the status and
-   "The command-line tool"; `cli/README.md`: "Install"), and commit that.
+   "The command-line tool"; `cli/README.md`: "Install";
+   `pictures/README.md`: "Trying it"), and commit that.
 
 **spago 1.0.4 reports a success as an error.** After sending the package
 it may print "Registry did not like this and answered with status 201",
