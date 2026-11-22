@@ -33,8 +33,11 @@
 -- | ditherCells noDiffusion (orderedInCell m) mode image
 -- | ```
 -- |
--- | `ditherCellsWith` and `ditherBandsWith` do the same with a `Gamma`
--- | from `Puregrain.Gamma`: the same cells, with the rows dithered in light.
+-- | `ditherCellsBy` and `ditherBandsBy` take their settings as a
+-- | `Puregrain.Dither.DitherParams` (the kernel, the gamma, …) in place of
+-- | the kernel; `ditherCellsWith` and `ditherBandsWith` take a `Gamma` from
+-- | `Puregrain.Gamma` and a kernel. Under a gamma the cells are the same,
+-- | with the rows dithered in light.
 module Puregrain.Cells
   ( CellSize
   , CellPalette
@@ -45,8 +48,10 @@ module Puregrain.Cells
   , CellQuantizer
   , nearestInCell
   , orderedInCell
+  , ditherCellsBy
   , ditherCells
   , ditherCellsWith
+  , ditherBandsBy
   , ditherBands
   , ditherBandsWith
   ) where
@@ -66,9 +71,10 @@ import Data.Number (infinity)
 import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..), fst, snd)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
-import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, isOff, noConversion)
+import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, isOff)
 import Puregrain.Internal.Image (rowsIn, rowsOut)
-import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
+import Puregrain.Internal.Kernel (CompiledKernel)
+import Puregrain.Internal.Params (DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
 import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Internal.Util (safeRange)
@@ -176,10 +182,11 @@ nearestInCell = NearestRule
 orderedInCell :: ThresholdMap -> CellQuantizer
 orderedInCell = OrderedRule
 
--- | Dithers an image in memory with cells.
+-- | Dithers an image in memory with cells, with the settings given.
 -- |
 -- | - `c`: the mode's candidate type (see `CellMode`).
--- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- | - `DitherParams`: the kernel and the gamma, from
+-- |   `Puregrain.Dither.defaults` and the `with…` functions.
 -- | - `CellQuantizer`: how each pixel picks one of its cell's colors.
 -- | - `CellMode c`: the cell size, and the candidates with their colors.
 -- | - `Array (Array RGB)`: the image, rows top to bottom, all of the same
@@ -190,6 +197,36 @@ orderedInCell = OrderedRule
 -- | size isn't a multiple of the cell size gets partial cells at the
 -- | right and bottom edges. Stops with an error naming a row whose length
 -- | differs from the first row's.
+-- |
+-- | Under a gamma other than `gammaOff`, each cell's colors are still
+-- | chosen from the original pixels, as stored, so the cells are the same;
+-- | the band's rows are then dithered in light. `orderedInCell` measures
+-- | where a pixel lies between its cell's two colors in light;
+-- | `nearestInCell` still picks the nearer color on stored values, while
+-- | the error stays in light. When the cells' colors are whole numbers from
+-- | 0 to 255, as a machine's are, every pixel comes out as exactly one of
+-- | its cell's colors, as a screen file needs.
+-- |
+-- | ```purescript
+-- | ditherCellsBy (defaults # withKernel atkinson) nearestInCell Zx.screen picture
+-- | ```
+ditherCellsBy
+  :: forall c
+   . DitherParams
+  -> CellQuantizer
+  -> CellMode c
+  -> Array (Array RGB)
+  -> { cells :: Array (Array c), image :: Array (Array RGB) }
+ditherCellsBy params = ditherCellsVia (conversionFor (gammaOf params)) (compileParams params)
+
+-- | Dithers an image in memory with cells, with a kernel and no other
+-- | setting.
+-- |
+-- | - `c`, `CellQuantizer`, `CellMode c`, `Array (Array RGB)`: as for
+-- |   `ditherCellsBy`.
+-- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- |
+-- | Returns what `ditherCellsBy (defaults # withKernel kernel)` returns.
 ditherCells
   :: forall c
    . Kernel
@@ -197,25 +234,18 @@ ditherCells
   -> CellMode c
   -> Array (Array RGB)
   -> { cells :: Array (Array c), image :: Array (Array RGB) }
-ditherCells = ditherCellsVia noConversion
+ditherCells kernel = ditherCellsBy (defaults # withKernel kernel)
 
--- | Dithers an image in memory with cells, keeping the amount of light the
--- | curve gives each value rather than the average of the stored numbers.
+-- | Dithers an image in memory with cells, with a gamma and a kernel.
 -- |
--- | - `c`: as for `ditherCells`.
+-- | - `c`: as for `ditherCellsBy`.
 -- | - `Gamma`: how the stored numbers turn into light: `gammaOff`, the same
 -- |   as `ditherCells`, or a curve from `Puregrain.Gamma`.
 -- | - `Kernel`, `CellQuantizer`, `CellMode c`, `Array (Array RGB)`: as for
 -- |   `ditherCells`.
 -- |
--- | Returns what `ditherCells` returns. Each cell's colors are chosen from
--- | the original pixels as `ditherCells` chooses them, so the cells are the
--- | same; the band's rows are then dithered in light. `orderedInCell`
--- | measures where a pixel lies between its cell's two colors in light;
--- | `nearestInCell` still picks the nearer color on stored values, while the
--- | error stays in light. When the cells' colors are whole numbers from 0
--- | to 255, as a machine's are, every pixel comes out as exactly one of its
--- | cell's colors, as a screen file needs.
+-- | Returns what `ditherCellsBy (defaults # withKernel kernel # withGamma
+-- | gamma)` returns.
 ditherCellsWith
   :: forall c
    . Gamma
@@ -224,20 +254,20 @@ ditherCellsWith
   -> CellMode c
   -> Array (Array RGB)
   -> { cells :: Array (Array c), image :: Array (Array RGB) }
-ditherCellsWith gamma = ditherCellsVia (conversionFor gamma)
+ditherCellsWith gamma kernel = ditherCellsBy (defaults # withKernel kernel # withGamma gamma)
 
 ditherCellsVia
   :: forall c
    . Conversion RGB
-  -> Kernel
+  -> CompiledKernel
   -> CellQuantizer
   -> CellMode c
   -> Array (Array RGB)
   -> { cells :: Array (Array c), image :: Array (Array RGB) }
-ditherCellsVia conversion kernel rule mode image =
+ditherCellsVia conversion compiled rule mode image =
   { cells: map _.cells bands, image: Array.concatMap _.rows bands }
   where
-  setup = bandSetup conversion kernel rule mode
+  setup = bandSetup conversion compiled rule mode
   ch = setup.cellHeight
   bandsIn = map (\i -> Array.slice (i * ch) (i * ch + ch) image) (safeRange 0 ((Array.length image + ch - 1) / ch - 1))
   next state rows =
@@ -248,18 +278,36 @@ ditherCellsVia conversion kernel rule mode image =
   bands = (mapAccumL next (initState setup.compiled :: DitherState CatQueue RGB) bandsIn).value
 
 -- | Dithers a stream of rows with cells, one band (row of cells) at a
--- | time.
+-- | time, with the settings given.
 -- |
--- | - `c`, `Kernel`, `CellQuantizer` and `CellMode c`: as for `ditherCells`.
+-- | - `c`, `DitherParams`, `CellQuantizer` and `CellMode c`: as for
+-- |   `ditherCellsBy`.
 -- | - `LL.List (Array RGB)`: the image as a lazy list of rows, top to
 -- |   bottom, all of the same length; it may be endless.
 -- |
 -- | Returns a lazy list of bands, top to bottom, each with the candidates
 -- | chosen for its cells (left to right) and its dithered rows: the same
--- | result as `ditherCells`. A band's rows are read and dithered only when
+-- | result as `ditherCellsBy`. A band's rows are read and dithered only when
 -- | the band is first needed, so only one band is in memory. When a band
 -- | holds a row whose length differs from the first row's, `ditherBands`
 -- | stops there with an error naming it; the bands before it have come out.
+ditherBandsBy
+  :: forall c
+   . DitherParams
+  -> CellQuantizer
+  -> CellMode c
+  -> LL.List (Array RGB)
+  -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
+ditherBandsBy params = ditherBandsVia (conversionFor (gammaOf params)) (compileParams params)
+
+-- | Dithers a stream of rows with cells, one band at a time, with a kernel
+-- | and no other setting.
+-- |
+-- | - `c`, `CellQuantizer`, `CellMode c`, `LL.List (Array RGB)`: as for
+-- |   `ditherBandsBy`.
+-- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- |
+-- | Returns what `ditherBandsBy (defaults # withKernel kernel)` returns.
 ditherBands
   :: forall c
    . Kernel
@@ -267,17 +315,17 @@ ditherBands
   -> CellMode c
   -> LL.List (Array RGB)
   -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
-ditherBands = ditherBandsVia noConversion
+ditherBands kernel = ditherBandsBy (defaults # withKernel kernel)
 
--- | Dithers a stream of rows with cells, one band at a time, keeping the
--- | amount of light the curve gives each value.
+-- | Dithers a stream of rows with cells, one band at a time, with a gamma
+-- | and a kernel.
 -- |
 -- | - `c` and `Gamma`: as for `ditherCellsWith`.
 -- | - `Kernel`, `CellQuantizer`, `CellMode c`, `LL.List (Array RGB)`: as for
 -- |   `ditherBands`.
 -- |
--- | Returns the bands as `ditherBands` does, the same result as
--- | `ditherCellsWith`.
+-- | Returns what `ditherBandsBy (defaults # withKernel kernel # withGamma
+-- | gamma)` returns.
 ditherBandsWith
   :: forall c
    . Gamma
@@ -286,19 +334,19 @@ ditherBandsWith
   -> CellMode c
   -> LL.List (Array RGB)
   -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
-ditherBandsWith gamma = ditherBandsVia (conversionFor gamma)
+ditherBandsWith gamma kernel = ditherBandsBy (defaults # withKernel kernel # withGamma gamma)
 
 ditherBandsVia
   :: forall c
    . Conversion RGB
-  -> Kernel
+  -> CompiledKernel
   -> CellQuantizer
   -> CellMode c
   -> LL.List (Array RGB)
   -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
-ditherBandsVia conversion kernel rule mode input = go (initState setup.compiled) input
+ditherBandsVia conversion compiled rule mode input = go (initState setup.compiled) input
   where
-  setup = bandSetup conversion kernel rule mode
+  setup = bandSetup conversion compiled rule mode
 
   -- All the work happens inside `defer`: a band's rows are read and
   -- dithered only when its cell is forced.
@@ -315,7 +363,7 @@ ditherBandsVia conversion kernel rule mode input = go (initState setup.compiled)
           Cons band (go state' rest)
 
 -- | What every band needs, prepared once per image: the conversion to
--- | light, the compiled kernel, the rule inside the cells, the cell size (at
+-- | light, the compiled settings, the rule inside the cells, the cell size (at
 -- | least 1 × 1), and each candidate with its palette.
 type Setup c =
   { conversion :: Conversion RGB
@@ -326,10 +374,10 @@ type Setup c =
   , candidates :: NonEmptyArray (Tuple c CellPalette)
   }
 
-bandSetup :: forall c. Conversion RGB -> Kernel -> CellQuantizer -> CellMode c -> Setup c
-bandSetup conversion kernel rule mode =
+bandSetup :: forall c. Conversion RGB -> CompiledKernel -> CellQuantizer -> CellMode c -> Setup c
+bandSetup conversion compiled rule mode =
   { conversion
-  , compiled: compileKernel kernel
+  , compiled
   , rule
   , cellWidth: max 1 mode.size.width
   , cellHeight: max 1 mode.size.height

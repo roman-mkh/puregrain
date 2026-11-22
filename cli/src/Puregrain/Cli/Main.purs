@@ -14,7 +14,7 @@ import Data.Maybe (Maybe(..), maybe)
 import Data.Number.Format (fixed, toStringWith)
 import Data.String (joinWith)
 import Data.Tuple (Tuple(..))
-import Puregrain (RGB(..), ditherImageWith, toGray)
+import Puregrain (RGB(..), ditherImageBy, toGray)
 import Effect (Effect)
 import Effect.Console (error, log)
 import Effect.Exception (catchException, message, throw, try)
@@ -24,7 +24,7 @@ import Node.FS.Sync (writeFile)
 import Node.Process (argv, exit', setExitCode)
 import Options.Applicative (ParserResult(..), handleParseResult, renderFailure)
 import Puregrain.Cli.Options (Command(..), FormatName(..), GammaName(..), Options, describeQuantizer, gammaName, kernelName, parseOptions, programName)
-import Puregrain.Cli.Pipeline (Pipeline(..), artStudioFile, ditherScreen, gammaOf, isNeutral, kernelOf, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
+import Puregrain.Cli.Pipeline (Pipeline(..), artStudioFile, ditherScreen, gammaOf, isNeutral, paramsOf, pipelineFor, programFile, screenFile, screenImage, screenSizeCheck, tapeFile, tapeName, toNeutral)
 import Puregrain.Cli.Png (readRgbRows, writeGrayRows, writeRgbRows)
 import Puregrain.Cli.Timing (timed)
 -- A specialty module, outside the facade, imported directly as an
@@ -82,7 +82,7 @@ run opts = do
     image :: Array (Array RGB)
     image = (if opts.gray then map (map (toNeutral gamma)) else identity) (coerce rows)
     grayImage = Array.all (Array.all isNeutral) image
-    kernel = kernelOf opts.kernel
+    params = paramsOf opts
     width = maybe 0 Array.length (Array.head image)
   log $ "Read " <> opts.input <> ": " <> show width <> "x" <> show (Array.length image)
     <> (if grayImage then ", gray" else ", color")
@@ -91,19 +91,19 @@ run opts = do
       -- `timed` gets the input separately, so the gray conversion is done
       -- before the clock starts: only the dithering is measured (see
       -- Puregrain.Cli.Timing).
-      { ms, result: out } <- timed (ditherImageWith gamma kernel q) (map (map (toGray gamma)) image)
+      { ms, result: out } <- timed (ditherImageBy params q) (map (map (toGray gamma)) image)
       report ms "gray"
       writeGrayRows opts.output out
       log $ "Wrote " <> opts.output <> " (grayscale PNG)"
     Color q -> do
-      { ms, result: out } <- timed (ditherImageWith gamma kernel q) image
+      { ms, result: out } <- timed (ditherImageBy params q) image
       report ms "RGB"
       writeRgbRows opts.output (coerce out)
       log $ "Wrote " <> opts.output <> " (RGB PNG)"
     Screen { machine, palette, rule } -> do
       note <- either throw pure (screenSizeCheck opts.format machine width (Array.length image))
       maybe (pure unit) log note
-      { ms, result: out } <- timed (ditherScreen gamma machine palette kernel rule) image
+      { ms, result: out } <- timed (ditherScreen params machine palette rule) image
       report ms "RGB"
       case opts.format of
         Png -> do

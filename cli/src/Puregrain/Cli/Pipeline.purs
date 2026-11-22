@@ -13,6 +13,7 @@ module Puregrain.Cli.Pipeline
   , artStudioFile
   , tapeName
   , screenSizeCheck
+  , paramsOf
   , kernelOf
   , paletteOf
   , gammaOf
@@ -30,11 +31,11 @@ import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits as CodeUnits
-import Puregrain (Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, zxSpectrum)
+import Puregrain (DitherParams, Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, defaults, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, withGamma, withKernel, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
-import Puregrain.Cells (CellQuantizer, ditherCellsWith, nearestInCell, orderedInCell)
+import Puregrain.Cells (CellQuantizer, ditherCellsBy, nearestInCell, orderedInCell)
 import Puregrain.Cli.Options (FormatName(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), QuantizerChoice(..), formatName, splitFileName)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
@@ -85,13 +86,14 @@ screenImage = case _ of
   C64HiresDithered s -> s.image
 
 -- | Dithers an RGB image to the machine's screen, cell by cell, with the
--- | gamma, the machine's palette, the kernel and the rule inside the cells.
+-- | settings (kernel, gamma), the machine's palette and the rule inside the
+-- | cells.
 -- | (A machine's palette names are checked against what it offers before:
 -- | `c64-hires` has only the full one.)
-ditherScreen :: Gamma -> MachineName -> MachinePaletteName -> Kernel -> CellQuantizer -> Array (Array RGB) -> DitheredScreen
-ditherScreen gamma machine palette kernel rule image = case machine of
-  ZxSpectrumScreen -> ZxDithered (ditherCellsWith gamma kernel rule zxMode image)
-  C64HiresScreen -> C64HiresDithered (ditherCellsWith gamma kernel rule C64.hiresScreen image)
+ditherScreen :: DitherParams -> MachineName -> MachinePaletteName -> CellQuantizer -> Array (Array RGB) -> DitheredScreen
+ditherScreen params machine palette rule image = case machine of
+  ZxSpectrumScreen -> ZxDithered (ditherCellsBy params rule zxMode image)
+  C64HiresScreen -> C64HiresDithered (ditherCellsBy params rule C64.hiresScreen image)
   where
   zxMode = case palette of
     FullPalette -> Zx.screen
@@ -168,6 +170,10 @@ bayerOf :: Int -> ThresholdMap
 bayerOf side = case bayer side of
   Just m -> m
   Nothing -> unsafeCrashWith ("Puregrain.Cli.Pipeline.bayerOf: no Bayer map of side " <> show side)
+
+-- | The library's settings for the options: the kernel and the gamma.
+paramsOf :: forall r. { kernel :: KernelName, gamma :: GammaName | r } -> DitherParams
+paramsOf opts = defaults # withKernel (kernelOf opts.kernel) # withGamma (gammaOf opts.gamma)
 
 kernelOf :: KernelName -> Kernel
 kernelOf = case _ of

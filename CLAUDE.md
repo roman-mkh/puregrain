@@ -403,8 +403,10 @@ from the code alone.
   Guiding rule: *start closed, open later* — exporting more later is
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
-  - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`, and the
-    stepper `Dithering`/`initDithering`/`ditherRow`, each with a twin
+  - Public: `Puregrain.Dither` (`DitherParams` with `defaults`,
+    `withKernel`, `withGamma`; `ditherImageBy`, `ditherRowsBy` and the
+    stepper `Dithering`/`initDitheringBy`/`ditherRow`; the shorthands
+    `ditherImage`, `ditherRows`, `initDithering`, each with a twin
     taking a gamma, `…With`), `.Kernel`, `.Pixel`, `.Quantize`,
     `.Palette`, `.Palette.Presets`, `.Ordered`, `.Gamma`, `.SelfCheck`.
   - `Puregrain` — a facade, re-exports only: what a typical application
@@ -417,8 +419,9 @@ from the code alone.
     modules, which stay out of the facade (`Puregrain.Cells`,
     `Puregrain.Machine.*`), it imports directly, as an application would
     (decided 2026-10-11).
-  - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
-    `Row`, `Image` (`ditherImageVia`, `ditherRowsVia`), `Quantize`,
+  - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `Params`,
+    `State`, `Step`, `Row`, `Image` (`ditherImageVia`, `ditherRowsVia`,
+    taking the compiled settings), `Quantize`,
     `Gamma`, `Exact`, `SelfCheck`, `Util`) — exported
     (PureScript has no package-private modules; the tests need them) but
     documented as unstable. `Fifo` and the backend-choosing drivers stay
@@ -838,6 +841,43 @@ from the code alone.
   `CatQueue` already achieves the target asymptotic complexity. A genuinely
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
+- **`DitherParams`, the drivers' settings in one value** (2026-11-22,
+  branch `serpentine`, phase 0 of serpentine scanning; the user's idea,
+  designed together). Why: the gamma twins had doubled every driver, and
+  each later setting (serpentine, a noise seed, Ostromoukhov) would have
+  doubled them again; a kernel modifier (`serpentine :: Kernel -> Kernel`)
+  was rejected, since a scan isn't a property of the kernel (the user).
+  - Opaque (`Puregrain.Internal.Params`, re-exported from
+    `Puregrain.Dither` and the facade), built from `defaults` with
+    `with…` setters chained with `#`, PureScript's form of a builder. A
+    public record was rejected: a new field would break literal records,
+    and an opaque value can hold rules between settings.
+  - `defaults` is all neutral: `noDiffusion`, `gammaOff` (the user's
+    choice over Floyd–Steinberg and over a required kernel): `defaults`
+    alone only quantizes, no kernel slips into pure Bayer, the lab starts
+    the same way, and a method that isn't a `Kernel` (Ostromoukhov) will
+    fit as one more setter. The CLI keeps its own default kernel.
+  - Each setter sets one field only, so the setters commute and the last
+    of a kind wins (`ParamsSpec`, mutation-checked). Rules between fields
+    go where the drivers read them (`compileParams`), e.g. "Ostromoukhov
+    always scans serpentine", with a sum type for the method inside; a
+    checking builder returning `Either` only if a conflict ever has no
+    sensible winning rule.
+  - The quantizer stays out: it's what differs between the branches
+    (`Quantize Number`, `Quantize RGB`, `CellQuantizer` with a
+    `CellMode`), so as its own argument the compiler keeps them apart;
+    inside, it would need a type parameter and a second params type, or a
+    check at run time. One `DitherParams` serves all five drivers.
+  - One driver per shape, `…By` (the user's choice over `…Using`):
+    `ditherImageBy`, `ditherRowsBy`, `initDitheringBy`,
+    `ditherCellsBy`, `ditherBandsBy`. The old drivers and the `…With`
+    twins stay as shorthands (compatible); the plain ones need no
+    `ColorChannels`, so they call the internal drivers with
+    `noConversion`, the rest the `…By` drivers (`conversionFor gammaOff`
+    is `noConversion`). Deprecating the twins: a later question. The CLI
+    and the lab build their params in one pure `paramsOf` each
+    (`Pipeline`, `Web.Dither`), tested against the `…With` drivers; 23
+    CLI configurations came out byte-identical to `master`.
 - **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
   released in 0.2.2). The spec, with every measurement, is in git
   history: `git show 861e67e:docs/linear-light-spec.md`. For users:

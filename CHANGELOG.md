@@ -8,6 +8,20 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Added
+
+- `DitherParams`: a driver's settings in one value, today the kernel and
+  the gamma. Start from `defaults`, where each setting is neutral (no
+  diffusion, `gammaOff`), and change it with `withKernel` and `withGamma`,
+  chained with `#`. Further settings will come as further `with…`
+  functions, with no new drivers. In `Puregrain.Dither` and the
+  `Puregrain` facade.
+- Drivers that take it: `ditherImageBy`, `ditherRowsBy` and
+  `initDitheringBy` (`Puregrain.Dither`, also in the facade), and
+  `ditherCellsBy` and `ditherBandsBy` (`Puregrain.Cells`). The existing
+  drivers and their `…With` twins stay, as shorthands for these with the
+  same results.
+
 ## 0.3.0 - 2026-11-22
 
 ### Changed

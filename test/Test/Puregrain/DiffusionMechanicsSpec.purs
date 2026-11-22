@@ -19,6 +19,7 @@ import Type.Proxy (Proxy(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Gamma (noConversion)
 import Puregrain.Internal.Image (ditherImageVia)
+import Puregrain.Internal.Kernel (compileKernel)
 import Puregrain.Kernel (Kernel)
 import Puregrain.Ordered (ordered)
 import Puregrain.Quantize (Quantize, evenRamp, quantize, quantizeWith)
@@ -58,7 +59,7 @@ runWith
   -> Quantize Number
   -> Array (Array Number)
   -> Array (Array Number)
-runWith proxy kernel q image = ditherImageVia proxy noConversion kernel q image
+runWith proxy kernel q image = ditherImageVia proxy noConversion (compileKernel kernel) q image
 
 agreesWithReference :: forall f. Fifo f => Proxy f -> Quantize Number -> TestKernel -> TestImage -> Result
 agreesWithReference proxy q (TestKernel kernel) (TestImage image) =
