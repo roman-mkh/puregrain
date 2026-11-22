@@ -45,16 +45,20 @@ type DitherState (f :: Type -> Type) a =
   , width :: Maybe Int
   }
 
--- | Row-local state, rebuilt for every pixel. `x` is the column of the
--- | next pixel and `y` this row's index — carried here rather than
+-- | Row-local state, rebuilt for every pixel. `x` is the image column of
+-- | the next pixel and `y` this row's index — carried here rather than
 -- | computed by an indexed traversal, because `step` rebuilds this record
 -- | per pixel anyway (no extra allocation), whereas `mapAccumLWithIndex`
--- | on Array is a generic default with an extra pass per row.
+-- | on Array is a generic default with an extra pass per row. `xStep` is
+-- | how `x` moves: +1 on a row scanned left to right, −1 on one scanned
+-- | right to left (serpentine), where `x` starts at the right edge. The
+-- | queues work in scan order either way; only the quantizer sees columns.
 type RowState (f :: Type -> Type) a =
   { current  :: RowLayer f a
   , matured  :: Array (RowLayer f a)
   , building :: Array (RowLayer f a)
   , x :: Int
+  , xStep :: Int
   , y :: Int
   }
 

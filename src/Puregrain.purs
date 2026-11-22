@@ -12,7 +12,8 @@
 -- |   `bayer` and `ordered` for ordered dithering;
 -- | - `ditherImageBy`, `ditherRowsBy` and `initDitheringBy`, the same
 -- |   with their settings in a `DitherParams`, built from `defaults` with
--- |   `withKernel` and `withGamma`;
+-- |   `withKernel`, `withGamma` and `withScan` (`raster`, the default, or
+-- |   `serpentine`, the rows alternating);
 -- | - `ditherImageWith`, `ditherRowsWith` and `initDitheringWith`, the
 -- |   same with a gamma curve, `gammaOff`, `gamma1p2`, `gamma1p5`,
 -- |   `gamma1p8` or `gammaSrgb`, which says how the stored numbers turn
@@ -44,7 +45,7 @@ module Puregrain
   , module Puregrain.Quantize
   ) where
 
-import Puregrain.Dither (DitherParams, Dithering, defaults, ditherImage, ditherImageBy, ditherImageWith, ditherRow, ditherRows, ditherRowsBy, ditherRowsWith, initDithering, initDitheringBy, initDitheringWith, withGamma, withKernel)
+import Puregrain.Dither (DitherParams, Dithering, Scan, defaults, ditherImage, ditherImageBy, ditherImageWith, ditherRow, ditherRows, ditherRowsBy, ditherRowsWith, initDithering, initDitheringBy, initDitheringWith, raster, serpentine, withGamma, withKernel, withScan)
 import Puregrain.Gamma (Gamma, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, toGray)
 import Puregrain.Kernel (Kernel, Offset, atkinson, burkes, fan, floydSteinberg, jarvisJudiceNinke, noDiffusion, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki)
 import Puregrain.Ordered (ThresholdMap, bayer, ordered)

@@ -24,7 +24,7 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Gamma (Conversion, isOff)
-import Puregrain.Internal.Kernel (CompiledKernel)
+import Puregrain.Internal.Params (CompiledParams)
 import Puregrain.Internal.Quantize (Quantize, quantizerFor)
 import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
@@ -49,12 +49,12 @@ ditherImageVia
   => Scalable a
   => Proxy f
   -> Conversion a
-  -> CompiledKernel
+  -> CompiledParams
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
 ditherImageVia _ conversion compiled quantize rows =
-  (mapAccumL next (initState compiled :: DitherState f a) rows).value
+  (mapAccumL next (initState compiled.kernel :: DitherState f a) rows).value
   where
     -- resolved once, here, for every pixel of the image
     quantizer = quantizerFor conversion quantize
@@ -73,12 +73,12 @@ ditherRowsVia
   => Scalable a
   => Proxy f
   -> Conversion a
-  -> CompiledKernel
+  -> CompiledParams
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
 ditherRowsVia _ conversion compiled quantize rows =
-  go (initState compiled) rows
+  go (initState compiled.kernel) rows
   where
     -- resolved once, when the stream is set up, as the settings are compiled;
     -- neither reads a row

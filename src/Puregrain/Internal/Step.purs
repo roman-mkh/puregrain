@@ -1,6 +1,8 @@
 -- | One pixel of the diffusion: add up the error arriving from earlier
 -- | pixels, quantize, and send the new error on to the queues.
--- | Internal: may change without notice.
+-- | The queues work in scan order: on a row scanned right to left
+-- | (serpentine), an offset's `dx` counts to the left, so the kernel is
+-- | mirrored without being touched. Internal: may change without notice.
 module Puregrain.Internal.Step
   ( step
   , dequeueAllLayer
@@ -45,7 +47,7 @@ step
   -> RowState f a
   -> a
   -> Tuple (RowState f a) a
-step compiled quantizer { current, matured, building, x, y } pixel =
+step compiled quantizer { current, matured, building, x, xStep, y } pixel =
   let
     Tuple currentErrs current' = dequeueAllLayer current
 
@@ -68,4 +70,4 @@ step compiled quantizer { current, matured, building, x, y } pixel =
       where
         enqueueLayer offsets layer = Array.zipWith (enqueueWeighted outErr) offsets layer
   in
-    Tuple { current: current'', matured: matured', building: building', x: x + 1, y } quantized
+    Tuple { current: current'', matured: matured', building: building', x: x + xStep, xStep, y } quantized

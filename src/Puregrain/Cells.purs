@@ -73,8 +73,7 @@ import Data.Tuple (Tuple(..), fst, snd)
 import Partial.Unsafe (unsafeCrashWith, unsafePartial)
 import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, isOff)
 import Puregrain.Internal.Image (rowsIn, rowsOut)
-import Puregrain.Internal.Kernel (CompiledKernel)
-import Puregrain.Internal.Params (DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
+import Puregrain.Internal.Params (CompiledParams, DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
 import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
 import Puregrain.Internal.Util (safeRange)
@@ -185,7 +184,7 @@ orderedInCell = OrderedRule
 -- | Dithers an image in memory with cells, with the settings given.
 -- |
 -- | - `c`: the mode's candidate type (see `CellMode`).
--- | - `DitherParams`: the kernel and the gamma, from
+-- | - `DitherParams`: the kernel, the gamma and the scan, from
 -- |   `Puregrain.Dither.defaults` and the `with…` functions.
 -- | - `CellQuantizer`: how each pixel picks one of its cell's colors.
 -- | - `CellMode c`: the cell size, and the candidates with their colors.
@@ -259,7 +258,7 @@ ditherCellsWith gamma kernel = ditherCellsBy (defaults # withKernel kernel # wit
 ditherCellsVia
   :: forall c
    . Conversion RGB
-  -> CompiledKernel
+  -> CompiledParams
   -> CellQuantizer
   -> CellMode c
   -> Array (Array RGB)
@@ -275,7 +274,7 @@ ditherCellsVia conversion compiled rule mode image =
       Tuple state' band = orStop (stepBand setup state rows)
     in
       { accum: state', value: band }
-  bands = (mapAccumL next (initState setup.compiled :: DitherState CatQueue RGB) bandsIn).value
+  bands = (mapAccumL next (initState setup.compiled.kernel :: DitherState CatQueue RGB) bandsIn).value
 
 -- | Dithers a stream of rows with cells, one band (row of cells) at a
 -- | time, with the settings given.
@@ -339,12 +338,12 @@ ditherBandsWith gamma kernel = ditherBandsBy (defaults # withKernel kernel # wit
 ditherBandsVia
   :: forall c
    . Conversion RGB
-  -> CompiledKernel
+  -> CompiledParams
   -> CellQuantizer
   -> CellMode c
   -> LL.List (Array RGB)
   -> LL.List { cells :: Array c, rows :: Array (Array RGB) }
-ditherBandsVia conversion compiled rule mode input = go (initState setup.compiled) input
+ditherBandsVia conversion compiled rule mode input = go (initState setup.compiled.kernel) input
   where
   setup = bandSetup conversion compiled rule mode
 
@@ -367,14 +366,14 @@ ditherBandsVia conversion compiled rule mode input = go (initState setup.compile
 -- | least 1 × 1), and each candidate with its palette.
 type Setup c =
   { conversion :: Conversion RGB
-  , compiled :: CompiledKernel
+  , compiled :: CompiledParams
   , rule :: CellQuantizer
   , cellWidth :: Int
   , cellHeight :: Int
   , candidates :: NonEmptyArray (Tuple c CellPalette)
   }
 
-bandSetup :: forall c. Conversion RGB -> CompiledKernel -> CellQuantizer -> CellMode c -> Setup c
+bandSetup :: forall c. Conversion RGB -> CompiledParams -> CellQuantizer -> CellMode c -> Setup c
 bandSetup conversion compiled rule mode =
   { conversion
   , compiled

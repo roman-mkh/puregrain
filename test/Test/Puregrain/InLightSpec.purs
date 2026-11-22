@@ -16,7 +16,7 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Dither (Dithering, ditherImage, ditherImageWith, ditherRow, ditherRowsWith, initDitheringWith)
+import Puregrain.Dither (Dithering, defaults, ditherImage, ditherImageBy, ditherImageWith, ditherRow, ditherRowsWith, initDitheringWith, serpentine, withGamma, withKernel, withScan)
 import Puregrain.Gamma (fromLight, gammaOff, gammaSrgb, toLight)
 import Puregrain.Internal.Gamma (conversionFor)
 import Puregrain.Internal.Quantize (quantizerFor)
@@ -27,7 +27,7 @@ import Puregrain.Palette.Presets (websafe216)
 import Puregrain.Pixel (RGB)
 import Puregrain.Quantize (Quantize, evenRamp, nearestLevel, perChannel, quantizeWith, runQuantize, runQuantizeWith, threshold)
 import Test.Puregrain.Arbitrary (genByte, genByteRGB, genImage, genKernel, genLevels, genPalette, genRGBImage)
-import Test.Puregrain.Reference (referenceDitherResolved)
+import Test.Puregrain.Reference (RowOrder(..), referenceDitherIn, referenceDitherResolved)
 import Test.Puregrain.Util (bayerMap, curves)
 
 -- | 1 to 8 levels, whole bytes, in any order, repeats allowed.
@@ -92,6 +92,17 @@ spec = describe "Dithering in light (ditherImageWith and the presets)" do
           inLight = map (map (toLight c.gamma)) image
           expected = map (map (fromLight c.gamma)) (referenceDitherResolved kernel (quantizerFor (conversionFor c.gamma) q) inLight)
         pure (ditherImageWith c.gamma kernel q image === expected)
+
+    it "scans serpentine as the independent reference does, on rows taken to light and back" do
+      quickCheck do
+        kernel <- genKernel
+        image <- genImage
+        q <- genGrayQuantizer
+        let
+          params = defaults # withKernel kernel # withGamma c.gamma # withScan serpentine
+          inLight = map (map (toLight c.gamma)) image
+          expected = map (map (fromLight c.gamma)) (referenceDitherIn Alternating kernel (quantizerFor (conversionFor c.gamma) q) inLight)
+        pure (ditherImageBy params q image === expected)
 
     it "gives the same rows through the stream and the stepper" do
       quickCheck do

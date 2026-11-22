@@ -404,7 +404,8 @@ from the code alone.
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
   - Public: `Puregrain.Dither` (`DitherParams` with `defaults`,
-    `withKernel`, `withGamma`; `ditherImageBy`, `ditherRowsBy` and the
+    `withKernel`, `withGamma`, `withScan` (`Scan`: `raster`,
+    `serpentine`); `ditherImageBy`, `ditherRowsBy` and the
     stepper `Dithering`/`initDitheringBy`/`ditherRow`; the shorthands
     `ditherImage`, `ditherRows`, `initDithering`, each with a twin
     taking a gamma, `…With`), `.Kernel`, `.Pixel`, `.Quantize`,
@@ -466,10 +467,15 @@ from the code alone.
   the hot path instead of recomputing `Array.filter`s per pixel
   (PureScript does NOT auto-memoize like GHC sometimes does — this bit us
   once as a real, measured regression).
-- `Puregrain.Internal.Fifo` — `class Fifo (f :: Type -> Type)` with 4 methods:
+- `Puregrain.Internal.Fifo` — `class Fifo (f :: Type -> Type)` with 5 methods:
   `replicate`, `enqueue`, `dequeue`, `replace` (shift-left-by-n +
   zero-fill, its own method rather than `drop`+`<>` because that
-  composition is O(n) even when n is small — see below). Instances:
+  composition is O(n) even when n is small — see below; for an input
+  shorter than n it gives n zeros, which its doc said wrongly until
+  2026-11-23), and `reverse` (since 2026-11-23, for serpentine
+  scanning: once per row per queue, O(1) on `CatQueue`, which swaps its
+  two lists). `Test.Puregrain.FifoSpec` checks every instance against a
+  plain array model, through any mix of the five. Instances:
   `List.Lazy`, `Data.List` (strict), `Array`, `Data.CatQueue` (registry
   package `catenable-lists`: Okasaki's strict two-list queue).
   **`CatQueue` is the production default** (see Performance below). Its
@@ -852,7 +858,7 @@ from the code alone.
     `with…` setters chained with `#`, PureScript's form of a builder. A
     public record was rejected: a new field would break literal records,
     and an opaque value can hold rules between settings.
-  - `defaults` is all neutral: `noDiffusion`, `gammaOff` (the user's
+  - `defaults` is all neutral: `noDiffusion`, `gammaOff`, `raster` (the user's
     choice over Floyd–Steinberg and over a required kernel): `defaults`
     alone only quantizes, no kernel slips into pure Bayer, the lab starts
     the same way, and a method that isn't a `Kernel` (Ostromoukhov) will
@@ -878,6 +884,52 @@ from the code alone.
     and the lab build their params in one pure `paramsOf` each
     (`Pipeline`, `Web.Dither`), tested against the `…With` drivers; 23
     CLI configurations came out byte-identical to `master`.
+- **Serpentine scanning, `withScan serpentine`** (2026-11-22/23, branch
+  `serpentine`, phase 1: the library). The rows alternate, row 0 left to
+  right, odd rows right to left, with the kernel mirrored there; counted
+  from the image's top, so the cells' bands alternate on across their
+  borders.
+  - **API:** `withScan` with an opaque `Scan`, `raster` (the default) or
+    `serpentine` (the user's choice over an argument-less
+    `withSerpentine`): every `with…` takes a value, a scan can be set
+    back, and another order would be one more value, compatible since
+    `Scan` is opaque, as `Gamma` is; no Boolean. No instances yet (start
+    closed). In the facade, as a typical setting.
+  - **The queues stay in scan order.** `step` never knows the
+    direction: a row scanned right to left is the same loop over the
+    pixels from the right (`mapAccumR`, results in the row's order), so
+    an offset's `dx` counts leftwards there: the kernel mirrored without
+    being touched. Only the quantizer sees columns: `RowState.x` starts
+    at `w − 1` and moves by `xStep` (−1), a per-row constant riding in
+    `RowState` next to `y`, for the same reason `y` does.
+  - **The direction isn't stored:** `rightToLeft scan y` (`Internal.Params`)
+    from `DitherState.nextRow`, the `y` the quantizer sees: one source
+    of truth, no flag to keep in step, and the stepper's reused states
+    (an undo) and the cells' bands get it for free. The scan mode is an
+    input, `CompiledParams = { kernel :: CompiledKernel, scan :: Scan }`
+    (`compileParams`, once per image); `CompiledKernel` stays the
+    kernel's alone (the user's point: a scan isn't part of the kernel),
+    and `step` takes only it. A method that forces a scan (Ostromoukhov)
+    would set it in `compileParams`.
+  - **The handover** (`Internal.Row.handOver`): a finished queue holds
+    its errors in its producer's scan order (entry k = scan position k
+    after `replace`, plus `dx` unread entries at the back for `dx > 0`).
+    For a row running the other way (`turns dy`: the two directions
+    differ, with alternation every odd `dy`), it's reversed and the
+    `paddingFor o` entries then at the front dropped (`dropFront`, which
+    crashes on running out: a broken invariant). The reasoning is in
+    `handOver`'s comment; `RowSpec` pins the resulting lengths (`max w (−dx)` for `dx < 0`,
+    `w` turned, `w + dx` not).
+  - **Checked:** every backend against the reference's `Alternating`
+    order, for three quantizers; positions; image = rows = stepper; one
+    row, one column and `noDiffusion` give the raster result; an undo;
+    the cells (each pixel one of its own cell's colors, the same cells,
+    in memory = streamed, the naive ordered rule); per curve in light;
+    the params' rules; `FifoSpec`. Ten mutations, each caught (x as the
+    scan position, no reversal, no drop, row 0 from the right, a wrong
+    `CatQueue.reverse` twice, always from the left, the turn decided by
+    the target alone, `withScan` touching the kernel, a serpentine
+    default). 23 CLI configurations byte-identical to `master`.
 - **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
   released in 0.2.2). The spec, with every measurement, is in git
   history: `git show 861e67e:docs/linear-light-spec.md`. For users:
@@ -1016,7 +1068,11 @@ generates random `Kernel`s and images. `Test.Puregrain.DiffusionMechanicsSpec`
 checks every `Fifo` backend against the reference on random inputs —
 this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
-`maxDepth ≥ 1`) did not.
+`maxDepth ≥ 1`) did not. Since 2026-11-23 the reference has two row
+orders (`RowOrder`): `AllLeftToRight`, and `Alternating`, serpentine
+written out as the textbooks define it (odd rows from the right, error
+to `x − dx`), independently of the library's queue reversal; the
+backends are checked in both.
 
 Coverage was measured once (2026-11-17, the user's idea), outside the
 repository, and is deliberately not tooling: the property tests and the

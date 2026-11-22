@@ -19,12 +19,12 @@ import Type.Proxy (Proxy(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Gamma (noConversion)
 import Puregrain.Internal.Image (ditherImageVia)
-import Puregrain.Internal.Kernel (compileKernel)
+import Puregrain.Internal.Params (Scan, compileParams, defaults, raster, serpentine, withKernel, withScan)
 import Puregrain.Kernel (Kernel)
 import Puregrain.Ordered (ordered)
-import Puregrain.Quantize (Quantize, evenRamp, quantize, quantizeWith)
+import Puregrain.Quantize (Quantize, evenRamp, quantize, quantizeWith, runQuantize)
 import Test.Puregrain.Arbitrary (TestKernel(..), TestImage(..))
-import Test.Puregrain.Reference (referenceDither)
+import Test.Puregrain.Reference (RowOrder(..), referenceDitherIn)
 import Test.Puregrain.Util (bayerMap)
 
 -- | A fixed, simple, position-blind quantizer. These properties check the
@@ -55,37 +55,49 @@ runWith
   :: forall f
    . Fifo f
   => Proxy f
+  -> Scan
   -> Kernel
   -> Quantize Number
   -> Array (Array Number)
   -> Array (Array Number)
-runWith proxy kernel q image = ditherImageVia proxy noConversion (compileKernel kernel) q image
+runWith proxy scan kernel q image =
+  ditherImageVia proxy noConversion (compileParams (defaults # withKernel kernel # withScan scan)) q image
 
-agreesWithReference :: forall f. Fifo f => Proxy f -> Quantize Number -> TestKernel -> TestImage -> Result
-agreesWithReference proxy q (TestKernel kernel) (TestImage image) =
-  runWith proxy kernel q image === referenceDither kernel q image
+-- | The library's scans, each with the reference's own row order for it.
+scans :: Array { name :: String, scan :: Scan, order :: RowOrder }
+scans =
+  [ { name: "every row left to right", scan: raster, order: AllLeftToRight }
+  , { name: "serpentine", scan: serpentine, order: Alternating }
+  ]
+
+agreesWithReference :: forall f. Fifo f => Proxy f -> Scan -> RowOrder -> Quantize Number -> TestKernel -> TestImage -> Result
+agreesWithReference proxy scan order q (TestKernel kernel) (TestImage image) =
+  runWith proxy scan kernel q image === referenceDitherIn order kernel (runQuantize q) image
 
 spec :: Spec Unit
 spec = describe "Puregrain.Internal.Image properties" do
 
-  for_
-    [ Tuple "a position-blind threshold" testQuantize
-    , Tuple "a position-dependent threshold" positionalThreshold
-    , Tuple "ordered (Bayer 4×4) dithering" bayerHybrid
-    ]
-    \(Tuple label q) ->
-      describe ("agrees with the independent reference implementation, with " <> label) do
-        it "CatQueue backend" do
-          quickCheck (agreesWithReference (Proxy :: Proxy CatQueue) q)
-        it "List.Lazy backend" do
-          quickCheck (agreesWithReference (Proxy :: Proxy LL.List) q)
-        it "List backend" do
-          quickCheck (agreesWithReference (Proxy :: Proxy DL.List) q)
-        it "Array backend" do
-          quickCheck (agreesWithReference (Proxy :: Proxy Array) q)
+  for_ scans \s -> describe s.name do
+    for_
+      [ Tuple "a position-blind threshold" testQuantize
+      , Tuple "a position-dependent threshold" positionalThreshold
+      , Tuple "ordered (Bayer 4×4) dithering" bayerHybrid
+      ]
+      \(Tuple label q) ->
+        describe ("agrees with the independent reference implementation, with " <> label) do
+          it "CatQueue backend" do
+            quickCheck (agreesWithReference (Proxy :: Proxy CatQueue) s.scan s.order q)
+          it "List.Lazy backend" do
+            quickCheck (agreesWithReference (Proxy :: Proxy LL.List) s.scan s.order q)
+          it "List backend" do
+            quickCheck (agreesWithReference (Proxy :: Proxy DL.List) s.scan s.order q)
+          it "Array backend" do
+            quickCheck (agreesWithReference (Proxy :: Proxy Array) s.scan s.order q)
 
-  describe "pixel positions" do
-    it "each pixel's quantizer gets its own position: x from 0 in every row, y from 0 for the image" do
-      quickCheck \(TestKernel kernel) (TestImage image) ->
-        runWith (Proxy :: Proxy CatQueue) kernel revealPosition image
-          === mapWithIndex (\y row -> mapWithIndex (\x _ -> toNumber (x + 1000 * y)) row) image
+    describe "pixel positions" do
+      -- Under serpentine too: a row scanned right to left still gives each
+      -- pixel its column counted from the left edge.
+      it "each pixel's quantizer gets its own position: x from 0 in every row, y from 0 for the image" do
+        quickCheck \(TestKernel kernel) (TestImage image) ->
+          runWith (Proxy :: Proxy CatQueue) s.scan kernel revealPosition image
+            === mapWithIndex (\y row -> mapWithIndex (\x _ -> toNumber (x + 1000 * y)) row) image

@@ -16,8 +16,8 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Dither (ditherImage, ditherRow, ditherRows, initDithering)
-import Puregrain.Kernel (Kernel, floydSteinberg)
+import Puregrain.Dither (Dithering, defaults, ditherImage, ditherImageBy, ditherRow, ditherRows, ditherRowsBy, initDithering, initDitheringBy, serpentine, withKernel, withScan)
+import Puregrain.Kernel (Kernel, floydSteinberg, noDiffusion)
 import Puregrain.Ordered (ordered)
 import Puregrain.Pixel (class Scalable)
 import Puregrain.Quantize (Quantize, evenRamp, threshold)
@@ -29,7 +29,11 @@ q = threshold 128.0
 
 -- | The rows dithered one at a time with `ditherRow`, from `initDithering`.
 ditherEach :: forall a. Ring a => Scalable a => Kernel -> Quantize a -> Array (Array a) -> Either String (Array (Array a))
-ditherEach kernel quantizer rows = _.out <$> foldM next { state: initDithering kernel quantizer, out: [] } rows
+ditherEach kernel quantizer = ditherEachFrom (initDithering kernel quantizer)
+
+-- | The rows dithered one at a time with `ditherRow`, from the given state.
+ditherEachFrom :: forall a. Ring a => Scalable a => Dithering a -> Array (Array a) -> Either String (Array (Array a))
+ditherEachFrom start rows = _.out <$> foldM next { state: start, out: [] } rows
   where
   next acc row = ditherRow acc.state row <#> \r -> { state: r.next, out: Array.snoc acc.out r.row }
 
@@ -128,3 +132,50 @@ spec = describe "Puregrain.Dither" do
     it "an image whose rows all have the same length comes through" do
       result <- liftEffect (errorOf \_ -> Array.length (ditherImage floydSteinberg q [ [ 10.0, 200.0 ], [ 30.0, 140.0 ], [ 60.0, 70.0 ] ]))
       result `shouldEqual` Nothing
+
+  describe "serpentine scanning (ditherImageBy, ditherRowsBy, initDitheringBy)" do
+    let
+      serpentineWith kernel = defaults # withKernel kernel # withScan serpentine
+      bayer = ordered (bayerMap 4) (evenRamp 3)
+
+    -- A position-dependent quantizer, as above: the three drivers must
+    -- also agree on every pixel's position on the rows scanned right to
+    -- left.
+    it "gives the same rows in memory, streamed and row by row, for any kernel and image" do
+      quickCheck \(TestKernel kernel) (TestImage image) ->
+        let
+          params = serpentineWith kernel
+        in
+          { rows: allRows (ditherRowsBy params bayer (LL.fromFoldable image)), each: ditherEachFrom (initDitheringBy params bayer) image }
+            === { rows: ditherImageBy params bayer image, each: Right (ditherImageBy params bayer image) }
+
+    -- Row 0 runs left to right; a single column is its own mirror image;
+    -- without diffusion, the order the pixels are visited in can't matter.
+    it "changes nothing for an image of one row, for one of one column, and without diffusion" do
+      quickCheck \(TestKernel kernel) (TestImage image) ->
+        let
+          both params picture =
+            { serpentine: ditherImageBy (params # withScan serpentine) bayer picture
+            , raster: ditherImageBy params bayer picture
+            }
+          oneRow = both (defaults # withKernel kernel) (Array.take 1 image)
+          oneColumn = both (defaults # withKernel kernel) (map (Array.take 1) image)
+          none = both (defaults # withKernel noDiffusion) image
+        in
+          [ oneRow.serpentine, oneColumn.serpentine, none.serpentine ] === [ oneRow.raster, oneColumn.raster, none.raster ]
+
+    it "can reuse a state: going back to an older one (an undo) scans the next row as dithering that history fresh does" do
+      let
+        params = serpentineWith floydSteinberg
+        first = [ 10.0, 200.0, 90.0 ]
+        second = [ 30.0, 140.0, 250.0 ]
+        other = [ 250.0, 5.0, 120.0 ]
+      case ditherRow (initDitheringBy params q) first of
+        Left problem -> fail problem
+        Right r1 -> do
+          case ditherRow r1.next second of
+            Left problem -> fail problem
+            Right _ -> pure unit
+          case ditherRow r1.next other of
+            Left problem -> fail problem
+            Right r2 -> [ r1.row, r2.row ] `shouldEqual` ditherImageBy params q [ first, other ]

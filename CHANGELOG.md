@@ -10,12 +10,19 @@ raises the minor version (0.1 → 0.2).
 
 ### Added
 
-- `DitherParams`: a driver's settings in one value, today the kernel and
-  the gamma. Start from `defaults`, where each setting is neutral (no
-  diffusion, `gammaOff`), and change it with `withKernel` and `withGamma`,
-  chained with `#`. Further settings will come as further `with…`
-  functions, with no new drivers. In `Puregrain.Dither` and the
-  `Puregrain` facade.
+- `DitherParams`: a driver's settings in one value: the kernel, the gamma
+  and the scan. Start from `defaults`, where each setting is neutral (no
+  diffusion, `gammaOff`, `raster`), and change it with `withKernel`,
+  `withGamma` and `withScan`, chained with `#`. Further settings will
+  come as further `with…` functions, with no new drivers. In
+  `Puregrain.Dither` and the `Puregrain` facade.
+- Serpentine scanning: `withScan serpentine` makes the rows alternate,
+  the first left to right, the next right to left, and so on, with the
+  kernel mirrored on the rows scanned right to left; `raster`, every row
+  left to right, stays the default. Each pixel's quantizer still gets its
+  position counted from the image's left edge, so ordered dithering and
+  machine cells work as before. `Scan`, `raster`, `serpentine` and
+  `withScan` are in `Puregrain.Dither` and the facade.
 - Drivers that take it: `ditherImageBy`, `ditherRowsBy` and
   `initDitheringBy` (`Puregrain.Dither`, also in the facade), and
   `ditherCellsBy` and `ditherBandsBy` (`Puregrain.Cells`). The existing

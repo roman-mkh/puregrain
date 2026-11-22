@@ -10,7 +10,7 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.QuickCheck (quickCheck)
 
 import Puregrain.Cells (ditherCells, ditherCellsBy, nearestInCell, orderedInCell)
-import Puregrain.Dither (defaults, ditherImage, ditherImageBy, withGamma, withKernel)
+import Puregrain.Dither (defaults, ditherImage, ditherImageBy, raster, serpentine, withGamma, withKernel, withScan)
 import Puregrain.Gamma (gammaOff)
 import Puregrain.Kernel (noDiffusion)
 import Puregrain.Machine.ZxSpectrum (screen)
@@ -33,6 +33,17 @@ spec = describe "Puregrain.Internal.Params (DitherParams)" do
       rule <- elements (NEA.cons' nearestInCell [ orderedInCell (bayerMap 2) ])
       pure (ditherCellsBy defaults rule screen image === ditherCells noDiffusion rule screen image)
 
+  -- The scan shows only with a kernel, and on images of two rows or
+  -- more, which the generator makes most of the time.
+  it "starts from every row left to right" do
+    quickCheck do
+      kernel <- genKernel
+      image <- genImage
+      pure
+        ( ditherImageBy (defaults # withKernel kernel) (threshold 128.0) image
+            === ditherImageBy (defaults # withKernel kernel # withScan raster) (threshold 128.0) image
+        )
+
   it "takes the last of two settings of the same kind" do
     quickCheck do
       first <- genKernel
@@ -41,6 +52,18 @@ spec = describe "Puregrain.Internal.Params (DitherParams)" do
       pure
         ( ditherImageBy (defaults # withKernel first # withKernel second) (threshold 128.0) image
             === ditherImageBy (defaults # withKernel second) (threshold 128.0) image
+        )
+    quickCheck do
+      kernel <- genKernel
+      image <- genImage
+      pure
+        ( { toRaster: ditherImageBy (defaults # withKernel kernel # withScan serpentine # withScan raster) (threshold 128.0) image
+          , toSerpentine: ditherImageBy (defaults # withKernel kernel # withScan raster # withScan serpentine) (threshold 128.0) image
+          }
+            ===
+              { toRaster: ditherImageBy (defaults # withKernel kernel) (threshold 128.0) image
+              , toSerpentine: ditherImageBy (defaults # withKernel kernel # withScan serpentine) (threshold 128.0) image
+              }
         )
 
   for_ curves \c -> describe c.name do
@@ -52,6 +75,13 @@ spec = describe "Puregrain.Internal.Params (DitherParams)" do
         pure
           ( ditherImageBy (defaults # withKernel kernel # withGamma c.gamma) (threshold 128.0) image
               === ditherImageBy (defaults # withGamma c.gamma # withKernel kernel) (threshold 128.0) image
+          )
+      quickCheck do
+        kernel <- genKernel
+        image <- genImage
+        pure
+          ( ditherImageBy (defaults # withKernel kernel # withGamma c.gamma # withScan serpentine) (threshold 128.0) image
+              === ditherImageBy (defaults # withScan serpentine # withGamma c.gamma # withKernel kernel) (threshold 128.0) image
           )
 
     it "replaces an earlier gamma" do

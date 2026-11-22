@@ -26,8 +26,8 @@
 -- | Each takes its settings in one of two ways:
 -- |
 -- | - `ditherImageBy`, `ditherRowsBy` and `initDitheringBy` take a
--- |   `DitherParams`: the kernel, the gamma and any later setting, built
--- |   from `defaults` with the `with…` functions;
+-- |   `DitherParams`: the kernel, the gamma and the scan (`raster` or
+-- |   `serpentine`), built from `defaults` with the `with…` functions;
 -- | - `ditherImage`, `ditherRows` and `initDithering` take just a kernel,
 -- |   and their twins `ditherImageWith`, `ditherRowsWith` and
 -- |   `initDitheringWith` a `Puregrain.Gamma.Gamma` and a kernel: shorthands
@@ -66,9 +66,8 @@ import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, noConversion)
 import Puregrain.Internal.Image (ditherImageVia, ditherRowsVia, rowsIn, rowsOut)
-import Puregrain.Internal.Kernel (CompiledKernel)
-import Puregrain.Internal.Params (DitherParams, defaults, withGamma, withKernel) as Exports
-import Puregrain.Internal.Params (DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
+import Puregrain.Internal.Params (DitherParams, Scan, defaults, raster, serpentine, withGamma, withKernel, withScan) as Exports
+import Puregrain.Internal.Params (CompiledParams, DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
 import Puregrain.Internal.Quantize (Quantizer, quantizerFor)
 import Puregrain.Internal.Row (stepRow)
 import Puregrain.Internal.State (DitherState, initState)
@@ -80,8 +79,8 @@ import Type.Proxy (Proxy(..))
 -- |
 -- | - `a`: the pixel type, `Number` for gray, `RGB` or `RGBA`; any type
 -- |   with `Ring`, `Scalable` and `ColorChannels` works.
--- | - `DitherParams`: the kernel and the gamma, from `defaults` and the
--- |   `with…` functions.
+-- | - `DitherParams`: the kernel, the gamma and the scan, from `defaults`
+-- |   and the `with…` functions.
 -- | - `Quantize a`: picks each pixel's output value.
 -- | - `Array (Array a)`: the image, rows top to bottom, each left to right,
 -- |   all of the same length.
@@ -219,7 +218,7 @@ ditherRowsWith gamma kernel = ditherRowsBy (defaults # withKernel kernel # withG
 -- The quantizer is kept resolved, once for the whole image, with the
 -- conversion that brings each row to light and back.
 newtype Dithering a = Dithering
-  { compiled :: CompiledKernel
+  { compiled :: CompiledParams
   , quantizer :: Quantizer a
   , conversion :: Conversion a
   , state :: DitherState CatQueue a
@@ -255,9 +254,9 @@ initDithering kernel = initDitheringVia noConversion (compileParams (defaults # 
 initDitheringWith :: forall a. ColorChannels a => Gamma -> Kernel -> Quantize a -> Dithering a
 initDitheringWith gamma kernel = initDitheringBy (defaults # withKernel kernel # withGamma gamma)
 
-initDitheringVia :: forall a. Conversion a -> CompiledKernel -> Quantize a -> Dithering a
+initDitheringVia :: forall a. Conversion a -> CompiledParams -> Quantize a -> Dithering a
 initDitheringVia conversion compiled quantize =
-  Dithering { compiled, quantizer: quantizerFor conversion quantize, conversion, state: initState compiled }
+  Dithering { compiled, quantizer: quantizerFor conversion quantize, conversion, state: initState compiled.kernel }
 
 -- | Dithers the next row.
 -- |
