@@ -138,6 +138,7 @@ type Options =
   { input :: String
   , output :: String
   , kernel :: KernelName
+  , serpentine :: Boolean
   , quantizer :: QuantizerChoice
   , format :: FormatName
   , gray :: Boolean
@@ -322,6 +323,7 @@ type RawOptions =
   { input :: String
   , output :: String
   , kernel :: Maybe KernelName
+  , serpentine :: Boolean
   , quantizer :: Maybe QuantizerChoice
   , bayer :: Maybe Int
   , machine :: Maybe MachineName
@@ -344,6 +346,13 @@ rawOptions = ado
         <> help
           ( "error-diffusion kernel (none: no diffusion): " <> orList (map fst kernels) <> " (default: "
               <> kernelName FloydSteinberg <> "; " <> kernelName NoDiffusion <> " with --bayer)"
+          )
+    )
+  serpentine <- switch
+    ( long "serpentine"
+        <> help
+          ( "serpentine scanning: every other row right to left, with the kernel mirrored there, against the patterns of rows all scanned one way; needs error diffusion, so not with --kernel "
+              <> kernelName NoDiffusion <> " or --bayer alone"
           )
     )
   q <- quantizer
@@ -388,7 +397,7 @@ rawOptions = ado
               <> " (linear light); it doesn't adjust the picture"
           )
     )
-  in { input, output, kernel, quantizer: q, bayer, machine, machinePalette, format, gray, gamma }
+  in { input, output, kernel, serpentine, quantizer: q, bayer, machine, machinePalette, format, gray, gamma }
 
 -- | The engine's self-check, a mode of its own, or dithering.
 data RawCommand = RawCheckEngine | RawDither RawOptions
@@ -455,7 +464,10 @@ versionOption = infoOption (programName <> " " <> version)
 -- | Floyd–Steinberg, except with `--bayer`: there it's none, so `--bayer`
 -- | alone is pure ordered dithering. With `--bayer` the kernel decides
 -- | which method runs, pure or the hybrid, so that's the one mode with a
--- | default of its own.
+-- | default of its own. `--serpentine` changes the direction the error
+-- | travels in, so it needs a kernel that passes some on: not `none`,
+-- | which is also `--bayer`'s default; without one it would silently
+-- | change nothing.
 resolve :: RawOptions -> Either String Options
 resolve raw = ado
   quantizer <- case raw.machine of
@@ -464,9 +476,15 @@ resolve raw = ado
       if isJust raw.machinePalette then Left "--machine-palette needs --machine: it picks among a machine's colors"
       else quantizerChoice
   format <- formatOf raw.format raw.output >>= formatChoice
-  in { input: raw.input, output: raw.output, kernel: fromMaybe defaultKernel raw.kernel, quantizer, format, gray: raw.gray, gamma: raw.gamma }
+  serpentine <- serpentineChoice
+  in { input: raw.input, output: raw.output, kernel, serpentine, quantizer, format, gray: raw.gray, gamma: raw.gamma }
   where
   defaultKernel = if isJust raw.bayer then NoDiffusion else FloydSteinberg
+  kernel = fromMaybe defaultKernel raw.kernel
+  serpentineChoice
+    | not raw.serpentine || kernel /= NoDiffusion = Right raw.serpentine
+    | isJust raw.kernel = Left ("--serpentine needs error diffusion: with --kernel " <> kernelName NoDiffusion <> ", no error is passed on, so the rows' direction changes nothing")
+    | otherwise = Left "--serpentine needs error diffusion: --bayer alone passes no error on, so the rows' direction changes nothing; add --kernel NAME for the hybrid"
   machineChoice m = case raw.quantizer of
     Nothing -> (\palette -> Machine { name: m, palette, bayer: raw.bayer }) <$> paletteChoice m (fromMaybe FullPalette raw.machinePalette)
     Just _ -> Left "--machine can't be combined with --threshold, --levels or --palette: the machine defines the colors"

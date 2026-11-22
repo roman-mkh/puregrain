@@ -131,6 +131,15 @@ from the code alone.
   usage line shows both; it prints "Engine check passed: …" and exits 0,
   or "Engine check failed:" with the problems on standard error and exits
   1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
+  `--serpentine` (2026-11-23, phase 2 of serpentine scanning): a switch,
+  `Options.serpentine`, listed after `--kernel`; `paramsOf` adds
+  `withScan`; the report line names it after the kernel. `resolve`
+  rejects it when nothing is diffused, `--kernel none` or `--bayer`
+  without `--kernel` (whose default is none), with a message for each:
+  it would silently change nothing (the user's decision; the library
+  accepts it, as a no-op). `check:cli`'s check 18 (each pipeline passes
+  it on and the report names it, a row alone unchanged, the zero-error
+  images unchanged) and one of `check:npm`'s configurations cover it.
   `--version` (2026-11-17, the user's request) prints `puregrain X.Y.Z`
   with the library's version: the CLI isn't released on its own, so the
   two are coupled (the user: the lab numbers its versions on its own, the
@@ -201,7 +210,7 @@ from the code alone.
   `npm run check:npm` (`scripts/check-npm.mjs`, after `npm:build`):
   packs `npm/dist/`, installs the tarball into an empty temporary folder
   (pngjs from the registry: it needs the network), runs the command
-  through npm's link, compares seven configurations with the launcher
+  through npm's link, compares eight configurations with the launcher
   byte for byte (a `.tap` carries its file's name, so both outputs are
   named alike), checks that imports are refused, and compares the
   notices with what esbuild bundles, for both bundles; a package without

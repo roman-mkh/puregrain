@@ -73,9 +73,9 @@ dithers pictures in the browser.
   kernel are in [the benchmarks](docs/benchmarks-dithering.md). For batches
   of large images or interactive use, a native tool such as ImageMagick
   is the better choice.
-- **You need the best photo quality.** Linear light is there
-  ([gamma](docs/gamma.md)), but no perceptual color distance, no color
-  profiles and no serpentine scanning yet
+- **You need the best photo quality.** Linear light
+  ([gamma](docs/gamma.md)) and serpentine scanning are there, but no
+  perceptual color distance and no color profiles yet
   (see [Limitations](cli/README.md#limitations)).
 
 ## Getting started

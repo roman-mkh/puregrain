@@ -127,7 +127,7 @@ run opts = do
           log $ "Wrote " <> opts.output <> " (Art Studio picture, " <> show (Array.length bytes) <> " bytes)"
   where
   report ms space = log $ "Dithered in " <> toStringWith (fixed 1) ms <> " ms ("
-    <> kernelName opts.kernel <> ", " <> describeQuantizer opts.quantizer <> gammaPart <> ", " <> space <> ")"
+    <> kernelName opts.kernel <> (if opts.serpentine then ", serpentine" else "") <> ", " <> describeQuantizer opts.quantizer <> gammaPart <> ", " <> space <> ")"
   -- Named only when it isn't off, so that the line stays as it was.
   gammaPart = if opts.gamma == GammaOff then "" else ", gamma " <> gammaName opts.gamma
 

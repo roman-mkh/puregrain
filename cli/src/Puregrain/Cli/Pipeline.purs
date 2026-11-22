@@ -31,7 +31,7 @@ import Data.Generic.Rep (class Generic)
 import Data.Maybe (Maybe(..), maybe)
 import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits as CodeUnits
-import Puregrain (DitherParams, Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, defaults, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, withGamma, withKernel, zxSpectrum)
+import Puregrain (DitherParams, Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, defaults, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, noDiffusion, nearestLevel, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, raster, serpentine, threshold, toGray, websafe216, withGamma, withKernel, withScan, zxSpectrum)
 import Partial.Unsafe (unsafeCrashWith)
 -- The cells and the machines aren't in the facade (a specialty, "start
 -- closed"), so the CLI imports them directly, as any application would.
@@ -171,9 +171,14 @@ bayerOf side = case bayer side of
   Just m -> m
   Nothing -> unsafeCrashWith ("Puregrain.Cli.Pipeline.bayerOf: no Bayer map of side " <> show side)
 
--- | The library's settings for the options: the kernel and the gamma.
-paramsOf :: forall r. { kernel :: KernelName, gamma :: GammaName | r } -> DitherParams
-paramsOf opts = defaults # withKernel (kernelOf opts.kernel) # withGamma (gammaOf opts.gamma)
+-- | The library's settings for the options: the kernel, the gamma and the
+-- | scan.
+paramsOf :: forall r. { kernel :: KernelName, gamma :: GammaName, serpentine :: Boolean | r } -> DitherParams
+paramsOf opts =
+  defaults
+    # withKernel (kernelOf opts.kernel)
+    # withGamma (gammaOf opts.gamma)
+    # withScan (if opts.serpentine then serpentine else raster)
 
 kernelOf :: KernelName -> Kernel
 kernelOf = case _ of

@@ -464,3 +464,48 @@ $cli --bogus >$out/rejected.out 2>$out/rejected.err || code=$?
 [ "$code" -eq 1 ] && [ ! -s $out/rejected.out ] && grep -q '^Usage: puregrain (' $out/rejected.err \
   && pass "a rejected command line: exit 1, the usage on standard error, naming \"puregrain\"" \
   || fail "a rejected command line: exit code $code (expected 1), standard output: $(cat $out/rejected.out), standard error: $(head -3 $out/rejected.err)"
+
+# 18. --serpentine (every other row right to left, the kernel mirrored
+#     there). The library checks the result against its own reference
+#     implementation (Test.Puregrain.DiffusionMechanicsSpec); here, that the
+#     CLI passes it on in each pipeline and keeps the exact properties:
+#     - in the gray pipeline, per channel and on a machine's screen, it
+#       changes the result, and the report line names it;
+#     - a picture of one row comes out as without it, since row 0 runs left
+#       to right either way (a flat 128 at an even width: scanned from the
+#       right, its alternating dots would come out the other way round);
+#     - pictures with zero error everywhere still come back unchanged
+#       (checks 2 and 6): palette colors, with two kernels, the second
+#       reaching two rows down; and machine cells, where on the rows
+#       scanned right to left each pixel must still find its own cell by
+#       its column, with error diffusion and with --bayer 8 in the hybrid.
+for mode in "--gray" "--levels 4" "--machine zx-spectrum"; do
+  $cli $out/color-256x192.png $out/raster.png $mode >/dev/null
+  report=$($cli $out/color-256x192.png $out/serpentine.png $mode --serpentine)
+  if cmp -s $out/raster.png $out/serpentine.png; then
+    fail "color composite at 256x192, $mode --serpentine: the same bytes as without it"
+  fi
+  [[ "$report" == *"(floyd-steinberg, serpentine, "* ]] \
+    || fail "color composite at 256x192, $mode --serpentine: the report doesn't name it: $report"
+done
+flat 64 1 128 128 128 $out/flat-row.png
+$cli $out/flat-row.png $out/row-raster.png >/dev/null
+$cli $out/flat-row.png $out/row-serpentine.png --serpentine >/dev/null
+cmp -s $out/row-raster.png $out/row-serpentine.png \
+  || fail "a flat 128 of one row, --serpentine: differs from without it (row 0 must run left to right)"
+for mode in "--palette websafe216" "--levels 6"; do
+  for kernel in floyd-steinberg jjn; do
+    $cli $out/color-palette-exact-128.png $out/exact.png $mode --kernel $kernel --serpentine >/dev/null
+    cmp -s $out/color-palette-exact-128.png $out/exact.png \
+      || fail "color:palette-exact alone, $mode --kernel $kernel --serpentine: output differs from input"
+  done
+done
+for screen in "zx-spectrum zx-cells 256x192" "c64-hires c64-cells 320x200"; do
+  set -- $screen
+  for mode in "--kernel floyd-steinberg" "--bayer 8 --kernel floyd-steinberg"; do
+    $cli $out/color-$2-$3.png $out/$1.png --machine $1 $mode --serpentine >/dev/null
+    cmp -s $out/color-$2-$3.png $out/$1.png \
+      || fail "color:$2 alone, --machine $1 $mode --serpentine: output differs from input"
+  done
+done
+pass "--serpentine: changes the result in the gray pipeline, per channel and on a ZX Spectrum screen, and the report names it; a row alone unchanged; color:palette-exact, color:zx-cells and color:c64-cells unchanged"

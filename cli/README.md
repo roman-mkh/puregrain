@@ -60,7 +60,7 @@ keep them.
 ## Usage
 
 ```
-puregrain INPUT.png OUTPUT [-k|--kernel NAME]
+puregrain INPUT.png OUTPUT [-k|--kernel NAME] [--serpentine]
           [--threshold T | --levels N | --palette NAME] [--bayer N]
           [--machine NAME] [--machine-palette NAME] [--format NAME] [--gray]
           [--gamma NAME]
@@ -75,6 +75,7 @@ puregrain --version
 | `INPUT.png` | path | required | The image to dither: any PNG pngjs can decode (grayscale, RGB, indexed, with or without alpha). Alpha is ignored. |
 | `OUTPUT` | path | required | Where to write the result. Its extension picks the format: `.png`, `.scr`, `.tap`, `.prg` or `.art`, in any case; `--format` overrides it. An existing file is overwritten; the directory must already exist. |
 | `-k`, `--kernel` | `floyd-steinberg`, `atkinson`, `jjn`, `stucki`, `burkes`, `sierra-3`, `sierra-2`, `sierra-lite`, `fan`, `shiau-fan`, `shiau-fan-2`, `none` | `floyd-steinberg`; `none` with `--bayer` | The error-diffusion kernel; `none` passes no error on. See [Kernels](#kernels). |
+| `--serpentine` | | off | Serpentine scanning: every other row runs right to left, starting with the second, with the kernel mirrored on those rows. Needs error diffusion. See [Kernels](#kernels). |
 | `--threshold` | number `T` | `128` | 1-bit gray: a pixel, with the error diffused into it, becomes black below `T` and white otherwise. |
 | `--levels` | whole number `N` ≥ 2 | | `N` evenly spaced levels from 0 to 255. Gray input gets `N` grays; color input gets `N` levels per channel (up to `N`³ colors). |
 | `--palette` | `bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15` | | Each pixel becomes the nearest palette color, with all three channels chosen together. See [Palettes](#palettes). |
@@ -96,7 +97,10 @@ dithering. Every other mode uses Floyd–Steinberg unless `--kernel` says
 otherwise. `--machine` defines all the colors itself, so it combines
 with none of `--threshold`, `--levels` and `--palette`; with `--bayer`,
 it uses ordered dithering inside the cells. `--machine-palette` needs
-`--machine`. `--kernel`, `--gray` and `--gamma` work with every mode. A `.scr` or `.tap` output, or `--format scr` or `tap`,
+`--machine`. `--kernel`, `--gray` and `--gamma` work with every mode.
+`--serpentine` works with every mode that diffuses error; with
+`--kernel none`, or `--bayer` without `--kernel`, no error is passed on,
+so the rows' direction would change nothing, and it's rejected. A `.scr` or `.tap` output, or `--format scr` or `tap`,
 holds the ZX Spectrum's screen, so it needs `--machine zx-spectrum`; a
 `.prg` or `.art` holds a C64 hires screen, so it needs `--machine c64-hires`. An
 output whose extension names no format, `out.jpg` say, is rejected
@@ -185,6 +189,13 @@ error.
 
 For `stucki` to `shiau-fan-2`, the character is as their sources
 describe it; they haven't been compared here yet.
+
+Rows run left to right by default. With `--serpentine`, every other row
+runs right to left, starting with the second, and the kernel is mirrored
+on those rows, so the error still goes to pixels not yet processed. It's
+the usual remedy for the patterns error diffusion draws when every row
+runs the same way, and works with every kernel and every mode that
+diffuses error, machine screens included.
 
 Each kernel's weights, sources and history are in
 [docs/error-diffusion.md](../docs/error-diffusion.md). Time grows with the
@@ -319,6 +330,9 @@ and `toArtStudio` for its files).
 npm run dither-cli -- samples/gray-512.png samples/fs.png  --kernel floyd-steinberg
 npm run dither-cli -- samples/gray-512.png samples/atk.png --kernel atkinson
 npm run dither-cli -- samples/gray-512.png samples/jjn.png --kernel jjn
+
+# Floyd-Steinberg with serpentine scanning: every other row right to left
+npm run dither-cli -- samples/gray-512.png samples/fs-serpentine.png --serpentine
 
 # 4 gray levels instead of 2
 npm run dither-cli -- samples/gray-512.png samples/gray4.png --levels 4
@@ -463,8 +477,6 @@ error.
 - Ordered dithering works over levels or inside a machine's cells, not
   against a palette, and only with the Bayer maps (the library also takes
   custom maps).
-- Rows are always scanned left to right. Alternating the direction
-  ("serpentine" scanning) would reduce some directional artifacts.
 - It's pure PureScript on Node: about 2 µs per pixel with Floyd–Steinberg
   and a threshold, so roughly 0.4 s for 512×512 and 2 s for 1024×1024 on
   the development machine. The color modes take about 2 to 5 times as

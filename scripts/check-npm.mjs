@@ -11,8 +11,8 @@
 //   2. --version, the usage line and the engine check, under the name
 //      `puregrain`, whatever the link's file is called;
 //   3. the installed command's files equal the launcher's, byte for byte,
-//      for gray, color, a gamma, a palette, a Bayer map and the machines'
-//      files;
+//      for gray, color, a gamma, a palette, a Bayer map, serpentine
+//      scanning and the machines' files;
 //   4. nothing can be imported from the package but its package.json;
 //   5. the third-party notices list every PureScript package esbuild puts
 //      into the CLI's bundle and into puregrain lab's, each with its
@@ -86,6 +86,7 @@ try {
     ['color-512.png', 'png', ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb']],
     ['color-512.png', 'png', ['--palette', 'c64']],
     ['color-512.png', 'png', ['--gray', '--bayer', '8']],
+    ['gray-512.png', 'png', ['--kernel', 'jjn', '--serpentine']],
     ['color-256x192.png', 'scr', ['--machine', 'zx-spectrum', '--bayer', '2']],
     ['color-256x192.png', 'tap', ['--machine', 'zx-spectrum', '--bayer', '2']],
     ['color-320x200.png', 'prg', ['--machine', 'c64-hires', '--bayer', '2']],

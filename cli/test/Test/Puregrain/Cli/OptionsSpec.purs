@@ -62,7 +62,7 @@ failsWith text = case _ of
   Right _ -> false
 
 defaults :: Options
-defaults = { input: "in.png", output: "out.png", kernel: FloydSteinberg, quantizer: Threshold 128.0, format: Png, gray: false, gamma: GammaOff }
+defaults = { input: "in.png", output: "out.png", kernel: FloydSteinberg, serpentine: false, quantizer: Threshold 128.0, format: Png, gray: false, gamma: GammaOff }
 
 files :: Array String
 files = [ "in.png", "out.png" ]
@@ -75,7 +75,7 @@ spec :: Spec Unit
 spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.md)" do
 
   describe "defaults" do
-    it "INPUT and OUTPUT alone: Floyd-Steinberg, --threshold 128, a PNG, no --gray, --gamma off" do
+    it "INPUT and OUTPUT alone: Floyd-Steinberg, every row left to right, --threshold 128, a PNG, no --gray, --gamma off" do
       parse files `shouldEqual` Right defaults
 
   describe "every option" do
@@ -256,6 +256,30 @@ spec = describe "Puregrain.Cli.Options (the command-line contract in cli/README.
       parse [ "in.png" ] `shouldSatisfy` failsWith "Missing"
       parse [ "in.png", "out.png", "extra.png" ] `shouldSatisfy` isLeft
       parse (files <> [ "--bogus" ]) `shouldSatisfy` isLeft
+
+  describe "--serpentine" do
+    it "turns serpentine scanning on, with every kernel but none" do
+      for_ (Array.filter (_ /= NoDiffusion) allKernels) \k ->
+        parse (files <> [ "--serpentine", "-k", kernelName k ]) `shouldEqual` Right (defaults { kernel = k, serpentine = true })
+
+    it "works with every mode that diffuses error: the default kernel, --bayer with --kernel, --machine, --gray, --gamma" do
+      for_
+        [ [ "--threshold", "100" ], [ "--levels", "4" ], [ "--palette", "cga16" ], [ "--bayer", "4", "-k", "atkinson" ]
+        , [ "--machine", "zx-spectrum" ], [ "--machine", "c64-hires", "--bayer", "2", "-k", "floyd-steinberg" ], [ "--gray" ], [ "--gamma", "srgb" ]
+        ]
+        \mode -> map _.serpentine (parse (files <> mode <> [ "--serpentine" ])) `shouldEqual` Right true
+
+    it "is rejected without error diffusion, saying why: --kernel none, or --bayer without --kernel" do
+      parse (files <> [ "--serpentine", "--kernel", "none" ])
+        `shouldSatisfy` failsWith "--serpentine needs error diffusion: with --kernel none, no error is passed on"
+      parse (files <> [ "--machine", "c64-hires", "--kernel", "none", "--serpentine" ])
+        `shouldSatisfy` failsWith "--serpentine needs error diffusion: with --kernel none"
+      for_ [ [ "--bayer", "4" ], [ "--bayer", "8", "--levels", "4" ], [ "--machine", "zx-spectrum", "--bayer", "2" ] ] \mode ->
+        parse (files <> mode <> [ "--serpentine" ])
+          `shouldSatisfy` failsWith "--serpentine needs error diffusion: --bayer alone passes no error on, so the rows' direction changes nothing; add --kernel NAME for the hybrid"
+
+    it "is in the help" do
+      helpText `shouldSatisfy` contains (Pattern "--serpentine")
 
   describe "--gamma" do
     it "takes each gamma's name, and 1.0 and 1 for off" do

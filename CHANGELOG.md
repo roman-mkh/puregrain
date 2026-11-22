@@ -23,6 +23,13 @@ raises the minor version (0.1 → 0.2).
   position counted from the image's left edge, so ordered dithering and
   machine cells work as before. `Scan`, `raster`, `serpentine` and
   `withScan` are in `Puregrain.Dither` and the facade.
+
+### Command-line tool
+
+- `--serpentine`: serpentine scanning, with every kernel and every mode
+  that diffuses error, machine screens included; the report line names
+  it. Rejected with `--kernel none`, and with `--bayer` without
+  `--kernel`, where no error is passed on and it would change nothing.
 - Drivers that take it: `ditherImageBy`, `ditherRowsBy` and
   `initDitheringBy` (`Puregrain.Dither`, also in the facade), and
   `ditherCellsBy` and `ditherBandsBy` (`Puregrain.Cells`). The existing
