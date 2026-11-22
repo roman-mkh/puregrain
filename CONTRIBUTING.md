@@ -161,13 +161,14 @@ registry then puts the docs on Pursuit. No account is needed. The steps:
 6. Publish the npm package `puregrain`, from the same commit, once the
    registry's job has succeeded (below): `npm run npm:build`, then
    `npm pack --dry-run` in `npm/dist/` to see its five files, and
-   `npm publish npm/dist`, signed in with `npm login` and the account's
-   two-factor authentication. Its page's links name the tag, which step 5
-   has pushed. In an empty folder, `npx puregrain@X.Y.Z --version`
-   confirms it. The first time, also rewrite the four notes that the
-   tool comes to npm with the next release (`README.md`: the status and
-   "The command-line tool"; `cli/README.md`: "Install";
-   `pictures/README.md`: "Trying it"), and commit that.
+   `npm publish ./npm/dist` (with `./`: without it, npm reads
+   `npm/dist` as the GitHub repository `npm/dist`), signed in with
+   `npm login` and the account's two-factor authentication (a security
+   key or passkey; npm then confirms the publish in the browser). Its
+   page's links name the tag, which step 5 has pushed. npm first shows
+   a placeholder version, `0.0.0-stage`, while it processes the package:
+   in an empty folder, `npx puregrain@X.Y.Z --version` confirms it once
+   the version is there, about a minute later.
 
 **spago 1.0.4 reports a success as an error.** After sending the package
 it may print "Registry did not like this and answered with status 201",

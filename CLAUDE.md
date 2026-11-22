@@ -172,8 +172,8 @@ from the code alone.
   imported, not bundled (mutation-checked). Decided with the user:
   - the package and the command `puregrain`, for good (renaming the
     command would break scripts); the CLI calls itself so (above);
-  - the version the library's; the first npm version is the next
-    release's, published with its tag (not 0.2.2: its tag lacks the
+  - the version the library's; the first npm version was the next
+    release's, 0.3.0, published with its tag (not 0.2.2: its tag lacks the
     CLI's changes since, and the shared version must identify the
     release); from then on the CLI's options are a public contract;
   - pngjs a dependency, `~7.0.0`, not bundled: patch fixes reach users,
@@ -377,11 +377,8 @@ from the code alone.
   `npm run build`; pictures go to `samples/gamma/`.
 - `cli/README.md` — the CLI's user docs, installing from npm first; its
   examples run it from a checkout (`npm run dither-cli -- …`).
-- `npm/README.md` — the npm package's page (see `npm/` above). Until the
-  first npm release, four notes say it comes with the next release
-  (`README.md`: the status and "The command-line tool"; `cli/README.md`:
-  "Install"; `pictures/README.md`: "Trying it"); release step 6 rewrites
-  them.
+- `npm/README.md` — the npm package's page (see `npm/` above), frozen
+  per version (a fix shows with the next release).
 - `web/README.md` — the web UI's user docs: running it, using it, its
   settings as CLI options, and the manual checklist.
 - `web/ROADMAP.md` — the web UI's plan and its decisions with their
@@ -1208,6 +1205,23 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   0.15.17, the last a compiler newer than the 0.15.16 we build with.
   GitHub's merge button offered only squash: "Allow merge commits" was
   off in the repository's settings, and was turned on for PR #9.
+- **0.3.0 was published on 2026-11-21** (23:19 UTC), the first release
+  with the npm package: tag `v0.3.0` on `5ed8f0c` ("Release 0.3.0"),
+  registry job `5e001467-599a-4726-adf0-3741e79bb8a8` (log:
+  https://registry.purescript.org/api/v1/jobs/5e001467-599a-4726-adf0-3741e79bb8a8;
+  finished after 32 s, `success: true`, docs on Pursuit), GitHub Release
+  created by CI. A minor version because the C64 `.prg` border changes
+  output; also the CLI on npm, `--version`, the name `puregrain`. npm:
+  `puregrain@0.3.0` published by the user at 23:53 UTC (67.1 kB packed,
+  shasum `99a5fd59…`), confirmed with `npx puregrain@0.3.0 --version`
+  from an empty folder. Learned on the way: `npm publish npm/dist` reads
+  the path as the GitHub repository `npm/dist` (`./npm/dist` is right);
+  npm refuses to publish without two-factor authentication, and its
+  settings offered only a security key (a passkey, on a phone or in a
+  password manager), with the publish then confirmed in the browser; and
+  npm first showed a placeholder version, `0.0.0-stage`, as `latest`,
+  with 0.3.0 there about a minute later (the placeholder stays in the
+  version list).
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified

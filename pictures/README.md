@@ -21,8 +21,8 @@ From a checkout of this repository (see the command-line tool's
 npm run dither-cli -- pictures/macaw-and-toucan.png birds-vga.png --palette cga16 --gamma 1.8
 ```
 
-With the npm package `puregrain` (from the next release), for Node.js 22
-or later, download the picture first:
+With the npm package `puregrain`, for Node.js 22 or later, download the
+picture first:
 
 ```bash
 curl -LO https://raw.githubusercontent.com/roman-mkh/puregrain/master/pictures/macaw-and-toucan.png

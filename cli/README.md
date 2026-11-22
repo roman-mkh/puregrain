@@ -11,9 +11,7 @@ machines' own files.
 
 ## Install
 
-It needs Node.js 22 or later. On npm it's the package `puregrain` (from
-the next release; until then, run it from a checkout, as in the quick
-start below):
+It needs Node.js 22 or later. On npm it's the package `puregrain`:
 
 ```bash
 npx puregrain photo.png out.png --palette c64   # without installing anything

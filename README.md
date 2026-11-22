@@ -2,6 +2,8 @@
 
 [![CI](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml/badge.svg)](https://github.com/roman-mkh/puregrain/actions/workflows/ci.yml)
 [![Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain/badge)](https://pursuit.purescript.org/packages/purescript-puregrain)
+[![npm](https://img.shields.io/npm/v/puregrain)](https://www.npmjs.com/package/puregrain)
+[![npm downloads](https://img.shields.io/npm/dm/puregrain)](https://www.npmjs.com/package/puregrain)
 [![License: MIT](https://img.shields.io/github/license/roman-mkh/puregrain)](LICENSE)
 [![Try online: puregrain lab](https://img.shields.io/badge/try_online-puregrain_lab-blue)](https://roman-mkh.github.io/puregrain/)
 
@@ -17,8 +19,8 @@ dithers pictures in the browser.
 > Before 1.0, a breaking change raises the minor version (0.1 → 0.2);
 > [CHANGELOG.md](CHANGELOG.md) lists the changes. API reference:
 > [Pursuit](https://pursuit.purescript.org/packages/purescript-puregrain).
-> The command-line tool comes to npm with the next release, as the
-> package `puregrain`; a JavaScript API for the library comes later.
+> The command-line tool is on npm, as the package `puregrain`; a
+> JavaScript API for the library comes later.
 
 ## What it does
 
@@ -147,7 +149,7 @@ pngjs).
 ### The command-line tool
 
 Dithers PNG images, without writing code. On npm it's the package
-`puregrain` (from the next release), for Node.js 22 or later:
+`puregrain`, for Node.js 22 or later:
 
 ```bash
 npx puregrain photo.png dithered.png --palette c64
