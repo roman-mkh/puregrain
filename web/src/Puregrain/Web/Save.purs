@@ -32,9 +32,11 @@ import Web.HTML.HTMLElement (HTMLElement)
 -- | fileName "photo.jpg" (initial { colors = Levels 4, kernel = Atkinson, bayer = Just 8 }) { fitted: false, background: Nothing } "png"
 -- |   == "photo-levels4-atkinson-bayer8.png"
 -- | ```
+-- |
+-- | Serpentine scanning follows the kernel: `photo-levels4-atkinson-serpentine.png`.
 fileName :: String -> Settings -> { fitted :: Boolean, background :: Maybe Background } -> String -> String
 fileName name s prepared extension =
-  joinWith "-" ([ stem name ] <> target <> fit <> background <> colors <> kernel <> bayer <> gamma <> gray) <> "." <> extension
+  joinWith "-" ([ stem name ] <> target <> fit <> background <> colors <> kernel <> scan <> bayer <> gamma <> gray) <> "." <> extension
   where
   target = case s.target of
     AnyScreen -> []
@@ -49,6 +51,7 @@ fileName name s prepared extension =
     MachineColors FullPalette -> []
     MachineColors p -> [ machinePaletteId p ]
   kernel = if s.kernel == NoDiffusion then [] else [ kernelId s.kernel ]
+  scan = if s.serpentine then [ "serpentine" ] else []
   bayer = maybe [] (\side -> [ "bayer" <> show side ]) s.bayer
   -- `gamma1.5`, like `levels4`, but sRGB's curve as `srgb` alone (the
   -- user's choice); nothing for off.

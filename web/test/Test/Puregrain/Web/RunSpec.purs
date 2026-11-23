@@ -14,14 +14,14 @@ import Data.Traversable (traverse)
 import Effect (Effect)
 import Effect.Class (liftEffect)
 import Effect.Ref as Ref
-import Puregrain (RGB(..), ditherImageWith, toGray)
-import Puregrain.Cells (ditherCellsWith)
+import Puregrain (DitherParams, RGB(..), defaults, ditherImageBy, raster, serpentine, toGray, withGamma, withKernel, withScan)
+import Puregrain.Cells (ditherCellsBy)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
 import Puregrain.Web.Dither (Pipeline(..), gammaOf, isNeutral, kernelOf, pipelineFor, toNeutral, zxModeOf)
 import Puregrain.Web.Pixels (byteArray, newPixels, readRow, writeRgbRow)
 import Puregrain.Web.Run (ditherPicture)
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (fail, shouldEqual)
 
@@ -40,8 +40,18 @@ rowsOf p = traverse (readRow p.pixels p.width) (0 .. (p.height - 1))
 jobOf :: Settings -> Picture -> { settings :: Settings, width :: Int, height :: Int, pixels :: Uint8ClampedArray, tapeName :: String }
 jobOf settings p = { settings, width: p.width, height: p.height, pixels: p.pixels, tapeName: "test" }
 
+-- | The library's settings as the CLI builds them from its options, written
+-- | here with the library's own functions, independently of the lab's
+-- | `paramsOf`: the kernel, the gamma and the scan.
+cliParams :: Settings -> DitherParams
+cliParams settings =
+  defaults
+    # withKernel (kernelOf settings.kernel)
+    # withGamma (gammaOf settings.gamma)
+    # withScan (if settings.serpentine then serpentine else raster)
+
 -- | What the CLI makes of the picture, written independently of `Run`:
--- | the library's `ditherImageWith` with the gamma on all the rows at
+-- | the library's `ditherImageBy` with the settings on all the rows at
 -- | once, gray (by `toGray`) or RGB as the CLI chooses, each channel
 -- | rounded and clamped as the CLI writes PNGs (`Math.round`, which
 -- | `Data.Int.round` uses).
@@ -52,14 +62,14 @@ cliResult settings p = do
     gamma = gammaOf settings.gamma
     rows = if settings.gray then map (map (toNeutral gamma)) stored else stored
     grayPicture = settings.gray || all (all isNeutral) rows
-    kernel = kernelOf settings.kernel
+    params = cliParams settings
     byte v = toNumber (clamp 0 255 (Int.round v))
   pure case pipelineFor settings grayPicture of
-    Just (Gray q) -> map (map (\v -> let b = byte v in RGB { r: b, g: b, b: b })) (ditherImageWith gamma kernel q (map (map (toGray gamma)) rows))
-    Just (Color q) -> map (map (\(RGB c) -> RGB { r: byte c.r, g: byte c.g, b: byte c.b })) (ditherImageWith gamma kernel q rows)
+    Just (Gray q) -> map (map (\v -> let b = byte v in RGB { r: b, g: b, b: b })) (ditherImageBy params q (map (map (toGray gamma)) rows))
+    Just (Color q) -> map (map (\(RGB c) -> RGB { r: byte c.r, g: byte c.g, b: byte c.b })) (ditherImageBy params q rows)
     _ -> []
 
--- | What the CLI makes of the picture for a machine: `ditherCellsWith` on
+-- | What the CLI makes of the picture for a machine: `ditherCellsBy` on
 -- | all the rows at once, as its `ditherScreen`, and the machine's files from
 -- | that, as its writers make them (the tape named as the job names it).
 -- | The machine's colors are whole numbers, so no rounding.
@@ -69,17 +79,17 @@ cliScreen settings p = do
   let
     gamma = gammaOf settings.gamma
     rows = if settings.gray then map (map (toNeutral gamma)) stored else stored
-    kernel = kernelOf settings.kernel
+    params = cliParams settings
   pure case pipelineFor settings false of
     Just (Screen s) -> case s.machine of
       ZxSpectrumScreen ->
         let
-          d = ditherCellsWith gamma kernel s.rule (zxModeOf s.palette) rows
+          d = ditherCellsBy params s.rule (zxModeOf s.palette) rows
         in
           { image: d.image, files: [ { format: "scr", bytes: Zx.toScr d }, { format: "tap", bytes: Zx.toTap "test" d } ] }
       C64HiresScreen ->
         let
-          d = ditherCellsWith gamma kernel s.rule C64.hiresScreen rows
+          d = ditherCellsBy params s.rule C64.hiresScreen rows
         in
           { image: d.image, files: [ { format: "prg", bytes: C64.toHiresPrg d }, { format: "art", bytes: C64.toArtStudio d } ] }
     _ -> { image: [], files: [] }
@@ -113,6 +123,19 @@ settingsToCompare =
   , chooseGamma Gamma1p5 (chooseGray true (chooseKernel Atkinson (chooseColors (Palette C64) initial)))
   , chooseGamma GammaSrgb (chooseKernel JarvisJudiceNinke (chooseColors (Palette Websafe216) initial))
   ]
+    <> serpentineSettings
+
+-- | Serpentine scanning: a kernel reaching one row down, one reaching two
+-- | (its queues reversed for the row below, not for the one after), the
+-- | hybrid with a Bayer map, whose positions must stay the image's, and a
+-- | palette under a curve.
+serpentineSettings :: Array Settings
+serpentineSettings =
+  [ chooseSerpentine true (chooseKernel FloydSteinberg initial)
+  , chooseSerpentine true (chooseKernel JarvisJudiceNinke (chooseColors (Levels 4) initial))
+  , chooseSerpentine true (chooseKernel FloydSteinberg (chooseBayer (Just 8) (chooseColors (Levels 4) initial)))
+  , chooseGamma GammaSrgb (chooseSerpentine true (chooseKernel Atkinson (chooseColors (Palette C64) initial)))
+  ]
 
 zx :: Settings
 zx = chooseTarget (Machine ZxSpectrumScreen) initial
@@ -133,6 +156,16 @@ machineSettingsToCompare =
   , chooseGamma Gamma1p5 (chooseGray true (chooseKernel FloydSteinberg (chooseColors (MachineColors NormalPalette) zx)))
   , chooseGamma Gamma1p8 (chooseKernel Atkinson c64)
   ]
+    <> serpentineMachineSettings
+
+-- | Serpentine scanning in the cells: each pixel must still find its own
+-- | cell on the rows scanned right to left.
+serpentineMachineSettings :: Array Settings
+serpentineMachineSettings =
+  [ chooseSerpentine true (chooseKernel FloydSteinberg zx)
+  , chooseSerpentine true (chooseKernel Atkinson (chooseBayer (Just 4) c64))
+  , chooseGamma Gamma1p5 (chooseSerpentine true (chooseKernel FloydSteinberg (chooseColors (MachineColors BrightPalette) zx)))
+  ]
 
 -- | The result's pixels, or the reason there are none.
 resultOf :: Settings -> Picture -> Effect (Either String { rows :: Array (Array RGB), files :: Array { format :: String, bytes :: Array Int } })
@@ -147,6 +180,11 @@ resultOf settings p = do
 
 spec :: Spec Unit
 spec = describe "Puregrain.Web.Run" do
+  -- Turning serpentine on is ignored where it wouldn't act, so a slip in
+  -- the lists above would quietly compare raster scans.
+  it "compares settings that really have serpentine scanning on" do
+    map _.serpentine (serpentineSettings <> serpentineMachineSettings) `shouldEqual` map (const true) (serpentineSettings <> serpentineMachineSettings)
+
   it "dithers as the CLI does, row by row: the same bytes as ditherImage on the whole picture" do
     for_ [ colorful, grayish ] \makePicture -> for_ settingsToCompare \settings -> do
       p <- liftEffect makePicture

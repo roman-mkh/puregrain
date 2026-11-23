@@ -65,7 +65,15 @@ fills the page, and the settings open over it (see below).
    - **the method** (step 4): error diffusion with one of 11 kernels
      (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke first, and eight
      more, grouped in the menu under the one each derives from),
-     ordered dithering with a Bayer map (2×2 to 16×16), or both. A Bayer map works over levels, or inside a
+     ordered dithering with a Bayer map (2×2 to 16×16), or both. Under
+     the kernel's menu, "Serpentine: every other row right to left" scans
+     every other row from the right, with the kernel mirrored there: the
+     usual remedy for the patterns of rows all scanned one way, which
+     breaks up Floyd–Steinberg's "worms" near black and white
+     ([serpentine scanning](../docs/error-diffusion.md#serpentine-scanning)).
+     It needs a kernel, and colors to dither with: without them it's off
+     and unavailable, and it turns off when the kernel or the colors go
+     back to "none". A Bayer map works over levels, or inside a
      machine's cells, so it isn't offered with a threshold or a palette,
      and a note beside it says why. For black and white with a Bayer map,
      choose 2 levels and "Turn the picture gray first" (the command-line
@@ -190,6 +198,7 @@ chosen, is in the command-line tool's documentation:
 | Colors: levels per channel | `--levels N` |
 | Colors: a palette | `--palette NAME` (`bw`, `websafe216`, `cga16`, `ansi16`, `ansi256`, `c64`, `zx15`) |
 | Error diffusion | `--kernel NAME` (`none`, `floyd-steinberg`, `atkinson`, `jjn`, `stucki`, `burkes`, `sierra-3`, `sierra-2`, `sierra-lite`, `fan`, `shiau-fan`, `shiau-fan-2`) |
+| Serpentine: every other row right to left | `--serpentine` |
 | Ordered dithering (Bayer map) | `--bayer N` |
 | Turn the picture gray first | `--gray` |
 | Gamma | `--gamma NAME` (`off`, `1.2`, `1.5`, `1.8`, `srgb`) |
@@ -373,7 +382,9 @@ ideally in each of the browsers above:
 3. Each zoom keeps the pixels sharp; a large picture scrolls.
 4. The settings start at "none", showing the original. A kernel brings a
    threshold at 128, a Bayer map 2 levels; the Bayer map is unavailable
-   with a threshold or a palette.
+   with a threshold or a palette. The serpentine switch is unavailable
+   until a kernel is chosen, dimmed as the Bayer map's segments are, and
+   turns off when the kernel goes back to None.
 5. A large picture (a photo of a few megapixels) shows the progress at
    once, rising, the picture's frame in the accent color, the page keeps
    responding, and Cancel brings back

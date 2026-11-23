@@ -127,13 +127,14 @@ stepper s =
 
 -- | A toggle switch: a checkbox marked as a switch for screen readers, since
 -- | by the usual convention a switch takes effect at once (decision 31).
-toggleSwitch :: forall w i. { label :: String, checked :: Boolean, toggle :: Boolean -> i } -> HH.HTML w i
+toggleSwitch :: forall w i. { label :: String, checked :: Boolean, disabled :: Boolean, toggle :: Boolean -> i } -> HH.HTML w i
 toggleSwitch s =
   HH.label [ HP.class_ (H.ClassName "switch") ]
     [ HH.input
         [ HP.type_ HP.InputCheckbox
         , HP.attr (H.AttrName "role") "switch"
         , HP.checked s.checked
+        , HP.disabled s.disabled
         , HE.onChecked s.toggle
         ]
     , HH.span [ HP.class_ (H.ClassName "track"), HP.attr (H.AttrName "aria-hidden") "true" ] []

@@ -251,7 +251,7 @@ from the code alone.
   say "puregrain lab", or "the lab" after the first mention; the developer
   material (the code, `web/spago.yaml`, CLAUDE.md files, the roadmap,
   CONTRIBUTING.md) keeps "puregrain-web" and "the web UI". The lab has
-  its own version numbers (v2.4), apart from the library's. Its plan,
+  its own version numbers (v2.5), apart from the library's. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
   in `web/`; its user docs, with a manual checklist, in `web/README.md`.
@@ -967,6 +967,16 @@ from the code alone.
     couldn't be read on 2026-11-23; no source read attributes it to
     Ulichney, so the docs don't. The comparison crops are in
     `samples/serpentine/`, not committed.
+  - **The lab** (v2.5, phase 4; decision 36 in `web/ROADMAP.md`): a
+    switch under the kernel's menu, "Serpentine: every other row right
+    to left", on only where it acts, with a kernel and colors to dither
+    with (the user extended "a kernel" to "and colors"); it turns off when
+    either goes back to "none" and doesn't come back (the user's choice),
+    so the settings never hold it out of effect, and the worker rejects
+    such a message. "serpentine" follows the kernel in the result's name
+    and the download's. `check:web` finds its two switches by name now
+    (`getByRole('switch', { name })`): the one `input[role=switch]`
+    became ambiguous.
 - **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
   released in 0.2.2). The spec, with every measurement, is in git
   history: `git show 861e67e:docs/linear-light-spec.md`. For users:

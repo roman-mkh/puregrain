@@ -7,7 +7,7 @@ import Data.Foldable (for_)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..))
 import Effect.Aff (Aff)
-import Puregrain (Gamma, Quantize, ditherImageBy, ditherImageWith, RGB(..), gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, atkinson, bayer, burkes, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216)
+import Puregrain (Gamma, Quantize, defaults, ditherImageBy, ditherImageWith, serpentine, withGamma, withKernel, withScan, RGB(..), gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, atkinson, bayer, burkes, evenRamp, fan, floydSteinberg, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, runQuantize, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, websafe216)
 import Puregrain.Cells (CellQuantizer, ditherCells, nearestInCell, orderedInCell)
 import Puregrain.Machine.C64 as C64
 import Puregrain.Machine.ZxSpectrum as Zx
@@ -15,7 +15,7 @@ import Puregrain.Gamma (toLight)
 import Puregrain.Web.Dither (Pipeline(..), gammaOf, kernelOf, paramsOf, pipelineFor, toNeutral, zxModeOf)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), allGammas, allKernels, MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
-import Test.Spec.Assertions (fail, shouldEqual)
+import Test.Spec.Assertions (fail, shouldEqual, shouldNotEqual)
 
 -- Quantizers can't be compared directly; they're compared by what they
 -- make of probe values at probe positions.
@@ -143,13 +143,20 @@ spec = describe "Puregrain.Web.Dither" do
 
   describe "paramsOf" do
     -- DitherParams can't be compared directly; what they dither can.
-    it "holds the settings' kernel and gamma" do
+    it "holds the settings' kernel, gamma and scan" do
       let
         image = map (\y -> map (\x -> toNumber ((37 * x + 61 * y) `mod` 256)) (0 .. 11)) (0 .. 7)
         q = threshold 128.0
-      for_ allKernels \k -> for_ allGammas \g ->
+        serpentineFor k g = defaults # withKernel (kernelOf k) # withGamma (gammaOf g) # withScan serpentine
+      for_ allKernels \k -> for_ allGammas \g -> do
         ditherImageBy (paramsOf (initial { kernel = k, gamma = g })) q image
           `shouldEqual` ditherImageWith (gammaOf g) (kernelOf k) q image
+        ditherImageBy (paramsOf (initial { kernel = k, gamma = g, serpentine = true })) q image
+          `shouldEqual` ditherImageBy (serpentineFor k g) q image
+      -- The probe tells the two scans apart, so the lines above can't pass
+      -- with the scan ignored.
+      ditherImageBy (paramsOf (initial { kernel = FloydSteinberg, serpentine = true })) q image
+        `shouldNotEqual` ditherImageWith (gammaOf GammaOff) (kernelOf FloydSteinberg) q image
 
   describe "gammaOf" do
     -- A Gamma can't be compared directly; its light on a few values can.

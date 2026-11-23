@@ -5,7 +5,7 @@ import Prelude
 import Data.Array as Array
 import Data.Foldable (for_)
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, flatCells, fromMessage, gammaActs, gammaId, initial, isOriginal, kernelId, kernelMenu, machinePalettesOf, toMessage)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), allGammas, allKernels, allMachines, allPalettes, bayerSides, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, flatCells, fromMessage, gammaActs, gammaId, initial, isOriginal, kernelId, kernelMenu, machinePalettesOf, serpentineAllowed, toMessage)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -14,7 +14,7 @@ spec = describe "Puregrain.Web.Settings" do
   describe "the rules, as in the CLI" do
     it "starts with every setting at none: the original" do
       isOriginal initial `shouldEqual` true
-      initial `shouldEqual` { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false, gamma: GammaOff }
+      initial `shouldEqual` { target: AnyScreen, colors: Original, kernel: NoDiffusion, serpentine: false, bayer: Nothing, gray: false, gamma: GammaOff }
 
     it "gives a kernel chosen without colors the CLI's default colors, a gray threshold at 128" do
       (chooseKernel FloydSteinberg initial).colors `shouldEqual` Threshold 128
@@ -66,7 +66,42 @@ spec = describe "Puregrain.Web.Settings" do
     it "keeps a Bayer map through 'none', and then gives a kernel 2 levels, not a threshold" do
       let s = chooseColors Original (chooseBayer (Just 8) (chooseColors (Levels 4) initial))
       isOriginal s `shouldEqual` true
-      chooseKernel Atkinson s `shouldEqual` { target: AnyScreen, colors: Levels 2, kernel: Atkinson, bayer: Just 8, gray: false, gamma: GammaOff }
+      chooseKernel Atkinson s `shouldEqual` { target: AnyScreen, colors: Levels 2, kernel: Atkinson, serpentine: false, bayer: Just 8, gray: false, gamma: GammaOff }
+
+  describe "serpentine scanning (decision 36)" do
+    let withAtkinson = chooseKernel Atkinson (chooseColors (Levels 4) initial)
+
+    it "acts only with a kernel and colors to dither with" do
+      serpentineAllowed initial `shouldEqual` false
+      serpentineAllowed (chooseBayer (Just 4) initial) `shouldEqual` false
+      serpentineAllowed withAtkinson `shouldEqual` true
+      serpentineAllowed (chooseColors Original withAtkinson) `shouldEqual` false
+      serpentineAllowed (chooseKernel FloydSteinberg (chooseTarget (Machine ZxSpectrumScreen) initial)) `shouldEqual` true
+      serpentineAllowed (chooseBayer (Just 2) (chooseTarget (Machine ZxSpectrumScreen) initial)) `shouldEqual` false
+
+    it "takes 'on' only where it acts, and 'off' anywhere" do
+      chooseSerpentine true initial `shouldEqual` initial
+      chooseSerpentine true (chooseColors Original withAtkinson) `shouldEqual` chooseColors Original withAtkinson
+      (chooseSerpentine true withAtkinson).serpentine `shouldEqual` true
+      chooseSerpentine false (chooseSerpentine true withAtkinson) `shouldEqual` withAtkinson
+
+    it "turns off when the kernel or the colors become none, and doesn't come back by itself" do
+      let on = chooseSerpentine true withAtkinson
+      (chooseKernel NoDiffusion on).serpentine `shouldEqual` false
+      (chooseKernel Atkinson (chooseKernel NoDiffusion on)).serpentine `shouldEqual` false
+      (chooseColors Original on).serpentine `shouldEqual` false
+      (chooseColors (Levels 4) (chooseColors Original on)).serpentine `shouldEqual` false
+      -- any screen's colors start again at none
+      (chooseTarget AnyScreen (chooseTarget (Machine ZxSpectrumScreen) on)).serpentine `shouldEqual` false
+
+    it "stays on through the other settings, and onto a machine, whose colors come with it" do
+      let on = chooseSerpentine true withAtkinson
+      (chooseKernel FloydSteinberg on).serpentine `shouldEqual` true
+      (chooseColors (Palette Cga16) on).serpentine `shouldEqual` true
+      (chooseBayer (Just 8) on).serpentine `shouldEqual` true
+      (chooseGamma GammaSrgb on).serpentine `shouldEqual` true
+      (chooseGray true on).serpentine `shouldEqual` true
+      (chooseTarget (Machine C64HiresScreen) on).serpentine `shouldEqual` true
 
   describe "a machine as the target" do
     let zx = chooseTarget (Machine ZxSpectrumScreen) initial
@@ -126,15 +161,16 @@ spec = describe "Puregrain.Web.Settings" do
     it "reads back every combination the page can send" do
       let
         everyColors = [ Original, Threshold 0, Threshold 128, Threshold 255, Levels 2, Levels 256 ] <> map Palette allPalettes
-      for_ everyColors \colors -> for_ allKernels \kernel -> for_ ([ Nothing ] <> map Just bayerSides) \bayer -> for_ [ false, true ] \gray -> for_ allGammas \gamma -> do
-        let s = { target: AnyScreen, colors, kernel, bayer, gray, gamma }
+      for_ everyColors \colors -> for_ allKernels \kernel -> for_ [ false, true ] \serpentine -> for_ ([ Nothing ] <> map Just bayerSides) \bayer -> for_ [ false, true ] \gray -> for_ allGammas \gamma -> do
+        let s = { target: AnyScreen, colors, kernel, serpentine, bayer, gray, gamma }
         -- Combinations the rules rule out aren't sent; the rest come back.
-        when (bayer == Nothing || colors == Original || isLevels colors) do
+        when ((bayer == Nothing || colors == Original || isLevels colors) && (not serpentine || serpentineAllowed s)) do
           fromMessage (toMessage s) `shouldEqual` Just s
       for_ allMachines \machine -> for_ ([ Original ] <> map MachineColors (machinePalettesOf machine)) \colors ->
-        for_ allKernels \kernel -> for_ ([ Nothing ] <> map Just bayerSides) \bayer -> for_ [ false, true ] \gray -> for_ allGammas \gamma -> do
-          let s = { target: Machine machine, colors, kernel, bayer, gray, gamma }
-          fromMessage (toMessage s) `shouldEqual` Just s
+        for_ allKernels \kernel -> for_ [ false, true ] \serpentine -> for_ ([ Nothing ] <> map Just bayerSides) \bayer -> for_ [ false, true ] \gray -> for_ allGammas \gamma -> do
+          let s = { target: Machine machine, colors, kernel, serpentine, bayer, gray, gamma }
+          when (not serpentine || serpentineAllowed s) do
+            fromMessage (toMessage s) `shouldEqual` Just s
 
     it "rejects what the page wouldn't send" do
       let m = toMessage (chooseColors (Levels 4) initial)
@@ -145,6 +181,9 @@ spec = describe "Puregrain.Web.Settings" do
       fromMessage (m { bayer = 3 }) `shouldEqual` Nothing
       -- The page sends the five names only; "1.0" and "1" are the CLI's.
       fromMessage (m { gamma = "2.2" }) `shouldEqual` Nothing
+      -- serpentine without a kernel, or without colors
+      fromMessage (m { serpentine = true }) `shouldEqual` Nothing
+      fromMessage ((toMessage (chooseKernel FloydSteinberg initial)) { colors = "original", amount = 0, serpentine = true }) `shouldEqual` Nothing
       fromMessage (m { gamma = "1.0" }) `shouldEqual` Nothing
       fromMessage (m { colors = "bw", bayer = 8 }) `shouldEqual` Nothing
       fromMessage (m { target = "msx" }) `shouldEqual` Nothing

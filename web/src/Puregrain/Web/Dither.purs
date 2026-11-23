@@ -21,7 +21,7 @@ import Data.Array.NonEmpty (NonEmptyArray)
 import Data.Int (toNumber)
 import Data.Maybe (Maybe(..), maybe)
 import Partial.Unsafe (unsafeCrashWith)
-import Puregrain (DitherParams, Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, defaults, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, threshold, toGray, websafe216, withGamma, withKernel, zxSpectrum)
+import Puregrain (DitherParams, Gamma, Kernel, Quantize, RGB(..), ThresholdMap, ansi16, ansi256, atkinson, bayer, blackWhite, burkes, c64, cga16, defaults, evenRamp, fan, floydSteinberg, gamma1p2, gamma1p5, gamma1p8, gammaOff, gammaSrgb, jarvisJudiceNinke, nearestColor, nearestLevel, noDiffusion, ordered, perChannel, shiauFan, shiauFan2, sierra2, sierra3, sierraLite, stucki, raster, serpentine, threshold, toGray, websafe216, withGamma, withKernel, withScan, zxSpectrum)
 import Puregrain.Cells (CellMode, CellQuantizer, nearestInCell, orderedInCell)
 import Puregrain.Machine.ZxSpectrum as Zx
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName, MachinePaletteName(..), PaletteName(..), Settings, Target(..))
@@ -58,9 +58,14 @@ pipelineFor s grayPicture = case s.colors of
     AnyScreen -> Nothing
 
 -- | The library's settings for the lab's: the kernel and the gamma, as
--- | the CLI's `paramsOf` builds them from its options.
-paramsOf :: forall r. { kernel :: KernelName, gamma :: GammaName | r } -> DitherParams
-paramsOf s = defaults # withKernel (kernelOf s.kernel) # withGamma (gammaOf s.gamma)
+-- | the CLI's `paramsOf` builds them from its options: the kernel, the
+-- | gamma and the scan.
+paramsOf :: forall r. { kernel :: KernelName, gamma :: GammaName, serpentine :: Boolean | r } -> DitherParams
+paramsOf s =
+  defaults
+    # withKernel (kernelOf s.kernel)
+    # withGamma (gammaOf s.gamma)
+    # withScan (if s.serpentine then serpentine else raster)
 
 kernelOf :: KernelName -> Kernel
 kernelOf = case _ of

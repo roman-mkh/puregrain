@@ -2,8 +2,8 @@
 -- | CLI (decisions 7 and 21 in web/ROADMAP.md): the target (any screen,
 -- | or a machine's), the colors (for any screen a gray threshold, levels
 -- | or a palette; for a machine, its own colors) and the method (a
--- | kernel, a Bayer map, or both). Pure, so the page and the worker share
--- | it, and specs test it.
+-- | kernel, a Bayer map, or both; serpentine scanning with a kernel).
+-- | Pure, so the page and the worker share it, and specs test it.
 module Puregrain.Web.Settings
   ( KernelName(..)
   , PaletteName(..)
@@ -31,10 +31,12 @@ module Puregrain.Web.Settings
   , colorsAllowed
   , bayerAllowed
   , flatCells
+  , serpentineAllowed
   , gammaActs
   , chooseTarget
   , chooseColors
   , chooseKernel
+  , chooseSerpentine
   , chooseBayer
   , chooseGray
   , chooseGamma
@@ -132,15 +134,17 @@ derive instance Generic Colors _
 instance Show Colors where
   show = genericShow
 
+-- | `serpentine` scans every other row right to left, like the CLI's
+-- | `--serpentine`, and is on only where it acts (`serpentineAllowed`);
 -- | `bayer` is the side of the Bayer map, `Nothing` for none; `gray`
 -- | turns the picture gray first, like the CLI's `--gray`; `gamma` is
 -- | the CLI's `--gamma`.
-type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, bayer :: Maybe Int, gray :: Boolean, gamma :: GammaName }
+type Settings = { target :: Target, colors :: Colors, kernel :: KernelName, serpentine :: Boolean, bayer :: Maybe Int, gray :: Boolean, gamma :: GammaName }
 
 -- | Every setting at "none", for any screen: the page shows the original
 -- | (decision 16).
 initial :: Settings
-initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, bayer: Nothing, gray: false, gamma: GammaOff }
+initial = { target: AnyScreen, colors: Original, kernel: NoDiffusion, serpentine: false, bayer: Nothing, gray: false, gamma: GammaOff }
 
 -- | Every kernel, in the CLI's order with None first (v2.2 in
 -- | ROADMAP.md).
@@ -270,6 +274,12 @@ flatCells s = case s.colors of
   MachineColors _ -> s.kernel == NoDiffusion && s.bayer == Nothing
   _ -> false
 
+-- | Whether serpentine scanning acts: where error is passed on, which
+-- | needs a kernel, and colors to dither with. Elsewhere the page disables
+-- | its switch, as the CLI rejects `--serpentine` with `--kernel none`.
+serpentineAllowed :: Settings -> Boolean
+serpentineAllowed s = s.kernel /= NoDiffusion && not (isOriginal s)
+
 -- | Whether the gamma can change the picture: where light is spread, by a
 -- | kernel passing the error on or a Bayer map placing dots, and in the
 -- | gray that "gray first" makes, all only once there are colors to
@@ -287,7 +297,7 @@ gammaActs mixed s = mixed || (not (isOriginal s) && (s.gray || s.kernel /= NoDif
 chooseTarget :: Target -> Settings -> Settings
 chooseTarget target s =
   if target == s.target then s
-  else s { target = target, colors = colors }
+  else fitSerpentine (s { target = target, colors = colors })
   where
   colors = case target of
     AnyScreen -> Original
@@ -297,13 +307,26 @@ chooseTarget target s =
 -- | with them is turned off.
 chooseColors :: Colors -> Settings -> Settings
 chooseColors colors s =
-  if colorsAllowed s.target colors then s { colors = colors, bayer = if bayerAllowed colors then s.bayer else Nothing }
+  if colorsAllowed s.target colors then fitSerpentine (s { colors = colors, bayer = if bayerAllowed colors then s.bayer else Nothing })
   else s
 
 -- | A new kernel. With no colors yet, they take the target's default
 -- | (see `withColors`), so there's something to dither with (decision 16).
 chooseKernel :: KernelName -> Settings -> Settings
-chooseKernel kernel s = withColors (s { kernel = kernel })
+chooseKernel kernel s = fitSerpentine (withColors (s { kernel = kernel }))
+
+-- | Serpentine scanning on or off. Turning it on is ignored where it
+-- | wouldn't act (`serpentineAllowed`), where the page disables its switch.
+chooseSerpentine :: Boolean -> Settings -> Settings
+chooseSerpentine on s =
+  if on && not (serpentineAllowed s) then s
+  else s { serpentine = on }
+
+-- | Serpentine scanning turned off where it no longer acts: after the
+-- | kernel became none, or the colors none. As a Bayer map that doesn't go
+-- | with new colors, it doesn't come back by itself (the user's choice).
+fitSerpentine :: Settings -> Settings
+fitSerpentine s = if s.serpentine && not (serpentineAllowed s) then s { serpentine = false } else s
 
 -- | A new Bayer map, or none. Ignored with colors it doesn't go with,
 -- | which the page doesn't offer it with.
@@ -340,10 +363,10 @@ withColors s =
 -- | "levels", a palette's name, or a machine palette's; `amount` the
 -- | threshold or the number of levels; `bayer` a map's side or 0;
 -- | `gamma` the CLI's name for it.
-type SettingsMessage = { target :: String, colors :: String, amount :: Int, kernel :: String, bayer :: Int, gray :: Boolean, gamma :: String }
+type SettingsMessage = { target :: String, colors :: String, amount :: Int, kernel :: String, serpentine :: Boolean, bayer :: Int, gray :: Boolean, gamma :: String }
 
 toMessage :: Settings -> SettingsMessage
-toMessage s = { target, colors, amount, kernel: kernelId s.kernel, bayer: fromMaybe 0 s.bayer, gray: s.gray, gamma: gammaId s.gamma }
+toMessage s = { target, colors, amount, kernel: kernelId s.kernel, serpentine: s.serpentine, bayer: fromMaybe 0 s.bayer, gray: s.gray, gamma: gammaId s.gamma }
   where
   target = case s.target of
     AnyScreen -> "any"
@@ -375,5 +398,6 @@ fromMessage m = do
     else if Array.elem m.bayer bayerSides then Just (Just m.bayer)
     else Nothing
   gamma <- Array.find (\g -> gammaId g == m.gamma) allGammas
-  if not (colorsAllowed target colors) || (bayer /= Nothing && not (bayerAllowed colors)) then Nothing
-  else Just { target, colors, kernel, bayer, gray: m.gray, gamma }
+  let settings = { target, colors, kernel, serpentine: m.serpentine, bayer, gray: m.gray, gamma }
+  if not (colorsAllowed target colors) || (bayer /= Nothing && not (bayerAllowed colors)) || (m.serpentine && not (serpentineAllowed settings)) then Nothing
+  else Just settings

@@ -93,6 +93,7 @@ texts
      , gamma :: String
      , gammaName :: GammaName -> String
      , flatCells :: String
+     , serpentine :: String
      , gray :: String
      , originalShown :: String
      , originalShownPhone :: String
@@ -167,13 +168,14 @@ texts =
                     AnyScreen -> []
               )
             <> (if settings.kernel == NoDiffusion then [] else [ texts.kernelName settings.kernel ])
+            <> (if settings.serpentine then [ "serpentine" ] else [])
             <> maybe [] (\side -> [ "ordered dithering " <> texts.bayerSide side ]) settings.bayer
             <> (if settings.gamma == GammaOff then [] else [ "gamma " <> texts.gammaName settings.gamma ])
             <> (if settings.gray then [ "gray first" ] else [])
         )
   -- In parts that the footer keeps whole, so that a narrow screen breaks
   -- the line after the comma, not between "puregrain" and its version.
-  , versions: \library -> if library == "" then [ "puregrain lab v2.4" ] else [ "puregrain lab v2.4,", "powered by puregrain " <> library ]
+  , versions: \library -> if library == "" then [ "puregrain lab v2.5" ] else [ "puregrain lab v2.5,", "powered by puregrain " <> library ]
   , codeLicense: "The code: MIT"
   , logoLicense: "Logo terms"
   , onGitHub: "puregrain on GitHub"
@@ -296,6 +298,7 @@ texts =
       Gamma1p8 -> "1.8"
       GammaSrgb -> "sRGB"
   , flatCells: "Each pixel takes the nearer of its cell's colors. Recommended: ordered dithering, 2×2, the look of the time; 4×4 for smoother tones."
+  , serpentine: "Serpentine: every other row right to left"
   , gray: "Turn the picture gray first"
   , originalShown: "The original is shown. Choose colors or a method to dither it."
   -- On a phone the settings are behind the header's button.

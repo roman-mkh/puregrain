@@ -60,7 +60,14 @@ const SETTINGS = [
     cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'], name: 'levels4-atkinson-srgb' },
   { what: 'the CGA palette, Floyd-Steinberg, gray first, gamma 1.5', colors: 'cga16', kernel: 'floyd-steinberg', gamma: '1.5', gray: true,
     cli: ['--palette', 'cga16', '--kernel', 'floyd-steinberg', '--gamma', '1.5', '--gray'], name: 'cga16-floyd-steinberg-gamma1.5-gray' },
+  // Serpentine scanning (decision 36): its switch, disabled until a
+  // kernel is chosen, as the CLI rejects --serpentine with none.
+  { what: '4 levels, Floyd-Steinberg, serpentine', colors: 'levels', levels: '4', kernel: 'floyd-steinberg', serpentine: true,
+    cli: ['--levels', '4', '--kernel', 'floyd-steinberg', '--serpentine'], name: 'levels4-floyd-steinberg-serpentine' },
 ];
+// The page's two switches, by their names.
+const GRAY_SWITCH = { name: 'Turn the picture gray first' };
+const SERPENTINE_SWITCH = { name: 'Serpentine: every other row right to left' };
 // `dir` keeps each entry's CLI files apart; the names in it are the
 // picture's, so that a tape's name is the page's.
 const MACHINES = [
@@ -451,16 +458,20 @@ const checksIn = async (engine, page) => {
     const before = await runs();
     await page.locator('select').nth(0).selectOption(s.colors);
     if (s.levels) await page.locator('.stepper input[type=number]').fill(s.levels);
+    // With colors but no kernel yet, serpentine scanning can't act.
+    const serpentineFirst = s.serpentine ? await page.getByRole('switch', SERPENTINE_SWITCH).isDisabled() : true;
     if (s.kernel) await page.locator('select').nth(1).selectOption(s.kernel);
+    if (s.serpentine) await page.getByRole('switch', SERPENTINE_SWITCH).evaluate((toggle) => toggle.click());
     if (s.bayer) await pick('bayer', s.bayer);
     if (s.gamma) await pick('gamma', s.gamma);
-    if (s.gray) await page.locator('input[role=switch]').evaluate((toggle) => toggle.click());
+    if (s.gray) await page.getByRole('switch', GRAY_SWITCH).evaluate((toggle) => toggle.click());
     await finished(before);
     const expected = `${PICTURE}-${s.name}.png`;
     const file = await download(() => page.locator('.downloads button').first().click());
     const diff = differing(pixelsOf(file.bytes), pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`)));
-    report(file.name === expected && diff === 0,
-      `${engine}: ${s.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`}`);
+    report(file.name === expected && diff === 0 && serpentineFirst,
+      `${engine}: ${s.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`}` +
+      (s.serpentine ? `; its switch ${serpentineFirst ? 'disabled' : 'NOT disabled'} until a kernel` : ''));
     if (s.name === 'levels4-atkinson') {
       const original = pixelsOf(fs.readFileSync(`${out}/${PICTURE}.png`));
       const result = pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`));

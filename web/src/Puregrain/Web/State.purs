@@ -154,6 +154,7 @@ data Action
   | LevelsTyped String
   | KernelChosen String
   | BayerChosen String
+  | SerpentineChosen Boolean
   | GrayChosen Boolean
   | GammaChosen String
   | Cancel

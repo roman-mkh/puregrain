@@ -41,7 +41,7 @@ import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
 import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, lightTables, placementOn, screenToFit, white)
 import Puregrain.Web.Save (saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
-import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
+import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
 import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, engineButtonRef, engineRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
 import Puregrain.Web.Status (EngineCheck(..), Run(..), engineCheckName, held, progressDelay, resultShows)
@@ -366,6 +366,7 @@ handleAction = case _ of
   BayerChosen value ->
     if value == "none" then change (chooseBayer Nothing)
     else for_ (Int.fromString value) \side -> change (chooseBayer (Just side))
+  SerpentineChosen on -> change (chooseSerpentine on)
   GrayChosen gray -> change (chooseGray gray)
   GammaChosen value ->
     for_ (Array.find (\g -> gammaId g == value) allGammas) \g -> change (chooseGamma g)

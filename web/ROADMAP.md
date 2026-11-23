@@ -119,8 +119,16 @@ users is a separate task, see TODO.md.)
   the repository's `pictures/macaw-and-toucan.png`, shipped with the
   page. `check:web` loads it from both links, and blocked, and compares a
   run with the CLI's.
+- **v2.5, serpentine scanning** (2026-11-23, on the branch `serpentine`,
+  with the library's 0.3.1 and the CLI's `--serpentine`; decision 36):
+  "Serpentine: every other row right to left", a switch under the kernel's
+  menu, on only where it acts; "serpentine" after the kernel in the
+  result's name and the download's. `check:web` compares a run with the
+  CLI's, and the switch disabled until a kernel. Took the number planned
+  for the pictures from other web pages, now v2.6 (the user's choice).
 - **Next, before v3: pictures from other web pages** (the user's ideas,
-  2026-11-19), a small version of its own (v2.5):
+  2026-11-19), a small version of its own (v2.6; planned as v2.5 before
+  serpentine scanning took that number):
   - **Pasting a picture, Ctrl+V** (Cmd+V on a Mac): "Copy image" on any
     web page, or a screenshot, then pasted into the lab. The browser puts
     the picture itself on the clipboard, so the other site's permission
@@ -780,6 +788,25 @@ these decisions are phase 6's reference (the user).
     - **Loaded as a chosen file,** named `macaw-and-toucan.png`, so the
       downloads are named after it; if it can't be fetched, the empty
       page says so until the next action.
+
+36. **Serpentine scanning** (2026-11-23, v2.5; the user's choices): the
+    CLI's `--serpentine`, the library's `withScan serpentine`
+    (`docs/error-diffusion.md`, "Serpentine scanning").
+    - **A switch under the kernel's menu,** the setting it modifies, not
+      at the step's end with "gray first": "Serpentine: every other row
+      right to left", the word that the result's name ("4 levels,
+      Atkinson, serpentine"), the download's (`-serpentine` after the
+      kernel) and the CLI's option share.
+    - **On only where it acts** (`Settings.serpentineAllowed`): with a
+      kernel, and colors to dither with; disabled otherwise, dimmed as
+      the Bayer map's segments are, without a note (it sits under the
+      kernel's None). The user extended the rule from "a kernel" to "and
+      colors": with the colors at "none" nothing is dithered.
+    - **It turns off** when the kernel or the colors go back to "none",
+      as a Bayer map does when new colors don't allow it, and doesn't
+      come back by itself (the user's choice over keeping it, inactive):
+      the settings never hold a choice that isn't in effect, and the
+      worker rejects one (`fromMessage`).
 
 ## v1 in detail
 
