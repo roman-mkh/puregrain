@@ -112,7 +112,9 @@ raster = Raster
 -- |
 -- | Each pixel's quantizer still gets its own position, counted from the
 -- | image's left and top edges, so ordered dithering and machine cells
--- | work as with `raster`. With `noDiffusion` it changes nothing.
+-- | work as with `raster`. With `noDiffusion` it changes nothing. What it
+-- | changes, and what it doesn't:
+-- | [docs/error-diffusion.md](https://github.com/roman-mkh/puregrain/blob/master/docs/error-diffusion.md#serpentine-scanning).
 serpentine :: Scan
 serpentine = Serpentine
 

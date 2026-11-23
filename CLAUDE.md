@@ -358,7 +358,8 @@ from the code alone.
   `error-diffusion.md` (2026-11-05: the 11 kernels, each with its table,
   other names, sources, and what it's good for as the sources say it;
   the project's own observations marked *seen here*; its tables were
-  checked against the compiled presets by a script when written),
+  checked against the compiled presets by a script when written; a
+  "Serpentine scanning" section since 2026-11-23),
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
   `machine-screens/` (decided 2026-10-16, the user's idea: one folder,
   its `README.md` for what all cell screens share, which mode for which
@@ -378,6 +379,13 @@ from the code alone.
   "Machine screens" keeps only the CLI's part: options, the size rule
   (the CLI's size error points there for the resize hint), the files in
   a sentence each, and links.
+- `scripts/benchmark.mjs`'s scan suite (2026-11-23): each configuration
+  without and with `--serpentine`, back to back, as the gamma suite pairs
+  its gammas (the two now share `pairTables`, the gamma report unchanged,
+  checked on saved runs). Another checkout's build can join a run through
+  a link under the gitignored `samples/` (`--builds
+  samples/output-master,output`), so a branch is compared with `master`
+  interleaved, in one session.
 - `scripts/measure-gamma.mjs` (2026-11-15) — dithers the test images
   through the real CLI under each gamma and measures the results in two
   views (blurred in light, as the eye at 1:1; blurred as stored, as a
@@ -939,6 +947,26 @@ from the code alone.
     `CatQueue.reverse` twice, always from the left, the turn decided by
     the target alone, `withScan` touching the kernel, a serpentine
     default). 23 CLI configurations byte-identical to `master`.
+  - **Measured (phase 3, `docs/benchmarks-dithering.md`, 2026-11-23):** no
+    measurable cost, ×1.00 at 1024² by each round's back-to-back pair; two
+    configurations slower at one size each (websafe216 at 1024², the Bayer
+    8 hybrid at 512²), both looking like V8's two speeds, not added work.
+    The raster path against `master`'s build, in the same session: ×1.00
+    at 1024², within one build's own run-to-run variation (4.5%).
+  - **Seen here** (`docs/error-diffusion.md`, "Serpentine scanning"): on
+    `gray:shadows-highlights` at 256², Floyd–Steinberg's worms go; counted,
+    the dot pairs one row and 1–3 columns apart leaning left: 74% and 82%
+    raster, 46% and 51% serpentine, with the same number of dots. What
+    stays: the dot-free onset strip, `gray:vramp`'s first row of dots, and
+    the streaks in machine cells (error a cell can't use, still passed on);
+    `test-images.md` said serpentine remedied vramp's horizontal
+    structures, and now says what was seen. The sources found say little:
+    Wikipedia's "Floyd–Steinberg dithering" (the definition) and "Error
+    diffusion" ("to reduce more artifacts"); DitherPunk.jl has no
+    serpentine; the libcaca study (TLS error) and Helland (HTTP 403)
+    couldn't be read on 2026-11-23; no source read attributes it to
+    Ulichney, so the docs don't. The comparison crops are in
+    `samples/serpentine/`, not committed.
 - **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
   released in 0.2.2). The spec, with every measurement, is in git
   history: `git show 861e67e:docs/linear-light-spec.md`. For users:

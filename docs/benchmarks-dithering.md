@@ -27,8 +27,8 @@ npm run clean:bench   # delete the generated images in samples/bench/ (keeps the
 ```
 
 Options: `--runs` (default 5), `--sizes` (default `64,128,256,512,1024`),
-`--suite modes|kernels|ordered|all|gamma` (default `all`, which leaves out
-`gamma`), and `--builds` (default `output`). Plug the laptop in, close other programs, and leave the machine
+`--suite modes|kernels|ordered|all|gamma|scan` (default `all`, which leaves
+out `gamma` and `scan`), and `--builds` (default `output`). Plug the laptop in, close other programs, and leave the machine
 alone until the run ends; see [Noise](#noise-1) for why.
 
 To compare two builds of the same code (since 2026-10-10):
@@ -47,10 +47,19 @@ Its report is one table of both medians, their ratio, what sRGB adds per
 pixel, and the ratio for the whole process, which also counts what the
 timed part leaves out, such as `--gray`'s conversion.
 
+To measure what serpentine scanning costs (since 2026-11-23): `npm run bench
+-- --suite scan` runs each configuration without and with `--serpentine`,
+back to back, the order alternating by round, at the same sizes; about 6
+minutes on mains. Its report is the gamma suite's table, for the scan.
+
 To measure an older commit, for example as the baseline for a change,
 check it out in a separate git worktree, link `node_modules` from the
 main checkout, build it there and run that worktree's
-`scripts/benchmark.mjs`: each checkout benchmarks its own build.
+`scripts/benchmark.mjs`: each checkout benchmarks its own build. To compare
+it with the current build in one session, interleaved, link its build into
+the gitignored `samples/` instead (`ln -s <worktree>/output
+samples/output-master`) and give `--builds samples/output-master,output`
+(since 2026-11-23).
 
 ## Method
 
@@ -987,3 +996,129 @@ table gives better than a plot of time against size.
   ([TODO.md](../TODO.md)), since they make single comparisons of the
   palette unreliable.
 
+
+
+---
+
+## 2026-11-23 — Serpentine scanning, and the raster path against `master`
+
+Two runs in one session, one after the other. The first is the new scan
+suite: each configuration without and with `--serpentine`, back to back,
+on the paths serpentine scanning touches (kernels reaching one row down
+and two, whose queues are reversed and not; the RGB arithmetic; the
+palette search; the hybrid with a Bayer map, whose positions are mirrored
+on the rows scanned right to left; a machine's screen). The second runs
+every suite with this branch's build and with `master`'s, back to back:
+what the branch costs with serpentine off, since it changed the code
+every caller runs (`DitherParams`, one more field in the per-pixel row
+state, the per-row direction).
+
+**Environment:**
+
+- Date: 2026-11-23; commit 3c7b624 (branch `serpentine`), plus the uncommitted scan suite in `scripts/benchmark.mjs`; `master`'s build from 8728864 in a git worktree, linked as `samples/output-master`
+- CPU: Intel(R) Core(TM) Ultra 9 185H (11 logical cores); memory: 31 GiB
+- Power: mains (AC)
+- OS: Linux 6.8.0-1073-azure (x64)
+- Node v22.23.5; purs 0.15.17; spago 1.0.4: new since the 2026-11-15 run, which had Node v22.14.0 and purs 0.15.16
+- First run: `raster` and `serpentine`, back to back, the order alternating by round; second run: the builds `samples/output-master` and `output`, the same way
+- 5 runs per configuration, interleaved; median reported
+
+### Results
+
+**What `--serpentine` adds** (median ms of the dithering, then the whole process):
+
+| Configuration | Size | raster, ms | serpentine, ms | serpentine ÷ raster | serpentine − raster, µs per pixel | whole process, serpentine ÷ raster |
+| :--- | ---: | ---: | ---: | ---: | ---: | ---: |
+| Floyd-Steinberg, threshold 128 | 256² | 142 | 118 | ×0.83 | −0.36 | ×0.84 |
+| Floyd-Steinberg, threshold 128 | 512² | 421 | 423 | ×1.00 | +0.01 | ×1.01 |
+| Floyd-Steinberg, threshold 128 | 1024² | 1,922 | 1,926 | ×1.00 | +0.00 | ×1.00 |
+| Atkinson, threshold 128 | 256² | 170 | 171 | ×1.01 | +0.01 | ×0.99 |
+| Atkinson, threshold 128 | 512² | 607 | 629 | ×1.04 | +0.08 | ×1.03 |
+| Atkinson, threshold 128 | 1024² | 2,811 | 2,860 | ×1.02 | +0.05 | ×1.01 |
+| JJN, threshold 128 | 256² | 242 | 273 | ×1.13 | +0.48 | ×1.06 |
+| JJN, threshold 128 | 512² | 981 | 1,112 | ×1.13 | +0.50 | ×1.08 |
+| JJN, threshold 128 | 1024² | 4,805 | 4,639 | ×0.97 | −0.16 | ×0.96 |
+| Floyd-Steinberg, levels 6 (RGB) | 256² | 272 | 276 | ×1.02 | +0.06 | ×1.01 |
+| Floyd-Steinberg, levels 6 (RGB) | 512² | 1,057 | 1,149 | ×1.09 | +0.35 | ×1.08 |
+| Floyd-Steinberg, levels 6 (RGB) | 1024² | 4,848 | 5,015 | ×1.03 | +0.16 | ×1.04 |
+| Floyd-Steinberg, websafe216 | 256² | 507 | 501 | ×0.99 | −0.09 | ×1.03 |
+| Floyd-Steinberg, websafe216 | 512² | 2,360 | 2,287 | ×0.97 | −0.28 | ×0.98 |
+| Floyd-Steinberg, websafe216 | 1024² | 7,998 | 10,019 | ×1.25 | +1.93 | ×1.23 |
+| Floyd-Steinberg, Bayer 8 | 256² | 139 | 141 | ×1.01 | +0.03 | ×1.00 |
+| Floyd-Steinberg, Bayer 8 | 512² | 459 | 589 | ×1.28 | +0.50 | ×1.19 |
+| Floyd-Steinberg, Bayer 8 | 1024² | 2,145 | 2,131 | ×0.99 | −0.01 | ×1.00 |
+| Floyd-Steinberg, ZX Spectrum, error diffusion | 256x192 | 255 | 247 | ×0.97 | −0.15 | ×1.03 |
+
+At 1024²: the dithering takes ×1.01 as long with serpentine in the median over the configurations (×0.97 to ×1.25), the whole process ×1.00 (×0.96 to ×1.23). The median of the ratios of each round's back-to-back
+pair agrees: ×1.00 at 1024², ×1.02 over 256² to 1024².
+
+**Run-to-run spread** ((max − min) ÷ median): 256²→1024²: median 18%, largest 124% (serpentine:256-floyd-steinberg-threshold); all sizes: median 16%, largest 124% (serpentine:256-floyd-steinberg-threshold).
+**Slowest run by round** (256²→1024², rounds 1-5): 3 / 9 / 12 / 6 / 6. No single round stands out.
+
+**This branch's build against `master`'s**, every row left to right
+(median ÷ median; below ×1.00, the branch is faster):
+
+| Configuration | 256² | 512² | 1024² |
+| ---: | ---: | ---: | ---: |
+| Floyd-Steinberg, threshold 128 | ×1.07 | ×0.97 | ×1.06 |
+| Floyd-Steinberg, levels 4 (gray) | ×1.08 | ×1.00 | ×1.04 |
+| Floyd-Steinberg, levels 6 (RGB) | ×1.05 | ×1.00 | ×1.06 |
+| Floyd-Steinberg, websafe216 | ×0.92 | ×0.79 | ×0.82 |
+| Floyd-Steinberg, bw | ×1.04 | ×1.01 | ×0.94 |
+| Atkinson, threshold 128 | ×1.00 | ×1.09 | ×0.97 |
+| JJN, threshold 128 | ×1.09 | ×1.12 | ×0.97 |
+| no diffusion, Bayer 8 | ×1.26 | ×0.96 | ×1.01 |
+| Floyd-Steinberg, Bayer 8 | ×1.02 | ×1.11 | ×1.00 |
+
+Over 256² to 1024²: median ×1.01 (×0.79 to ×1.26); at 1024²: median ×1.00. By the rounds' pairs: ×1.07 at 256², ×1.02 at 512² and at
+1024².
+
+- `master`: run-to-run spread ((max − min) ÷ median): 256²→1024²: median 20%, largest 51% (samples/output-master:512-none-bayer8); all sizes: median 20%, largest 51% (samples/output-master:512-none-bayer8). Slowest run by round (256²→1024², rounds 1-5): 7 / 4 / 3 / 5 / 8. No single round stands out.
+- branch: run-to-run spread ((max − min) ÷ median): 256²→1024²: median 19%, largest 37% (output:256-floyd-steinberg-websafe216); all sizes: median 19%, largest 37% (output:256-floyd-steinberg-websafe216). Slowest run by round (256²→1024², rounds 1-5): 7 / 2 / 4 / 7 / 7. No single round stands out.
+
+### Analysis
+
+**Serpentine scanning costs nothing measurable.** ×1.01 at 1024² in the
+median over the configurations, ×1.00 by the rounds' pairs; at 512² and
+1024², every configuration but two is between ×0.96 and ×1.05 by its pairs.
+That's the design: a row scanned right to left is the same loop from the
+other end, and the queues for the rows below are reversed once per row, in
+O(1) for `CatQueue`.
+
+**The two exceptions are at one size each**, and look like the two speeds
+V8 sometimes picks for the same code, not like work serpentine adds, which
+would show at every size:
+
+- websafe216 at 1024² (×1.25): its raster runs switched between two speeds
+  again, as in the 2026-11-15 run, 7.5 to 8.0 s in three rounds and 10.4 to
+  10.6 s in two, while all five serpentine runs took 9.7 to 11.8 s. At the
+  slow speed the two are alike. Whether serpentine never gets the fast one,
+  or chance kept it there, five runs can't tell.
+- The Bayer 8 hybrid at 512² (×1.27 by the pairs): about 600 ms with
+  serpentine in four rounds and 454 in the fifth, against 452 to 469 for
+  raster. At 256² and 1024² the two are alike.
+
+**With serpentine off, the branch is as fast as `master`:** ×1.00 at
+1024² (by the pairs ×1.02), with Floyd–Steinberg and a threshold, the
+steadiest configuration, at ×1.06. That's within what one build varies
+by between two runs: the branch's own Floyd–Steinberg at 1024² took
+1,922 ms in the first run and 2,008 ms in the second. So whatever the
+extra field and the per-row direction cost is below about 5%. At 256², by
+the pairs ×1.07: about 10 ms more in several configurations, a fixed
+amount that the larger sizes don't show, probably the extra code to
+compile at the start. websafe216 at 512² and 1024² (×0.79, ×0.82) is its
+two speeds again, this time with `master`'s runs more often at the slow
+one.
+
+**The new toolchain moved nothing visible:** Floyd–Steinberg with a
+threshold takes 1.9 to 2.0 s at 1024² with Node v22.23.5 and purs 0.15.17,
+as with the old (2.1 s on 2026-11-15, 2.0 s on 2026-10-10).
+
+### Next steps
+
+- **Nothing to do about serpentine's cost.**
+- **websafe216's two speeds** have now shown in three runs; still worth a
+  look with the large-image suite ([TODO.md](../TODO.md)).
+- **Differences below 5%** between two builds would need more runs of fewer
+  configurations, for example `--suite kernels --sizes 1024 --runs 15`:
+  worth it only for a change that aims at a few percent.

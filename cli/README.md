@@ -195,7 +195,9 @@ runs right to left, starting with the second, and the kernel is mirrored
 on those rows, so the error still goes to pixels not yet processed. It's
 the usual remedy for the patterns error diffusion draws when every row
 runs the same way, and works with every kernel and every mode that
-diffuses error, machine screens included.
+diffuses error, machine screens included. On the test images it breaks up
+Floyd–Steinberg's worms, at no measurable cost; what it changes and what
+it doesn't: [docs/error-diffusion.md](../docs/error-diffusion.md#serpentine-scanning).
 
 Each kernel's weights, sources and history are in
 [docs/error-diffusion.md](../docs/error-diffusion.md). Time grows with the

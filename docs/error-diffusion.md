@@ -13,8 +13,9 @@ of offsets.
 
 ## How it works
 
-The image is processed row by row, top to bottom, each row left to right.
-For each pixel:
+The image is processed row by row, top to bottom, each row left to right
+(or, with [serpentine scanning](#serpentine-scanning), every other row
+right to left). For each pixel:
 
 ```
 corrected = input(x, y) + error arriving from earlier pixels
@@ -95,6 +96,8 @@ results in very fine-grained dithering." *Seen here:* at tones very near
 black or white, the dots line up into curved diagonal strings, "worms",
 and the first dots appear only after a dot-free strip (the
 [`gray:shadows-highlights`](test-images.md#grayshadows-highlights) tile).
+With [serpentine scanning](#serpentine-scanning), the worms are gone; the
+strip stays.
 
 Source: R. W. Floyd and L. Steinberg, "An adaptive algorithm for spatial
 grey scale", Proceedings of the Society for Information Display 17
@@ -278,6 +281,41 @@ The same aim, with one more neighbour, three columns to the left.
 Sources: US patent 5,353,127, claim 4; DitherPunk.jl; ditherit.com's
 code.
 
+## Serpentine scanning
+
+Every row is scanned left to right by default. With serpentine scanning,
+`withScan serpentine` in the library and `--serpentine` in the CLI, the
+rows alternate: the first left to right, the second right to left, and so
+on. On a row scanned right to left the kernel is mirrored, so the error
+still goes to pixels not yet processed: `dx` columns to the left instead
+of the right. Wikipedia: "In some implementations, the horizontal
+direction of scan alternates between lines; this is called 'serpentine
+scanning'" ("Floyd–Steinberg dithering"), one of the refinements "to
+reduce more artifacts" ("Error diffusion").
+
+*Seen here,* with Floyd–Steinberg on the
+[`gray:shadows-highlights`](test-images.md#grayshadows-highlights) tile at
+256 × 256: the worms are gone. With every row left to right, the dots near
+black and near white line up in chains that lean one way: of the pairs of
+dots one row apart and one to three columns apart, 74% near black and 82%
+near white have the lower dot to the left. With serpentine scanning, 46%
+and 51%: the dots spread evenly, and fewer sit close together (547 and 518
+such pairs, against 796 and 762), with the same number of dots, so the same
+tone. What stays: the dot-free strip before the first dots, and on
+[`gray:vramp`](test-images.md#grayvramp) the row of dots where they begin;
+both come from error building up, which the scan's direction doesn't
+change. On a [machine's screen](machine-screens/README.md), the thin
+streaks Floyd–Steinberg leaves in the cells stay too: they come from error
+a cell can't use, which serpentine scanning still passes on.
+
+It works with every kernel and quantizer, ordered dithering's hybrid and
+machine screens included; each pixel's quantizer still gets its own
+position, counted from the image's left edge. With no diffusion it changes
+nothing, and the CLI rejects it there. It costs nothing measurable: at
+1024 × 1024, ×1.00 in the median over the configurations measured, by
+each round's pair ([benchmarks](benchmarks-dithering.md), 2026-11-23). It
+isn't the default, so that a picture dithered before comes out as it did.
+
 ## Your own kernel
 
 `fromOffsets` builds a kernel from a list of offsets, and checks it:
@@ -329,8 +367,9 @@ Any of them can be built with `fromOffsets`.
   with two under each curve (`npm run check:cli`, see
   [test-images.md](test-images.md#exact-checks)).
 - **The diffusion is checked against an independent reference,** a
-  deliberately simple implementation, for random kernels and images
-  (`Test.Puregrain.DiffusionMechanicsSpec`).
+  deliberately simple implementation, for random kernels and images, with
+  every row left to right and with serpentine scanning, which the
+  reference writes out on its own (`Test.Puregrain.DiffusionMechanicsSpec`).
 - **Every preset's offsets and weights equal its published table,**
   written out in `Test.Puregrain.KernelSpec` independently of the library.
 
@@ -355,8 +394,11 @@ Any of them can be built with `fromOffsets`.
 - Sam Hocevar, [the libcaca study, part 3](http://caca.zoy.org/study/part3.html):
   error diffusion and its kernels, Fan's and Shiau–Fan's among them.
 - Wikipedia: ["Dither"](https://en.wikipedia.org/wiki/Dither) (each
-  classic kernel in a sentence) and ["Atkinson
-  dithering"](https://en.wikipedia.org/wiki/Atkinson_dithering).
+  classic kernel in a sentence), ["Atkinson
+  dithering"](https://en.wikipedia.org/wiki/Atkinson_dithering), and
+  ["Floyd–Steinberg dithering"](https://en.wikipedia.org/wiki/Floyd%E2%80%93Steinberg_dithering)
+  and ["Error diffusion"](https://en.wikipedia.org/wiki/Error_diffusion)
+  (serpentine scanning, 2026-11-23).
 - FFmpeg's [`paletteuse` filter](https://ffmpeg.org/ffmpeg-filters.html#paletteuse):
   the names `sierra3`, `sierra2` and `sierra2_4a`, its default.
 - [ditherit.com](https://ditherit.com): its kernels, read from the page's
