@@ -1,4 +1,4 @@
-# <img src="https://raw.githubusercontent.com/roman-mkh/puregrain/master/logo/zx/lockup.svg" width="540" alt="puregrain">
+# <img src="https://raw.githubusercontent.com/roman-mkh/puregrain/master/logo/c64/lockup.svg" width="540" alt="puregrain">
 
 Dithering for PNG images on the command line: error diffusion with 11
 kernels (Floyd–Steinberg, Atkinson, Jarvis–Judice–Ninke and more),

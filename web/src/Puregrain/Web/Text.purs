@@ -20,6 +20,8 @@ texts
      , help :: String
      , source :: String
      , darkTheme :: String
+     , toLightTheme :: String
+     , toDarkTheme :: String
      , engineName :: EngineCheck -> String
      , engineStatus :: EngineCheck -> String
      , engineDetails :: String
@@ -128,6 +130,10 @@ texts =
   , help: "Help"
   , source: "Source"
   , darkTheme: "Dark theme"
+  -- The theme switch's tooltip, which says what a click does; its name
+  -- for screen readers stays "Dark theme", pressed or not.
+  , toLightTheme: "Switch to the light theme"
+  , toDarkTheme: "Switch to the dark theme"
   -- The engine check (v2.3): the icon's name for screen
   -- readers, and its popup's sentence, also said once when it fails.
   , engineName: case _ of

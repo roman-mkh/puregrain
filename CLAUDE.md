@@ -166,7 +166,9 @@ from the code alone.
   joins the same package (TODO.md). The spec, with every measurement:
   `git show 872b3f3:docs/npm-package-spec.md`. `npm/package.json` is the
   manifest without a version (the build adds the library's, so an
-  `npm publish` in `npm/` itself fails); `npm/README.md` the npm page,
+  `npm publish` in `npm/` itself fails); `npm/README.md` the npm page
+  (its heading the C64 lockup since 2026-11-23, the user's choice: on a
+  light page its blue has the most contrast; the root README keeps ZX),
   its links to `master` moved to the release's tag by the build (the
   logo's included: a later change can't alter a published version's
   page); `npm/build.mjs` (`npm run npm:build`) writes `npm/dist/`
@@ -865,7 +867,8 @@ from the code alone.
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
 - **`DitherParams`, the drivers' settings in one value** (2026-11-22,
-  branch `serpentine`, phase 0 of serpentine scanning; the user's idea,
+  branch `serpentine`, phase 0 of serpentine scanning; released in
+  0.3.1; the user's idea,
   designed together). Why: the gamma twins had doubled every driver, and
   each later setting (serpentine, a noise seed, Ostromoukhov) would have
   doubled them again; a kernel modifier (`serpentine :: Kernel -> Kernel`)
@@ -902,7 +905,7 @@ from the code alone.
     (`Pipeline`, `Web.Dither`), tested against the `…With` drivers; 23
     CLI configurations came out byte-identical to `master`.
 - **Serpentine scanning, `withScan serpentine`** (2026-11-22/23, branch
-  `serpentine`, phase 1: the library). The rows alternate, row 0 left to
+  `serpentine`, phase 1: the library; released in 0.3.1). The rows alternate, row 0 left to
   right, odd rows right to left, with the kernel mirrored there; counted
   from the image's top, so the cells' bands alternate on across their
   borders.
@@ -1384,6 +1387,24 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   npm first showed a placeholder version, `0.0.0-stage`, as `latest`,
   with 0.3.0 there about a minute later (the placeholder stays in the
   version list).
+- **0.3.1 was published on 2026-11-23** (22:21 UTC): tag `v0.3.1` on
+  `1fe0566` ("Release 0.3.1", after the merge commit `1b26d51` of the
+  branch `serpentine`), registry job
+  `c852fc73-1c90-46a0-b8f9-69199747e840` (log:
+  https://registry.purescript.org/api/v1/jobs/c852fc73-1c90-46a0-b8f9-69199747e840;
+  finished after 37 s, `success: true`, built with purs 0.15.17, docs on
+  Pursuit), CI green on `master` and on the tag, GitHub Release created
+  by CI, lab v2.5 on Pages. Contents: `DitherParams` and the `…By`
+  drivers, serpentine scanning (`--serpentine`), `integers` raised to
+  6.0.2; compatible, so a patch version. npm: `puregrain@0.3.1`
+  published by the user at 22:32 UTC (68.3 kB packed, shasum
+  `692ca35b…`), confirmed with `npx puregrain@0.3.1 --version` from an
+  empty folder. Learned on the way: my shell (Claude Code's) has no
+  GitHub credentials, so the pushes and `spago publish`, which pushes the
+  tag, run in the user's terminal; the editor's Sync had pushed a
+  local merge into `master` before its pull request was opened, so that
+  merge stayed, with green CI; and `npm publish` without `npm login`
+  answers 404 Not Found, not 401 (`npm whoami` shows it).
 - Releases (decided 2026-10-07): `spago publish` checks a clean tree,
   the tag against `publish.version` and the version ranges, then
   **pushes the tag itself** right before calling the registry (verified

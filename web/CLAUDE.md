@@ -697,6 +697,11 @@ stay on the host.
   (Chromium and Firefox, both themes): after a picture loaded with the
   mouse, Chromium draws the focus ring around the menu and Firefox
   none, each by its own rule for `:focus-visible`.
+- **The theme switch's tooltip** (2026-11-23, for v2.6): toggled twice,
+  its tooltip says what a click does ("Switch to the dark theme", then
+  "…light theme") while its name stays "Dark theme" with `aria-pressed`:
+  104 checks. Mutation-checked in the built page (the light theme's
+  tooltip back to "Dark theme": that check failed in each engine).
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

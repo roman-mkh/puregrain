@@ -213,6 +213,15 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
 
 ## Future directions (not in scope now)
 
+- [ ] **CI on the newest Node too** (discussed 2026-11-24): a second CI job on the newest Node (26), next to 22, to
+      catch problems early while users are promised 22 (`engines`, `>=22`). Run in parallel, so CI's time stays
+      about the same; only the build, the suites, `check:cli` and `check:npm` (where Node can differ: the CLI, the
+      npm install, the compiler's installer), not `check:web`, whose browsers run in Playwright's image, already on
+      Node 26. Locally nothing changes (one Node; `nvm install 26` only to reproduce a failure);
+      CONTRIBUTING.md's "`npm run check` runs what CI runs" would mention it. Related, before Node 22's end of
+      life (April 2027; check nodejs.org's schedule): the dev machine, CI and `engines` to 24 together, with a
+      CHANGELOG line. The library itself has no Node requirement.
+
 - [ ] Check the web UI's reading of transparency in real Safari (2026-11-15): the page reads a picture with
       transparency as an `<img>` through WebGL, exact in Chromium, Firefox and Playwright's WebKit (Linux),
       while WebKit's `ImageBitmap` lost up to 254 there (web/CLAUDE.md, "Transparency"). Safari on a Mac is

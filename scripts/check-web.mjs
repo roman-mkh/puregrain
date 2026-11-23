@@ -430,6 +430,24 @@ const checksIn = async (engine, page) => {
         : `its face or description doesn't follow the choice: ${wrong.join('; ')}`));
   }
 
+  // The theme switch: a toggle named "Dark theme", pressed or not, whose
+  // tooltip says what a click does, "Switch to the dark theme" or "…light
+  // theme"; the name stays the same.
+  {
+    await page.goto(pageUrl);
+    const button = page.locator('.top .theme');
+    const read = () => button.evaluate((b) => ({ pressed: b.getAttribute('aria-pressed'), title: b.title, name: b.textContent.trim() }));
+    const states = [await read()];
+    await button.click();
+    states.push(await read());
+    await button.click();
+    states.push(await read());
+    const right = (s) => s.name === 'Dark theme'
+      && s.title === (s.pressed === 'true' ? 'Switch to the light theme' : 'Switch to the dark theme');
+    report(states.every(right) && states[0].pressed !== states[1].pressed && states[1].pressed !== states[2].pressed,
+      `${engine}: the theme switch, toggled twice: ${states.map((s) => `pressed ${s.pressed}, "${s.title}"`).join('; ')}; named "${states[0].name}"`);
+  }
+
   // A long run, on 2 megapixels (2026-11-15): its progress shows at once,
   // and the picture's frame is marked as working while it goes. A gamma
   // changed after it, on this opaque picture, keeps the result before on

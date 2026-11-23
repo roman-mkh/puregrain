@@ -134,6 +134,11 @@ users is a separate task, see TODO.md.)
 - **Next, before v3: pictures from other web pages** (the user's ideas,
   2026-11-19), a small version of its own (v2.6; planned as v2.5 before
   serpentine scanning took that number):
+  - **The theme switch's tooltip** (2026-11-23, the user's find, done):
+    "Switch to the light theme" or "…dark theme", what a click does,
+    where it always said "Dark theme"; its name for screen readers stays
+    "Dark theme", pressed or not (a toggle's name must not change).
+    `check:web` toggles it twice in each engine.
   - **Pasting a picture, Ctrl+V** (Cmd+V on a Mac): "Copy image" on any
     web page, or a screenshot, then pasted into the lab. The browser puts
     the picture itself on the clipboard, so the other site's permission

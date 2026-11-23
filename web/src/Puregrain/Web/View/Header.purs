@@ -56,12 +56,13 @@ header { theme, settings, panelOpen, engine, engineOpen } =
             [ Icon.sliders
             , HH.span [ HP.class_ (H.ClassName "sr-only") ] [ HH.text texts.settingsLabel ]
             ]
-        -- A toggle: "Dark theme", pressed or not, showing the theme on.
+        -- A toggle: "Dark theme", pressed or not, showing the theme on; its
+        -- tooltip says what a click does (the name must stay the same).
         , HH.button
             [ HP.type_ HP.ButtonButton
             , HP.class_ (H.ClassName "theme")
             , HP.attr (HH.AttrName "aria-pressed") (if theme == Dark then "true" else "false")
-            , HP.title texts.darkTheme
+            , HP.title (if theme == Dark then texts.toLightTheme else texts.toDarkTheme)
             , HE.onClick (const ThemeToggled)
             ]
             [ if theme == Dark then Icon.moon else Icon.sun
