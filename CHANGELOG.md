@@ -16,6 +16,11 @@ raises the minor version (0.1 → 0.2).
   `withGamma` and `withScan`, chained with `#`. Further settings will
   come as further `with…` functions, with no new drivers. In
   `Puregrain.Dither` and the `Puregrain` facade.
+- Drivers that take it: `ditherImageBy`, `ditherRowsBy` and
+  `initDitheringBy` (`Puregrain.Dither`, also in the facade), and
+  `ditherCellsBy` and `ditherBandsBy` (`Puregrain.Cells`). The existing
+  drivers and their `…With` twins stay, as shorthands for these with the
+  same results.
 - Serpentine scanning: `withScan serpentine` makes the rows alternate,
   the first left to right, the next right to left, and so on, with the
   kernel mirrored on the rows scanned right to left; `raster`, every row
@@ -24,17 +29,19 @@ raises the minor version (0.1 → 0.2).
   machine cells work as before. `Scan`, `raster`, `serpentine` and
   `withScan` are in `Puregrain.Dither` and the facade.
 
+### Changed
+
+- The minimum version of `integers` is raised to 6.0.2, that of the
+  package set the library is now built and tested with, 83.3.0; its other
+  dependencies stay where they were. The library is built with purs
+  0.15.17. The supported compilers stay the same, 0.15.0 to 0.15.17.
+
 ### Command-line tool
 
 - `--serpentine`: serpentine scanning, with every kernel and every mode
   that diffuses error, machine screens included; the report line names
   it. Rejected with `--kernel none`, and with `--bayer` without
   `--kernel`, where no error is passed on and it would change nothing.
-- Drivers that take it: `ditherImageBy`, `ditherRowsBy` and
-  `initDitheringBy` (`Puregrain.Dither`, also in the facade), and
-  `ditherCellsBy` and `ditherBandsBy` (`Puregrain.Cells`). The existing
-  drivers and their `…With` twins stay, as shorthands for these with the
-  same results.
 
 ## 0.3.0 - 2026-11-22
 
