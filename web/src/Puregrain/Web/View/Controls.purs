@@ -1,12 +1,12 @@
 -- | The controls the settings are made of (decision 31): a numbered step,
--- | cards and segments (radio buttons), a stepper, a toggle switch, a
--- | note, a file chooser that looks like a button, and a sentence with a
--- | button that looks like a link. Plain HTML controls underneath, so the
--- | keyboard and screen readers work as usual (decision 33); `app.css`
--- | gives them their look.
+-- | a menu that looks like a card (decision 37), segments (radio buttons),
+-- | a stepper, a toggle switch, a note, a file chooser that looks like a
+-- | button, and a sentence with a button that looks like a link. Plain
+-- | HTML controls underneath, so the keyboard and screen readers work as
+-- | usual (decision 33); `app.css` gives them their look.
 module Puregrain.Web.View.Controls
   ( step
-  , cards
+  , cardMenu
   , segments
   , stepper
   , toggleSwitch
@@ -17,12 +17,15 @@ module Puregrain.Web.View.Controls
 
 import Prelude
 
+import Data.Array as Array
 import Data.Int (toNumber)
-import Data.Maybe (Maybe, maybe)
+import Data.Maybe (Maybe(..), maybe)
 import Halogen as H
 import Halogen.HTML as HH
 import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
+import Puregrain.Web.View.Icon as Icon
+import Puregrain.Web.View.Parts (option)
 import Web.Event.Event (Event)
 
 -- | A numbered step: a group with its heading, disabled with all it holds.
@@ -37,35 +40,41 @@ step number title disabled body =
         <> body
     )
 
--- | Choices with a line of explanation each: radio buttons, one per card.
--- | `ref` names the selected one, for moving the focus there.
-cards
+-- | Choices with a line of explanation each, as a menu that looks like a
+-- | card (decision 37): a face shows the chosen one's title and line, with
+-- | ▾, and over it lies a native `<select>`, invisible, which takes the
+-- | clicks, the keys and the focus, and opens the browser's own list (a
+-- | picker on phones). Screen readers hear the select, named `label` and
+-- | described by the line; the face is hidden from them. `name` makes the
+-- | line's id; `ref` names the select, for moving the focus there. With no
+-- | item `selected`, the face shows the first, as the select does.
+cardMenu
   :: forall w i
    . { name :: String, label :: String, selected :: String, pick :: String -> i, ref :: Maybe H.RefLabel }
   -> Array { value :: String, title :: String, line :: String }
   -> HH.HTML w i
-cards group items =
-  HH.div [ HP.class_ (H.ClassName "cards"), HP.attr (H.AttrName "role") "radiogroup", HP.attr (H.AttrName "aria-label") group.label ]
-    ( items <#> \item ->
-        HH.label [ HP.class_ (H.ClassName "card") ]
-          [ let
-              chosen = item.value == group.selected
-            in
-              HH.input
-                ( [ HP.type_ HP.InputRadio
-                  , HP.name group.name
-                  , HP.value item.value
-                  , HP.checked chosen
-                  , HE.onChange (const (group.pick item.value))
-                  ]
-                    <> (if chosen then maybe [] (\r -> [ HP.ref r ]) group.ref else [])
-                )
-          , HH.span_
-              [ HH.b_ [ HH.text item.title ]
-              , HH.small_ [ HH.text item.line ]
-              ]
+cardMenu menu items =
+  HH.div [ HP.class_ (H.ClassName "card-menu") ]
+    [ HH.span [ HP.class_ (H.ClassName "face"), HP.attr (H.AttrName "aria-hidden") "true" ]
+        [ HH.b_ [ HH.text chosen.title ]
+        , HH.small [ HP.id lineId ] [ HH.text chosen.line ]
+        ]
+    , Icon.caretDown
+    , HH.select
+        ( [ HP.attr (H.AttrName "aria-label") menu.label
+          , HP.attr (H.AttrName "aria-describedby") lineId
+          , HE.onValueChange menu.pick
           ]
-    )
+            <> maybe [] (\r -> [ HP.ref r ]) menu.ref
+        )
+        (items <#> \item -> option item.value item.title (item.value == menu.selected))
+    ]
+  where
+  lineId = menu.name <> "-line"
+  chosen = case Array.find (\item -> item.value == menu.selected) items, Array.head items of
+    Just item, _ -> item
+    Nothing, Just first -> first
+    Nothing, Nothing -> { value: "", title: "", line: "" }
 
 -- | A row of short choices: radio buttons drawn as segments, labelled by
 -- | the element `labelledBy` names.

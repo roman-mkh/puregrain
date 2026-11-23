@@ -384,7 +384,9 @@ ideally in each of the browsers above:
    threshold at 128, a Bayer map 2 levels; the Bayer map is unavailable
    with a threshold or a palette. The serpentine switch is unavailable
    until a kernel is chosen, dimmed as the Bayer map's segments are, and
-   turns off when the kernel goes back to None.
+   turns off when the kernel goes back to None. The target's menu opens
+   the browser's own list (on a phone, its picker), and then shows the
+   chosen target with its line.
 5. A large picture (a photo of a few megapixels) shows the progress at
    once, rising, the picture's frame in the accent color, the page keeps
    responding, and Cancel brings back

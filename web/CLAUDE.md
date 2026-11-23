@@ -16,8 +16,9 @@ checklist in step.
   effects), `Puregrain.Web.State` (the state and the actions),
   `Puregrain.Web.View.Header`, `.Column`, `.Stage` and `.Footer` (the
   page's parts, decision 29), `.Controls` (the settings' controls,
-  decision 31: a numbered step, cards and segments, a stepper, a toggle
-  switch, a note, a file chooser like a button), `.Parts` (a menu's
+  decision 31: a numbered step, a menu like a card (decision 37),
+  segments, a stepper, a toggle switch, a note, a file chooser like a
+  button), `.Parts` (a menu's
   option, the `inert` property, the project's links), `.Engine` (the
   engine check's icon and its popup, in the header on a desktop and in
   the footer on a phone; linear light's step 4c) and `.Icon`
@@ -320,7 +321,7 @@ checklist in step.
     that had it (step 1's buttons change, and Halogen, matching children
     by position, replaces them; the drop zone goes): unhandled, the focus
     fell to the page and the next Tab went on from the picture area. Now
-    it goes to the next step, the chosen target, or on a phone to the
+    it goes to the next step, the target's menu, or on a phone to the
     Settings button (`Puregrain.Web.Keys.focusAfterLoad`). A later
     picture leaves it on "Choose another…", which keeps its place, so
     several pictures can be tried with the same settings. Each picture is
@@ -617,9 +618,11 @@ stay on the host.
   check waits for a new run's answer, then for the page's finished state
   (the download button enabled, no progress). The download's name,
   which carries the settings, confirms which result it is.
-- **The controls:** `selectOption` on the two menus (colors, then
-  kernel), `fill` on the levels' number, and the radio buttons
-  (segments and cards) clicked in the page once enabled. The two
+- **The controls:** `selectOption` on the three menus, target, colors
+  and kernel, found by their names (`getByRole('combobox', { name })`:
+  the target's menu, decision 37, became the first select, which moved
+  the others' places), `fill` on the levels' number, and the radio
+  buttons (segments) clicked in the page once enabled. The two
   switches, serpentine and gray first, are found by their names
   (`getByRole('switch', { name })`): with a second switch on the page,
   `input[role=switch]` became ambiguous (v2.5). The split is
@@ -683,6 +686,17 @@ stay on the host.
   Mutation-checked in the built page: the worker ignoring the scan
   (33,066 pixels off the CLI's in each engine), and the switch never
   disabled (each engine).
+- **The target's menu** (2026-11-23, v2.5, decision 37 in
+  `ROADMAP.md`): disabled before a picture, the focus on it after the
+  first, and after each choice its face showing the chosen target's
+  name and line, which also describes the select (`aria-describedby`),
+  in all three engines: 101 checks, in 87 s. Mutation-checked, each
+  failing only that check, in each engine: the face always showing
+  "Any screen", the select without its ref (the focus stays where it
+  was), and `aria-describedby` naming no element. Seen in screenshots
+  (Chromium and Firefox, both themes): after a picture loaded with the
+  mouse, Chromium draws the focus ring around the menu and Firefox
+  none, each by its own rule for `:focus-visible`.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in
