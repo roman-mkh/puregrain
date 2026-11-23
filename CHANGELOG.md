@@ -8,6 +8,13 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+### Changed
+
+- The minimum version of `integers` is raised to 6.0.2, that of the
+  package set the library is now built and tested with, 83.3.0; its other
+  dependencies stay where they were. The library is built with purs
+  0.15.17. The supported compilers stay the same, 0.15.0 to 0.15.17.
+
 ## 0.3.0 - 2026-11-22
 
 ### Changed

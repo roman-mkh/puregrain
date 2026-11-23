@@ -1114,7 +1114,26 @@ sync writer, which silently wrote every "grayscale" image as RGBA.
   versions' compilers (`spago registry info <pkg>`); for 81.9.0 they
   were unchanged, 0.15.0–0.15.16. A package-set update is its own
   change on `master`, checked by `check:clean` and byte-identical CLI
-  outputs.
+  outputs. Done so again on 2026-11-23, in between serpentine's phases:
+  81.9.0 → 83.3.0, which needs purs 0.15.17 (82.0.1 was the last for
+  0.15.16). Only 3 of our 97 locked packages changed, alike in 82.0.1
+  and 83.3.0 (`integers` and `spec-discovery` patches, `free` a minor,
+  the lab's): the two major set bumps touched none of ours (compared in
+  `~/.cache/spago-nodejs/registry/package-sets/<version>.json`, offline).
+  `--ensure-ranges` raised only `integers` to 6.0.2, with the same
+  compilers, 0.15.0–0.15.17.
+- **purs 0.15.17's npm installer needs a newer Node** (2026-11-23):
+  `purescript-installer` 0.4.0 (with `undici` 8) wants Node `^22.22.2 ||
+  ^24.15.0 || >=26.0.0`, and on 22.14.0 its postinstall crashed
+  (`createZstdDecompress` is missing); npm rolled the install back. The
+  user's machine moved from Node 22.14.0 to 22.23.5 (nvm; the globals
+  `pnpm` and `purescript-language-server` reinstalled with it, npm pinned
+  to the same 11.21.0, since `allowScripts` needs npm 11, while Node
+  22.23.5 brings npm 10.9.9); 22.14.0 stays installed. Node alone changed
+  none of the 23 compared CLI outputs. CI's `node-version: 22` takes the
+  latest 22.x anyway. A shell started before the switch (an editor, a
+  Claude Code session) keeps the old PATH: `nvm use default` there.
+  Benchmarks from then on run on 22.23.5 (each section records its Node).
 - **npm install scripts (`allowScripts` in `package.json`, 2026-10-09):**
   npm 11 warns about dependency install scripts not listed there, and its
   docs say they're blocked by default (npm 11.21 still ran them, checked
