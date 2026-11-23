@@ -37,7 +37,9 @@ import Data.Tuple (Tuple(..))
 
 -- | One neighbour that gets a share of a pixel's error.
 -- |
--- | - `dx`: columns to the right; negative to the left.
+-- | - `dx`: columns to the right; negative to the left. With serpentine
+-- |   scanning (`Puregrain.Dither.serpentine`), a row scanned right to
+-- |   left mirrors the kernel: `dx` then counts to the left.
 -- | - `dy`: rows down.
 -- | - `weight`: the share of the error.
 type Offset =

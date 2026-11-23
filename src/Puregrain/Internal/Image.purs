@@ -1,7 +1,8 @@
 -- | The two drivers that run the diffusion over a whole image, row by row,
 -- | with any `Fifo` backend and any conversion to light: `ditherImageVia`
 -- | over an array of rows (all at once) and `ditherRowsVia` over a lazy
--- | list of rows (each when asked for). Both drive the same `stepRow`, so
+-- | list of rows (each when asked for), both with the settings compiled
+-- | (`Puregrain.Internal.Params.compileParams`). Both drive the same `stepRow`, so
 -- | they give the same result; a row of a different length, a `Left` from
 -- | `stepRow`, becomes a runtime error here, since neither result type can
 -- | carry it.
@@ -23,11 +24,10 @@ import Data.Traversable (mapAccumL)
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Fifo (class Fifo)
 import Puregrain.Internal.Gamma (Conversion, isOff)
-import Puregrain.Internal.Kernel (compileKernel)
+import Puregrain.Internal.Params (CompiledParams)
 import Puregrain.Internal.Quantize (Quantize, quantizerFor)
 import Puregrain.Internal.Row (orStop, stepRow)
 import Puregrain.Internal.State (DitherState, initState)
-import Puregrain.Kernel (Kernel)
 import Puregrain.Pixel (class Scalable)
 import Type.Proxy (Proxy)
 
@@ -49,14 +49,13 @@ ditherImageVia
   => Scalable a
   => Proxy f
   -> Conversion a
-  -> Kernel
+  -> CompiledParams
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-ditherImageVia _ conversion kernel quantize rows =
-  (mapAccumL next (initState compiled :: DitherState f a) rows).value
+ditherImageVia _ conversion compiled quantize rows =
+  (mapAccumL next (initState compiled.kernel :: DitherState f a) rows).value
   where
-    compiled = compileKernel kernel
     -- resolved once, here, for every pixel of the image
     quantizer = quantizerFor conversion quantize
     toLight = rowsIn conversion
@@ -74,15 +73,14 @@ ditherRowsVia
   => Scalable a
   => Proxy f
   -> Conversion a
-  -> Kernel
+  -> CompiledParams
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
-ditherRowsVia _ conversion kernel quantize rows =
-  go (initState compiled) rows
+ditherRowsVia _ conversion compiled quantize rows =
+  go (initState compiled.kernel) rows
   where
-    compiled = compileKernel kernel
-    -- resolved once, when the stream is set up, as the kernel is compiled;
+    -- resolved once, when the stream is set up, as the settings are compiled;
     -- neither reads a row
     quantizer = quantizerFor conversion quantize
     toLight = rowsIn conversion

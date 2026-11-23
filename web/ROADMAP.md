@@ -119,8 +119,21 @@ users is a separate task, see TODO.md.)
   the repository's `pictures/macaw-and-toucan.png`, shipped with the
   page. `check:web` loads it from both links, and blocked, and compares a
   run with the CLI's.
+- **v2.5, serpentine scanning, and the target as a menu** (2026-11-23,
+  on the branch `serpentine`, with the library's 0.3.1 and the CLI's
+  `--serpentine`; decisions 36 and 37): "Serpentine: every other row
+  right to left", a switch under the kernel's menu, on only where it
+  acts; "serpentine" after the kernel in the result's name and the
+  download's. `check:web` compares a run with the CLI's, and the switch
+  disabled until a kernel. Took the number planned for the pictures from
+  other web pages, now v2.6 (the user's choice). And the target, three
+  cards until then, became one menu the size of a card, which shows the
+  chosen target's name and line (decision 37); `check:web` checks that
+  it's disabled before a picture, takes the focus with the first, and
+  shows each choice.
 - **Next, before v3: pictures from other web pages** (the user's ideas,
-  2026-11-19), a small version of its own (v2.5):
+  2026-11-19), a small version of its own (v2.6; planned as v2.5 before
+  serpentine scanning took that number):
   - **Pasting a picture, Ctrl+V** (Cmd+V on a Mac): "Copy image" on any
     web page, or a screenshot, then pasted into the lab. The browser puts
     the picture itself on the clipboard, so the other site's permission
@@ -592,7 +605,8 @@ these decisions are phase 6's reference (the user).
       the settings and dithers the new picture at once, as before.
     - **Target:** three cards, each with a line on what it means ("any
       size, the colors you choose"; "256 × 192, 2 colors per 8×8 cell";
-      "320 × 200, 2 colors per 8×8 cell").
+      "320 × 200, 2 colors per 8×8 cell"); since v2.5 one menu that
+      looks like the chosen card (decision 37).
     - **Colors:** a menu, the palettes grouped; with a machine, its
       palettes. The levels with − and + around their number; the
       threshold with a slider and a number, the slider starting a run
@@ -658,23 +672,24 @@ these decisions are phase 6's reference (the user).
       the next load starts from the system's again. A third state,
       "Auto", would need explaining, and few would choose it.
     - **The rest as in Claude's mockup:** neutral grays, and the accent
-      only on what's chosen or can be done (the selected card or
-      segment, the main button, the focus ring, the step numbers); the
-      picture's area darker than the column in the dark theme, a warm
-      light gray in the light one. The system's own font for reading, a
-      monospace font for numbers, sizes and file names; no web font, and
-      no pixel font for the headings: the logo is pixel enough. Retro in
-      a few details: the logo, the square step numbers, the drop zone's
-      frame and the progress bar's leading edge in 2-pixel dithered
-      dots, nearly square corners (3 px).
+      only on what's chosen or can be done (the selected card, until
+      v2.5, or segment, the main button, the focus ring, the step
+      numbers); the picture's area darker than the column in the dark
+      theme, a warm light gray in the light one. The system's own font
+      for reading, a monospace font for numbers, sizes and file names; no
+      web font, and no pixel font for the headings: the logo is pixel
+      enough. Retro in a few details: the logo, the square step numbers,
+      the drop zone's frame and the progress bar's leading edge in
+      2-pixel dithered dots, nearly square corners (3 px).
     - **"lab"** after the lockup in plain text, in the page's font and a
       muted color, so the logo stays as it is.
 33. **Accessibility** (2026-10-31):
     - **Structure,** as in Claude's mockup: each step a group with its
-      heading; every control labelled; the cards and segments are radio
-      buttons, the switch a checkbox marked as a switch; the pictures
-      have text alternatives ("The original", "The result: 4 levels,
-      Atkinson").
+      heading; every control labelled; the cards (until v2.5) and
+      segments are radio buttons, the menus native selects, the target's
+      described by its line (decision 37), the switch a checkbox marked
+      as a switch; the pictures have text alternatives ("The original",
+      "The result: 4 levels, Atkinson").
     - **The keyboard:** Tab goes in reading order (header, column,
       picture, bar, footer). Two skip links appear on the first Tab,
       "Skip to the settings" and "Skip to the picture" (WCAG's bypass
@@ -714,8 +729,9 @@ these decisions are phase 6's reference (the user).
       would be overridden nearly everywhere. Pico leaves the
       dependencies and the build.
     - **CSS:** custom properties for the themes, media queries for the
-      layout, `:has()` for the cards, `color-mix()`: all in the current
-      Chrome, Edge, Firefox and Safari.
+      layout, `:has()` for the cards (since v2.5 for the target's
+      menu's focus ring, and a disabled switch), `color-mix()`: all in
+      the current Chrome, Edge, Firefox and Safari.
     - **The phone's panel is the column itself,** the rest of the page
       `inert` while it's open (checked), not `<dialog>`: one element
       serves both layouts. Our code handles Escape and the focus;
@@ -780,6 +796,59 @@ these decisions are phase 6's reference (the user).
     - **Loaded as a chosen file,** named `macaw-and-toucan.png`, so the
       downloads are named after it; if it can't be fetched, the empty
       page says so until the next action.
+
+36. **Serpentine scanning** (2026-11-23, v2.5; the user's choices): the
+    CLI's `--serpentine`, the library's `withScan serpentine`
+    (`docs/error-diffusion.md`, "Serpentine scanning").
+    - **A switch under the kernel's menu,** the setting it modifies, not
+      at the step's end with "gray first": "Serpentine: every other row
+      right to left", the word that the result's name ("4 levels,
+      Atkinson, serpentine"), the download's (`-serpentine` after the
+      kernel) and the CLI's option share.
+    - **On only where it acts** (`Settings.serpentineAllowed`): with a
+      kernel, and colors to dither with; disabled otherwise, dimmed as
+      the Bayer map's segments are, without a note (it sits under the
+      kernel's None). The user extended the rule from "a kernel" to "and
+      colors": with the colors at "none" nothing is dithered.
+    - **It turns off** when the kernel or the colors go back to "none",
+      as a Bayer map does when new colors don't allow it, and doesn't
+      come back by itself (the user's choice over keeping it, inactive):
+      the settings never hold a choice that isn't in effect, and the
+      worker rejects one (`fromMessage`).
+
+37. **The target as one menu that looks like its card** (2026-11-23,
+    v2.5; the user's idea, checked by the user on Claude's mockup before
+    it was built): decision 31's three cards became one menu the size of
+    a card, showing the chosen target's name and line, with ▾.
+    - **Why:** the cards took about 171 pixels of the column, the menu
+      takes about 53 (from `app.css`'s sizes), and the column, about 960
+      pixels tall with a machine and the sample picture, scrolled on
+      most laptops; each new target (the C64's multicolor mode, TODO.md)
+      would have added a card of about 60 pixels, where a menu adds a
+      line; and the colors and the error diffusion were menus already.
+    - **The browser's own select** (Claude's condition, which the user
+      accepted), invisible over the face (`Controls.cardMenu`): the
+      clicks, the keys, the focus and a phone's picker stay the
+      browser's, as decision 31 wanted of the settings' controls. Not a
+      list of our own showing the cards: it would have needed its own
+      keys, Escape, clicks outside and phones, and checking all of that
+      again, for three entries. Screen readers hear the select, named
+      "Target" and described by the chosen target's line; the face is
+      hidden from them. The face is plain, with the controls' outline,
+      not tinted as the chosen card was (the mockup's other option): the
+      accent under the pointer, as on the buttons, and the focus ring
+      around the whole face.
+    - **What it costs, accepted:** with a picture loaded, the machines
+      are no longer in sight at a glance (the empty page still names
+      their files), and someone after a machine's look may stop at the
+      colors menu's palette of the same name; and the open list shows
+      the names only, since the browser draws it, the line coming with
+      the choice.
+    - **Checked** (`check:web`): disabled before a picture, the focus on
+      it after the first, and its face and the select's description
+      following each choice, in all three engines; the target is now
+      chosen with `selectOption`, and the menus are found by their
+      names.
 
 ## v1 in detail
 

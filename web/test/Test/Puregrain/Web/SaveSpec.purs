@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Maybe (Maybe(..))
 import Puregrain.Web.Save (fileName, tapeName)
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -49,6 +49,12 @@ spec = describe "Puregrain.Web.Save" do
       fileName "photo.jpg" (chooseGamma GammaOff s) asIs "png" `shouldEqual` "photo-levels4-bayer4-gray.png"
       fileName "photo.jpg" (chooseGamma GammaSrgb (chooseBayer (Just 4) (chooseTarget (Machine ZxSpectrumScreen) initial))) asIs "scr"
         `shouldEqual` "photo-zx-spectrum-bayer4-srgb.scr"
+
+    it "names serpentine scanning after the kernel" do
+      fileName "photo.jpg" (chooseSerpentine true (initial { colors = Levels 4, kernel = Atkinson, bayer = Just 8 })) asIs "png"
+        `shouldEqual` "photo-levels4-atkinson-serpentine-bayer8.png"
+      fileName "photo.jpg" (chooseSerpentine true (chooseKernel FloydSteinberg (chooseTarget (Machine ZxSpectrumScreen) initial))) asIs "scr"
+        `shouldEqual` "photo-zx-spectrum-floyd-steinberg-serpentine.scr"
 
     it "leaves out the settings at none" do
       fileName "photo.jpg" (initial { colors = Threshold 128 }) asIs "png" `shouldEqual` "photo-threshold128.png"

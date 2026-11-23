@@ -3,7 +3,7 @@ module Test.Puregrain.Web.TextSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseTarget, initial)
+import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, initial)
 import Puregrain.Web.Status (EngineCheck(..))
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
@@ -25,9 +25,14 @@ spec = describe "Puregrain.Web.Text" do
       `shouldEqual` "2 levels, ordered dithering 8×8, gamma 1.5, gray first"
     texts.describe (chooseGamma GammaOff (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson"
 
+  it "names serpentine scanning after the kernel" do
+    texts.describe (chooseSerpentine true (initial { colors = Levels 4, kernel = Atkinson })) `shouldEqual` "4 levels, Atkinson, serpentine"
+    texts.describe (chooseGray true (chooseGamma GammaSrgb (chooseSerpentine true (chooseKernel FloydSteinberg (chooseBayer (Just 8) (chooseColors (Levels 4) initial))))))
+      `shouldEqual` "4 levels, Floyd-Steinberg, serpentine, ordered dithering 8×8, gamma sRGB, gray first"
+
   it "names the lab's version, and the library's that powers it when the build gives it" do
-    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.4,", "powered by puregrain 0.2.1" ]
-    texts.versions "" `shouldEqual` [ "puregrain lab v2.4" ]
+    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.5,", "powered by puregrain 0.2.1" ]
+    texts.versions "" `shouldEqual` [ "puregrain lab v2.5" ]
 
   it "names the engine check's states for screen readers, and says each in a sentence" do
     map texts.engineName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]

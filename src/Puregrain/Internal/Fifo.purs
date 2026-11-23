@@ -7,6 +7,7 @@ module Puregrain.Internal.Fifo
   , enqueue
   , dequeue
   , replace
+  , reverse
   ) where
 
 import Prelude
@@ -27,7 +28,7 @@ import Data.Unfoldable as Unfoldable
 -- | Every method below is called exactly once per pixel (or once per
 -- | row, where noted) in the dithering hot path, so the real-world
 -- | performance of the whole algorithm is dominated by how cheaply an
--- | instance can implement these four operations. Each instance should
+-- | instance can implement these five operations. Each instance should
 -- | document its own actual complexity per method, and should aim for
 -- | the target given here wherever its underlying representation
 -- | allows it — falling short of the target is not a correctness bug,
@@ -87,7 +88,9 @@ class Fifo (f :: Type -> Type) where
 
   -- | `replace skip fifo` drops the first `skip` elements from the
   -- | front of `fifo` and appends `skip` zeros to the tail, returning a
-  -- | `Fifo` of the SAME LENGTH as the input. `skip` is always small
+  -- | `Fifo` of the SAME LENGTH as the input — or, for an input shorter
+  -- | than `skip`, of `skip` zeros, everything in it dropped (a row
+  -- | narrower than the kernel's reach to the left). `skip` is always small
   -- | (bounded by the kernel's horizontal reach — see
   -- | `Puregrain.Internal.Kernel.skipFor`), but `fifo` itself may be as long as the
   -- | image width by the time this is called.
@@ -113,6 +116,20 @@ class Fifo (f :: Type -> Type) where
   -- | limitation in that instance's own documentation.
   replace :: forall a. Ring a => Int -> f a -> f a -- Ring: for the zeros appended at the tail
 
+  -- | `reverse fifo` holds the same elements in the opposite order: the
+  -- | one at the tail comes out first.
+  -- |
+  -- | Called once per row, per offset of a later row that is scanned in
+  -- | the other direction (serpentine scanning), in
+  -- | `Puregrain.Internal.Row.commitBuilding`: a finished queue holds its
+  -- | error fractions in the order of the row that produced them, and the
+  -- | row they're for reads them from its own end.
+  -- |
+  -- | Target complexity: O(1) where the representation allows it. O(n)
+  -- | is acceptable: it runs once per row, not per pixel, and the row's
+  -- | own work is O(n) anyway.
+  reverse :: forall a. f a -> f a
+
 -- | Sanity-check baseline instance: this is the representation the
 -- | project used before `class Fifo` existed. `enqueue` and `replace`
 -- | are both O(n) here (a plain singly-linked list has no cheap way to
@@ -127,18 +144,21 @@ instance Fifo LL.List where
   enqueue = LL.snoc
   dequeue = LL.uncons
   replace skip fifo = LL.drop skip fifo <> LL.replicate skip zero
+  reverse = LL.reverse
 
 instance Fifo DL.List where
   replicate n x = DL.fromFoldable (Array.replicate n x)
   enqueue = DL.snoc
   dequeue = DL.uncons
   replace skip fifo = DL.drop skip fifo <> replicate skip zero
+  reverse = DL.reverse
 
 instance Fifo Array where
   replicate = Array.replicate
   enqueue = Array.snoc
   dequeue = Array.uncons
   replace skip fifo = Array.drop skip fifo <> Array.replicate skip zero
+  reverse = Array.reverse
 
 -- | The production default (`Puregrain.Internal.Image.ditherImage`). It replaced
 -- | `Data.Sequence.Seq`, the finger tree that first fixed the O(N³)
@@ -154,7 +174,11 @@ instance Fifo Array where
 -- | `skip` dequeues followed by `skip` enqueues of `zero`, so O(skip)
 -- | amortized, and `skip` is at most the kernel's reach. `replicate`
 -- | builds straight into the front list, so a fresh queue never needs
--- | reversing.
+-- | reversing. `reverse` swaps the two lists, in O(1): the queue is the
+-- | front list followed by the back list reversed, so the reversed queue
+-- | is the back list followed by the front list reversed. The old front
+-- | list, now the back, is reversed once when the new front runs out, as
+-- | any back list is, so the extra work is at most O(n) per row.
 -- |
 -- | The amortized bounds hold only if each queue version is used once:
 -- | an old version used again would redo the same reversal. `step` and
@@ -176,3 +200,4 @@ instance Fifo CatQueue where
       enqueueZeros n q
         | n <= 0 = q
         | otherwise = enqueueZeros (n - 1) (CQ.snoc q zero)
+  reverse (CatQueue front back) = CatQueue back front

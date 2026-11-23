@@ -16,8 +16,9 @@ checklist in step.
   effects), `Puregrain.Web.State` (the state and the actions),
   `Puregrain.Web.View.Header`, `.Column`, `.Stage` and `.Footer` (the
   page's parts, decision 29), `.Controls` (the settings' controls,
-  decision 31: a numbered step, cards and segments, a stepper, a toggle
-  switch, a note, a file chooser like a button), `.Parts` (a menu's
+  decision 31: a numbered step, a menu like a card (decision 37),
+  segments, a stepper, a toggle switch, a note, a file chooser like a
+  button), `.Parts` (a menu's
   option, the `inert` property, the project's links), `.Engine` (the
   engine check's icon and its popup, in the header on a desktop and in
   the footer on a phone; linear light's step 4c) and `.Icon`
@@ -74,11 +75,16 @@ checklist in step.
   `spago test` with the other suites, in Node, so
   only modules that don't touch the browser at load (FFI that only uses
   the browser when called is fine). `RunSpec` pins the worker's row loop
-  to the CLI's path: the same bytes as `ditherImageWith` on the whole
-  picture, with the CLI's gray conversion and rounding, for 13 settings,
-  5 of them under a curve; and the band loop: the same pixels and files
-  as `ditherCellsWith` and the machines' writers, for 9 machine
-  settings, 3 under a curve, with progress after each band. Dropping the
+  to the CLI's path: the same bytes as `ditherImageBy` on the whole
+  picture, with the CLI's gray conversion and rounding, for 17 settings,
+  6 of them under a curve, 4 with serpentine scanning; and the band
+  loop: the same pixels and files as `ditherCellsBy` and the machines'
+  writers, for 12 machine settings, 4 under a curve, 3 serpentine, with
+  progress after each band. The CLI's side builds its settings with the
+  library's own functions (`cliParams`), not the lab's `paramsOf`; a
+  first test checks that the serpentine settings compared really have it
+  on, since turning it on is ignored where it wouldn't act. Leaving the
+  scan out of `paramsOf` was caught (v2.5). Dropping the
   gamma from the gray, the color or the band path was caught each time
   (linear light, step 4a). Seven deliberate breakages were all caught
   (v2's phase 1); one first slipped through, the Spectrum's normal
@@ -315,7 +321,7 @@ checklist in step.
     that had it (step 1's buttons change, and Halogen, matching children
     by position, replaces them; the drop zone goes): unhandled, the focus
     fell to the page and the next Tab went on from the picture area. Now
-    it goes to the next step, the chosen target, or on a phone to the
+    it goes to the next step, the target's menu, or on a phone to the
     Settings button (`Puregrain.Web.Keys.focusAfterLoad`). A later
     picture leaves it on "Choose another…", which keeps its place, so
     several pictures can be tried with the same settings. Each picture is
@@ -402,9 +408,9 @@ checklist in step.
   styled v1 and v2's phases 1 to 4; our own stylesheet replaced it in v2's
   phase 6, step 1 (decision 34), and it left the dependencies.
 
-## PureScript packages (package set 81.9.0)
+## PureScript packages (package set 83.3.0 since 2026-11-23; 81.9.0 before)
 
-- `halogen` 7.0.0 (the registry has 7.1.0, the sets up to 81.9.0 have
+- `halogen` 7.0.0 (the registry has 7.1.0, the sets up to 83.3.0 have
   7.0.0), `web-html`,
   `web-file`, `web-uievents`, `web-workers` 2.0.0, `canvas` 6.0.0,
   `arraybuffer-types`, `aff`, `js-promise-aff`.
@@ -612,9 +618,14 @@ stay on the host.
   check waits for a new run's answer, then for the page's finished state
   (the download button enabled, no progress). The download's name,
   which carries the settings, confirms which result it is.
-- **The controls:** `selectOption` on the two menus (colors, then
-  kernel), `fill` on the levels' number, and the radio buttons
-  (segments and cards) clicked in the page once enabled. The split is
+- **The controls:** `selectOption` on the three menus, target, colors
+  and kernel, found by their names (`getByRole('combobox', { name })`:
+  the target's menu, decision 37, became the first select, which moved
+  the others' places), `fill` on the levels' number, and the radio
+  buttons (segments) clicked in the page once enabled. The two
+  switches, serpentine and gray first, are found by their names
+  (`getByRole('switch', { name })`): with a second switch on the page,
+  `input[role=switch]` became ambiguous (v2.5). The split is
   set by keys on the handle (Home, Shift+→ for tens, → for ones), the
   handle and the labels hidden by a style tag for the screenshot, at
   device pixel ratio 1, with the canvas's corner tried ±1 screen pixel.
@@ -666,6 +677,26 @@ stay on the host.
   it, and the problem in the console, in both themes, on a desktop and a
   phone (where the popup, first right-aligned, went off the screen's left
   edge: it opens to the right in the footer now).
+
+- **Serpentine scanning** (2026-11-23, v2.5, decision 36 in
+  `ROADMAP.md`): 4 levels with Floyd–Steinberg and serpentine give the
+  CLI's pixels (`--serpentine`) and the name
+  `…-levels4-floyd-steinberg-serpentine.png` in all three engines, the
+  switch disabled until a kernel is chosen: 98 checks, in 84 s.
+  Mutation-checked in the built page: the worker ignoring the scan
+  (33,066 pixels off the CLI's in each engine), and the switch never
+  disabled (each engine).
+- **The target's menu** (2026-11-23, v2.5, decision 37 in
+  `ROADMAP.md`): disabled before a picture, the focus on it after the
+  first, and after each choice its face showing the chosen target's
+  name and line, which also describes the select (`aria-describedby`),
+  in all three engines: 101 checks, in 87 s. Mutation-checked, each
+  failing only that check, in each engine: the face always showing
+  "Any screen", the select without its ref (the focus stays where it
+  was), and `aria-describedby` naming no element. Seen in screenshots
+  (Chromium and Firefox, both themes): after a picture loaded with the
+  mouse, Chromium draws the focus ring around the menu and Firefox
+  none, each by its own rule for `:focus-visible`.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

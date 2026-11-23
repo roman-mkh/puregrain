@@ -19,7 +19,8 @@ import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual, shouldSatisfy)
 import Test.Spec.QuickCheck (quickCheck)
 
-import Puregrain.Cells (CellMode, CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherBandsWith, ditherCells, ditherCellsWith, nearestInCell, orderedInCell, singleColor)
+import Puregrain.Cells (CellMode, CellPalette, CellSize, cellColors, colorPair, ditherBands, ditherBandsBy, ditherBandsWith, ditherCells, ditherCellsBy, ditherCellsWith, nearestInCell, orderedInCell, singleColor)
+import Puregrain.Dither (defaults, serpentine, withKernel, withScan)
 import Puregrain.Gamma (fromLight, gammaOff, gammaSrgb, toLight)
 import Puregrain.Internal.Util (safeRange)
 import Puregrain.Kernel (floydSteinberg, noDiffusion)
@@ -335,3 +336,30 @@ spec = describe "Puregrain.Cells" do
           in
             (ditherCellsWith c.gamma noDiffusion (orderedInCell m) (modeOf t) t.image).image
               === naiveOrderedImage (toLight c.gamma) (fromLight c.gamma) m t
+
+  describe "serpentine scanning (ditherCellsBy and ditherBandsBy)" do
+    let serpentineWith kernel = defaults # withKernel kernel # withScan serpentine
+
+    it "chooses the same cells as every row left to right: the scan doesn't touch the choice" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        (ditherCellsBy (serpentineWith kernel) rule (modeOf t) t.image).cells === cellsOf (modeOf t) t.image
+
+    -- On a row scanned right to left, a pixel still finds its cell by its
+    -- column counted from the left edge: counted along the scan, it would
+    -- take the colors of the cell mirrored across the row.
+    it "gives every pixel one of its own cell's colors, with any kernel and rule" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        foreignPixels t (ditherCellsBy (serpentineWith kernel) rule (modeOf t) t.image) === 0
+
+    it "gives the same cells and rows streamed as in memory" do
+      quickCheck \(TestKernel kernel) (TestCellQuantizer rule) (TestCells t) ->
+        collect (ditherBandsBy (serpentineWith kernel) rule (modeOf t) (LL.fromFoldable t.image))
+          === ditherCellsBy (serpentineWith kernel) rule (modeOf t) t.image
+
+    it "without diffusion, follows the same plain per-pixel rule as every row left to right" do
+      quickCheck \(TestCells t) (TestRanks ranks) ->
+        let
+          m = compiledMap ranks
+        in
+          (ditherCellsBy (serpentineWith noDiffusion) (orderedInCell m) (modeOf t) t.image).image
+            === naiveOrderedImage identity identity m t

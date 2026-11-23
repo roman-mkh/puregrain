@@ -23,18 +23,36 @@
 -- | `Aff` keeps such a loop from growing the stack, however long the
 -- | stream; in `Effect`, write it with `tailRecM`.
 -- |
--- | Each has a twin that takes a `Puregrain.Gamma.Gamma` first:
--- | `ditherImageWith`, `ditherRowsWith` and `initDitheringWith`. They keep
--- | the amount of light, by that curve, rather than the average of the
--- | stored numbers; with `gammaOff` they're the same as the plain ones.
--- | Which gamma for which view:
+-- | Each takes its settings in one of two ways:
+-- |
+-- | - `ditherImageBy`, `ditherRowsBy` and `initDitheringBy` take a
+-- |   `DitherParams`: the kernel, the gamma and the scan (`raster` or
+-- |   `serpentine`), built from `defaults` with the `with…` functions;
+-- | - `ditherImage`, `ditherRows` and `initDithering` take just a kernel,
+-- |   and their twins `ditherImageWith`, `ditherRowsWith` and
+-- |   `initDitheringWith` a `Puregrain.Gamma.Gamma` and a kernel: shorthands
+-- |   for the `…By` drivers with those settings.
+-- |
+-- | ```purescript
+-- | -- the same rows, twice
+-- | ditherImageBy (defaults # withKernel floydSteinberg # withGamma gammaSrgb) (threshold 128.0) image
+-- | ditherImageWith gammaSrgb floydSteinberg (threshold 128.0) image
+-- | ```
+-- |
+-- | A gamma keeps the amount of light, by that curve, rather than the
+-- | average of the stored numbers; `gammaOff` is the plain result. Which
+-- | gamma for which view:
 -- | [docs/gamma.md](https://github.com/roman-mkh/puregrain/blob/master/docs/gamma.md).
 module Puregrain.Dither
-  ( ditherImage
+  ( module Exports
+  , ditherImageBy
+  , ditherImage
   , ditherImageWith
+  , ditherRowsBy
   , ditherRows
   , ditherRowsWith
   , Dithering
+  , initDitheringBy
   , initDithering
   , initDitheringWith
   , ditherRow
@@ -48,7 +66,8 @@ import Data.List.Lazy as LL
 import Data.Tuple (Tuple(..))
 import Puregrain.Internal.Gamma (Conversion, Gamma, conversionFor, noConversion)
 import Puregrain.Internal.Image (ditherImageVia, ditherRowsVia, rowsIn, rowsOut)
-import Puregrain.Internal.Kernel (CompiledKernel, compileKernel)
+import Puregrain.Internal.Params (DitherParams, Scan, defaults, raster, serpentine, withGamma, withKernel, withScan) as Exports
+import Puregrain.Internal.Params (CompiledParams, DitherParams, compileParams, defaults, gammaOf, withGamma, withKernel)
 import Puregrain.Internal.Quantize (Quantizer, quantizerFor)
 import Puregrain.Internal.Row (stepRow)
 import Puregrain.Internal.State (DitherState, initState)
@@ -56,18 +75,47 @@ import Puregrain.Kernel (Kernel)
 import Puregrain.Pixel (class ColorChannels, class Scalable)
 import Puregrain.Quantize (Quantize)
 import Type.Proxy (Proxy(..))
-
--- | Dithers an image in memory.
+-- | Dithers an image in memory, with the settings given.
 -- |
 -- | - `a`: the pixel type, `Number` for gray, `RGB` or `RGBA`; any type
--- |   with `Ring` and `Scalable` works.
--- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- |   with `Ring`, `Scalable` and `ColorChannels` works.
+-- | - `DitherParams`: the kernel, the gamma and the scan, from `defaults`
+-- |   and the `with…` functions.
 -- | - `Quantize a`: picks each pixel's output value.
 -- | - `Array (Array a)`: the image, rows top to bottom, each left to right,
 -- |   all of the same length.
 -- |
--- | Returns the dithered image, all at once. Stops with an error naming a
--- | row whose length differs from the first row's.
+-- | Returns the dithered image, all at once, as stored values. Under a
+-- | gamma other than `gammaOff`, each row is taken to light, dithered
+-- | there, and brought back: the error and the amounts of light (ordered
+-- | dithering's patterns) are in light; the choices of the nearest level
+-- | or color stay on stored values, as the eye sees them; a level or a
+-- | palette color of whole numbers comes back exactly. Stops with an error
+-- | naming a row whose length differs from the first row's.
+-- |
+-- | ```purescript
+-- | ditherImageBy (defaults # withKernel floydSteinberg # withGamma gammaSrgb) (threshold 128.0) image
+-- | ```
+ditherImageBy
+  :: forall a
+   . Ring a
+  => Scalable a
+  => ColorChannels a
+  => DitherParams
+  -> Quantize a
+  -> Array (Array a)
+  -> Array (Array a)
+ditherImageBy params = ditherImageVia (Proxy :: Proxy CatQueue) (conversionFor (gammaOf params)) (compileParams params)
+
+-- | Dithers an image in memory, with a kernel and no other setting.
+-- |
+-- | - `a`: the pixel type, `Number` for gray, `RGB` or `RGBA`; any type
+-- |   with `Ring` and `Scalable` works, `ColorChannels` not needed.
+-- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
+-- | - `Quantize a`: picks each pixel's output value.
+-- | - `Array (Array a)`: the image, as for `ditherImageBy`.
+-- |
+-- | Returns what `ditherImageBy (defaults # withKernel kernel)` returns.
 ditherImage
   :: forall a
    . Ring a
@@ -76,24 +124,18 @@ ditherImage
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-ditherImage = ditherImageVia (Proxy :: Proxy CatQueue) noConversion
+ditherImage kernel = ditherImageVia (Proxy :: Proxy CatQueue) noConversion (compileParams (defaults # withKernel kernel))
 
--- | Dithers an image in memory, keeping the amount of light the curve
--- | gives each value rather than the average of the stored numbers.
+-- | Dithers an image in memory, with a gamma and a kernel.
 -- |
--- | - `a`: the pixel type, `Number`, `RGB` or `RGBA`; any type with `Ring`,
--- |   `Scalable` and `ColorChannels` works.
+-- | - `a`: as for `ditherImageBy`.
 -- | - `Gamma`: how the stored numbers turn into light: `gammaOff`, the
 -- |   same as `ditherImage`, or `gamma1p2`, `gamma1p5`, `gamma1p8` or
 -- |   `gammaSrgb` (linear light).
 -- | - `Kernel`, `Quantize a`, `Array (Array a)`: as for `ditherImage`.
 -- |
--- | Returns the dithered image as stored values: each row is taken to
--- | light, dithered there, and brought back. The error and the amounts of
--- | light (ordered dithering's patterns) are in light; the choices of the
--- | nearest level or color stay on stored values, as the eye sees them; a
--- | level or a palette color of whole numbers comes back exactly. Stops
--- | with an error naming a row whose length differs from the first row's.
+-- | Returns what `ditherImageBy (defaults # withKernel kernel # withGamma
+-- | gamma)` returns.
 -- |
 -- | ```purescript
 -- | ditherImageWith gammaSrgb floydSteinberg (threshold 128.0) image
@@ -108,19 +150,36 @@ ditherImageWith
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-ditherImageWith gamma = ditherImageVia (Proxy :: Proxy CatQueue) (conversionFor gamma)
+ditherImageWith gamma kernel = ditherImageBy (defaults # withKernel kernel # withGamma gamma)
 
--- | Dithers a lazy stream of rows.
+-- | Dithers a lazy stream of rows, with the settings given.
 -- |
--- | - `a`, `Kernel` and `Quantize a`: as for `ditherImage`.
+-- | - `a`, `DitherParams` and `Quantize a`: as for `ditherImageBy`.
 -- | - `LL.List (Array a)`: the rows, top to bottom, all of the same length;
 -- |   the list may be endless.
 -- |
 -- | Returns the dithered rows as a lazy list, the same rows as
--- | `ditherImage`. Each row is read and dithered only when its result is
+-- | `ditherImageBy`. Each row is read and dithered only when its result is
 -- | first needed, so only the rows in flight are in memory. At a row whose
 -- | length differs from the first row's, it stops with an error naming
 -- | the row; the rows before it have come out.
+ditherRowsBy
+  :: forall a
+   . Ring a
+  => Scalable a
+  => ColorChannels a
+  => DitherParams
+  -> Quantize a
+  -> LL.List (Array a)
+  -> LL.List (Array a)
+ditherRowsBy params = ditherRowsVia (Proxy :: Proxy CatQueue) (conversionFor (gammaOf params)) (compileParams params)
+
+-- | Dithers a lazy stream of rows, with a kernel and no other setting.
+-- |
+-- | - `a`, `Kernel` and `Quantize a`: as for `ditherImage`.
+-- | - `LL.List (Array a)`: the rows, as for `ditherRowsBy`.
+-- |
+-- | Returns what `ditherRowsBy (defaults # withKernel kernel)` returns.
 ditherRows
   :: forall a
    . Ring a
@@ -129,16 +188,15 @@ ditherRows
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
-ditherRows = ditherRowsVia (Proxy :: Proxy CatQueue) noConversion
+ditherRows kernel = ditherRowsVia (Proxy :: Proxy CatQueue) noConversion (compileParams (defaults # withKernel kernel))
 
--- | Dithers a lazy stream of rows, keeping the amount of light the curve
--- | gives each value.
+-- | Dithers a lazy stream of rows, with a gamma and a kernel.
 -- |
 -- | - `a` and `Gamma`: as for `ditherImageWith`.
 -- | - `Kernel`, `Quantize a`, `LL.List (Array a)`: as for `ditherRows`.
 -- |
--- | Returns the dithered rows as a lazy list, the same rows as
--- | `ditherImageWith`, each read and dithered when it's first needed.
+-- | Returns what `ditherRowsBy (defaults # withKernel kernel # withGamma
+-- | gamma)` returns.
 ditherRowsWith
   :: forall a
    . Ring a
@@ -149,10 +207,10 @@ ditherRowsWith
   -> Quantize a
   -> LL.List (Array a)
   -> LL.List (Array a)
-ditherRowsWith gamma = ditherRowsVia (Proxy :: Proxy CatQueue) (conversionFor gamma)
+ditherRowsWith gamma kernel = ditherRowsBy (defaults # withKernel kernel # withGamma gamma)
 
 -- | An image being dithered one row at a time, for `ditherRow`: the
--- | kernel, the quantizer, and the error waiting for the rows still to
+-- | settings, the quantizer, and the error waiting for the rows still to
 -- | come; `a` is the pixel type. Opaque.
 -- |
 -- | An immutable value: keep and reuse one, for an undo, say. Dithering a
@@ -160,47 +218,56 @@ ditherRowsWith gamma = ditherRowsVia (Proxy :: Proxy CatQueue) (conversionFor ga
 -- The quantizer is kept resolved, once for the whole image, with the
 -- conversion that brings each row to light and back.
 newtype Dithering a = Dithering
-  { compiled :: CompiledKernel
+  { compiled :: CompiledParams
   , quantizer :: Quantizer a
   , conversion :: Conversion a
   , state :: DitherState CatQueue a
   }
 
--- | The state before the first row, for `ditherRow`.
+-- | The state before the first row, for `ditherRow`, with the settings
+-- | given.
 -- |
--- | - `Kernel`: where each pixel's error goes; `noDiffusion` for nowhere.
--- | - `Quantize a`: picks each pixel's output value.
+-- | - `a`, `DitherParams` and `Quantize a`: as for `ditherImageBy`.
 -- |
--- | Dithers nothing yet; the first row fixes the image's width.
-initDithering :: forall a. Kernel -> Quantize a -> Dithering a
-initDithering = initDitheringVia noConversion
+-- | Dithers nothing yet; the first row fixes the image's width. `ditherRow`
+-- | then gives the same rows as `ditherImageBy`, each as stored values.
+initDitheringBy :: forall a. ColorChannels a => DitherParams -> Quantize a -> Dithering a
+initDitheringBy params = initDitheringVia (conversionFor (gammaOf params)) (compileParams params)
 
--- | The state before the first row, for `ditherRow`, keeping the amount
--- | of light the curve gives each value.
+-- | The state before the first row, for `ditherRow`, with a kernel and no
+-- | other setting.
+-- |
+-- | - `Kernel` and `Quantize a`: as for `ditherImage`.
+-- |
+-- | Returns what `initDitheringBy (defaults # withKernel kernel)` returns.
+initDithering :: forall a. Kernel -> Quantize a -> Dithering a
+initDithering kernel = initDitheringVia noConversion (compileParams (defaults # withKernel kernel))
+
+-- | The state before the first row, for `ditherRow`, with a gamma and a
+-- | kernel.
 -- |
 -- | - `a` and `Gamma`: as for `ditherImageWith`.
 -- | - `Kernel` and `Quantize a`: as for `initDithering`.
 -- |
--- | `ditherRow` then gives the same rows as `ditherImageWith`, each as
--- | stored values.
+-- | Returns what `initDitheringBy (defaults # withKernel kernel # withGamma
+-- | gamma)` returns.
 initDitheringWith :: forall a. ColorChannels a => Gamma -> Kernel -> Quantize a -> Dithering a
-initDitheringWith gamma = initDitheringVia (conversionFor gamma)
+initDitheringWith gamma kernel = initDitheringBy (defaults # withKernel kernel # withGamma gamma)
 
-initDitheringVia :: forall a. Conversion a -> Kernel -> Quantize a -> Dithering a
-initDitheringVia conversion kernel quantize =
-  Dithering { compiled, quantizer: quantizerFor conversion quantize, conversion, state: initState compiled }
-  where
-    compiled = compileKernel kernel
+initDitheringVia :: forall a. Conversion a -> CompiledParams -> Quantize a -> Dithering a
+initDitheringVia conversion compiled quantize =
+  Dithering { compiled, quantizer: quantizerFor conversion quantize, conversion, state: initState compiled.kernel }
 
 -- | Dithers the next row.
 -- |
--- | - `Dithering a`: the state, from `initDithering` or the previous row.
+-- | - `Dithering a`: the state, from `initDitheringBy`, `initDithering`,
+-- |   `initDitheringWith` or the previous row.
 -- | - `Array a`: the row, as long as the first one.
 -- |
 -- | Returns the dithered row and the state for the next one: the same rows
--- | as `ditherImage`. `Left`, with a message naming the row, for a row of a
--- | different length; the state passed in is untouched, so you can carry
--- | on with a corrected row.
+-- | as the matching `ditherImage…`. `Left`, with a message naming the row,
+-- | for a row of a different length; the state passed in is untouched, so
+-- | you can carry on with a corrected row.
 ditherRow
   :: forall a
    . Ring a

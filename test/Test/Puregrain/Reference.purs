@@ -35,7 +35,8 @@ unflatten width height flat =
 -- | direct `0 <= x' < width && 0 <= y' < height` check the mathematics
 -- | itself calls for.
 -- |
--- | Assumes `image` is rectangular and non-empty.
+-- | Every row left to right; `referenceDitherIn` also does serpentine
+-- | scanning. Assumes `image` is rectangular and non-empty.
 referenceDither
   :: forall a
    . Ring a
@@ -44,7 +45,7 @@ referenceDither
   -> Quantize a
   -> Array (Array a)
   -> Array (Array a)
-referenceDither kernel quantize = referenceDitherResolved kernel (runQuantize quantize)
+referenceDither kernel quantize = referenceDitherIn AllLeftToRight kernel (runQuantize quantize)
 
 -- | The same, with the quantizer already resolved: a function of the
 -- | pixel's position and corrected value, as the library's drivers resolve
@@ -58,7 +59,29 @@ referenceDitherResolved
   -> (Context -> a -> a)
   -> Array (Array a)
   -> Array (Array a)
-referenceDitherResolved kernel quantize image =
+referenceDitherResolved = referenceDitherIn AllLeftToRight
+
+-- | The order the reference visits the pixels in: every row left to right,
+-- | or alternating, serpentine scanning as the textbooks define it: the
+-- | odd rows (counted from 0) right to left, with each offset mirrored, so
+-- | a pixel at x sends its error to x - dx instead of x + dx. Written out
+-- | here directly, in image coordinates, independently of the library's
+-- | queues, which reach the same result by reversing them between rows.
+data RowOrder = AllLeftToRight | Alternating
+
+derive instance Eq RowOrder
+
+-- | The reference in either row order, with a resolved quantizer.
+referenceDitherIn
+  :: forall a
+   . Ring a
+  => Scalable a
+  => RowOrder
+  -> Kernel
+  -> (Context -> a -> a)
+  -> Array (Array a)
+  -> Array (Array a)
+referenceDitherIn order kernel quantize image =
   unflatten width height (run (ditherFlat width height (flatten image)))
   where
     width :: Int
@@ -78,9 +101,12 @@ referenceDitherResolved kernel quantize image =
         indexOf :: Int -> Int -> Int
         indexOf x y = y * w + x
 
-      forE_ 0 h \y ->
-        forE_ 0 w \x -> do
-          let idx = indexOf x y
+      forE_ 0 h \y -> do
+        let mirrored = order == Alternating && y `mod` 2 == 1
+        forE_ 0 w \i -> do
+          let
+            x = if mirrored then w - 1 - i else i
+            idx = indexOf x y
           maybeCorrected <- STArray.peek idx working
           case maybeCorrected of
             Nothing -> pure unit  -- unreachable: idx is always in range by construction
@@ -91,7 +117,7 @@ referenceDitherResolved kernel quantize image =
               _ <- STArray.poke idx quantized output
               forKernel_ kernel \{ dx, dy, weight } -> do
                 let
-                  x' = x + dx
+                  x' = if mirrored then x - dx else x + dx
                   y' = y + dy
                 when (x' >= 0 && x' < w && y' >= 0 && y' < h) do
                   maybeNeighbor <- STArray.peek (indexOf x' y') working

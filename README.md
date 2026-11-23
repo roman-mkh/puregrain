@@ -27,7 +27,8 @@ dithers pictures in the browser.
 - **Error diffusion with a choice of kernel:** Floyd–Steinberg, Atkinson,
   Jarvis–Judice–Ninke, Stucki, Burkes, three Sierras, Fan and two by Shiau
   and Fan, or your own (a list of neighbour offsets and weights, checked
-  when you build it). See [docs/error-diffusion.md](docs/error-diffusion.md).
+  when you build it); every row left to right, or serpentine, every other
+  row right to left. See [docs/error-diffusion.md](docs/error-diffusion.md).
 - **Grayscale and color.** For color there are two approaches:
   - dither each channel on its own, e.g. 4 levels per channel;
   - or pick the nearest color from a palette, looking at the whole pixel.
@@ -73,9 +74,9 @@ dithers pictures in the browser.
   kernel are in [the benchmarks](docs/benchmarks-dithering.md). For batches
   of large images or interactive use, a native tool such as ImageMagick
   is the better choice.
-- **You need the best photo quality.** Linear light is there
-  ([gamma](docs/gamma.md)), but no perceptual color distance, no color
-  profiles and no serpentine scanning yet
+- **You need the best photo quality.** Linear light
+  ([gamma](docs/gamma.md)) and serpentine scanning are there, but no
+  perceptual color distance and no color profiles yet
   (see [Limitations](cli/README.md#limitations)).
 
 ## Getting started
@@ -214,7 +215,7 @@ workspace and are built together.
 | [npm/README.md](npm/README.md) | The npm package's page: running the command-line tool from npm |
 | [web/README.md](web/README.md) | puregrain lab: using it, its settings as the tool's options, browsers, accessibility, development and the manual checklist |
 | [pictures/README.md](pictures/README.md) | The sample picture: what it shows, how to try it, where it comes from |
-| [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, and your own kernels |
+| [docs/error-diffusion.md](docs/error-diffusion.md) | Error diffusion: the 11 kernels, their tables, names and sources, your own kernels, and serpentine scanning |
 | [docs/ordered-dithering.md](docs/ordered-dithering.md) | Ordered (Bayer) dithering: thresholds, the matrices, combining it with error diffusion |
 | [docs/gamma.md](docs/gamma.md) | Gamma and linear light: the five values, which for which view, measured, and the engine check |
 | [docs/exact-arithmetic.md](docs/exact-arithmetic.md) | Why the light curves give the same bits on every JavaScript engine, and how |

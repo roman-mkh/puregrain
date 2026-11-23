@@ -119,8 +119,9 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       blue-noise mask is a custom threshold map (`Puregrain.Ordered.compileThresholdMap`).
 - [ ] **Ostromoukhov's variable error diffusion:** the kernel's weights depend on the pixel's input value.
       The step uses fixed weights per kernel today, so this needs per-pixel weights in `Puregrain.Internal.Step`.
-- [ ] **Serpentine scanning:** alternate the scan direction row by row, mirroring the kernel on right-to-left
-      rows, to reduce directional artifacts (cli/README.md, "Limitations").
+      It scans serpentine (Wikipedia, "Error diffusion"): with `DitherParams` it would be a method of its own,
+      `withOstromoukhov`, that always scans so, the rule applied where the drivers read the settings
+      (`compileParams`; CLAUDE.md, "`DitherParams`").
 - [ ] **Riemersma dithering** (an idea): the error travels along a Hilbert curve, a path that fills the image
       in nested U-shapes, and each pixel gets the last ~16 visited pixels' errors with exponentially falling
       weights. Not a kernel, but a different traversal: the whole image in memory (no streaming or stepper),
@@ -232,7 +233,8 @@ pixel, of which about 1.3 µs is the diffusion (without it, 0.63 µs).
       to 0–255 per channel; pass on only part of the error; or stop error at cell borders, which is simple:
       dither each cell as its own small image, with the existing engine unchanged. The open question is the
       look, not the code: each cell then restarts its pattern, so a flat area repeats one 8 × 8 tile. Measure
-      on `output-zx-*`, and keep the `color:zx-cells` exact check passing.
+      on `output-zx-*`, and keep the `color:zx-cells` exact check passing. Serpentine scanning (2026-11-23)
+      leaves the streaks as they are (docs/error-diffusion.md, "Serpentine scanning").
 
 - [ ] CMY/CMYK pixel types + GCR/UCR (gray component replacement / under
       color removal). Algebraically CMY(K) is identical to RGB(A) — same

@@ -7,7 +7,9 @@
 // CLI's, byte for byte; the split shows the original left of it and the
 // result right of it, exact to the screen pixel, dragging its handle
 // selects nothing, and a click on "Original" or "Result" moves it to its
-// end; a run works with worker.js blocked once the page has loaded; the
+// end; the target's menu is disabled before a picture, takes the focus
+// with the first and shows each choice; a run works with worker.js
+// blocked once the page has loaded; the
 // sample picture loads from both its links, says so when it can't be
 // fetched, and its result has the CLI's pixels.
 //
@@ -60,6 +62,26 @@ const SETTINGS = [
     cli: ['--levels', '4', '--kernel', 'atkinson', '--gamma', 'srgb'], name: 'levels4-atkinson-srgb' },
   { what: 'the CGA palette, Floyd-Steinberg, gray first, gamma 1.5', colors: 'cga16', kernel: 'floyd-steinberg', gamma: '1.5', gray: true,
     cli: ['--palette', 'cga16', '--kernel', 'floyd-steinberg', '--gamma', '1.5', '--gray'], name: 'cga16-floyd-steinberg-gamma1.5-gray' },
+  // Serpentine scanning (decision 36): its switch, disabled until a
+  // kernel is chosen, as the CLI rejects --serpentine with none.
+  { what: '4 levels, Floyd-Steinberg, serpentine', colors: 'levels', levels: '4', kernel: 'floyd-steinberg', serpentine: true,
+    cli: ['--levels', '4', '--kernel', 'floyd-steinberg', '--serpentine'], name: 'levels4-floyd-steinberg-serpentine' },
+];
+// The page's two switches, by their names.
+const GRAY_SWITCH = { name: 'Turn the picture gray first' };
+const SERPENTINE_SWITCH = { name: 'Serpentine: every other row right to left' };
+// The page's three menus, by their names: since the target became one
+// (decision 37), the colors' and the kernel's places among the selects
+// have moved.
+const TARGET_MENU = { name: 'Target' };
+const COLORS_MENU = { name: 'Colors' };
+const KERNEL_MENU = { name: 'Error diffusion' };
+// What the target's menu shows for each target: its name, and its line,
+// which also describes the select to screen readers.
+const TARGETS = [
+  { value: 'zx-spectrum', title: 'ZX Spectrum', line: '256 × 192, 2 colors per 8×8 cell' },
+  { value: 'c64-hires', title: 'Commodore 64', line: '320 × 200, 2 colors per 8×8 cell' },
+  { value: 'any', title: 'Any screen', line: 'any size, the colors you choose' },
 ];
 // `dir` keeps each entry's CLI files apart; the names in it are the
 // picture's, so that a tape's name is the page's.
@@ -203,6 +225,9 @@ const recordRuns = () => {
 
 const checksIn = async (engine, page) => {
   const runs = () => page.evaluate(() => window.__runs.length);
+  const targetMenu = page.getByRole('combobox', TARGET_MENU);
+  const colorsMenu = page.getByRole('combobox', COLORS_MENU);
+  const kernelMenu = page.getByRole('combobox', KERNEL_MENU);
   // Waits for a run started after `before` runs, the last one, to end,
   // and for the page to show its result.
   const finished = async (before, timeout = 120000) => {
@@ -217,7 +242,7 @@ const checksIn = async (engine, page) => {
     await page.locator('input[type=file]').first().setInputFiles(`${out}/${picture}.png`);
     await page.waitForFunction((name) => document.querySelector('.picture-name')?.textContent === name, `${picture}.png`);
   };
-  // The segments and cards are radio buttons; one is picked once it's available.
+  // The segments are radio buttons; one is picked once it's available.
   const pick = async (name, value) => {
     const selector = `input[name="${name}"][value="${value}"]`;
     await page.waitForFunction((s) => document.querySelector(s)?.disabled === false, selector);
@@ -314,9 +339,9 @@ const checksIn = async (engine, page) => {
       await page.locator('input[type=file]').first().setInputFiles(`${out}/${PICTURE}.png`);
       await page.waitForFunction((name) => document.querySelector('.picture-name')?.textContent === name, `${PICTURE}.png`);
       const before = await runs();
-      await page.locator('select').nth(0).selectOption('levels');
+      await colorsMenu.selectOption('levels');
       await page.locator('.stepper input[type=number]').fill('4');
-      await page.locator('select').nth(1).selectOption('atkinson');
+      await kernelMenu.selectOption('atkinson');
       const done = await finished(before, 20000).then(() => true, () => false);
       const diff = done
         ? differing(pixelsOf((await download(() => page.locator('.downloads button').first().click())).bytes), pixelsOf(fs.readFileSync(`${out}/cli-levels4-atkinson.png`)))
@@ -367,6 +392,44 @@ const checksIn = async (engine, page) => {
       `${engine}: the engine check ${state}; its icon, "${name}", opens "${sentence}" with a link to Help${closed && focused ? ', and Escape closes it, the focus back on the icon' : ', but Escape doesn\'t close it, or the focus is lost'}${reopened && clickedAway ? ', as does a click elsewhere' : ', but a click elsewhere doesn\'t close it'}`);
   }
 
+  // The target, a menu that looks like its card (decision 37): disabled
+  // before a picture, it takes the focus with the first one; after each
+  // choice, its face shows the chosen target's name and line, and the
+  // line describes the select (the face itself is hidden from screen
+  // readers).
+  {
+    await page.goto(pageUrl);
+    const disabledFirst = await targetMenu.isDisabled();
+    await page.locator('input[type=file]').first().setInputFiles(`${out}/${PICTURE}.png`);
+    const focused = await page.waitForFunction(() => document.activeElement?.matches('.card-menu select') ?? false, null, { timeout: 5000 })
+      .then(() => true, () => false);
+    const wrong = [];
+    for (const t of TARGETS) {
+      await targetMenu.selectOption(t.value);
+      const shows = await page.waitForFunction((want) => {
+        const select = document.querySelector('.card-menu select');
+        const face = document.querySelector('.card-menu .face');
+        const description = document.getElementById(select?.getAttribute('aria-describedby') ?? '')?.textContent;
+        return select?.value === want.value && face?.querySelector('b')?.textContent === want.title
+          && face?.querySelector('small')?.textContent === want.line && description === want.line;
+      }, t, { timeout: 5000 }).then(() => true, () => false);
+      if (!shows) {
+        const now = await page.evaluate(() => {
+          const select = document.querySelector('.card-menu select');
+          const description = document.getElementById(select?.getAttribute('aria-describedby') ?? '')?.textContent;
+          return `${select?.value} shows "${document.querySelector('.card-menu .face b')?.textContent}", ` +
+            `"${document.querySelector('.card-menu .face small')?.textContent}", described as "${description}"`;
+        });
+        wrong.push(`${t.value}: ${now}`);
+      }
+    }
+    report(disabledFirst && focused && wrong.length === 0,
+      `${engine}: the target's menu is ${disabledFirst ? 'disabled' : 'NOT disabled'} before a picture and ${focused ? 'takes' : "DOESN'T take"} the focus with the first; ` +
+      (wrong.length === 0
+        ? `its face and description follow the choice (${TARGETS.map((t) => t.title).join(', ')})`
+        : `its face or description doesn't follow the choice: ${wrong.join('; ')}`));
+  }
+
   // A long run, on 2 megapixels (2026-11-15): its progress shows at once,
   // and the picture's frame is marked as working while it goes. A gamma
   // changed after it, on this opaque picture, keeps the result before on
@@ -376,7 +439,7 @@ const checksIn = async (engine, page) => {
     await open('color-2048x1024');
     let before = await runs();
     const t0 = Date.now();
-    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    await kernelMenu.selectOption('floyd-steinberg');
     const progressAt = await page.waitForFunction(() => document.querySelector('.progress:not([hidden])') !== null, null, { timeout: 5000 })
       .then(() => Date.now() - t0, () => null);
     const working = await page.locator('.layers.working').count() === 1;
@@ -399,7 +462,7 @@ const checksIn = async (engine, page) => {
     await open(PICTURE);
     const note = page.locator('.note', { hasText: 'Gamma changes the picture only' });
     const shown = await note.isVisible();
-    await page.locator('select').nth(1).selectOption('floyd-steinberg');
+    await kernelMenu.selectOption('floyd-steinberg');
     await page.waitForFunction(() => ![...document.querySelectorAll('.note')].some((n) => n.textContent.startsWith('Gamma changes')), null, { timeout: 5000 }).catch(() => {});
     const gone = await note.count() === 0;
     report(shown && gone, `${engine}: the note under the gamma ${shown ? 'shows after loading' : "doesn't show after loading"} and ${gone ? 'goes once a kernel dithers' : 'stays with a kernel'}`);
@@ -432,8 +495,8 @@ const checksIn = async (engine, page) => {
     let diff = 'not run';
     if (fromZone) {
       const before = await runs();
-      await page.locator('select').nth(0).selectOption('cga16');
-      await page.locator('select').nth(1).selectOption('floyd-steinberg');
+      await colorsMenu.selectOption('cga16');
+      await kernelMenu.selectOption('floyd-steinberg');
       await pick('gamma', '1.8');
       await finished(before);
       file = await download(() => page.locator('.downloads button').first().click());
@@ -449,18 +512,22 @@ const checksIn = async (engine, page) => {
   for (const s of SETTINGS) {
     await open(PICTURE);
     const before = await runs();
-    await page.locator('select').nth(0).selectOption(s.colors);
+    await colorsMenu.selectOption(s.colors);
     if (s.levels) await page.locator('.stepper input[type=number]').fill(s.levels);
-    if (s.kernel) await page.locator('select').nth(1).selectOption(s.kernel);
+    // With colors but no kernel yet, serpentine scanning can't act.
+    const serpentineFirst = s.serpentine ? await page.getByRole('switch', SERPENTINE_SWITCH).isDisabled() : true;
+    if (s.kernel) await kernelMenu.selectOption(s.kernel);
+    if (s.serpentine) await page.getByRole('switch', SERPENTINE_SWITCH).evaluate((toggle) => toggle.click());
     if (s.bayer) await pick('bayer', s.bayer);
     if (s.gamma) await pick('gamma', s.gamma);
-    if (s.gray) await page.locator('input[role=switch]').evaluate((toggle) => toggle.click());
+    if (s.gray) await page.getByRole('switch', GRAY_SWITCH).evaluate((toggle) => toggle.click());
     await finished(before);
     const expected = `${PICTURE}-${s.name}.png`;
     const file = await download(() => page.locator('.downloads button').first().click());
     const diff = differing(pixelsOf(file.bytes), pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`)));
-    report(file.name === expected && diff === 0,
-      `${engine}: ${s.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`}`);
+    report(file.name === expected && diff === 0 && serpentineFirst,
+      `${engine}: ${s.what}: ${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${diff === 0 ? "the CLI's pixels" : `${diff} pixels differ from the CLI's`}` +
+      (s.serpentine ? `; its switch ${serpentineFirst ? 'disabled' : 'NOT disabled'} until a kernel` : ''));
     if (s.name === 'levels4-atkinson') {
       const original = pixelsOf(fs.readFileSync(`${out}/${PICTURE}.png`));
       const result = pixelsOf(fs.readFileSync(`${out}/cli-${s.name}.png`));
@@ -473,7 +540,7 @@ const checksIn = async (engine, page) => {
   for (const m of MACHINES) {
     await open(m.picture);
     const before = await runs();
-    await pick('target', m.target);
+    await targetMenu.selectOption(m.target);
     await pick('bayer', m.bayer);
     if (m.gamma) await pick('gamma', m.gamma);
     await finished(before);
@@ -493,11 +560,11 @@ const checksIn = async (engine, page) => {
   for (const p of PREPARED) {
     await open(p.picture);
     const before = await runs();
-    if (p.target) await pick('target', p.target);
+    if (p.target) await targetMenu.selectOption(p.target);
     if (p.fit) await page.locator('label.check input[type=checkbox]').setChecked(true);
-    if (p.colors) await page.locator('select').nth(0).selectOption(p.colors);
+    if (p.colors) await colorsMenu.selectOption(p.colors);
     if (p.levels) await page.locator('.stepper input[type=number]').fill(p.levels);
-    if (p.kernel) await page.locator('select').nth(1).selectOption(p.kernel);
+    if (p.kernel) await kernelMenu.selectOption(p.kernel);
     if (p.bayer) await pick('bayer', p.bayer);
     await pick('gamma', p.gamma);
     await finished(before);

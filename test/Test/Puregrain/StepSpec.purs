@@ -41,6 +41,7 @@ freshRowState1 compiled =
   , matured: map (const ([] :: RowLayer LL.List Number)) compiled.futureLayers
   , building: initBuilding compiled
   , x: 0
+  , xStep: 1
   , y: 0
   }
 
@@ -85,6 +86,19 @@ spec = describe "Puregrain.Internal.Step" do
             ((freshRowState1 compiled) { y = 7 })
             row
         in { x: final.x, y: final.y } === { x: Array.length row, y: 7 }
+
+    it "on a row scanned right to left, moves x down by one per pixel from the right edge" do
+      quickCheck \(TestKernel kernel) (TestRow row) ->
+        let
+          compiled = compileKernel kernel
+          width = Array.length row
+          positions = Array.foldl
+            ( \(Tuple rs xs) px ->
+                Tuple (fst (step compiled (runQuantize (quantize quantizeThreshold)) rs px)) (Array.snoc xs rs.x)
+            )
+            (Tuple ((freshRowState1 compiled) { x = width - 1, xStep = -1 }) [])
+            row
+        in snd positions === Array.mapWithIndex (\i _ -> width - 1 - i) row
 
     it "matured's shape (placeholder seed) is preserved across an arbitrary row" do
       quickCheck \(TestKernel kernel) (TestRow row) ->

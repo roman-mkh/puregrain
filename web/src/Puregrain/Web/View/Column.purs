@@ -19,10 +19,10 @@ import Halogen.HTML.Events as HE
 import Halogen.HTML.Properties as HP
 import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
-import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf)
+import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf, serpentineAllowed)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.View.Controls (cards, fileButton, note, segments, step, stepper, toggleSwitch, withLink)
+import Puregrain.Web.View.Controls (cardMenu, fileButton, note, segments, step, stepper, toggleSwitch, withLink)
 import Puregrain.Web.View.Parts (option)
 
 type Loaded = { picture :: Picture, prepared :: Prepared }
@@ -86,11 +86,12 @@ pictureStep = case _ of
     , HH.p [ HP.class_ (H.ClassName "hint") ] (withLink texts.dropHint SampleChosen)
     ]
 
--- | The target's cards; for a machine and a picture of another size, what
--- | happens to it, and the choice to fit it to the screen (decision 22).
+-- | The target's menu, which looks like its card (decision 37); for a
+-- | machine and a picture of another size, what happens to it, and the
+-- | choice to fit it to the screen (decision 22).
 targetStep :: forall w. Settings -> Maybe Loaded -> Boolean -> Array (HH.HTML w Action)
 targetStep s loaded fit =
-  [ cards { name: "target", label: texts.target, selected: targetValue s.target, pick: TargetChosen, ref: Just targetRef }
+  [ cardMenu { name: "target", label: texts.target, selected: targetValue s.target, pick: TargetChosen, ref: Just targetRef }
       ( [ item AnyScreen "any" ]
           <> map (\m -> item (Machine m) (machineId m)) allMachines
       )
@@ -176,7 +177,9 @@ colorsStep s shownThreshold =
     _ -> []
 
 -- | The error diffusion's menu (`kernelMenu`: the originals, then two
--- | groups, as the colors' menu has "Palettes"), the Bayer map's segments with the notes
+-- | groups, as the colors' menu has "Palettes") with serpentine scanning's
+-- | switch under it, disabled where it wouldn't act (`serpentineAllowed`;
+-- | decision 36), the Bayer map's segments with the notes
 -- | on them, the gamma's segments with a note when it can't change the
 -- | picture (`gammaIdle`), and "gray first" as a toggle switch.
 methodStep :: forall w. Settings -> Boolean -> Array (HH.HTML w Action)
@@ -190,6 +193,7 @@ methodStep s gammaIdle =
                  ]
           )
       ]
+  , toggleSwitch { label: texts.serpentine, checked: s.serpentine, disabled: not (serpentineAllowed s), toggle: SerpentineChosen }
   , HH.div [ HP.class_ (H.ClassName "field") ]
       [ HH.span [ HP.id "bayer-label", HP.class_ (H.ClassName "label") ] [ HH.text texts.bayer ]
       , segments
@@ -216,7 +220,7 @@ methodStep s gammaIdle =
           ]
       ]
     <> (if gammaIdle then [ note [ HH.text texts.gammaNoEffect ] ] else [])
-    <> [ toggleSwitch { label: texts.gray, checked: s.gray, toggle: GrayChosen } ]
+    <> [ toggleSwitch { label: texts.gray, checked: s.gray, disabled: false, toggle: GrayChosen } ]
   where
   kernelOption :: KernelName -> HH.HTML w Action
   kernelOption k = option (kernelId k) (texts.kernelName k) (k == s.kernel)

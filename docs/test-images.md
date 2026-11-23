@@ -127,8 +127,11 @@ of rows. `npm run generate-images` also writes the color composite at
   Error diffusion is directional (rows left to right, error pushed right
   and down), so its artifacts depend on orientation.
 - **Look for:** differences from `gray:ramp`. Rows of constant tone tend to
-  form horizontal structures. The usual remedy is serpentine scanning, which
-  alternates the direction from row to row.
+  form horizontal structures. The usual remedy for error diffusion's
+  directional artifacts is serpentine scanning (`--serpentine`), which
+  alternates the direction from row to row; seen here, the row of dots
+  where the first dots appear stays with it
+  ([error-diffusion.md](error-diffusion.md#serpentine-scanning)).
 
 ### `gray:sphere`
 - **What:** a sphere lit from the upper left, with a specular highlight, on
@@ -159,7 +162,9 @@ of rows. `npm run generate-images` also writes the color composite at
   best-known artifacts.
 - **Look for:** "worms", where dots line up into curved diagonal strings,
   and an empty strip at the start where no dots have appeared yet (onset
-  delay). Floyd–Steinberg output shows both.
+  delay). Floyd–Steinberg output shows both; with `--serpentine`, the worms
+  go and the strip stays
+  ([error-diffusion.md](error-diffusion.md#serpentine-scanning)).
 
 ### `gray:lines`
 - **What:** dark (32) line segments on light gray (224). Rows are line

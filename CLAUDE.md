@@ -131,6 +131,15 @@ from the code alone.
   usage line shows both; it prints "Engine check passed: …" and exits 0,
   or "Engine check failed:" with the problems on standard error and exits
   1. `check:cli`'s checks 13 to 16 cover the gamma (70 s instead of 39).
+  `--serpentine` (2026-11-23, phase 2 of serpentine scanning): a switch,
+  `Options.serpentine`, listed after `--kernel`; `paramsOf` adds
+  `withScan`; the report line names it after the kernel. `resolve`
+  rejects it when nothing is diffused, `--kernel none` or `--bayer`
+  without `--kernel` (whose default is none), with a message for each:
+  it would silently change nothing (the user's decision; the library
+  accepts it, as a no-op). `check:cli`'s check 18 (each pipeline passes
+  it on and the report names it, a row alone unchanged, the zero-error
+  images unchanged) and one of `check:npm`'s configurations cover it.
   `--version` (2026-11-17, the user's request) prints `puregrain X.Y.Z`
   with the library's version: the CLI isn't released on its own, so the
   two are coupled (the user: the lab numbers its versions on its own, the
@@ -201,7 +210,7 @@ from the code alone.
   `npm run check:npm` (`scripts/check-npm.mjs`, after `npm:build`):
   packs `npm/dist/`, installs the tarball into an empty temporary folder
   (pngjs from the registry: it needs the network), runs the command
-  through npm's link, compares seven configurations with the launcher
+  through npm's link, compares eight configurations with the launcher
   byte for byte (a `.tap` carries its file's name, so both outputs are
   named alike), checks that imports are refused, and compares the
   notices with what esbuild bundles, for both bundles; a package without
@@ -242,7 +251,7 @@ from the code alone.
   say "puregrain lab", or "the lab" after the first mention; the developer
   material (the code, `web/spago.yaml`, CLAUDE.md files, the roadmap,
   CONTRIBUTING.md) keeps "puregrain-web" and "the web UI". The lab has
-  its own version numbers (v2.4), apart from the library's. Its plan,
+  its own version numbers (v2.5), apart from the library's. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
   in `web/`; its user docs, with a manual checklist, in `web/README.md`.
@@ -349,7 +358,8 @@ from the code alone.
   `error-diffusion.md` (2026-11-05: the 11 kernels, each with its table,
   other names, sources, and what it's good for as the sources say it;
   the project's own observations marked *seen here*; its tables were
-  checked against the compiled presets by a script when written),
+  checked against the compiled presets by a script when written; a
+  "Serpentine scanning" section since 2026-11-23),
   `ordered-dithering.md`, `palettes.md`, `test-images.md`,
   `machine-screens/` (decided 2026-10-16, the user's idea: one folder,
   its `README.md` for what all cell screens share, which mode for which
@@ -369,6 +379,13 @@ from the code alone.
   "Machine screens" keeps only the CLI's part: options, the size rule
   (the CLI's size error points there for the resize hint), the files in
   a sentence each, and links.
+- `scripts/benchmark.mjs`'s scan suite (2026-11-23): each configuration
+  without and with `--serpentine`, back to back, as the gamma suite pairs
+  its gammas (the two now share `pairTables`, the gamma report unchanged,
+  checked on saved runs). Another checkout's build can join a run through
+  a link under the gitignored `samples/` (`--builds
+  samples/output-master,output`), so a branch is compared with `master`
+  interleaved, in one session.
 - `scripts/measure-gamma.mjs` (2026-11-15) — dithers the test images
   through the real CLI under each gamma and measures the results in two
   views (blurred in light, as the eye at 1:1; blurred as stored, as a
@@ -403,8 +420,11 @@ from the code alone.
   Guiding rule: *start closed, open later* — exporting more later is
   compatible, removing an export breaks users, so anything still an open
   API decision stays internal. Every module has an explicit export list.
-  - Public: `Puregrain.Dither` (`ditherImage`, `ditherRows`, and the
-    stepper `Dithering`/`initDithering`/`ditherRow`, each with a twin
+  - Public: `Puregrain.Dither` (`DitherParams` with `defaults`,
+    `withKernel`, `withGamma`, `withScan` (`Scan`: `raster`,
+    `serpentine`); `ditherImageBy`, `ditherRowsBy` and the
+    stepper `Dithering`/`initDitheringBy`/`ditherRow`; the shorthands
+    `ditherImage`, `ditherRows`, `initDithering`, each with a twin
     taking a gamma, `…With`), `.Kernel`, `.Pixel`, `.Quantize`,
     `.Palette`, `.Palette.Presets`, `.Ordered`, `.Gamma`, `.SelfCheck`.
   - `Puregrain` — a facade, re-exports only: what a typical application
@@ -417,8 +437,9 @@ from the code alone.
     modules, which stay out of the facade (`Puregrain.Cells`,
     `Puregrain.Machine.*`), it imports directly, as an application would
     (decided 2026-10-11).
-  - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `State`, `Step`,
-    `Row`, `Image` (`ditherImageVia`, `ditherRowsVia`), `Quantize`,
+  - `Puregrain.Internal.*` (`Fifo`, `Kernel` (compiled), `Params`,
+    `State`, `Step`, `Row`, `Image` (`ditherImageVia`, `ditherRowsVia`,
+    taking the compiled settings), `Quantize`,
     `Gamma`, `Exact`, `SelfCheck`, `Util`) — exported
     (PureScript has no package-private modules; the tests need them) but
     documented as unstable. `Fifo` and the backend-choosing drivers stay
@@ -463,10 +484,15 @@ from the code alone.
   the hot path instead of recomputing `Array.filter`s per pixel
   (PureScript does NOT auto-memoize like GHC sometimes does — this bit us
   once as a real, measured regression).
-- `Puregrain.Internal.Fifo` — `class Fifo (f :: Type -> Type)` with 4 methods:
+- `Puregrain.Internal.Fifo` — `class Fifo (f :: Type -> Type)` with 5 methods:
   `replicate`, `enqueue`, `dequeue`, `replace` (shift-left-by-n +
   zero-fill, its own method rather than `drop`+`<>` because that
-  composition is O(n) even when n is small — see below). Instances:
+  composition is O(n) even when n is small — see below; for an input
+  shorter than n it gives n zeros, which its doc said wrongly until
+  2026-11-23), and `reverse` (since 2026-11-23, for serpentine
+  scanning: once per row per queue, O(1) on `CatQueue`, which swaps its
+  two lists). `Test.Puregrain.FifoSpec` checks every instance against a
+  plain array model, through any mix of the five. Instances:
   `List.Lazy`, `Data.List` (strict), `Array`, `Data.CatQueue` (registry
   package `catenable-lists`: Okasaki's strict two-list queue).
   **`CatQueue` is the production default** (see Performance below). Its
@@ -838,6 +864,119 @@ from the code alone.
   `CatQueue` already achieves the target asymptotic complexity. A genuinely
   mutation-based backend would need a different algorithm shape (one
   `runST` block per row/image), not a `Fifo` instance.
+- **`DitherParams`, the drivers' settings in one value** (2026-11-22,
+  branch `serpentine`, phase 0 of serpentine scanning; the user's idea,
+  designed together). Why: the gamma twins had doubled every driver, and
+  each later setting (serpentine, a noise seed, Ostromoukhov) would have
+  doubled them again; a kernel modifier (`serpentine :: Kernel -> Kernel`)
+  was rejected, since a scan isn't a property of the kernel (the user).
+  - Opaque (`Puregrain.Internal.Params`, re-exported from
+    `Puregrain.Dither` and the facade), built from `defaults` with
+    `with…` setters chained with `#`, PureScript's form of a builder. A
+    public record was rejected: a new field would break literal records,
+    and an opaque value can hold rules between settings.
+  - `defaults` is all neutral: `noDiffusion`, `gammaOff`, `raster` (the user's
+    choice over Floyd–Steinberg and over a required kernel): `defaults`
+    alone only quantizes, no kernel slips into pure Bayer, the lab starts
+    the same way, and a method that isn't a `Kernel` (Ostromoukhov) will
+    fit as one more setter. The CLI keeps its own default kernel.
+  - Each setter sets one field only, so the setters commute and the last
+    of a kind wins (`ParamsSpec`, mutation-checked). Rules between fields
+    go where the drivers read them (`compileParams`), e.g. "Ostromoukhov
+    always scans serpentine", with a sum type for the method inside; a
+    checking builder returning `Either` only if a conflict ever has no
+    sensible winning rule.
+  - The quantizer stays out: it's what differs between the branches
+    (`Quantize Number`, `Quantize RGB`, `CellQuantizer` with a
+    `CellMode`), so as its own argument the compiler keeps them apart;
+    inside, it would need a type parameter and a second params type, or a
+    check at run time. One `DitherParams` serves all five drivers.
+  - One driver per shape, `…By` (the user's choice over `…Using`):
+    `ditherImageBy`, `ditherRowsBy`, `initDitheringBy`,
+    `ditherCellsBy`, `ditherBandsBy`. The old drivers and the `…With`
+    twins stay as shorthands (compatible); the plain ones need no
+    `ColorChannels`, so they call the internal drivers with
+    `noConversion`, the rest the `…By` drivers (`conversionFor gammaOff`
+    is `noConversion`). Deprecating the twins: a later question. The CLI
+    and the lab build their params in one pure `paramsOf` each
+    (`Pipeline`, `Web.Dither`), tested against the `…With` drivers; 23
+    CLI configurations came out byte-identical to `master`.
+- **Serpentine scanning, `withScan serpentine`** (2026-11-22/23, branch
+  `serpentine`, phase 1: the library). The rows alternate, row 0 left to
+  right, odd rows right to left, with the kernel mirrored there; counted
+  from the image's top, so the cells' bands alternate on across their
+  borders.
+  - **API:** `withScan` with an opaque `Scan`, `raster` (the default) or
+    `serpentine` (the user's choice over an argument-less
+    `withSerpentine`): every `with…` takes a value, a scan can be set
+    back, and another order would be one more value, compatible since
+    `Scan` is opaque, as `Gamma` is; no Boolean. No instances yet (start
+    closed). In the facade, as a typical setting.
+  - **The queues stay in scan order.** `step` never knows the
+    direction: a row scanned right to left is the same loop over the
+    pixels from the right (`mapAccumR`, results in the row's order), so
+    an offset's `dx` counts leftwards there: the kernel mirrored without
+    being touched. Only the quantizer sees columns: `RowState.x` starts
+    at `w − 1` and moves by `xStep` (−1), a per-row constant riding in
+    `RowState` next to `y`, for the same reason `y` does.
+  - **The direction isn't stored:** `rightToLeft scan y` (`Internal.Params`)
+    from `DitherState.nextRow`, the `y` the quantizer sees: one source
+    of truth, no flag to keep in step, and the stepper's reused states
+    (an undo) and the cells' bands get it for free. The scan mode is an
+    input, `CompiledParams = { kernel :: CompiledKernel, scan :: Scan }`
+    (`compileParams`, once per image); `CompiledKernel` stays the
+    kernel's alone (the user's point: a scan isn't part of the kernel),
+    and `step` takes only it. A method that forces a scan (Ostromoukhov)
+    would set it in `compileParams`.
+  - **The handover** (`Internal.Row.handOver`): a finished queue holds
+    its errors in its producer's scan order (entry k = scan position k
+    after `replace`, plus `dx` unread entries at the back for `dx > 0`).
+    For a row running the other way (`turns dy`: the two directions
+    differ, with alternation every odd `dy`), it's reversed and the
+    `paddingFor o` entries then at the front dropped (`dropFront`, which
+    crashes on running out: a broken invariant). The reasoning is in
+    `handOver`'s comment; `RowSpec` pins the resulting lengths (`max w (−dx)` for `dx < 0`,
+    `w` turned, `w + dx` not).
+  - **Checked:** every backend against the reference's `Alternating`
+    order, for three quantizers; positions; image = rows = stepper; one
+    row, one column and `noDiffusion` give the raster result; an undo;
+    the cells (each pixel one of its own cell's colors, the same cells,
+    in memory = streamed, the naive ordered rule); per curve in light;
+    the params' rules; `FifoSpec`. Ten mutations, each caught (x as the
+    scan position, no reversal, no drop, row 0 from the right, a wrong
+    `CatQueue.reverse` twice, always from the left, the turn decided by
+    the target alone, `withScan` touching the kernel, a serpentine
+    default). 23 CLI configurations byte-identical to `master`.
+  - **Measured (phase 3, `docs/benchmarks-dithering.md`, 2026-11-23):** no
+    measurable cost, ×1.00 at 1024² by each round's back-to-back pair; two
+    configurations slower at one size each (websafe216 at 1024², the Bayer
+    8 hybrid at 512²), both looking like V8's two speeds, not added work.
+    The raster path against `master`'s build, in the same session: ×1.00
+    at 1024², within one build's own run-to-run variation (4.5%).
+  - **Seen here** (`docs/error-diffusion.md`, "Serpentine scanning"): on
+    `gray:shadows-highlights` at 256², Floyd–Steinberg's worms go; counted,
+    the dot pairs one row and 1–3 columns apart leaning left: 74% and 82%
+    raster, 46% and 51% serpentine, with the same number of dots. What
+    stays: the dot-free onset strip, `gray:vramp`'s first row of dots, and
+    the streaks in machine cells (error a cell can't use, still passed on);
+    `test-images.md` said serpentine remedied vramp's horizontal
+    structures, and now says what was seen. The sources found say little:
+    Wikipedia's "Floyd–Steinberg dithering" (the definition) and "Error
+    diffusion" ("to reduce more artifacts"); DitherPunk.jl has no
+    serpentine; the libcaca study (TLS error) and Helland (HTTP 403)
+    couldn't be read on 2026-11-23; no source read attributes it to
+    Ulichney, so the docs don't. The comparison crops are in
+    `samples/serpentine/`, not committed.
+  - **The lab** (v2.5, phase 4; decision 36 in `web/ROADMAP.md`): a
+    switch under the kernel's menu, "Serpentine: every other row right
+    to left", on only where it acts, with a kernel and colors to dither
+    with (the user extended "a kernel" to "and colors"); it turns off when
+    either goes back to "none" and doesn't come back (the user's choice),
+    so the settings never hold it out of effect, and the worker rejects
+    such a message. "serpentine" follows the kernel in the result's name
+    and the download's. `check:web` finds its two switches by name now
+    (`getByRole('switch', { name })`): the one `input[role=switch]`
+    became ambiguous.
 - **Linear light, `--gamma`** (2026-11-06 to 15, branch `linear-light`;
   released in 0.2.2). The spec, with every measurement, is in git
   history: `git show 861e67e:docs/linear-light-spec.md`. For users:
@@ -976,7 +1115,11 @@ generates random `Kernel`s and images. `Test.Puregrain.DiffusionMechanicsSpec`
 checks every `Fifo` backend against the reference on random inputs —
 this is what actually caught real bugs (see Gotchas below), where
 hand-picked example kernels (Floyd–Steinberg, Atkinson, JJN — all
-`maxDepth ≥ 1`) did not.
+`maxDepth ≥ 1`) did not. Since 2026-11-23 the reference has two row
+orders (`RowOrder`): `AllLeftToRight`, and `Alternating`, serpentine
+written out as the textbooks define it (odd rows from the right, error
+to `x − dx`), independently of the library's queue reversal; the
+backends are checked in both.
 
 Coverage was measured once (2026-11-17, the user's idea), outside the
 repository, and is deliberately not tooling: the property tests and the
