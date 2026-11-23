@@ -8,6 +8,8 @@ raises the minor version (0.1 → 0.2).
 
 ## Unreleased
 
+## 0.3.1 - 2026-11-23
+
 ### Added
 
 - `DitherParams`: a driver's settings in one value: the kernel, the gamma

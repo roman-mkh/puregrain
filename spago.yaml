@@ -5,7 +5,7 @@ package:
     Spectrum and C64 hires screens with their file formats; in memory, streaming
     or row by row."
   publish:
-    version: 0.3.0
+    version: 0.3.1
     license: MIT
     location:
       githubOwner: roman-mkh
