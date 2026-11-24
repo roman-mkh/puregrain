@@ -4,7 +4,7 @@ import Prelude
 
 import Data.Array as Array
 import Data.Foldable (foldl)
-import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
+import Puregrain.Web.Drag (DragStep(..), counted, holdsPicture)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
 
@@ -24,7 +24,8 @@ spec = describe "Puregrain.Web.Drag" do
     foldl counted 0 [ Enter, Enter, Enter, Drop ] `shouldEqual` 0
 
   it "counts only drags that hold files" do
-    holdsFiles [ "Files" ] `shouldEqual` true
-    holdsFiles [ "application/x-moz-file", "Files" ] `shouldEqual` true
-    holdsFiles [ "text/plain", "text/uri-list" ] `shouldEqual` false
-    holdsFiles [] `shouldEqual` false
+    holdsPicture [ "Files" ] `shouldEqual` true
+    holdsPicture [ "application/x-moz-file", "Files" ] `shouldEqual` true
+    holdsPicture [ "text/plain", "text/uri-list", "text/html" ] `shouldEqual` true
+    holdsPicture [ "text/plain", "text/html" ] `shouldEqual` false
+    holdsPicture [] `shouldEqual` false

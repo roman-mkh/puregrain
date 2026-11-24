@@ -525,6 +525,62 @@ const checksIn = async (engine, page) => {
     }
   }
 
+  // Addresses (v2.6): a drop without a file, as a picture or a link from
+  // another page brings, has an address, which the page fetches. The
+  // page's own server serves the sample picture; the same server as
+  // 127.0.0.1 is another site, which doesn't let other pages read its
+  // pictures. A drag holding an address lights the drop zone; a refused
+  // address says so; a picture inside a link loads by its own address,
+  // exactly the file (the CLI's pixels after dithering), named after it.
+  // A pasted address loads the same way where the check's paste event
+  // keeps its text (not in Firefox, see "Pasting").
+  {
+    const here = `${pageUrl}${SAMPLE.file}`;
+    const elsewhere = here.replace('localhost', '127.0.0.1');
+    const dragEvent = (type, data) => page.evaluate(({ type, data }) => {
+      const transfer = new DataTransfer();
+      for (const [kind, value] of Object.entries(data)) transfer.setData(kind, value);
+      document.querySelector('.drop').dispatchEvent(new DragEvent(type, { dataTransfer: transfer, bubbles: true, cancelable: true }));
+    }, { type, data });
+    const startNote = () => page.evaluate(() => document.querySelector('.start-note')?.textContent.trim() ?? '');
+    const refused = "The picture couldn't be fetched from 127.0.0.1:8080: the site doesn't let other pages read its pictures, or can't be reached. Copy the picture itself and paste it instead.";
+
+    await page.goto(pageUrl);
+    await dragEvent('dragenter', { 'text/uri-list': here });
+    const lit = await page.locator('.drop.lit').count() === 1;
+    await dragEvent('drop', { 'text/uri-list': elsewhere });
+    const saysRefused = await page.waitForFunction((text) => document.querySelector('.start-note')?.textContent.trim() === text, refused, { timeout: 10000 })
+      .then(() => true, async () => { console.log(`   (the empty page says: ${await startNote()})`); return false; });
+    const before = await runs();
+    await dragEvent('drop', { 'text/uri-list': `${pageUrl}elsewhere.html`, 'text/html': `<a href="${pageUrl}elsewhere.html"><img alt="birds" src="${here}"></a>` });
+    const loaded = await page.waitForFunction((name) => document.querySelector('.picture-name')?.textContent === name, SAMPLE.name, { timeout: 15000 })
+      .then(() => true, () => false);
+    let file = { name: '(none)' };
+    let diff = 'not run';
+    if (loaded) {
+      await colorsMenu.selectOption('cga16');
+      await kernelMenu.selectOption('floyd-steinberg');
+      await pick('gamma', '1.8');
+      await finished(before);
+      file = await download(() => page.locator('.downloads button').first().click());
+      diff = differing(pixelsOf(file.bytes), pixelsOf(fs.readFileSync(`${out}/cli-sample.png`)));
+    }
+    let pasted = 'not checked here';
+    if (engine !== 'Firefox') {
+      await page.evaluate((address) => {
+        const data = new DataTransfer();
+        data.setData('text/plain', address);
+        document.body.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+      }, `${pageUrl}logo/zx/lockup.png`);
+      pasted = await page.waitForFunction(() => document.querySelector('.picture-name')?.textContent === 'lockup.png', null, { timeout: 15000 })
+        .then(() => 'loads lockup.png', () => "DOESN'T load lockup.png");
+    }
+    report(lit && saysRefused && loaded && file.name === SAMPLE.download && diff === 0 && pasted !== "DOESN'T load lockup.png",
+      `${engine}: addresses: a drag holding one ${lit ? 'lights' : "DOESN'T light"} the drop zone; one from a site that refuses ${saysRefused ? 'says so' : "DOESN'T say so"}; ` +
+      `a picture in a link ${loaded ? 'loads by its own address' : "DOESN'T load"}, ${file.name}${file.name === SAMPLE.download ? '' : ` (not ${SAMPLE.download})`}, ` +
+      `${diff === 0 ? "the CLI's pixels" : typeof diff === 'number' ? `${diff} pixels differ from the CLI's` : diff}; a pasted address: ${pasted}`);
+  }
+
   // The theme switch: a toggle named "Dark theme", pressed or not, whose
   // tooltip says what a click does, "Switch to the dark theme" or "…light
   // theme"; the name stays the same.

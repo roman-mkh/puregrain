@@ -14,8 +14,10 @@ package:
     - halogen
     - halogen-subscriptions
     - integers
+    - js-uri
     - lists
     - maybe
+    - media-types
     - now
     - partial
     - prelude

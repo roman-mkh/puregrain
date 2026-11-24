@@ -14,6 +14,7 @@ module Puregrain.Web.Picture
   , fetchSample
   , named
   , readClipboard
+  , fetchAddress
   ) where
 
 import Prelude
@@ -118,15 +119,30 @@ foreign import namedImpl :: String -> File -> File
 named :: String -> File -> File
 named = namedImpl
 
-foreign import readClipboardImpl :: (forall a. a -> Maybe a) -> (forall a. Maybe a) -> Effect (Promise (Maybe File))
+foreign import readClipboardImpl
+  :: (forall a. a -> Maybe a)
+  -> (forall a. Maybe a)
+  -> Effect (Promise { file :: Maybe File, html :: String, text :: String })
 
--- | The first picture on the clipboard, as a file named `image.png`, as
--- | the paste event names one, or nothing when the clipboard holds none
--- | (v2.6, "paste"). The browser asks first: Chrome for its permission,
--- | Firefox and Safari with a "Paste" button of their own. Fails, in
--- | `Aff`, when it doesn't let the page read the clipboard.
-readClipboard :: Aff (Maybe File)
+-- | What the clipboard holds (v2.6, "paste"): its first picture, as a file
+-- | named `image.png`, as the paste event names one; else its HTML and its
+-- | text, each empty when it has none, which may hold a picture's address.
+-- | The browser asks first: Chrome for its permission, Firefox and Safari
+-- | with a "Paste" button of their own. Fails, in `Aff`, when it doesn't
+-- | let the page read the clipboard.
+readClipboard :: Aff { file :: Maybe File, html :: String, text :: String }
 readClipboard = toAffE (readClipboardImpl Just Nothing)
+
+foreign import fetchAddressImpl :: String -> String -> Effect (Promise File)
+
+-- | Fetches a picture from an address another page gave (v2.6), as a file
+-- | of the given name, to load like a chosen one: by the browser itself,
+-- | without cookies and without naming the page it comes from (the site
+-- | sees the request's origin, as it must to allow it). Fails, in `Aff`,
+-- | when the site doesn't let other pages read it, can't be reached, or
+-- | answers with an error.
+fetchAddress :: String -> String -> Aff File
+fetchAddress address name = toAffE (fetchAddressImpl address name)
 
 -- | Puts the pixels onto a canvas element of their size.
 draw :: HTMLElement -> ImageData -> Effect Unit

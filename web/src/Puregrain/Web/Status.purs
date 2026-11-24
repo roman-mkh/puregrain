@@ -116,13 +116,15 @@ runNote = case _ of
 -- | Why the last picture asked for couldn't be loaded, until the next
 -- | load or setting (decisions 30 C and 35; v2.6): a file that isn't a
 -- | picture (its name), the sample picture that couldn't be fetched, a
--- | paste with no picture on the clipboard, or a clipboard the browser
--- | wouldn't let the page read. The picture shown, if any, stays.
+-- | paste with no picture on the clipboard, a clipboard the browser
+-- | wouldn't let the page read, or a picture's address that couldn't be
+-- | fetched (its site). The picture shown, if any, stays.
 data LoadFailure
   = NotAPicture String
   | SampleFailed
   | NothingToPaste
   | ClipboardRefused
+  | AddressFailed String
 
 derive instance Eq LoadFailure
 derive instance Generic LoadFailure _

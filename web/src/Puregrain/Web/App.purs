@@ -14,7 +14,8 @@ import Data.Array as Array
 import Data.Either (Either(..))
 import Data.Foldable (for_)
 import Data.Int as Int
-import Data.Maybe (Maybe(..), isJust)
+import Data.Maybe (Maybe(..), isJust, maybe)
+import Data.MediaType (MediaType(..))
 import Data.String.Common (joinWith)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
@@ -29,7 +30,8 @@ import Halogen.HTML.Properties as HP
 import Halogen.Query.Event (eventListener)
 import Halogen.Subscription as HS
 import Puregrain.Web.Download (Format(..), buttonFormat, extension, formatsFor)
-import Puregrain.Web.Drag (DragStep(..), counted, holdsFiles)
+import Puregrain.Web.Address (Carried, addressIn, nameOf, siteOf)
+import Puregrain.Web.Drag (DragStep(..), counted, holdsPicture)
 import Puregrain.Web.Estimate (clock, next)
 import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
 import Puregrain.Web.Message (Reply(..), checkMessage, describe, jobMessage, readReply)
@@ -312,25 +314,36 @@ handleAction = case _ of
   SampleChosen -> loadSample
   -- Ctrl+V (⌘V on a Mac) anywhere on the page (v2.6): a picture on the
   -- clipboard loads as a chosen file does, named `pasted.png`; a paste
-  -- into a number field stays the field's; otherwise a note says there's
-  -- no picture to paste.
+  -- into a number field stays the field's; a picture's address ("Copy
+  -- image address") is fetched; otherwise a note says there's no picture
+  -- to paste. The clipboard's data is read before anything else, while
+  -- the event lasts.
   Pasted event -> do
     let
-      pastedFile = ClipboardEvent.clipboardData event >>= DataTransfer.files >>= FileList.item 0
+      clipboard = ClipboardEvent.clipboardData event
+      pastedFile = clipboard >>= DataTransfer.files >>= FileList.item 0
     case pastedFile of
       Just file -> do
         liftEffect (Event.preventDefault (ClipboardEvent.toEvent event))
         loadFile (Picture.named (pastedName (File.name file)) file)
       Nothing -> do
         typing <- liftEffect (inTextField (ClipboardEvent.toEvent event))
-        unless typing (failLoad NothingToPaste)
+        unless typing do
+          found <- liftEffect (maybe (pure Nothing) (map addressIn <<< carried) clipboard)
+          case found of
+            Just address -> do
+              liftEffect (Event.preventDefault (ClipboardEvent.toEvent event))
+              loadAddress address
+            Nothing -> failLoad NothingToPaste
   -- "paste" (v2.6), for phones too, which have no Ctrl+V: the page reads
   -- the clipboard, once the browser lets it.
   PasteChosen -> do
     read <- liftAff (try Picture.readClipboard)
     case read of
-      Right (Just file) -> loadFile (Picture.named (pastedName (File.name file)) file)
-      Right Nothing -> failLoad NothingToPaste
+      Right { file: Just file } -> loadFile (Picture.named (pastedName (File.name file)) file)
+      Right { html, text } -> case addressIn { uriList: "", html, text } of
+        Just address -> loadAddress address
+        Nothing -> failLoad NothingToPaste
       -- The browser's reason, in the console, for whoever reports it.
       Left error -> do
         liftEffect (warnInConsole ("puregrain lab, reading the clipboard failed: " <> message error))
@@ -340,10 +353,19 @@ handleAction = case _ of
   DragOver event ->
     -- Without this, the browser doesn't let a file be dropped here.
     liftEffect (Event.preventDefault (DragEvent.toEvent event))
+  -- A dropped file loads; a drop without one, as a picture or a link
+  -- from another page (v2.6), brings an address, which is fetched. Its
+  -- data is read before anything else, while the event lasts.
   Dropped event -> do
     liftEffect (Event.preventDefault (DragEvent.toEvent event))
+    let
+      transfer = DragEvent.dataTransfer event
+    found <- liftEffect (addressIn <$> carried transfer)
     H.modify_ \s -> s { dragged = counted s.dragged Drop }
-    for_ (DataTransfer.files (DragEvent.dataTransfer event) >>= FileList.item 0) loadFile
+    case DataTransfer.files transfer >>= FileList.item 0, found of
+      Just file, _ -> loadFile file
+      Nothing, Just address -> loadAddress address
+      Nothing, Nothing -> pure unit
   ZoomChosen value -> for_ (Int.fromString value) \zoom -> H.modify_ _ { zoom = zoom }
   ViewKey event -> for_ (zoomStep (keyOf event)) \step -> do
     liftEffect (Event.preventDefault (KE.toEvent event))
@@ -536,7 +558,7 @@ handleAction = case _ of
     H.modify_ _ { run = run }
   -- Only drags that hold files count (`Puregrain.Web.Drag`).
   dragStep event step =
-    when (holdsFiles (DataTransfer.types (DragEvent.dataTransfer event))) do
+    when (holdsPicture (DataTransfer.types (DragEvent.dataTransfer event))) do
       H.modify_ \s -> s { dragged = counted s.dragged step }
 
 -- | The formats the download offers for the picture as it's dithered.
@@ -738,6 +760,33 @@ failLoad failure = do
   alarm $ texts.loadFailure failure case s.load of
     Loaded _ -> true
     NoPicture -> false
+
+-- | What a drop or a paste carries besides files (`Puregrain.Web.Address`).
+carried :: DataTransfer.DataTransfer -> Effect Carried
+carried transfer = do
+  uriList <- DataTransfer.getData (MediaType "text/uri-list") transfer
+  html <- DataTransfer.getData (MediaType "text/html") transfer
+  text <- DataTransfer.getData (MediaType "text/plain") transfer
+  pure { uriList, html, text }
+
+-- | Loads a picture from an address a drop or a paste brought (v2.6):
+-- | fetched from its site, then loaded as a chosen file, named after the
+-- | address. While it's fetched, the bar says it's loading; if the site
+-- | refuses it or can't be reached, a note says so, and that pasting the
+-- | picture itself works instead. A load started meanwhile wins, as in
+-- | `loadFile`.
+loadAddress :: forall o m. MonadAff m => String -> H.HalogenM State Action () o m Unit
+loadAddress address = do
+  let
+    name = nameOf address
+  started <- H.modify \s -> s { loading = Just name, loadFailed = Nothing, loads = s.loads + 1 }
+  fetched <- liftAff (try (Picture.fetchAddress address name))
+  latest <- H.gets _.loads
+  when (latest == started.loads) case fetched of
+    Left _ -> do
+      H.modify_ _ { loading = Nothing }
+      failLoad (AddressFailed (siteOf address))
+    Right file -> loadFile file
 
 -- | Whether an event happened in a field that takes text, where a paste
 -- | stays the field's: on this page, the levels' and the threshold's

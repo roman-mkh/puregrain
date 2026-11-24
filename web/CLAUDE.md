@@ -40,8 +40,10 @@ checklist in step.
   a picture couldn't be loaded, `LoadFailure`; and the engine check's
   state),
   `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
-  decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
-  the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
+  decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files, or
+  of an address, over the page; decision 30 D), `Puregrain.Web.Address`
+  (pure: a picture's address in what a drop or a paste carries, and the
+  name and the site of the picture fetched from it; v2.6), `Puregrain.Web.Pointer` (the pointer's
   events for the handle; FFI), `Puregrain.Web.Download` (pure: the
   download's formats per target and size, and the format the button
   names; decision 31), `Puregrain.Web.Keys` (pure: the page's shortcuts
@@ -506,8 +508,9 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   the picture doesn't make the browser open the file; `dragover` must
   call `preventDefault`, or the browser refuses the drop. For the drop
   zone's light and the overlay (decision 30 D), the page counts the
-  `dragenter` and `dragleave` of drags whose `types` hold "Files"
-  (readable while the drag goes on, unlike the files); a drop sets the
+  `dragenter` and `dragleave` of drags whose `types` hold "Files", or
+  since v2.6 an address ("text/uri-list"), readable while the drag goes
+  on, unlike the files and the data; a drop sets the
   count to 0 (`Puregrain.Web.Drag`). The overlay has `pointer-events:
   none`, so the drag's events reach the elements under it, and the
   picture area is a stacking context of its own (`isolation: isolate`),
@@ -520,6 +523,12 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   `application/x-moz-nativeimage` and file promises, which become a file
   only on the desktop. The page cancels every `drop`, so neither makes
   the browser leave it. Playwright's WebKit on Linux didn't drag at all.
+  Since v2.6 the page fetches the address (`Puregrain.Web.Address`, the
+  picture's own `src` in the drop's HTML first, since a picture inside a
+  link brings the link), with `fetch` in CORS mode, without cookies and
+  without a referrer; the drop's and the paste's data are read first,
+  while the event lasts (Halogen runs the action synchronously up to its
+  first wait, which is how the files were read already).
 - **Pasting** (v2.6): the `paste` event, on the window, carries a pasted
   picture in `clipboardData.files`, named `image.png`, and needs no
   permission; `navigator.clipboard.read()` ("paste") does: Chrome asks
@@ -741,6 +750,20 @@ stay on the host.
   first stopped the engine's remaining checks (with no pasted picture,
   the check pasted into a field that wasn't there); it now opens a
   picture itself then, and fails with a message.
+- **Addresses** (2026-11-24, for v2.6): the page's own server serves the
+  sample picture, and the same server as `127.0.0.1` is another site,
+  which sends no CORS headers. In each engine, with drag events the
+  check sends: a drag holding an address lights the drop zone, a drop of
+  `127.0.0.1`'s address says the site doesn't allow it, naming it, and a
+  picture inside a link (`text/uri-list` the link, `text/html` the
+  picture in it) loads by its own address, the very file: dithered, the
+  CLI's pixels. A pasted address (`logo/zx/lockup.png`) loads in
+  Chromium and WebKit; in Firefox not checked (its paste events lose
+  their data, see "Pasting"). 111 checks, in 120 s. Mutation-checked,
+  from the source, each failing only that check: a drop's address
+  ignored, the list before the picture in the HTML, only drags of files
+  lighting the page, the refused site not named, a pasted address taken
+  for no picture (in Chromium and WebKit).
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

@@ -234,6 +234,9 @@ texts =
       SampleFailed -> "The sample picture couldn't be loaded."
       NothingToPaste -> "There's no picture on the clipboard: copy one first, with \"Copy image\" on a web page, or take a screenshot."
       ClipboardRefused -> "The browser didn't let the page read the clipboard. If it shows a \"Paste\" button by the pointer, click that one."
+      AddressFailed site ->
+        (if site == "" then "The picture couldn't be read from its address" else "The picture couldn't be fetched from " <> site)
+          <> ": the site doesn't let other pages read its pictures, or can't be reached. Copy the picture itself and paste it instead."
   , dropToLoad: "Drop to load the picture"
   -- Above the picture's corners, either side of the split.
   , original: "Original"

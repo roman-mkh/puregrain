@@ -81,7 +81,8 @@ export const exactRgbaImpl = (just) => (nothing) => (image) => (width) => (heigh
 // The same file under another name.
 export const namedImpl = (name) => (file) => new File([file], name, { type: file.type });
 
-// The first picture on the clipboard, as a file, or nothing; fails when
+// The first picture on the clipboard, as a file, or else its HTML and its
+// text (empty when it has none); fails when
 // the browser doesn't let the page read the clipboard (or has no
 // navigator.clipboard, as outside a secure context), with an Error whose
 // message keeps the browser's reason and its name (a DOMException's,
@@ -90,12 +91,25 @@ export const readClipboardImpl = (just) => (nothing) => () =>
   Promise.resolve().then(() => navigator.clipboard.read()).catch((e) => {
     throw new Error(`${e?.name ?? 'Error'}: ${e?.message ?? e}`);
   }).then(async (items) => {
+    let html = '';
+    let text = '';
     for (const item of items) {
       const type = item.types.find((t) => t.startsWith('image/'));
       if (type !== undefined) {
         const blob = await item.getType(type);
-        return just(new File([blob], 'image.png', { type: blob.type }));
+        return { file: just(new File([blob], 'image.png', { type: blob.type })), html: '', text: '' };
       }
+      if (html === '' && item.types.includes('text/html')) html = await (await item.getType('text/html')).text();
+      if (text === '' && item.types.includes('text/plain')) text = await (await item.getType('text/plain')).text();
     }
-    return nothing;
+    return { file: nothing, html, text };
   });
+
+// A picture fetched from an address another page gave, as a file of the
+// given name: without cookies, and without naming the page it comes from;
+// fails when the site doesn't let other pages read it (CORS), can't be
+// reached, or answers with an error.
+export const fetchAddressImpl = (address) => (name) => () =>
+  fetch(address, { mode: 'cors', credentials: 'omit', referrerPolicy: 'no-referrer' })
+    .then((response) => (response.ok ? response.blob() : Promise.reject(new Error(`${address}: ${response.status}`))))
+    .then((blob) => new File([blob], name, { type: blob.type }));

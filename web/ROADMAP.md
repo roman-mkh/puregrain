@@ -161,7 +161,7 @@ users is a separate task, see TODO.md.)
     that isn't a picture does. The browser re-encodes a copied picture,
     so its colors may differ slightly from the original file's: a
     sentence in the README.
-  - **Dragging a picture from another web page** (checked 2026-11-24 with
+  - **Dragging a picture from another web page** (done 2026-11-24; checked with
     real mouse drags in Chromium and Firefox, from the lab's own page,
     since Playwright can't drag between pages; WebKit's didn't drag):
     the page cancels every drop, so nothing makes the browser leave it;

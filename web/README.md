@@ -40,7 +40,8 @@ fills the page, and the settings open over it (see below).
 
 1. **Choose a picture** (step 1, Picture): with "Choose a picture…", or
    by dropping it anywhere on the page; the empty page's drop zone lights
-   up while a file is dragged over it, and with a picture shown, "Drop to
+   up while a file, or a picture from another web page, is dragged over
+   it, and with a picture shown, "Drop to
    load the picture" covers it. You can also paste one: Ctrl+V (⌘V on a
    Mac), or "paste" under the drop zone and in step 1, takes a picture
    copied on another web page ("Copy image") or a screenshot, named
@@ -48,7 +49,12 @@ fills the page, and the settings open over it (see below).
    browser has asked (Chrome for its permission, Firefox and Safari with a
    "Paste" button of their own). The browser hands over a pasted picture
    re-encoded, so its colors may differ slightly from the original file's.
-   Any picture the browser can read works: PNG, JPEG, GIF, WebP, BMP and
+   A picture dragged from another web page brings only its address, and
+   so does "Copy image address": the lab then fetches the picture from
+   its site, named after the address. That works where the site lets
+   other pages read its pictures, as many image hosts do; where it
+   doesn't, the bar says so, and copying the picture and pasting it works
+   instead. Any picture the browser can read works: PNG, JPEG, GIF, WebP, BMP and
    more. A file that isn't a picture leaves the one shown as it was, and
    the bar under the picture says so, as it does for a paste with no
    picture on the clipboard. The
@@ -236,9 +242,14 @@ command-line tool gives the same result.
 
 ## Privacy
 
-Everything happens in your browser: the picture isn't sent anywhere, and
-the page loads nothing from other sites. All its files come from its own
-build.
+Everything happens in your browser: your pictures are never sent
+anywhere. All the page's files come from its own build, and on its own
+it loads nothing from other sites. One exception, at your request: when
+you drop a picture dragged from another web page, or paste a picture's
+address, your browser fetches that picture from its site. That site sees
+the request and that it comes from puregrain lab, as it sees any request
+for its pictures. Pasting the picture itself ("Copy image", then Ctrl+V)
+fetches nothing.
 
 ## Licenses
 
@@ -394,7 +405,10 @@ ideally in each of the browsers above:
    asked (Firefox and Safari with a small "Paste" button by the pointer,
    each time: clicking it pastes, clicking elsewhere refuses, and the
    page says the browser didn't let it read the clipboard), and on a
-   phone; with nothing on the clipboard, a message. In
+   phone; with nothing on the clipboard, a message. A picture dragged
+   from another web page that allows it (Wikimedia Commons, say) loads,
+   named after its address, and so does its address copied ("Copy image
+   address") and pasted; from a site that doesn't, the bar says so. In
    Firefox, check a pasted picture here: `check:web` can't (headless
    Firefox's clipboard holds no pictures).
 2. A picture with transparent parts shows them white.

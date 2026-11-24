@@ -3,6 +3,7 @@ module Test.Puregrain.Web.Main where
 import Prelude
 
 import Effect (Effect)
+import Test.Puregrain.Web.AddressSpec as AddressSpec
 import Test.Puregrain.Web.DitherSpec as DitherSpec
 import Test.Puregrain.Web.DownloadSpec as DownloadSpec
 import Test.Puregrain.Web.DragSpec as DragSpec
@@ -26,6 +27,7 @@ import Test.Spec.Runner.Node (runSpecAndExitProcess)
 main :: Effect Unit
 main = runSpecAndExitProcess [ consoleReporter ] do
   SettingsSpec.spec
+  AddressSpec.spec
   DitherSpec.spec
   DownloadSpec.spec
   DragSpec.spec
