@@ -131,9 +131,13 @@ users is a separate task, see TODO.md.)
   chosen target's name and line (decision 37); `check:web` checks that
   it's disabled before a picture, takes the focus with the first, and
   shows each choice.
-- **Next, before v3: pictures from other web pages** (the user's ideas,
-  2026-11-19), a small version of its own (v2.6; planned as v2.5 before
-  serpentine scanning took that number):
+- **v2.6, pictures from other web pages** (2026-11-24, the user's ideas
+  of 2026-11-19; planned as v2.5 before serpentine scanning took that
+  number): a picture pasted, by Ctrl+V or "paste", and a picture's
+  address, dropped or pasted, fetched from its site; and the theme
+  switch's tooltip. Checked by `check:web` in three engines (in Firefox
+  without a pasted picture, which headless Firefox can't carry), and by
+  hand (the README's checklist, item 1):
   - **The theme switch's tooltip** (2026-11-23, the user's find, done):
     "Switch to the light theme" or "…dark theme", what a click does,
     where it always said "Dark theme"; its name for screen readers stays

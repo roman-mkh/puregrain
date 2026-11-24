@@ -253,7 +253,7 @@ from the code alone.
   say "puregrain lab", or "the lab" after the first mention; the developer
   material (the code, `web/spago.yaml`, CLAUDE.md files, the roadmap,
   CONTRIBUTING.md) keeps "puregrain-web" and "the web UI". The lab has
-  its own version numbers (v2.5), apart from the library's. Its plan,
+  its own version numbers (v2.6), apart from the library's. Its plan,
   decisions and open questions are in `web/ROADMAP.md`; its architecture
   and gotchas in `web/CLAUDE.md`, which Claude Code reads when working
   in `web/`; its user docs, with a manual checklist, in `web/README.md`.

@@ -181,7 +181,7 @@ texts =
         )
   -- In parts that the footer keeps whole, so that a narrow screen breaks
   -- the line after the comma, not between "puregrain" and its version.
-  , versions: \library -> if library == "" then [ "puregrain lab v2.5" ] else [ "puregrain lab v2.5,", "powered by puregrain " <> library ]
+  , versions: \library -> if library == "" then [ "puregrain lab v2.6" ] else [ "puregrain lab v2.6,", "powered by puregrain " <> library ]
   , codeLicense: "The code: MIT"
   , logoLicense: "Logo terms"
   , onGitHub: "puregrain on GitHub"

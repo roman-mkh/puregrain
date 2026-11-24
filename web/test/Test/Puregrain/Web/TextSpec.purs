@@ -31,8 +31,8 @@ spec = describe "Puregrain.Web.Text" do
       `shouldEqual` "4 levels, Floyd-Steinberg, serpentine, ordered dithering 8×8, gamma sRGB, gray first"
 
   it "names the lab's version, and the library's that powers it when the build gives it" do
-    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.5,", "powered by puregrain 0.2.1" ]
-    texts.versions "" `shouldEqual` [ "puregrain lab v2.5" ]
+    texts.versions "0.2.1" `shouldEqual` [ "puregrain lab v2.6,", "powered by puregrain 0.2.1" ]
+    texts.versions "" `shouldEqual` [ "puregrain lab v2.6" ]
 
   it "names the engine check's states for screen readers, and says each in a sentence" do
     map texts.engineName [ EngineChecking, EnginePassed, EngineFailed [ "x" ], EngineNotRun ]
