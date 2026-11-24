@@ -1,15 +1,19 @@
 -- | The page around the app: the system's light or dark setting, the
 -- | theme on the page's root element, the engine check's result there,
 -- | the library's version, which the build writes into the page
--- | (web/build.mjs), whether the screen is a phone's, a file of the
--- | page's kept in memory, and a warning in the browser's console.
-module Puregrain.Web.Page (prefersDark, setTheme, setEngineCheck, libraryVersion, narrowScreen, keptInMemory, warnInConsole) where
+-- | (web/build.mjs), whether the screen is a phone's, the platform's
+-- | name, a file of the page's kept in memory, and a warning in the
+-- | browser's console.
+module Puregrain.Web.Page (prefersDark, setTheme, setEngineCheck, libraryVersion, narrowScreen, platform, keptInMemory, warnInConsole) where
 
 import Prelude
 
 import Control.Promise (Promise, toAffE)
 import Effect (Effect)
 import Effect.Aff (Aff)
+import Web.HTML (window)
+import Web.HTML.Navigator as Navigator
+import Web.HTML.Window as Window
 
 -- | Whether the system asks for a dark theme (`prefers-color-scheme`).
 foreign import prefersDark :: Effect Boolean
@@ -33,6 +37,11 @@ foreign import libraryVersion :: Effect String
 -- | Whether the page has a phone's layout: the stylesheet's limit, 760
 -- | pixels wide (decision 29).
 foreign import narrowScreen :: Effect Boolean
+
+-- | The platform's name, `navigator.platform` ("MacIntel", "Win32",
+-- | "Linux x86_64"…), for telling a Mac (`Puregrain.Web.Keys.macPlatform`).
+platform :: Effect String
+platform = window >>= Window.navigator >>= Navigator.platform
 
 foreign import keptInMemoryImpl :: String -> Effect (Promise String)
 

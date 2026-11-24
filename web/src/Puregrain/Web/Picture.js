@@ -77,3 +77,25 @@ export const exactRgbaImpl = (just) => (nothing) => (image) => (width) => (heigh
     if (lose !== null) lose.loseContext();
   }
 };
+
+// The same file under another name.
+export const namedImpl = (name) => (file) => new File([file], name, { type: file.type });
+
+// The first picture on the clipboard, as a file, or nothing; fails when
+// the browser doesn't let the page read the clipboard (or has no
+// navigator.clipboard, as outside a secure context), with an Error whose
+// message keeps the browser's reason and its name (a DOMException's,
+// "NotAllowedError", would otherwise be lost).
+export const readClipboardImpl = (just) => (nothing) => () =>
+  Promise.resolve().then(() => navigator.clipboard.read()).catch((e) => {
+    throw new Error(`${e?.name ?? 'Error'}: ${e?.message ?? e}`);
+  }).then(async (items) => {
+    for (const item of items) {
+      const type = item.types.find((t) => t.startsWith('image/'));
+      if (type !== undefined) {
+        const blob = await item.getType(type);
+        return just(new File([blob], 'image.png', { type: blob.type }));
+      }
+    }
+    return nothing;
+  });

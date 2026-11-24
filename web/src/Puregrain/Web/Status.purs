@@ -1,7 +1,8 @@
 -- | The run's state, and what the picture area and the bar show for it
 -- | (decision 30 in web/ROADMAP.md): which picture shows, when the
--- | progress shows, and the bar's message about the run; and the engine
--- | check's state. Pure, so specs test it.
+-- | progress shows, and the bar's message about the run; why a picture
+-- | couldn't be loaded; and the engine check's state. Pure, so specs test
+-- | it.
 module Puregrain.Web.Status
   ( Run(..)
   , progressDelay
@@ -9,6 +10,7 @@ module Puregrain.Web.Status
   , resultShows
   , RunNote(..)
   , runNote
+  , LoadFailure(..)
   , EngineCheck(..)
   , engineCheckName
   ) where
@@ -110,6 +112,22 @@ runNote = case _ of
   Finished r -> if r.saveFailed then Just SaveFailed else Nothing
   Cancelled -> Just RunCancelled
   RunFailed reason -> Just (DitherFailed reason)
+
+-- | Why the last picture asked for couldn't be loaded, until the next
+-- | load or setting (decisions 30 C and 35; v2.6): a file that isn't a
+-- | picture (its name), the sample picture that couldn't be fetched, a
+-- | paste with no picture on the clipboard, or a clipboard the browser
+-- | wouldn't let the page read. The picture shown, if any, stays.
+data LoadFailure
+  = NotAPicture String
+  | SampleFailed
+  | NothingToPaste
+  | ClipboardRefused
+
+derive instance Eq LoadFailure
+derive instance Generic LoadFailure _
+instance Show LoadFailure where
+  show = genericShow
 
 -- | The engine check (docs/exact-arithmetic.md, "The engine self-check"):
 -- | whether this browser computes the light curves exactly as the

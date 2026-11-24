@@ -41,9 +41,17 @@ fills the page, and the settings open over it (see below).
 1. **Choose a picture** (step 1, Picture): with "Choose a picture…", or
    by dropping it anywhere on the page; the empty page's drop zone lights
    up while a file is dragged over it, and with a picture shown, "Drop to
-   load the picture" covers it. Any picture the browser can read works:
-   PNG, JPEG, GIF, WebP, BMP and more. A file that isn't a picture leaves
-   the one shown as it was, and the bar under the picture says so. The
+   load the picture" covers it. You can also paste one: Ctrl+V (⌘V on a
+   Mac), or "paste" under the drop zone and in step 1, takes a picture
+   copied on another web page ("Copy image") or a screenshot, named
+   `pasted.png` for the downloads; "paste" works on phones too, once the
+   browser has asked (Chrome for its permission, Firefox and Safari with a
+   "Paste" button of their own). The browser hands over a pasted picture
+   re-encoded, so its colors may differ slightly from the original file's.
+   Any picture the browser can read works: PNG, JPEG, GIF, WebP, BMP and
+   more. A file that isn't a picture leaves the one shown as it was, and
+   the bar under the picture says so, as it does for a paste with no
+   picture on the clipboard. The
    colors are read as the file stores them, without its color profile,
    as the command-line tool reads them. Transparent parts go onto a
    background color, white unless you choose another in step 5,
@@ -160,9 +168,11 @@ to the next step, the target; a later picture leaves it on "Choose
 another…".
 
 **Keys:** Ctrl+O chooses a picture and Ctrl+S downloads in the button's
-format (Cmd works as Ctrl, on a Mac and elsewhere); Esc closes the
-phone's settings or the list of formats, or cancels a run. While the
-picture area has the focus (Tab, or a click on it), + and − zoom; while
+format (Cmd works as Ctrl, on a Mac and elsewhere); Ctrl+V pastes a
+picture (on a Mac ⌘V, the only key the browser pastes with there); Esc
+closes the phone's settings or the list of formats, or cancels a run.
+While the picture area has the focus (Tab, or a click on it), + and −
+zoom; while
 the split's handle has it, ← and → move it a column (ten with Shift),
 Home and End to the edges. The tooltips show the keys.
 
@@ -377,7 +387,16 @@ ideally in each of the browsers above:
    drop zone lights up, or "Drop to load the picture" covers a picture.
    A file that isn't a picture gives a message, and a picture shown
    stays. Before the first picture, "try the sample picture", in the
-   drop zone and in step 1's hint, loads `macaw-and-toucan.png`.
+   drop zone and in step 1's hint, loads `macaw-and-toucan.png`. A
+   picture copied with "Copy image" on another web page, and a
+   screenshot, pasted with Ctrl+V (⌘V on a Mac), show as `pasted.png`;
+   so does "paste", in the drop zone and in step 1, once the browser has
+   asked (Firefox and Safari with a small "Paste" button by the pointer,
+   each time: clicking it pastes, clicking elsewhere refuses, and the
+   page says the browser didn't let it read the clipboard), and on a
+   phone; with nothing on the clipboard, a message. In
+   Firefox, check a pasted picture here: `check:web` can't (headless
+   Firefox's clipboard holds no pictures).
 2. A picture with transparent parts shows them white.
 3. Each zoom keeps the pixels sharp; a large picture scrolls.
 4. The settings start at "none", showing the original. A kernel brings a

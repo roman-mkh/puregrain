@@ -430,6 +430,101 @@ const checksIn = async (engine, page) => {
         : `its face or description doesn't follow the choice: ${wrong.join('; ')}`));
   }
 
+  // Pasting (v2.6). Ctrl+V as the browser sends it, a paste event: a
+  // picture loads, named pasted.png, and dithers to the CLI's pixels; a
+  // paste with no picture says so, one into a number field stays the
+  // field's. The drop zone's line names the key, ⌘V on a Mac (a page told
+  // it's one). Firefox empties the clipboard of a paste event a page
+  // sends, and headless, its own clipboard holds no pictures (a picture
+  // written to it pasted none), so there the picture's part is left to the
+  // manual checklist. In Chromium, which lets the check allow reading the
+  // clipboard, "paste" reads it: a picture loads, none says so; Firefox
+  // and WebKit ask the user, so a note says it's left to the checklist.
+  {
+    const b64 = fs.readFileSync(`${out}/${PICTURE}.png`).toString('base64');
+    const pasteEvent = (args) => page.evaluate(({ picture, text, into }) => {
+      const data = new DataTransfer();
+      if (picture !== null) data.items.add(new File([Uint8Array.from(atob(picture), (c) => c.charCodeAt(0))], 'image.png', { type: 'image/png' }));
+      if (text !== null) data.setData('text/plain', text);
+      const target = into === null ? document.body : document.querySelector(into);
+      target.dispatchEvent(new ClipboardEvent('paste', { clipboardData: data, bubbles: true, cancelable: true }));
+    }, args);
+    const named = (name) => page.waitForFunction((n) => document.querySelector('.picture-name')?.textContent === n, name, { timeout: 10000 })
+      .then(() => true, () => false);
+    const barNote = () => page.evaluate(() => {
+      const box = document.querySelector('.bar-file');
+      return box === null || box.hidden ? null : box.textContent.trim();
+    });
+    const nothing = "There's no picture on the clipboard: copy one first, with \"Copy image\" on a web page, or take a screenshot.";
+
+    await page.goto(pageUrl);
+    const line = (await page.locator('.drop-paste').textContent()).trim();
+    const pictureChecked = engine !== 'Firefox';
+    let loaded = false;
+    let file = { name: '(none)' };
+    let diff = 'not run';
+    if (pictureChecked) {
+      const before = await runs();
+      await pasteEvent({ picture: b64, text: null, into: null });
+      loaded = await named('pasted.png');
+      if (loaded) {
+        await colorsMenu.selectOption('levels');
+        await page.locator('.stepper input[type=number]').fill('4');
+        await kernelMenu.selectOption('atkinson');
+        await finished(before);
+        file = await download(() => page.locator('.downloads button').first().click());
+        diff = differing(pixelsOf(file.bytes), pixelsOf(fs.readFileSync(`${out}/cli-levels4-atkinson.png`)));
+      }
+    } else {
+      console.log(`NOTE  ${engine}: a pasted picture isn't checked here: Firefox empties a page's own paste event, and its headless clipboard holds no pictures; it's on the manual checklist`);
+    }
+    // Without a pasted picture, one opened, for the levels' field.
+    if (!loaded) {
+      await open(PICTURE);
+      await colorsMenu.selectOption('levels');
+    }
+    await pasteEvent({ picture: null, text: '7', into: '.stepper input[type=number]' });
+    await sleep(300);
+    const fieldQuiet = (await barNote()) === null;
+    await pasteEvent({ picture: null, text: 'hello', into: null });
+    await sleep(300);
+    const saysNothing = (await barNote()) === nothing;
+    const macPage = await page.context().newPage();
+    await macPage.addInitScript(() => Object.defineProperty(Navigator.prototype, 'platform', { get: () => 'MacIntel' }));
+    await macPage.goto(pageUrl);
+    const macLine = (await macPage.locator('.drop-paste').textContent()).trim();
+    await macPage.close();
+    const expected = 'pasted-levels4-atkinson.png';
+    const pictureOk = !pictureChecked || (loaded && file.name === expected && diff === 0);
+    report(line === 'or paste one (Ctrl+V)' && macLine === 'or paste one (⌘V)' && pictureOk && fieldQuiet && saysNothing,
+      `${engine}: pasting: the drop zone says "${line}", on a Mac "${macLine}"; ` +
+      (pictureChecked
+        ? `a pasted picture ${loaded ? 'loads as pasted.png' : "DOESN'T load as pasted.png"}, ` +
+          `${file.name}${file.name === expected ? '' : ` (not ${expected})`}, ${diff === 0 ? "the CLI's pixels" : typeof diff === 'number' ? `${diff} pixels differ from the CLI's` : diff}; `
+        : 'the pasted picture not checked here (see the note); ') +
+      `a paste into a number field ${fieldQuiet ? 'stays the field\'s' : 'gives a note'}, one with no picture ${saysNothing ? 'says so' : "DOESN'T say so"}`);
+
+    if (engine === 'Chromium') {
+      await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: pageUrl });
+      await page.goto(pageUrl);
+      await page.evaluate(async (picture) => {
+        const bytes = Uint8Array.from(atob(picture), (c) => c.charCodeAt(0));
+        await navigator.clipboard.write([new ClipboardItem({ 'image/png': new Blob([bytes], { type: 'image/png' }) })]);
+      }, b64);
+      await page.locator('.drop-paste .link').click();
+      const fromLink = await named('pasted.png');
+      await page.evaluate(() => navigator.clipboard.writeText('hello'));
+      await page.locator('.steps .hint .link.main').click();
+      await sleep(500);
+      const linkSaysNothing = (await barNote()) === nothing;
+      await page.context().clearPermissions();
+      report(fromLink && linkSaysNothing,
+        `${engine}: "paste" reads the clipboard: a picture ${fromLink ? 'loads as pasted.png' : "DOESN'T load"}, and with none ${linkSaysNothing ? 'it says so' : "it DOESN'T say so"}`);
+    } else {
+      console.log(`NOTE  ${engine}: "paste" (reading the clipboard) isn't checked here: the browser asks the user first; it's on the manual checklist`);
+    }
+  }
+
   // The theme switch: a toggle named "Dark theme", pressed or not, whose
   // tooltip says what a click does, "Switch to the dark theme" or "…light
   // theme"; the name stays the same.
@@ -504,7 +599,7 @@ const checksIn = async (engine, page) => {
       await page.context().unroute(`**/pictures/${SAMPLE.name}`);
     }
     await page.goto(pageUrl);
-    await page.locator('.steps .hint button.link').click();
+    await page.locator('.steps .hint button.link', { hasText: 'try the sample picture' }).click();
     const fromStep1 = await loaded();
     await page.goto(pageUrl);
     await page.locator('.drop .sample button.link').click();

@@ -220,6 +220,11 @@ input[type="color"] {
 /* In a hint, the link in the hint's own gray, as the footer's links are:
    a side door, not a main action (decision 35). */
 .hint .link { color: inherit; }
+/* A main way in, as a link (v2.6's "paste"): in the accent color, in a
+   hint too; under the drop zone's chooser, in the page's own size. */
+.hint .link.main, .drop-paste .link.main { color: var(--accent); }
+.drop-paste { margin: 10px 0 0; }
+.drop-paste .link { padding: 0; font: inherit; background: none; border: 0; text-decoration: underline; cursor: pointer; }
 .check { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
 
 /* A file chooser that looks like a button: a label around the hidden

@@ -13,6 +13,8 @@ module Puregrain.Web.View.Controls
   , note
   , fileButton
   , withLink
+  , mainLink
+  , keysAfter
   ) where
 
 import Prelude
@@ -174,6 +176,17 @@ fileButton f =
         )
     , HH.text f.label
     ]
+
+-- | A button that looks like a link, for a main way in (v2.6's "paste"):
+-- | in the accent color, where a hint's other links are in its gray.
+mainLink :: forall w i. String -> i -> HH.HTML w i
+mainLink text action =
+  HH.button [ HP.type_ HP.ButtonButton, HP.classes [ H.ClassName "link", H.ClassName "main" ], HE.onClick (const action) ] [ HH.text text ]
+
+-- | The keys for what a sentence offers, after it in brackets; hidden on
+-- | phones, which have no keyboard.
+keysAfter :: forall w i. String -> HH.HTML w i
+keysAfter keys = HH.span [ HP.class_ (H.ClassName "off-phone") ] [ HH.text (" (" <> keys <> ")") ]
 
 -- | A sentence with a link in it: a button that looks like a link, since
 -- | it acts on this page rather than leading elsewhere (as "Use 2×2" does

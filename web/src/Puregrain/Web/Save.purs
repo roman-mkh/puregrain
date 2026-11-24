@@ -1,7 +1,7 @@
 -- | Saving the result: the files' names, made from the picture's name and
 -- | the settings, the name on a ZX Spectrum tape, and the downloads
 -- | themselves (FFI in `Save.js`).
-module Puregrain.Web.Save (fileName, tapeName, savePng, saveBytes) where
+module Puregrain.Web.Save (fileName, tapeName, pastedName, savePng, saveBytes) where
 
 import Prelude
 
@@ -11,13 +11,19 @@ import Data.ArrayBuffer.Types (Uint8Array)
 import Data.Char (toCharCode)
 import Data.Maybe (Maybe(..), maybe)
 import Data.String.CodeUnits as CodeUnits
-import Data.String.Common (joinWith)
+import Data.String.Common (joinWith, toLower)
 import Data.String.Pattern (Pattern(..))
 import Effect (Effect)
 import Effect.Aff (Aff)
 import Puregrain.Web.Prepare (Background, backgroundHex)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachinePaletteName(..), Settings, Target(..), kernelId, machineId, machinePaletteId, paletteId)
 import Web.HTML.HTMLElement (HTMLElement)
+
+-- | A pasted picture's name (v2.6): `pasted.png` for a picture from the
+-- | clipboard, which the browsers call `image.png` (or nothing); a file
+-- | copied in a file manager and pasted keeps its own.
+pastedName :: String -> String
+pastedName name = if name == "" || toLower name == "image.png" then "pasted.png" else name
 
 -- | A file's name for the result: the picture's name without its
 -- | extension (what follows its last dot, unless the dot starts the

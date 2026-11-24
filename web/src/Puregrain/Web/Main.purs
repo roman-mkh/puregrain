@@ -9,15 +9,18 @@ import Effect.Class (liftEffect)
 import Halogen.Aff as HA
 import Halogen.VDom.Driver (runUI)
 import Puregrain.Web.App as App
-import Puregrain.Web.Page (libraryVersion, prefersDark, setTheme)
+import Puregrain.Web.Keys (macPlatform)
+import Puregrain.Web.Page (libraryVersion, platform, prefersDark, setTheme)
 import Puregrain.Web.Theme (fromSystem, themeName)
 
 -- | The theme is read from the system before the app's first render, so
--- | a dark system never sees the light theme's logo first.
+-- | a dark system never sees the light theme's logo first; and whether
+-- | it's a Mac, for the paste key's name.
 main :: Effect Unit
 main = HA.runHalogenAff do
   body <- HA.awaitBody
   theme <- liftEffect (fromSystem <$> prefersDark)
   liftEffect (setTheme (themeName theme))
   version <- liftEffect libraryVersion
-  runUI App.component { theme, libraryVersion: version } body
+  mac <- liftEffect (macPlatform <$> platform)
+  runUI App.component { theme, libraryVersion: version, mac } body

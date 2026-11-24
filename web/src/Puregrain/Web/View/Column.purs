@@ -22,7 +22,7 @@ import Puregrain.Web.Prepare (backgroundHex, backgroundShows)
 import Puregrain.Web.Settings (Colors(..), KernelName, Settings, Target(..), allGammas, allMachines, allPalettes, bayerAllowed, bayerSides, flatCells, gammaActs, gammaId, kernelId, kernelMenu, machineId, machinePaletteId, machinePalettesOf, paletteId, screenSizeOf, serpentineAllowed)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, chooserRef, targetRef)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.View.Controls (cardMenu, fileButton, note, segments, step, stepper, toggleSwitch, withLink)
+import Puregrain.Web.View.Controls (cardMenu, fileButton, keysAfter, mainLink, note, segments, step, stepper, toggleSwitch)
 import Puregrain.Web.View.Parts (option)
 
 type Loaded = { picture :: Picture, prepared :: Prepared }
@@ -32,7 +32,7 @@ column state =
   -- The steps in a box of their own, so Apply keeps its place when the
   -- fifth comes and goes.
   [ HH.div [ HP.class_ (H.ClassName "steps") ]
-      ( [ step 1 texts.picture false (pictureStep loaded)
+      ( [ step 1 texts.picture false (pictureStep state.mac loaded)
         , step 2 texts.target off (targetStep s loaded state.fit)
         , step 3 texts.colors off (colorsStep s state.typed.threshold)
         , step 4 texts.method off (methodStep s gammaIdle)
@@ -72,18 +72,33 @@ column state =
         ]
     _ -> []
 
--- | The picture's name and size, and the file chooser, which Ctrl+O opens;
--- | before the first picture, a hint to drop one or to try the sample.
-pictureStep :: forall w. Maybe Loaded -> Array (HH.HTML w Action)
-pictureStep = case _ of
+-- | The picture's name and size, the file chooser, which Ctrl+O opens,
+-- | and "or paste one" (v2.6), whose key follows on a desktop; before the
+-- | first picture, a hint to drop one, paste one or try the sample.
+pictureStep :: forall w. Boolean -> Maybe Loaded -> Array (HH.HTML w Action)
+pictureStep mac = case _ of
   Just { picture: p } ->
     [ HH.p [ HP.class_ (H.ClassName "picture-name") ] [ HH.text p.name ]
     , HH.p [ HP.class_ (H.ClassName "picture-size") ] [ HH.text (texts.pictureSize { width: p.width, height: p.height }) ]
     , fileButton { label: texts.chooseAnother, title: texts.withKeys texts.chooseAnother texts.chooseKeys, primary: false, ref: Just chooserRef, chosen: FileChosen }
+    , HH.p [ HP.class_ (H.ClassName "hint") ]
+        [ HH.text texts.pasteOne.before
+        , mainLink texts.pasteOne.link PasteChosen
+        , HH.text texts.pasteOne.after
+        , keysAfter (texts.pasteKeys mac)
+        ]
     ]
   Nothing ->
     [ fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Just chooserRef, chosen: FileChosen }
-    , HH.p [ HP.class_ (H.ClassName "hint") ] (withLink texts.dropHint SampleChosen)
+    , HH.p [ HP.class_ (H.ClassName "hint") ]
+        [ HH.text texts.dropHint.before
+        , mainLink texts.dropHint.paste PasteChosen
+        , HH.text texts.dropHint.afterPaste
+        , keysAfter (texts.pasteKeys mac)
+        , HH.text texts.dropHint.beforeSample
+        , HH.button [ HP.type_ HP.ButtonButton, HP.class_ (H.ClassName "link"), HE.onClick (const SampleChosen) ] [ HH.text texts.dropHint.sample ]
+        , HH.text texts.dropHint.after
+        ]
     ]
 
 -- | The target's menu, which looks like its card (decision 37); for a

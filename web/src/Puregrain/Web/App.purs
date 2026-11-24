@@ -18,7 +18,7 @@ import Data.Maybe (Maybe(..), isJust)
 import Data.String.Common (joinWith)
 import Data.Time.Duration (Milliseconds(..))
 import Effect (Effect)
-import Effect.Aff (delay, try)
+import Effect.Aff (delay, message, try)
 import Effect.Aff.Class (class MonadAff, liftAff)
 import Effect.Class (liftEffect)
 import Graphics.Canvas (imageDataBuffer)
@@ -39,12 +39,12 @@ import Puregrain.Web.Picture as Picture
 import Puregrain.Web.Pixels (copyPixels, toImageData, transferable)
 import Puregrain.Web.Pointer (across, capture, mainButton, pointerId, pressed)
 import Puregrain.Web.Prepare (Background, backgroundFromHex, fitOnto, flatten, lightTables, placementOn, screenToFit, white)
-import Puregrain.Web.Save (saveBytes, savePng, tapeName)
+import Puregrain.Web.Save (pastedName, saveBytes, savePng, tapeName)
 import Puregrain.Web.Screen (pixelRatio)
 import Puregrain.Web.Settings (Colors(..), Settings, Target(..), allGammas, allKernels, allMachines, allPalettes, chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, gammaId, initial, isOriginal, kernelId, machineId, machinePaletteId, machinePalettesOf, paletteId)
 import Puregrain.Web.Split (columnAt, grabAt, keyed)
 import Puregrain.Web.State (Action(..), Input, Load(..), Prepared, Said, State, chooserRef, downloadName, downloadsRef, engineButtonRef, engineRef, formatsRef, handleRef, layersRef, originalRef, panelRef, pictureRef, resultRef, settingsButtonRef, targetRef)
-import Puregrain.Web.Status (EngineCheck(..), Run(..), engineCheckName, held, progressDelay, resultShows)
+import Puregrain.Web.Status (EngineCheck(..), LoadFailure(..), Run(..), engineCheckName, held, progressDelay, resultShows)
 import Puregrain.Web.Text (texts)
 import Puregrain.Web.Theme (themeName, toggled)
 import Puregrain.Web.View.Column (column)
@@ -54,6 +54,7 @@ import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.View.Parts (inert)
 import Puregrain.Web.View.Stage (stage)
 import Puregrain.Web.Zoom (stepped)
+import Web.Clipboard.ClipboardEvent as ClipboardEvent
 import Web.DOM.Node as Node
 import Web.Event.Event (EventType(..))
 import Web.Event.Event as Event
@@ -79,8 +80,7 @@ component = H.mkComponent
       { load: NoPicture
       , loads: 0
       , loading: Nothing
-      , notAPicture: Nothing
-      , sampleFailed: false
+      , loadFailed: Nothing
       , zoom: 1
       , pixelRatio: 1.0
       , split: 0
@@ -99,6 +99,7 @@ component = H.mkComponent
       , formatsOpen: false
       , theme: input.theme
       , libraryVersion: input.libraryVersion
+      , mac: input.mac
       , columnHidden: false
       , panelOpen: false
       , engine: EngineChecking
@@ -208,6 +209,8 @@ handleAction = case _ of
     -- list of formats closes it.
     void (H.subscribe (eventListener (EventType "keydown") (Window.toEventTarget win) (map PageKey <<< KE.fromEvent)))
     void (H.subscribe (eventListener (EventType "click") (Window.toEventTarget win) (Just <<< PageClicked)))
+    -- A picture pasted anywhere on the page loads (v2.6).
+    void (H.subscribe (eventListener (EventType "paste") (Window.toEventTarget win) (map Pasted <<< ClipboardEvent.fromEvent)))
     -- Back, while the phone's panel is open, closes it (decision 34).
     void (H.subscribe (eventListener (EventType "popstate") (Window.toEventTarget win) (const (Just HistoryPopped))))
     -- The empty page's one thing to do, choosing a picture, has the focus
@@ -307,6 +310,31 @@ handleAction = case _ of
       files <- liftEffect (HTMLInputElement.files input)
       for_ (files >>= FileList.item 0) loadFile
   SampleChosen -> loadSample
+  -- Ctrl+V (⌘V on a Mac) anywhere on the page (v2.6): a picture on the
+  -- clipboard loads as a chosen file does, named `pasted.png`; a paste
+  -- into a number field stays the field's; otherwise a note says there's
+  -- no picture to paste.
+  Pasted event -> do
+    let
+      pastedFile = ClipboardEvent.clipboardData event >>= DataTransfer.files >>= FileList.item 0
+    case pastedFile of
+      Just file -> do
+        liftEffect (Event.preventDefault (ClipboardEvent.toEvent event))
+        loadFile (Picture.named (pastedName (File.name file)) file)
+      Nothing -> do
+        typing <- liftEffect (inTextField (ClipboardEvent.toEvent event))
+        unless typing (failLoad NothingToPaste)
+  -- "paste" (v2.6), for phones too, which have no Ctrl+V: the page reads
+  -- the clipboard, once the browser lets it.
+  PasteChosen -> do
+    read <- liftAff (try Picture.readClipboard)
+    case read of
+      Right (Just file) -> loadFile (Picture.named (pastedName (File.name file)) file)
+      Right Nothing -> failLoad NothingToPaste
+      -- The browser's reason, in the console, for whoever reports it.
+      Left error -> do
+        liftEffect (warnInConsole ("puregrain lab, reading the clipboard failed: " <> message error))
+        failLoad ClipboardRefused
   DragEntered event -> dragStep event Enter
   DragLeft event -> dragStep event Leave
   DragOver event ->
@@ -625,7 +653,7 @@ closePanel fromHistory = do
 restart :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 restart = do
   stopWorker
-  H.modify_ _ { notAPicture = Nothing, sampleFailed = false, formatsOpen = false }
+  H.modify_ _ { loadFailed = Nothing, formatsOpen = false }
   s <- H.get
   case s.load of
     Loaded l | not (isOriginal s.settings) ->
@@ -700,6 +728,25 @@ alarm text = H.modify_ \s -> s { alert = again s.alert text }
 again :: Said -> String -> Said
 again said text = { text, times: said.times + 1 }
 
+-- | A picture asked for couldn't be loaded: a note says why, in the bar,
+-- | or above the drop zone before the first picture, until the next load
+-- | or setting, and the alert region at once. The picture shown, if any,
+-- | stays.
+failLoad :: forall o m. MonadAff m => LoadFailure -> H.HalogenM State Action () o m Unit
+failLoad failure = do
+  s <- H.modify _ { loadFailed = Just failure }
+  alarm $ texts.loadFailure failure case s.load of
+    Loaded _ -> true
+    NoPicture -> false
+
+-- | Whether an event happened in a field that takes text, where a paste
+-- | stays the field's: on this page, the levels' and the threshold's
+-- | numbers.
+inTextField :: Event.Event -> Effect Boolean
+inTextField event = case Event.target event >>= HTMLInputElement.fromEventTarget of
+  Just input -> (\kind -> Array.elem kind [ "number", "text", "search", "url", "email", "tel", "password" ]) <$> HTMLInputElement.type_ input
+  Nothing -> pure false
+
 -- | Ends the running worker, if any. `runs` counts on, so that an answer
 -- | it had already sent is dropped.
 stopWorker :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
@@ -714,14 +761,14 @@ stopWorker = do
 -- | as in `loadFile`.
 loadSample :: forall o m. MonadAff m => H.HalogenM State Action () o m Unit
 loadSample = do
-  started <- H.modify \s -> s { loading = Just Picture.sampleName, notAPicture = Nothing, sampleFailed = false, loads = s.loads + 1 }
+  started <- H.modify \s -> s { loading = Just Picture.sampleName, loadFailed = Nothing, loads = s.loads + 1 }
   fetched <- liftAff (try Picture.fetchSample)
   latest <- H.gets _.loads
   when (latest == started.loads) do
     case fetched of
       Left _ -> do
-        H.modify_ _ { loading = Nothing, sampleFailed = true }
-        alarm texts.sampleFailed
+        H.modify_ _ { loading = Nothing }
+        failLoad SampleFailed
       Right file -> loadFile file
 
 -- | Loads a file chosen or dropped. The picture shown and its run stay
@@ -729,7 +776,7 @@ loadSample = do
 -- | (decision 30 C); then a note says so, until the next action.
 loadFile :: forall o m. MonadAff m => File -> H.HalogenM State Action () o m Unit
 loadFile file = do
-  started <- H.modify \s -> s { loading = Just (File.name file), notAPicture = Nothing, sampleFailed = false, loads = s.loads + 1 }
+  started <- H.modify \s -> s { loading = Just (File.name file), loadFailed = Nothing, loads = s.loads + 1 }
   result <- liftAff (try (Picture.load file))
   latest <- H.gets _.loads
   let
@@ -739,11 +786,8 @@ loadFile file = do
   when (latest == started.loads) do
     case result of
       Left _ -> do
-        H.modify_ _ { loading = Nothing, notAPicture = Just (File.name file) }
-        shown <- H.gets _.load
-        alarm case shown of
-          Loaded _ -> texts.notAPictureKept (File.name file)
-          NoPicture -> texts.notAPicture (File.name file)
+        H.modify_ _ { loading = Nothing }
+        failLoad (NotAPicture (File.name file))
       Right p -> do
         stopWorker
         s <- H.get

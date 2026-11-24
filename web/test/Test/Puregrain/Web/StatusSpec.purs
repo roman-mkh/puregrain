@@ -3,7 +3,7 @@ module Test.Puregrain.Web.StatusSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Status (EngineCheck(..), Run(..), RunNote(..), engineCheckName, held, progressDelay, resultShows, runNote)
+import Puregrain.Web.Status (EngineCheck(..), LoadFailure(..), Run(..), RunNote(..), engineCheckName, held, progressDelay, resultShows, runNote)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -61,4 +61,12 @@ spec = describe "Puregrain.Web.Status" do
     runNote (RunFailed "out of memory") `shouldEqual` Just (DitherFailed "out of memory")
     texts.originalShown `shouldEqual` "The original is shown. Choose colors or a method to dither it."
     texts.cancelled `shouldEqual` "Cancelled; the original is shown."
-    texts.notAPictureKept "notes.txt" `shouldEqual` "notes.txt isn't a picture; the current one stays."
+    texts.loadFailure (NotAPicture "notes.txt") true `shouldEqual` "notes.txt isn't a picture; the current one stays."
+
+  it "says why a picture couldn't be loaded, the same with one shown or not, except a file's" do
+    texts.loadFailure (NotAPicture "notes.txt") false `shouldEqual` "notes.txt isn't a picture."
+    map (\kept -> texts.loadFailure SampleFailed kept) [ false, true ]
+      `shouldEqual` [ "The sample picture couldn't be loaded.", "The sample picture couldn't be loaded." ]
+    texts.loadFailure NothingToPaste false
+      `shouldEqual` "There's no picture on the clipboard: copy one first, with \"Copy image\" on a web page, or take a screenshot."
+    texts.loadFailure ClipboardRefused true `shouldEqual` "The browser didn't let the page read the clipboard. If it shows a \"Paste\" button by the pointer, click that one."

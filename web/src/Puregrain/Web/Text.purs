@@ -10,7 +10,7 @@ import Puregrain.Web.Download (Format(..))
 import Puregrain.Web.Estimate (TimeLeft)
 import Puregrain.Web.Prepare (Placement, isCropped, isScaledDown, leavesBackground)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Settings, Target(..), screenSizeOf)
-import Puregrain.Web.Status (EngineCheck(..))
+import Puregrain.Web.Status (EngineCheck(..), LoadFailure(..))
 
 texts
   :: { title :: String
@@ -40,7 +40,9 @@ texts
      , picture :: String
      , chooseFirst :: String
      , chooseAnother :: String
-     , dropHint :: { before :: String, link :: String, after :: String }
+     , dropHint :: { before :: String, paste :: String, afterPaste :: String, beforeSample :: String, sample :: String, after :: String }
+     , pasteOne :: { before :: String, link :: String, after :: String }
+     , pasteKeys :: Boolean -> String
      , pictureSize :: { width :: Int, height :: Int } -> String
      , targetLine :: Target -> String
      , palettesGroup :: String
@@ -60,9 +62,7 @@ texts
      , description :: String
      , promises :: String
      , loading :: String -> String
-     , notAPicture :: String -> String
-     , notAPictureKept :: String -> String
-     , sampleFailed :: String
+     , loadFailure :: LoadFailure -> Boolean -> String
      , dropToLoad :: String
      , original :: String
      , result :: String
@@ -189,10 +189,16 @@ texts =
   -- The settings' column (decision 31): its numbered steps.
   , chooseFirst: "Choose a picture…"
   , chooseAnother: "Choose another…"
-  -- Under the chooser before the first picture: dropping, and the sample
-  -- picture's link (decision 35), in parts around the link, so that a
-  -- translation can place it.
-  , dropHint: { before: "Or drop one anywhere on this page, or ", link: "try the sample picture", after: "." }
+  -- Under the chooser before the first picture: dropping, pasting (v2.6)
+  -- and the sample picture's link (decision 35), in parts around the
+  -- links, so that a translation can place them; the paste key goes after
+  -- `afterPaste`.
+  , dropHint: { before: "Or drop one anywhere on this page, ", paste: "paste", afterPaste: " one", beforeSample: ", or ", sample: "try the sample picture", after: "." }
+  -- Under "Choose a picture…" in the drop zone, and under "Choose
+  -- another…" in step 1 (v2.6): "paste" reads the clipboard; the key
+  -- follows, on a Mac Cmd+V, the only key its paste event comes with.
+  , pasteOne: { before: "or ", link: "paste", after: " one" }
+  , pasteKeys: \mac -> if mac then "⌘V" else "Ctrl+V"
   , pictureSize: \p -> show p.width <> " × " <> show p.height <> " pixels"
   , targetLine: case _ of
       AnyScreen -> "any size, the colors you choose"
@@ -222,9 +228,12 @@ texts =
   , description: "Choose a target, colors and a method in the settings: the result shows beside the original, to compare, and saves as a PNG, or as a ZX Spectrum's or a C64's own files."
   , promises: "Everything runs in your browser: your pictures are never uploaded. No ads, no registration, no tracking, and it's free."
   , loading: \name -> "Loading " <> name <> "…"
-  , notAPicture: \name -> name <> " isn't a picture."
-  , notAPictureKept: \name -> name <> " isn't a picture; the current one stays."
-  , sampleFailed: "The sample picture couldn't be loaded."
+  -- Why a picture couldn't be loaded; `kept` when one is shown, which stays.
+  , loadFailure: \failure kept -> case failure of
+      NotAPicture name -> name <> (if kept then " isn't a picture; the current one stays." else " isn't a picture.")
+      SampleFailed -> "The sample picture couldn't be loaded."
+      NothingToPaste -> "There's no picture on the clipboard: copy one first, with \"Copy image\" on a web page, or take a screenshot."
+      ClipboardRefused -> "The browser didn't let the page read the clipboard. If it shows a \"Paste\" button by the pointer, click that one."
   , dropToLoad: "Drop to load the picture"
   -- Above the picture's corners, either side of the split.
   , original: "Original"

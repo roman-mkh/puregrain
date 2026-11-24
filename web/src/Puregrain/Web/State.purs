@@ -35,8 +35,9 @@ import Puregrain.Web.Picture (Picture)
 import Puregrain.Web.Prepare (Background, Placement, backgroundShows, white)
 import Puregrain.Web.Save (fileName)
 import Puregrain.Web.Settings (Settings)
-import Puregrain.Web.Status (EngineCheck, Run)
+import Puregrain.Web.Status (EngineCheck, LoadFailure, Run)
 import Puregrain.Web.Theme (Theme)
+import Web.Clipboard.ClipboardEvent (ClipboardEvent)
 import Web.Event.Event (Event)
 import Web.HTML.Event.DragEvent (DragEvent)
 import Web.UIEvent.KeyboardEvent (KeyboardEvent)
@@ -44,8 +45,9 @@ import Web.UIEvent.MouseEvent (MouseEvent)
 import Web.Worker.Worker (Worker)
 
 -- | What the page knows before the app starts: the theme, from the
--- | system's setting, and the library's version (`Puregrain.Web.Page`).
-type Input = { theme :: Theme, libraryVersion :: String }
+-- | system's setting, the library's version, and whether it's a Mac
+-- | (`Puregrain.Web.Page`).
+type Input = { theme :: Theme, libraryVersion :: String, mac :: Boolean }
 
 -- | The picture: none yet, or loaded, with the picture as it's shown and
 -- | dithered. One being loaded doesn't replace it until it has decoded
@@ -68,9 +70,8 @@ type Prepared =
 -- | `loads` and `runs` count the loads and the runs started, so that a
 -- | slow load's result, or an answer from a worker already ended, is
 -- | dropped. `loading` is the name of the file being loaded, and
--- | `notAPicture` the name of the last one that couldn't be, until the
--- | next load or setting (decision 30 A and C); `sampleFailed` the same
--- | for the sample picture, when it couldn't be fetched (decision 35).
+-- | `loadFailed` why the last picture asked for couldn't be loaded, until
+-- | the next load or setting (decisions 30 A and C, and 35; v2.6).
 -- | `typed` keeps the threshold and the number of levels last typed, for
 -- | when those colors are chosen again. `split` is the picture's columns that show the
 -- | original, left of the result; `splitDrag` the pointer dragging its
@@ -90,8 +91,7 @@ type State =
   { load :: Load
   , loads :: Int
   , loading :: Maybe String
-  , notAPicture :: Maybe String
-  , sampleFailed :: Boolean
+  , loadFailed :: Maybe LoadFailure
   , zoom :: Int
   , pixelRatio :: Number
   , split :: Int
@@ -110,6 +110,7 @@ type State =
   , formatsOpen :: Boolean
   , theme :: Theme
   , libraryVersion :: String
+  , mac :: Boolean
   , columnHidden :: Boolean
   , panelOpen :: Boolean
   , engine :: EngineCheck
@@ -139,6 +140,8 @@ data Action
   | PageClicked Event
   | FileChosen Event
   | SampleChosen
+  | Pasted ClipboardEvent
+  | PasteChosen
   | DragEntered DragEvent
   | DragLeft DragEvent
   | DragOver DragEvent

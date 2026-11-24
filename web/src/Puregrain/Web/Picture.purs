@@ -12,6 +12,8 @@ module Puregrain.Web.Picture
   , draw
   , sampleName
   , fetchSample
+  , named
+  , readClipboard
   ) where
 
 import Prelude
@@ -109,6 +111,22 @@ sampleName = "macaw-and-toucan.png"
 -- | can't be fetched.
 fetchSample :: Aff File
 fetchSample = toAffE (fetchFileImpl ("pictures/" <> sampleName) sampleName)
+
+foreign import namedImpl :: String -> File -> File
+
+-- | The same file under another name (a pasted picture's, v2.6).
+named :: String -> File -> File
+named = namedImpl
+
+foreign import readClipboardImpl :: (forall a. a -> Maybe a) -> (forall a. Maybe a) -> Effect (Promise (Maybe File))
+
+-- | The first picture on the clipboard, as a file named `image.png`, as
+-- | the paste event names one, or nothing when the clipboard holds none
+-- | (v2.6, "paste"). The browser asks first: Chrome for its permission,
+-- | Firefox and Safari with a "Paste" button of their own. Fails, in
+-- | `Aff`, when it doesn't let the page read the clipboard.
+readClipboard :: Aff (Maybe File)
+readClipboard = toAffE (readClipboardImpl Just Nothing)
 
 -- | Puts the pixels onto a canvas element of their size.
 draw :: HTMLElement -> ImageData -> Effect Unit

@@ -26,25 +26,26 @@ checklist in step.
   `Puregrain.Web.Theme` (pure: the
   two themes, decision 32), `Puregrain.Web.Page` (the system's theme, the
   root's `data-theme` and `data-engine-check`, the version's meta
-  element, whether the layout is a phone's, a warning in the console;
-  FFI),
+  element, whether the layout is a phone's, the platform's name, a
+  warning in the console; FFI),
   `Puregrain.Web.Picture`
   (decoding and reading a picture with its transparency, exactly, drawing
-  pixels; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
+  pixels, reading a picture from the clipboard; FFI in `Picture.js`), `Puregrain.Web.Prepare` (the
   background and the fit, decisions 22 and 27: the rules pure, the loops
   over a whole picture in `Prepare.js`, pinned to the rules by
   `PrepareSpec`), `Puregrain.Web.Estimate` (the time left, decision 23:
   pure, with the page's clock, `Effect.Now`),
   `Puregrain.Web.Status` (pure: the run's states, which picture shows,
-  when the progress shows, the bar's note on the run; decision 30; and
-  the engine check's state),
+  when the progress shows, the bar's note on the run; decision 30; why
+  a picture couldn't be loaded, `LoadFailure`; and the engine check's
+  state),
   `Puregrain.Web.Split` (pure: the split's handle, its drag and its keys;
   decision 31), `Puregrain.Web.Drag` (pure: counting a drag of files over
   the page; decision 30 D), `Puregrain.Web.Pointer` (the pointer's
   events for the handle; FFI), `Puregrain.Web.Download` (pure: the
   download's formats per target and size, and the format the button
   names; decision 31), `Puregrain.Web.Keys` (pure: the page's shortcuts
-  and the zoom's keys; decision 33),
+  and the zoom's keys, decision 33; telling a Mac, v2.6),
   `Puregrain.Web.Zoom` (pure: the zoom levels and the canvas's CSS size),
   `Puregrain.Web.Screen` (the pixel ratio; FFI), `Puregrain.Web.Text`
   (every text the UI shows, decision 12), `Puregrain.Web.Settings` (pure:
@@ -511,6 +512,27 @@ current Chrome, Edge, Firefox and Safari, the browsers v1 targets.
   none`, so the drag's events reach the elements under it, and the
   picture area is a stacking context of its own (`isolation: isolate`),
   so the overlay stays under the column's tab.
+- **What a drop from another web page carries** (2026-11-24, v2.6;
+  real mouse drags in Playwright's Chromium and Firefox, from the lab's
+  own page, since Playwright can't drag between pages): a link and a
+  picture alike bring their address (`text/uri-list`, `text/html`),
+  never a file; Firefox's picture drag also lists
+  `application/x-moz-nativeimage` and file promises, which become a file
+  only on the desktop. The page cancels every `drop`, so neither makes
+  the browser leave it. Playwright's WebKit on Linux didn't drag at all.
+- **Pasting** (v2.6): the `paste` event, on the window, carries a pasted
+  picture in `clipboardData.files`, named `image.png`, and needs no
+  permission; `navigator.clipboard.read()` ("paste") does: Chrome asks
+  for it, Firefox and Safari show a "Paste" button of their own. On a
+  Mac, only Cmd+V pastes (the browser's paste command), unlike our own
+  Ctrl+O and Ctrl+S, which take Ctrl there too. For checks: Firefox
+  empties the clipboard of a `ClipboardEvent` a page constructs (the
+  file given in `clipboardData` is gone; Chromium and WebKit keep it),
+  and headless Firefox's clipboard holds no pictures: a picture written
+  with `navigator.clipboard.write()` from a click arrived as an empty
+  paste on Ctrl+V, while WebKit's arrived as `image.png`. Chromium's
+  `clipboard.write()` needs the `clipboard-write` permission, which
+  Playwright can grant in Chromium only.
 - **An element removed while a drag is over it** gets its `dragleave`
   detached from the page, so the event never reaches the page's
   listener, and the count would stay up, the overlay with it, until the
@@ -702,6 +724,23 @@ stay on the host.
   "…light theme") while its name stays "Dark theme" with `aria-pressed`:
   104 checks. Mutation-checked in the built page (the light theme's
   tooltip back to "Dark theme": that check failed in each engine).
+- **Pasting** (2026-11-24, for v2.6): in each engine, the drop zone's
+  "or paste one (Ctrl+V)", "(⌘V)" on a page told it's a Mac (its
+  `navigator.platform` replaced by an init script); a paste with no
+  picture gives the bar's note, and one into the levels' field doesn't.
+  In Chromium and WebKit, a picture in a paste event the check sends
+  loads as `pasted.png` and dithers to the CLI's pixels
+  (`pasted-levels4-atkinson.png`); in Firefox not (see "Pasting" under
+  "Browser facts"), a NOTE, and the manual checklist's item 1. In
+  Chromium, with the clipboard permissions granted, "paste" reads a
+  picture written to the clipboard, and with only text says there's
+  none; elsewhere a NOTE. 108 checks, in 94 s. Mutation-checked, from the
+  source: the clipboard's own name kept, a paste into the field taken as
+  one on the page, the paste event's files ignored, and Ctrl+V named on a
+  Mac, each failing only the checks it should. The first two of these
+  first stopped the engine's remaining checks (with no pasted picture,
+  the check pasted into a field that wasn't there); it now opens a
+  picture itself then, and fails with a message.
 
 Ad hoc, phases 1 to 6 were checked without Playwright (decision 14): the
 system's Firefox, headless, driven through Marionette, its built-in

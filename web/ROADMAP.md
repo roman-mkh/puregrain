@@ -139,29 +139,51 @@ users is a separate task, see TODO.md.)
     where it always said "Dark theme"; its name for screen readers stays
     "Dark theme", pressed or not (a toggle's name must not change).
     `check:web` toggles it twice in each engine.
-  - **Pasting a picture, Ctrl+V** (Cmd+V on a Mac): "Copy image" on any
+  - **Pasting a picture, Ctrl+V** (⌘V on a Mac; done 2026-11-24): "Copy image" on any
     web page, or a screenshot, then pasted into the lab. The browser puts
     the picture itself on the clipboard, so the other site's permission
-    doesn't matter, and every current browser supports it. A `paste`
-    listener feeding the existing loading path; a default name such as
-    `pasted.png` for the downloads; a line in the README's "Keys" and
-    the checklist; a `check:web` test (a paste can be simulated). The
-    browser re-encodes a copied picture, so its colors may differ
-    slightly from the original file's: a sentence in the README.
-  - **Dragging a picture from another web page:** what a drop delivers
-    depends on the browser, to be tested in each: sometimes the picture
-    as a file, which the lab can load like a dropped file (today it
-    reacts only to drags that carry files, so these may go unnoticed);
-    sometimes only its address, which the lab can't fetch (below). Then
-    the page says to copy the picture and paste it. And dropping a link
-    must never make the browser leave the page, losing the work: to be
-    checked first, since it may happen today.
+    doesn't matter, and every current browser supports it (the `paste`
+    event). A `paste` listener feeding the existing loading path, named
+    `pasted.png` for the downloads; a paste into a number field stays
+    the field's. And "or **paste** one (Ctrl+V)" under the drop zone's
+    "Choose a picture…", and in step 1 (2026-11-24, the user's design):
+    "paste" a button that looks like a link, as "try the sample picture"
+    is, but in the accent color, since pasting is a main way in, not a
+    side door; it reads the clipboard (`navigator.clipboard.read()`:
+    Chrome 76, Firefox 127, Safari 13.1, browser-compat-data 8.1.10), so
+    phones, which have no Ctrl+V, can paste too. The browser asks first
+    (Chrome its permission, Firefox and Safari a "Paste" button of their
+    own). The key shows as ⌘V on a Mac, where the paste event comes with
+    Cmd+V only (our own Ctrl+O and Ctrl+S take Ctrl there too), read
+    from `navigator.platform`, which every Mac browser reports as
+    "MacIntel"; phones show no key. A clipboard without a picture, or
+    one the browser wouldn't let the page read, gets a note, as a file
+    that isn't a picture does. The browser re-encodes a copied picture,
+    so its colors may differ slightly from the original file's: a
+    sentence in the README.
+  - **Dragging a picture from another web page** (checked 2026-11-24 with
+    real mouse drags in Chromium and Firefox, from the lab's own page,
+    since Playwright can't drag between pages; WebKit's didn't drag):
+    the page cancels every drop, so nothing makes the browser leave it;
+    but a dragged picture brings only its address, never a file (Firefox
+    lists picture types too, which become a file only on the desktop),
+    and the drop was swallowed silently. So the lab fetches the address
+    itself (the user, 2026-11-24): it works where the site lets other
+    pages read its pictures (CORS), as image hosts often do (of eight
+    addresses tried: Wikimedia Commons, GitHub's files and avatars,
+    Unsplash and Imgur did; Google's logo, Stack Overflow's CDN and
+    python.org didn't), and loads the file exactly as it is, named after
+    the address; where the site doesn't, the bar says so, and that
+    copying the picture and pasting it works instead. A picture inside a
+    link brings the link's address: its own comes from the drop's HTML.
+    A pasted address ("Copy image address") is fetched the same way.
   - **Not a URL field** (decided with the user): `file://` addresses
-    are closed to web pages by the browsers, and most image hosts don't
-    allow other sites to read their pictures (CORS); the only way around
-    it, a server fetching pictures for the page, would break the lab's
-    promise that pictures never leave the computer and the page loads
-    nothing from other sites.
+    are closed to web pages by the browsers, and a server fetching
+    pictures for the page would break the lab's promise that pictures
+    never leave the computer. Fetching a dropped or pasted address is
+    the user's own request, from the browser itself, and the README's
+    "Privacy" says so: the site sees the request, and that it comes from
+    puregrain lab.
 - **v3:** several results kept and compared; magnifying with synchronized
   pan; side by side. On a new branch from `master` (decision 20). From
   v2's design review (decisions 29 to 34): the gallery in a strip under

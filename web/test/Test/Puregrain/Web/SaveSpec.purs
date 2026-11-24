@@ -3,7 +3,7 @@ module Test.Puregrain.Web.SaveSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Save (fileName, tapeName)
+import Puregrain.Web.Save (fileName, pastedName, tapeName)
 import Puregrain.Web.Settings (Colors(..), GammaName(..), KernelName(..), MachineName(..), MachinePaletteName(..), PaletteName(..), Target(..), chooseBayer, chooseColors, chooseGamma, chooseGray, chooseKernel, chooseSerpentine, chooseTarget, initial)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -14,6 +14,10 @@ asIs = { fitted: false, background: Nothing }
 
 spec :: Spec Unit
 spec = describe "Puregrain.Web.Save" do
+  it "names a picture pasted from the clipboard pasted.png, and keeps a pasted file's own name" do
+    map pastedName [ "image.png", "Image.PNG", "", "photo.jpg", "image.jpg" ]
+      `shouldEqual` [ "pasted.png", "pasted.png", "pasted.png", "photo.jpg", "image.jpg" ]
+
   describe "fileName" do
     it "names the settings in the form's order, with the CLI's names" do
       fileName "photo.jpg" (initial { colors = Levels 4, kernel = Atkinson, bayer = Just 8, gray = true }) asIs "png"

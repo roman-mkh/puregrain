@@ -10,12 +10,13 @@ module Puregrain.Web.Keys
   , zoomStep
   , FocusAfterLoad(..)
   , focusAfterLoad
+  , macPlatform
   ) where
 
 import Prelude
 
 import Data.Generic.Rep (class Generic)
-import Data.Maybe (Maybe(..))
+import Data.Maybe (Maybe(..), isJust)
 import Data.Show.Generic (genericShow)
 import Data.String.CodeUnits (length, stripPrefix)
 import Data.String.Common (toLower)
@@ -90,6 +91,14 @@ focusAfterLoad p =
   if not p.first then Nothing
   else if p.narrow then Just ToSettingsButton
   else Just ToTarget
+
+-- | Whether a platform's name (`navigator.platform`) is a Mac's, where
+-- | pasting comes with Cmd+V only: the browser's own paste event, unlike
+-- | our shortcuts, which take Ctrl there too. Every Mac browser reports
+-- | "MacIntel", Apple silicon included; so does an iPad's Safari, where
+-- | ⌘V is right with a keyboard.
+macPlatform :: String -> Boolean
+macPlatform platform = isJust (stripPrefix (Pattern "Mac") platform)
 
 -- | The zoom step a key asks for in the picture area: one up for + (and
 -- | for =, + without Shift on many keyboards), one down for −; none with

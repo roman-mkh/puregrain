@@ -3,7 +3,7 @@ module Test.Puregrain.Web.KeysSpec (spec) where
 import Prelude
 
 import Data.Maybe (Maybe(..))
-import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, shortcut, zoomStep)
+import Puregrain.Web.Keys (FocusAfterLoad(..), Shortcut(..), focusAfterLoad, macPlatform, shortcut, zoomStep)
 import Puregrain.Web.Text (texts)
 import Test.Spec (Spec, describe, it)
 import Test.Spec.Assertions (shouldEqual)
@@ -62,6 +62,11 @@ spec = describe "Puregrain.Web.Keys" do
     focusAfterLoad { first: false, narrow: false } `shouldEqual` Nothing
     focusAfterLoad { first: false, narrow: true } `shouldEqual` Nothing
     texts.loadedPicture { name: "plain.png", width: 320, height: 200 } `shouldEqual` "Loaded: plain.png, 320 × 200 pixels."
+
+  it "tells a Mac by its platform's name, and names the paste key as it's pressed there" do
+    map macPlatform [ "MacIntel", "MacPPC", "Win32", "Linux x86_64", "iPhone", "" ]
+      `shouldEqual` [ true, true, false, false, false, false ]
+    map texts.pasteKeys [ true, false ] `shouldEqual` [ "⌘V", "Ctrl+V" ]
 
   it "shows the keys in the tooltips, written the same way on every system" do
     texts.withKeys texts.chooseFirst texts.chooseKeys `shouldEqual` "Choose a picture… (Ctrl+O)"

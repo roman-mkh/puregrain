@@ -28,7 +28,7 @@ import Puregrain.Web.Settings (Target(..), screenSizeOf)
 import Puregrain.Web.State (Action(..), Load(..), Prepared, State, downloadName, downloadsRef, formatsRef, handleRef, layersRef, originalRef, resultRef)
 import Puregrain.Web.Status (Run(..), RunNote(..), resultShows, runNote)
 import Puregrain.Web.Text (texts)
-import Puregrain.Web.View.Controls (fileButton, segments, withLink)
+import Puregrain.Web.View.Controls (fileButton, keysAfter, mainLink, segments, withLink)
 import Puregrain.Web.View.Icon as Icon
 import Puregrain.Web.Zoom (cssSize, zooms)
 import Web.Event.Event (EventType(..))
@@ -111,9 +111,7 @@ stage state = case state.load of
         [ HH.div [ HP.classes [ H.ClassName "view", H.ClassName "empty" ] ]
             [ HH.div [ HP.class_ (H.ClassName "start") ]
                 [ HH.div [ HP.class_ (H.ClassName "start-note") ]
-                    ( maybe [] (\name -> [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text (texts.notAPicture name) ] ]) state.notAPicture
-                        <> (if state.sampleFailed then [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text texts.sampleFailed ] ] else [])
-                    )
+                    (maybe [] (\failure -> [ HH.p [ HP.class_ (H.ClassName "warning") ] [ HH.text (texts.loadFailure failure false) ] ]) state.loadFailed)
                 , dropZone state
                 ]
             ]
@@ -160,6 +158,12 @@ dropZone state =
             [ HH.text texts.dropOr
             , fileButton { label: texts.chooseFirst, title: texts.withKeys texts.chooseFirst texts.chooseKeys, primary: true, ref: Nothing, chosen: FileChosen }
             ]
+        , HH.p [ HP.class_ (H.ClassName "drop-paste") ]
+            [ HH.text texts.pasteOne.before
+            , mainLink texts.pasteOne.link PasteChosen
+            , HH.text texts.pasteOne.after
+            , keysAfter (texts.pasteKeys state.mac)
+            ]
         , HH.p [ HP.class_ (H.ClassName "hint") ] [ HH.text texts.formats ]
         , HH.p [ HP.classes [ H.ClassName "hint", H.ClassName "sample" ] ] (withLink texts.trySample SampleChosen)
         , HH.p [ HP.class_ (H.ClassName "about") ] [ HH.text texts.description ]
@@ -177,18 +181,19 @@ dropZone state =
       , HP.class_ (H.ClassName shownIn)
       ]
 
--- | The note on the file last chosen, in the bar's middle: being loaded,
--- | or not a picture, while the current one stays (decision 30 C).
+-- | The note on the picture last asked for, in the bar's middle: being
+-- | loaded, or why it couldn't be, while the current one stays (decision
+-- | 30 C).
 fileNote :: forall w i. State -> HH.HTML w i
 fileNote state =
   HH.div [ HP.class_ (H.ClassName "bar-file"), hidden (isNothing note) ]
     [ HH.p [ HP.classes (if failed then [ H.ClassName "warning" ] else []) ] [ HH.text (fromMaybe "" note) ] ]
   where
-  note = case state.loading, state.notAPicture of
+  note = case state.loading, state.loadFailed of
     Just name, _ -> Just (texts.loading name)
-    _, Just name -> Just (texts.notAPictureKept name)
+    _, Just failure -> Just (texts.loadFailure failure true)
     _, _ -> Nothing
-  failed = isNothing state.loading && isJust state.notAPicture
+  failed = isNothing state.loading && isJust state.loadFailed
 
 -- | The run's note in the bar's middle (`Puregrain.Web.Status.runNote`):
 -- | the progress has its bar first, then × to cancel it, then its text,

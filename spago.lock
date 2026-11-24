@@ -148,6 +148,7 @@
             "tuples",
             "unfoldable",
             "unsafe-coerce",
+            "web-clipboard",
             "web-dom",
             "web-events",
             "web-file",
